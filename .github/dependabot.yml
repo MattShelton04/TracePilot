@@ -1,42 +1,64 @@
 version: 2
 
-updates:
-  # The trusted visual publisher has its own isolated npm lockfile.
-  - package-ecosystem: npm
-    directory: /scripts/visual
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+# Monthly, grouped minor/patch updates. Semver-major upgrades are planned work
+# (see docs/dependencies/upgrades.md), not Dependabot PRs.
+#
+# Tauri's npm packages and crates must move together (the CLI rejects
+# mismatched @tauri-apps/api and tauri versions). Each ecosystem still opens its
+# own PR: `multi-ecosystem-groups` exists, but its handling of dependencies
+# outside the group's patterns is undocumented, so it is not used here. Both
+# `tauri` groups share a schedule so the npm and cargo PRs arrive together;
+# merge them as one change (check out both branches, or combine into one PR).
 
+updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
+      interval: monthly
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
+      tauri:
+        patterns: ["@tauri-apps/*"]
       minor-and-patch:
-        update-types:
-          - minor
-          - patch
+        update-types: [minor, patch]
 
   - package-ecosystem: cargo
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      tauri:
+        patterns: ["tauri", "tauri-*", "specta", "specta-*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # The trusted visual publisher has its own isolated npm lockfile.
+  - package-ecosystem: npm
+    directory: /scripts/visual
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
-        update-types:
-          - minor
-          - patch
+        update-types: [minor, patch]
 
+  # Action majors are usually runtime bumps with no API change, so they stay
+  # enabled; one grouped PR a month.
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
+      interval: monthly
+    open-pull-requests-limit: 3
     groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
+      actions:
+        patterns: ["*"]

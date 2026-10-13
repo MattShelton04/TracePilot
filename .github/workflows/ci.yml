@@ -5,13 +5,20 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Daily dependency audits surface new advisories on main without turning
+  # unrelated PRs red; the classifier skips every other selectable job.
+  schedule:
+    - cron: "23 5 * * *"
 
 permissions:
   contents: read
 
+# A new push supersedes a PR's run. Main and scheduled runs get their own group
+# so every merge finishes and a break can be traced to one commit (a shared
+# group would also cancel the pending run when the next merge queues).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,6 +34,8 @@ jobs:
     outputs:
       frontend: ${{ steps.classify.outputs.frontend }}
       desktop: ${{ steps.classify.outputs.desktop }}
+      rust: ${{ steps.classify.outputs.rust }}
+      dependencies: ${{ steps.classify.outputs.dependencies }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -107,11 +116,12 @@ jobs:
         run: pnpm --filter @tracepilot/desktop test --shard=${{ matrix.shard }}/3
 
   # Cross-platform coverage remains for Rust, where platform-specific
-  # filesystem/process behavior matters. Frontend work is not duplicated.
+  # filesystem/process behavior matters. Frontend work is not duplicated, and
+  # PRs that touch no file the crates read skip this matrix.
   rust:
     name: rust (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     # macOS is tier 2 (ADR 0010) and some timing-sensitive tests were flaky
@@ -207,7 +217,19 @@ jobs:
           cache-key: e2e-release
           save-cache: "true"
       - name: Build, install, exercise, and uninstall native app
-        run: pnpm test:e2e -Install
+        run: |
+          # One retry, only when the app did not start or accept CDP in time on
+          # the runner. Build, install and assertion failures fail immediately;
+          # the retry reuses the built installer and must pass every journey.
+          New-Item -ItemType Directory -Force .tracepilot/e2e-results | Out-Null
+          pnpm test:e2e -Install 2>&1 | Tee-Object -FilePath .tracepilot/e2e-results/attempt-1.log
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+          $startup = Select-String -Path .tracepilot/e2e-results/attempt-1.log -SimpleMatch -Quiet `
+            -Pattern 'Startup timed out after', 'connectOverCDP: Timeout'
+          if (-not $startup) { exit 1 }
+          Write-Output '::warning title=Desktop E2E retried::The app did not start or accept CDP in time; retrying once.'
+          pnpm test:e2e -Install -SkipBuild 2>&1 | Tee-Object -FilePath .tracepilot/e2e-results/attempt-2.log
+          exit $LASTEXITCODE
       - name: Upload native integration diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -216,6 +238,7 @@ jobs:
           retention-days: 7
           include-hidden-files: true
           path: |
+            .tracepilot/e2e-results/attempt-*.log
             .tracepilot/e2e-results/installation.json
             .tracepilot/e2e-results/results.xml
             .tracepilot/e2e-results/report/
@@ -383,18 +406,16 @@ jobs:
           "$RUNNER_TEMP/actionlint/actionlint" -color -pyflakes= \
             -ignore 'unexpected key "queue" for "concurrency" section'
 
-  # Audits always run, including docs-only PRs: advisories change independently
-  # of source. Install the official checksum-pinned scanner instead of compiling
-  # cargo-audit from its changing dependency graph on every run (~3 minutes).
+  # Advisories change independently of source, so a new one used to turn every
+  # PR red. PRs audit only when they change a manifest or lockfile; main pushes
+  # and the daily schedule always audit. Install the official checksum-pinned
+  # scanner instead of compiling cargo-audit on every run (~3 minutes).
   security:
     name: security
+    needs: changes
+    if: needs.changes.outputs.dependencies == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      # audit-check publishes a check for informational notices too. Without
-      # this, a clean push audit can fail while trying to publish its report.
-      checks: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -419,12 +440,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/cargo-audit"
           tar -xzf "$archive" -C "$RUNNER_TEMP/cargo-audit" --strip-components=1
           install -m 755 "$RUNNER_TEMP/cargo-audit/cargo-audit" "$HOME/.cargo/bin/cargo-audit"
-          cargo audit --version
+          # Invoked directly: the `cargo` proxy would first install the
+          # rust-toolchain.toml toolchain, which an audit of Cargo.lock never uses.
+          "$HOME/.cargo/bin/cargo-audit" audit --version
 
+      # The CLI directly, not rustsec/audit-check: that action publishes a
+      # check run, which fails on read-only tokens (Dependabot and fork PRs).
+      # Vulnerabilities fail; unmaintained/unsound/yanked notices stay in the log.
       - name: Rust security audit
-        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: '"$HOME/.cargo/bin/cargo-audit" audit'
 
       - name: pnpm audit (production)
         run: pnpm audit --prod --audit-level=high
