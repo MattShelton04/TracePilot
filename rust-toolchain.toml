@@ -1,0 +1,7 @@
+# The Rust release CI builds, tests and lints with. Local cargo commands use it
+# too, so new clippy lints arrive in a deliberate bump, not a stable release.
+# Bump the channel in its own PR and fix any new lints there.
+[toolchain]
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
