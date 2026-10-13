@@ -395,8 +395,8 @@ Run fixture and harness checks together:
 node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs
 ```
 
-For native inspection, use the same generator with `app:start -DataRoot` as
-described in [testing](testing.md#rich-tool-fixtures).
+For native inspection, start `pnpm app:start -Instance <name> -Fixtures`, which uses
+the same generator, as described in [testing](testing.md#rich-tool-fixtures).
 The native gallery contains all tool calls in one session; focused browser
 captures isolate each scenario for readable diffs. Full native parsing and
 visible interaction checks remain necessary when changing transport contracts.

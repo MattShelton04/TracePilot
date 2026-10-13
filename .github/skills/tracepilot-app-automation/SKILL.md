@@ -5,144 +5,98 @@ description: Inspect, interact with, and capture the running TracePilot desktop 
 
 # TracePilot app automation
 
-Use the **upstream Playwright CLI** for the observe → act → verify loop.
-It keeps the connection between shell commands; routine exploration needs no
-custom `.mjs` file, browser download, MCP installation, or Rust automation plugin.
-Run commands from the repository root after `pnpm install`.
+Drive the real Windows Tauri app (WebView2 over CDP) with the pinned Playwright
+CLI. Run commands from the repository root after `pnpm install`.
 
-## Real desktop app (primary, Windows + WebView2)
+## Start an isolated instance
 
-```powershell
-pnpm app:start
-# Run the attach command printed by startup (the port may differ):
-pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
-```
-
-Startup builds/runs Tauri with frontend HMR, waits for the rendered app and a
-successful **read-only Rust IPC call**, and prints the verified endpoint and log
-directory. It reuses this checkout's healthy instance on repeated starts.
-For a long first build, let the command finish; inspect
-`.tracepilot/automation/desktop-tauri.err.log` for compiler progress.
-
-This is the actual desktop webview with your configured sessions, SQLite index,
-and settings. The WebView profile is isolated; **application data is shared**.
-Settings, files, sessions, and orchestration actions have real effects. Use
-the task's authorized scope and review captures for private content before publishing.
-
-For a built frontend and release-profile Rust executable, use an explicit
-isolated data root:
+Agents always use a named instance. When `CLAUDECODE`, `CODEX_*` or `AI_AGENT` is
+set, a bare `pnpm app:start` refuses and prints these commands:
 
 ```powershell
-pnpm app:start -Runtime production -DataRoot C:\benchmarks\tracepilot-run
-```
-
-The root contains `copilot/session-state`, `tracepilot/config.toml`,
-`tracepilot/index.db`, `webview-profile`, and app logs. The build completes before the
-launcher reports readiness. This automation executable enables native devtools
-for CDP; normal shipping builds do not. Stop the tracked instance before changing
-runtime, data root, or requested port. Omitting `-DataRoot` retains the normal
-shared application-data behavior described above.
-For repeat fresh-process measurements of the same existing executable, add
-`-SkipBuild`; the launcher records its hash/timestamp and current source state.
-The default production command always rebuilds.
-
-## Parallel or isolated instances (agents)
-
-When other agents may be running TracePilot on this machine, or you need
-disposable data, start a named instance instead of the default one:
-
-```powershell
-pnpm app:start -Instance <slug> -Fixtures
-# Use the printed attach command; its session is -s=tracepilot-<slug>.
-pnpm app:status -All
+pnpm app:start -Instance <slug> -Fixtures   # synthetic sessions (the default choice)
+pnpm app:start -Instance <slug> -RealData   # the maintainer's real sessions, when asked
+pnpm app:status -All                        # every live instance on this machine
 pnpm app:stop -Instance <slug>
 ```
 
-It uses `.tracepilot/instances/<slug>/data` as an isolated data root, generates
-synthetic sessions with setup already complete (add `-FirstRun` with a fresh name
-to test the setup wizard), takes ports from a machine-wide registry, and verifies
-that readiness reached this exact instance. Use the instance's session name in every
-`playwright-cli` command below. Only one *development* desktop instance can run
-per checkout; use a separate worktree for another. See
-[parallel instances](../../../docs/app-automation.md#parallel-instances).
+- Both get their own ports, data root (`.tracepilot/instances/<slug>/data`), config,
+  index and WebView profile. Setup is already complete.
+- `-Fixtures` generates synthetic Copilot and Claude Code sessions. Add `-FirstRun`
+  with a fresh name to test the setup wizard.
+- `-RealData` mirrors the real Copilot `session-state` and Claude Code `projects`,
+  `plans` and `file-history` into the data root at each start, using hard links
+  (copies for SQLite sidecars). The real TracePilot config and index are never
+  opened. Use it for local checks only: never commit, publish or paste what it shows.
+- Startup waits for the rendered app and a read-only Rust IPC call. The first Rust
+  build in a worktree takes minutes; let it finish. Logs are in
+  `.tracepilot/instances/<slug>/`.
+- Only one development desktop instance runs per checkout. Use another worktree for a second one.
+- A human's bare `pnpm app:start` uses their configured data, with real effects.
+
+## Drive it with `pnpm pw`
+
+```powershell
+pnpm pw <slug> snapshot --filename=.playwright-cli/current.yml
+pnpm pw <slug> click e12
+pnpm pw <slug> fill e24 "search terms"
+pnpm pw <slug> press Enter
+pnpm pw <slug> resize 960x640
+pnpm pw <slug> screenshot --filename=.playwright-cli/before.png
+pnpm pw <slug> console error
+pnpm pw <slug> eval-file .playwright-cli/probe.js   # file: () => document.title
+pnpm pw <slug> run-file .playwright-cli/flow.js     # file: async page => { ... }
+```
+
+- The wrapper (`scripts/automation/pw.mjs`) finds the instance's session and endpoint,
+  attaches on first use, and passes arguments to the CLI without a shell.
+- Use `<slug>:ui` for `pnpm app:ui -Instance <slug>`. Use `default` for an unnamed instance.
+- Put JavaScript in a file under `.playwright-cli/` (ignored by Git). Inline JS
+  passed through the pnpm/cmd shims loses its quotes.
+- Every other command is the upstream CLI: `pnpm pw <slug> --help`.
 
 ## Observe, act, verify
 
-Read the snapshot file named in each response. Use references from the **current**
-snapshot; the following `e12`/`e24` are illustrative, not fixed selectors:
+- Read the snapshot file and use refs from the **current** snapshot. `e12` above is illustrative.
+- Re-snapshot after navigation or layout changes. `find 'text'` returns a focused excerpt.
+- Wait on a visible result, or use a locator in `run-file`. Don't use fixed sleeps.
+- TracePilot uses hash routing. Follow sidebar links, and don't open or close
+  webview tabs. For detached windows use `tab-list` and `tab-select`.
+- Open screenshots with your image viewer: writing a file is not visual verification.
+- Keep route, viewport, theme and data the same for before/after captures.
+- Viewports: 1440×960 (default), then 960×640 (minimum) and 2560×1440.
+- `eval` can read `window.__TRACEPILOT_IPC_PERF__?.getIpcPerfLog()`. See the
+  [automation guide](../../../docs/app-automation.md) for IPC, MCP and diagnostics.
 
-```powershell
-pnpm exec playwright-cli -s=tracepilot-desktop click e12
-pnpm exec playwright-cli -s=tracepilot-desktop fill e24 'search terms'
-pnpm exec playwright-cli -s=tracepilot-desktop press Enter
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
-pnpm exec playwright-cli -s=tracepilot-desktop screenshot --filename=.playwright-cli/before.png
-pnpm exec playwright-cli -s=tracepilot-desktop console error
-```
+## UI verification checklist
 
-Open screenshots with the agent's image-viewing tool: writing a file is not
-visual verification. For before/after evidence, keep the route, viewport,
-theme, data, and interaction state consistent.
-Focus on desktop sizes: 1440×960 (default), 960×640 (minimum), and 2560×1440
-(larger workspace). These are CSS viewport sizes; monitor DPI scaling can differ.
-Use `find 'text'` for focused snapshot excerpts; saving snapshots to a file avoids
-flooding the conversation with large session lists or search results.
+- Tooltips, menus and popovers are not clipped by scroll containers or panel edges.
+- Every clickable element shows a pointer cursor; static text does not.
+- No layout jitter while loading: reserve space for async content.
+- Ordering is deterministic: lists keep a stable order across reloads and refreshes.
+- Text and icons have enough contrast in both light and dark themes.
 
-Prefer visible controls and their accessible names. Re-snapshot after navigation
-or layout changes. For a durable assertion or data-dependent wait, the CLI also
-accepts normal Playwright code. Use outer PowerShell single quotes and JavaScript
-backticks for strings; this also preserves arguments in Windows PowerShell 5.1:
+## Troubleshooting
 
-```powershell
-pnpm exec playwright-cli -s=tracepilot-desktop run-code 'async page => { await page.getByTestId(`session-grid`).waitFor(); }'
-pnpm exec playwright-cli -s=tracepilot-desktop eval '() => window.__TRACEPILOT_IPC_PERF__?.getIpcPerfLog()'
-```
-
-Wait for the relevant visible result/loading indicator or a web-first assertion;
-do not use fixed sleeps to decide that a route is ready. TracePilot uses hash
-routing. Follow sidebar links; do not navigate the native webview to another
-origin or create/close its tabs. For detached app windows, use `tab-list` and
-`tab-select` to select the observed window.
-
-Use `pnpm exec playwright-cli --help` or `<command> --help` for more operations,
-including `resize`, `tracing-start`, `tracing-stop`, and `run-code --filename`.
-For IPC/performance investigation and optional MCP attachment, see
-[the automation guide](../../../docs/app-automation.md).
+| Symptom | Fix |
+| --- | --- |
+| `The browser '…' is not open` | Attach first. `pnpm pw` does this for you. |
+| Session lost after a Rust rebuild | `pnpm pw <slug> attach`, then take a new snapshot. |
+| `resize` rejects its arguments | Pass two numbers, `resize 1440 960`. `pnpm pw` also accepts `1440x960`. |
+| `strict mode violation … resolved to N elements` | Use a ref from the current snapshot, or narrow the locator (`getByRole('button', { name: 'Save', exact: true })`, or scope it to a container). |
+| `No free loopback port` or a port in use | Omit `-Port`/`-UiPort`. `pnpm app:status -All` lists who holds each port. |
+| Stale app process or locked `tracepilot-desktop.exe` | `pnpm app:stop -Instance <slug>`. It also ends app processes that use the instance's WebView profile. Never `taskkill` by name or use `kill-all`. |
+| Startup fails | Read the printed log paths (`desktop-tauri.err.log` for Rust). Fix the error and retry. |
 
 ## Frontend only
 
-On Windows, `pnpm app:ui` starts a separately tracked Vite server and prints:
+`pnpm app:ui -Instance <slug>` starts Vite with client mocks. Drive it with
+`pnpm pw <slug>:ui …`. It checks layout and interaction, **not** Rust IPC,
+persistence, indexing or native dialogs. Verify desktop fixes in desktop mode.
+On macOS/Linux, run `pnpm dev` and open its URL with the CLI.
 
-```powershell
-pnpm exec playwright-cli -s=tracepilot-ui open http://127.0.0.1:1420 --browser=msedge
-pnpm exec playwright-cli -s=tracepilot-ui snapshot
-```
+## Release runtime
 
-Use the actual URL printed by startup. On other platforms run `pnpm dev` and
-open its URL with the CLI (choose an installed browser or use `install-browser`).
-This mode uses existing client mocks; it can validate frontend layout and
-interaction, **not** Rust IPC, persistence, indexing, or native dialogs. Verify
-desktop fixes in desktop mode before claiming end-to-end success.
-
-## Lifecycle and recovery
-
-```powershell
-pnpm app:status
-pnpm exec playwright-cli -s=tracepilot-desktop detach
-pnpm app:stop
-# Frontend session/server:
-pnpm exec playwright-cli -s=tracepilot-ui close
-pnpm app:stop -Mode ui
-```
-
-Detach leaves the desktop running. `app:stop` stops only recorded process trees
-whose PID, start time, and executable still match. It preserves logs and profile
-data. Never use `kill-all`, process-name cleanup, or a port scan to select an
-unverified app. For a lost CLI session after a Rust restart, detach and reattach
-using the endpoint from `app:status`, then take a new snapshot.
-
-If startup fails, read the printed log paths; fix the concrete error and retry.
-`pnpm app:start -Port 9230 -TimeoutSeconds 900` overrides CDP port/build timeout.
-No CDP endpoint on macOS/Linux: this desktop workflow relies on Windows WebView2;
-use frontend mode there or a separate Tauri WebDriver test setup.
+`pnpm app:start -Instance <slug> -Fixtures -Runtime production` builds and runs the
+release executable against built assets. Add `-SkipBuild` to reuse an existing build.
+See [the automation guide](../../../docs/app-automation.md#lifecycle-contract).
