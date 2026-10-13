@@ -59,7 +59,8 @@ Write-Host "  ✓ Cargo.lock updated" -ForegroundColor Green
 # 4. Show next steps (do NOT auto-commit — the release notes come next)
 Write-Host ""
 Write-Host "Version bumped to $Version. Continue with docs/releasing.md:" -ForegroundColor Yellow
-Write-Host "  1. CHANGELOG.md: add [$Version] - $(Get-Date -Format 'yyyy-MM-dd') below an empty [Unreleased]"
-Write-Host "  2. apps/desktop/public/release-manifest.json: add the $Version entry and reset 'unreleased'"
-Write-Host "  3. Validate, commit 'chore: release v$Version', push the release branch and open a PR to main"
-Write-Host "  4. After merge: tag the merged commit v$Version and push only that tag"
+Write-Host "  1. pnpm changelog:collect: merge changelog.d/ fragments into [Unreleased]"
+Write-Host "  2. CHANGELOG.md: add [$Version] - $(Get-Date -Format 'yyyy-MM-dd') below an empty [Unreleased]"
+Write-Host "  3. apps/desktop/public/release-manifest.json: add the $Version entry and reset 'unreleased'"
+Write-Host "  4. Validate, commit 'chore: release v$Version', push the release branch and open a PR to main"
+Write-Host "  5. After merge: tag the merged commit v$Version and push only that tag"
