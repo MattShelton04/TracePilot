@@ -459,12 +459,11 @@ Use the [running-app automation workflow](app-automation.md) to inspect the real
 Tauri webview with the upstream Playwright agent CLI:
 
 ```powershell
-pnpm app:start
-# Use the attach command printed by startup; the port may differ.
-pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
-pnpm exec playwright-cli -s=tracepilot-desktop detach
-pnpm app:stop
+pnpm app:start -Instance sdk-check -Fixtures
+# pnpm pw attaches to the instance automatically.
+pnpm pw sdk-check snapshot --filename=.playwright-cli/current.yml
+pnpm pw sdk-check detach
+pnpm app:stop -Instance sdk-check
 ```
 
 ## Troubleshooting

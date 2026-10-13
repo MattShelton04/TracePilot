@@ -62,9 +62,7 @@ const isHistoricalDoc = (rel) =>
   (rel.startsWith("docs/reports/") && !rel.endsWith("/README.md"));
 // TODO: stale code-span paths in docs owned by other workstreams; fix the doc,
 // then drop its entry.
-const KNOWN_STALE_CODE_PATHS = new Map([
-  ["docs/testing.md", new Set(["packages/test-utils/fixtures/"])],
-]);
+const KNOWN_STALE_CODE_PATHS = new Map([]);
 
 function sourceTreeDocsFallback() {
   const found = [];
