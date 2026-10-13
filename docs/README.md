@@ -82,6 +82,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Claude Code Integration Plan](research/claude-code-integration/README.md) | Deeper Claude Code study: data comparison, mapping tables, multi-source provider architecture, analytics mixing, and a leveled task plan. |
 | [Pricing Model](pricing-model.md) | Copilot rates, historical estimates, deterministic update workflow, and validation. |
 | [Performance Evidence](reports/performance-mission.md) | Native measurements, methods, and limitations; retain alongside its JSON evidence. |
+| [Development Friction (October 2026)](reports/development-friction-2026-10.md) | Churn hotspots, CI failure causes, agent-session friction, and prioritized improvements for parallel development. |
 | [Usability Audit](reports/usability-audit-2026-09-12/findings.md) | Dated findings with linked coverage, validation, and screenshots. |
 | [Version Reports](reports/versions/README.md) | Dated Copilot CLI schema/corpus reports and generation guidance. |
 
