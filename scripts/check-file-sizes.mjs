@@ -13,16 +13,19 @@
  *   - Other TS/JS      : 500
  *
  * Usage:
- *   node scripts/check-file-sizes.mjs             # check (CI)
+ *   node scripts/check-file-sizes.mjs             # every tracked file (CI)
  *   node scripts/check-file-sizes.mjs --list      # print current violations
+ *   node scripts/check-file-sizes.mjs --staged    # staged files only
+ *   node scripts/check-file-sizes.mjs --since origin/main  # changed on this branch
+ *   node scripts/check-file-sizes.mjs <paths...>  # just these files (hooks)
  *
  * The landing page (site/) is exempt; see the skip list below.
  * Existing exceptions and their review notes are listed in ALLOWLIST below.
  */
 
-import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { extname, sep } from "node:path";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
+import { listChangedFiles, listStagedFiles, listTrackedFiles } from "./lib/list-tracked-files.mjs";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 
@@ -45,14 +48,26 @@ const BUDGETS = {
 // as files are split.
 const ALLOWLIST = new Set([]);
 
-function gitLsFiles() {
-  try {
-    const out = execSync("git ls-files", { encoding: "utf8", cwd: REPO_ROOT });
-    return out.split(/\r?\n/).filter(Boolean);
-  } catch (err) {
-    console.error("ERROR: failed to enumerate files via `git ls-files`:", err.message);
-    process.exit(2);
+// Explicit paths (repo-relative or absolute), --staged or --since <ref> narrow
+// the check to those files; otherwise every tracked file is checked.
+function filesToCheck(args) {
+  const sinceAt = args.indexOf("--since");
+  if (sinceAt !== -1) {
+    const changed = listChangedFiles(REPO_ROOT, args[sinceAt + 1]);
+    return changed ?? listTrackedFiles(REPO_ROOT);
   }
+  const paths = args.filter((a) => !a.startsWith("--"));
+  if (paths.length > 0) {
+    return paths.map((p) => {
+      const rel = isAbsolute(p) ? relative(REPO_ROOT, p) : p;
+      return rel.replaceAll(sep, "/").replace(/^\.\//, "");
+    });
+  }
+  if (args.includes("--staged")) {
+    const staged = listStagedFiles(REPO_ROOT);
+    if (staged) return staged;
+  }
+  return listTrackedFiles(REPO_ROOT);
 }
 
 function countLines(absPath) {
@@ -88,7 +103,7 @@ function budgetFor(relPath) {
 
 const wantList = process.argv.includes("--list");
 
-const files = gitLsFiles();
+const files = filesToCheck(process.argv.slice(2));
 const violations = [];
 
 for (const f of files) {
@@ -103,7 +118,7 @@ for (const f of files) {
   const budget = budgetFor(f);
   if (!budget) continue;
 
-  const abs = `${REPO_ROOT}${sep}${f.replaceAll("/", sep)}`;
+  const abs = resolve(REPO_ROOT, f);
   const lines = countLines(abs);
   if (lines <= budget.lines) continue;
 
@@ -121,7 +136,9 @@ if (wantList) {
 const nonAllowed = violations.filter((v) => !ALLOWLIST.has(v.path));
 
 if (nonAllowed.length === 0) {
-  console.log(`✓ file-size check passed (${violations.length} allow-listed violation(s))`);
+  console.log(
+    `✓ file-size check passed (${files.length} file(s), ${violations.length} allow-listed violation(s))`,
+  );
   process.exit(0);
 }
 

@@ -30,6 +30,7 @@
     "pricing:freshness": "node scripts/pricing/cli.mjs freshness",
     "pricing:claude": "node scripts/pricing/claude-cli.mjs",
     "test:pricing": "node --test scripts/pricing/*.test.mjs scripts/ci/report-comment.test.mjs",
+    "test:checks": "node --test scripts/check-*.test.mjs scripts/lib/*.test.mjs scripts/git-hooks/*.test.mjs",
     "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/e2e/test.ps1",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",
@@ -51,7 +52,7 @@
     "check:design-system": "node scripts/check-no-hex-colors.mjs && node scripts/check-no-emoji-in-templates.mjs && node scripts/check-no-backdrop-filter.mjs && node scripts/check-z-index-tokens.mjs",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean",
-    "hooks:install": "lefthook install"
+    "hooks:install": "git config core.hooksPath scripts/git-hooks"
   },
   "engines": {
     "node": ">=22.12 <23",

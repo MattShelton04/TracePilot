@@ -1,6 +1,15 @@
 # Lefthook — Git hooks manager
-# Install: pnpm install && pnpm hooks:install (explicit opt-in)
+# Install: pnpm install && pnpm hooks:install (explicit opt-in). That points
+# core.hooksPath at the tracked shims in scripts/git-hooks/, which run the
+# lefthook from the current worktree's node_modules. Don't run
+# `lefthook install`; see CONTRIBUTING.md ("Git hooks").
+# Keep `run:` lines to a plain command plus file templates: on Windows,
+# lefthook re-tokenizes them, so shell quoting, `$(...)` and multi-line
+# scripts break. Put logic in a script instead.
 # See https://github.com/evilmartians/lefthook
+
+# The tracked shims are the hooks; never let lefthook rewrite them.
+no_auto_install: true
 
 pre-commit:
   parallel: true
@@ -8,7 +17,7 @@ pre-commit:
     # Biome: lint + format check on staged JS/TS/Vue/JSON.
     # Auto-generated bindings are excluded (also honoured by biome.json).
     biome:
-      glob: "*.{ts,tsx,vue,js,jsx,json}"
+      glob: "*.{ts,tsx,vue,js,jsx,mjs,json}"
       exclude: "packages/client/src/generated/.*"
       run: npx @biomejs/biome check --error-on-warnings --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
     # rustfmt on staged .rs files only — per-file invocation avoids a full
@@ -16,9 +25,11 @@ pre-commit:
     rustfmt:
       glob: "*.rs"
       run: rustfmt --check --edition 2024 {staged_files}
-    # File-size guard-rails — fast (<300ms) full-repo enumeration.
+    # File-size budgets on staged files only. The full sweep takes seconds
+    # and runs in CI.
     filesize:
-      run: node scripts/check-file-sizes.mjs
+      glob: "*.{rs,vue,ts,tsx,js,mjs}"
+      run: node scripts/check-file-sizes.mjs --staged
     # Doc-link lint on staged markdown only. Full sweep runs in `just ci`.
     doc-links:
       glob: "*.md"
@@ -50,20 +61,14 @@ pre-commit:
       glob: "apps/desktop/src/**/*.{vue,css}"
       run: node scripts/check-z-index-tokens.mjs --staged
 
-# Heavier checks that shouldn't block every commit but should run before
-# sharing work with the remote. Skip with `git push --no-verify` if urgent.
+# Heavier checks, scoped to what the branch changed since origin/main:
+# file sizes, rustfmt on changed .rs files, and typecheck of the changed
+# packages plus their dependents. CI runs everything in full. Skip with
+# `git push --no-verify` if urgent.
 pre-push:
-  parallel: true
   commands:
-    typecheck:
-      run: pnpm typecheck
-    rustfmt-all:
-      run: cargo fmt --all -- --check
-    filesize:
-      run: node scripts/check-file-sizes.mjs
-    # Spacing-grid is warn-only (design-system/MASTER.md §3); pre-push surfaces report.
-    ds-spacing:
-      run: node scripts/check-spacing-grid.mjs
+    changed:
+      run: node scripts/git-hooks/pre-push-checks.mjs
 
 commit-msg:
   commands:
