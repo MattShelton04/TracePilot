@@ -49,7 +49,7 @@ sessions are removed and the new folder is indexed.
 | Context | Total input per model call. Claude Code doesn't record a system, tools and conversation split. |
 | Prompt cache | Observed cache reads and writes per call. Expiry is estimated from each request's recorded cache lifetime (5 minutes or 1 hour), and shows as unknown when none was recorded. |
 | Overview | The session plan and file-history checkpoints (below). |
-| Explorer | The session's `subagents/` and `tool-results/` folders. |
+| Explorer | **Scratchpad**: the files the agent made in Claude Code's temporary folder, which Claude Code clears about a week after the session's last activity. **Session data**: the session's `subagents/` and `tool-results/` folders. The switch shows only when the session has a scratchpad; the last choice is remembered. |
 | Export | Markdown and JSON, marked with the source. On top of the redaction options you pick, TracePilot always removes account details (email, organization and account IDs, quota limits) and the system-prompt and instruction-file attachments from the native records. |
 | Import | No. Import writes Copilot session folders. |
 | Resume | **Resume in Terminal** opens a terminal in the session's working directory and runs `claude --resume <id>`. **Copy Resume Command** copies the same command; run it from that directory. Set the command (for example `npx claude`) under **Settings → Claude Code → Claude Code command**. Exact context capture stays Copilot-only. |
@@ -261,7 +261,7 @@ Anything that doesn't look like a type name or version is counted as
 **Safe to paste:** the census report, the diagnostics table, your Claude Code
 and TracePilot versions, and your operating system.
 
-**Never paste:** transcripts (`*.jsonl`), files from `tool-results/`,
-`file-history/` or `plans/`, anything from `sessions/` (each `.key` file there
+**Never paste:** transcripts (`*.jsonl`), files from `tool-results/`, the
+scratchpad, `file-history/` or `plans/`, anything from `sessions/` (each `.key` file there
 is a secret), or screenshots of conversations. Transcripts contain prompts,
 tool output, file contents and account details.

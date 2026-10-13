@@ -217,11 +217,14 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeUnreportedAgentSessionId,
     ],
   );
-  assert.equal(generated.files.length, 21);
+  assert.equal(generated.files.length, 23);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),
     ),
+  );
+  assert(
+    existsSync(join(root, "claude-tmp/C--synthetic-orchard", claudeOrchardSessionId, "scratchpad")),
   );
   assert.equal(generateSessionFixtures(root).reused, true);
   assert.equal(readFileSync(config, "utf8"), "# Launcher-owned config\n");

@@ -18,7 +18,7 @@ const props = defineProps<{
   loading?: boolean;
   selectedPath?: string;
   title?: string;
-  /** Folders with more entries than this will be auto-collapsed on load. Default: no limit. */
+  /** Folders with more direct children than this are auto-collapsed on load. Default: no limit. */
   autoCollapseThreshold?: number;
   /** Temporarily show all folders expanded, for example while filtering. */
   forceExpanded?: boolean;

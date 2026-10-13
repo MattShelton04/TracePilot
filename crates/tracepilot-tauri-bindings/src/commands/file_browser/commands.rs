@@ -5,31 +5,49 @@ use super::security::{
     reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
-    MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_CELL_BYTES, MAX_SQLITE_COLUMNS_PER_TABLE,
-    MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES, MAX_SQLITE_TEXT_BYTES_PER_TABLE,
-    SessionFileListing, SessionFileType,
+    FileArea, MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_CELL_BYTES,
+    MAX_SQLITE_COLUMNS_PER_TABLE, MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES,
+    MAX_SQLITE_TEXT_BYTES_PER_TABLE, SessionFileListing, SessionFileType,
 };
+use super::walk::has_visible_files;
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{explorer_scratchpad, read_config, resolve_session};
 
-/// List all files in a session's directory tree.
+/// List all files in one of a session's file areas.
 ///
-/// Returns the browsable tree's root (see [`ExplorerScope`]) and a flat list
-/// of its files and directories, with paths relative to that root.
+/// Returns the browsable tree's root (see [`ExplorerScope`]), the area
+/// listed and the areas the session has, and a flat list of its files and
+/// directories, with paths relative to that root. Asking for a scratchpad
+/// without files (missing, empty, or emptied by Claude Code's cleanup) lists
+/// the session's own files instead.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn session_list_files(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
+    area: Option<FileArea>,
 ) -> CmdResult<SessionFileListing> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let config = read_config(&state);
 
     blocking_cmd!({
-        let scope = ExplorerScope::for_session(&config, &sid)?;
-        let mut entries = scope.list(&session_id)?;
+        let session = resolve_session(&config, &sid)?;
+        // An empty scratchpad (or the skeleton Claude Code's cleanup leaves)
+        // is not offered; the session's own files are listed instead.
+        let scratchpad = explorer_scratchpad(&session)?.filter(|dir| has_visible_files(dir));
+        let mut areas = vec![FileArea::Session];
+        areas.extend(scratchpad.is_some().then_some(FileArea::Scratchpad));
+        let (area, scope) = match (area.unwrap_or_default(), scratchpad) {
+            (FileArea::Scratchpad, Some(dir)) => (FileArea::Scratchpad, ExplorerScope::Single(dir)),
+            _ => (
+                FileArea::Session,
+                ExplorerScope::for_area(&session, FileArea::Session)?,
+            ),
+        };
+        let listing = scope.list(&session_id)?;
+        let mut entries = listing.entries;
         entries.sort_by(|a, b| {
             b.is_directory
                 .cmp(&a.is_directory)
@@ -37,7 +55,10 @@ pub async fn session_list_files(
         });
         Ok::<_, BindingsError>(SessionFileListing {
             root: scope.root().to_string_lossy().into_owned(),
+            area,
+            areas,
             entries,
+            truncated: listing.truncated,
         })
     })
 }
@@ -54,12 +75,13 @@ pub async fn session_read_file(
     session_id: String,
     relative_path: String,
     full: Option<bool>,
+    area: Option<FileArea>,
 ) -> CmdResult<String> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let config = read_config(&state);
 
     blocking_cmd!({
-        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let scope = ExplorerScope::for_session(&config, &sid, area.unwrap_or_default())?;
         let (session_dir, inner_path) = scope.locate(&relative_path)?;
         let file_path = safe_session_file_path(&session_dir, inner_path)?;
 
@@ -148,6 +170,7 @@ pub async fn session_read_sqlite(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
     relative_path: String,
+    area: Option<FileArea>,
 ) -> CmdResult<Vec<tracepilot_core::parsing::session_db::CustomTableInfo>> {
     use tracepilot_core::parsing::session_db::{list_tables, read_custom_table_bounded};
 
@@ -155,7 +178,7 @@ pub async fn session_read_sqlite(
     let config = read_config(&state);
 
     blocking_cmd!({
-        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let scope = ExplorerScope::for_session(&config, &sid, area.unwrap_or_default())?;
         let (session_dir, inner_path) = scope.locate(&relative_path)?;
         let file_path = safe_session_file_path(&session_dir, inner_path)?;
 

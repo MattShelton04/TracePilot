@@ -136,7 +136,7 @@ describe("useSessionFiles reload and cache behavior", () => {
       // reload settles the listing before its detached content read completes.
       await instance.reload();
       expect(mockSessionReadFile).toHaveBeenCalledTimes(2);
-      expect(mockSessionReadFile).toHaveBeenLastCalledWith("sess-1", "plan.md");
+      expect(mockSessionReadFile).toHaveBeenLastCalledWith("sess-1", "plan.md", false, "session");
       expect(instance.fileContent).toBe("v1");
       expect(instance.fileContentLoading).toBe(false);
       expect(instance.contentChangedAt).toBeNull();

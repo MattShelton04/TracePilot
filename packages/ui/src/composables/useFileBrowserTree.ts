@@ -10,7 +10,7 @@ import { formatBytes } from "@tracepilot/types";
 import { computed, type Ref, ref, watch } from "vue";
 
 export interface UseFileBrowserTreeOptions {
-  /** Folders with more files than this are auto-collapsed on load. */
+  /** Folders with more direct children (files and subfolders) than this are auto-collapsed on load. */
   autoCollapseThreshold?: number;
   /** Temporarily display every folder expanded without discarding user collapse state. */
   forceExpanded?: boolean;
@@ -84,17 +84,21 @@ function finalizeFolder<TEntry extends FileEntry>(
   };
 }
 
-function countFilesByFolder(entries: readonly FileEntry[]): Map<string, number> {
-  const counts = new Map<string, number>();
+/** Each folder's direct children (files and subfolders), not everything beneath it. */
+function countChildrenByFolder(entries: readonly FileEntry[]): Map<string, number> {
+  const children = new Map<string, Set<string>>();
   for (const entry of entries) {
-    if (entry.isDirectory) continue;
     const parts = splitPath(entry.path);
+    // Every ancestor folder has the next path segment as a direct child,
+    // including folders that only appear implicitly in a file's path.
     for (let depth = 1; depth < parts.length; depth += 1) {
       const folder = parts.slice(0, depth).join("/");
-      counts.set(folder, (counts.get(folder) ?? 0) + 1);
+      const names = children.get(folder) ?? new Set<string>();
+      names.add(parts[depth]);
+      children.set(folder, names);
     }
   }
-  return counts;
+  return new Map([...children].map(([folder, names]) => [folder, names.size]));
 }
 
 function collectRows<TEntry extends FileEntry>(
@@ -125,7 +129,7 @@ export function useFileBrowserTree<TEntry extends FileEntry>(
     entries,
     (list) => {
       if (!options.autoCollapseThreshold) return;
-      const counts = countFilesByFolder(list);
+      const counts = countChildrenByFolder(list);
       const next = new Set(collapsedFolders.value);
       for (const [folder, count] of counts.entries()) {
         // biome-ignore lint/style/noNonNullAssertion: this branch only runs when autoCollapseThreshold was provided by the caller.

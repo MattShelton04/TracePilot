@@ -42,7 +42,12 @@ pub(super) const MAX_SEARCH_MATCHES_PER_FILE: usize = 20;
 /// somehow contains an unusually large number of files.
 pub(super) const MAX_ENTRIES: usize = 2_000;
 
-/// Maximum directory recursion depth for `collect_entries`.
+/// Maximum number of entries listed from any one directory, so a single
+/// crowded folder (thousands of screenshots or build outputs in a Claude
+/// Code scratchpad) cannot take the whole [`MAX_ENTRIES`] budget.
+pub(super) const MAX_ENTRIES_PER_DIR: usize = 500;
+
+/// Maximum directory depth `walk::collect_entries` reads.
 ///
 /// Session directories are shallow by design (≤ 3 levels). A hard cap
 /// prevents a maliciously constructed directory tree from stack-overflowing
@@ -154,6 +159,19 @@ impl SessionFileType {
     }
 }
 
+/// Which of a session's file areas a file browser command reads.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FileArea {
+    /// The session's own files (Copilot's session directory, Claude Code's
+    /// `subagents/` and `tool-results/`).
+    #[default]
+    Session,
+    /// The agent's scratch folder, which the source clears on its own
+    /// schedule (Claude Code's `scratchpad/` in its temp folder).
+    Scratchpad,
+}
+
 /// A session's browsable files, returned by `session_list_files`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -162,7 +180,15 @@ pub struct SessionFileListing {
     /// provider locates it. The frontend joins it with an entry's path to
     /// copy or open that entry; the OS opener re-validates what it is given.
     pub root: String,
+    /// The area listed: the one asked for, or the session's own files when
+    /// it has no scratchpad.
+    pub area: FileArea,
+    /// The areas this session has.
+    pub areas: Vec<FileArea>,
     pub entries: Vec<SessionFileEntry>,
+    /// The listing caps (entries in total, per folder, and depth) left some
+    /// entries out.
+    pub truncated: bool,
 }
 
 /// A single entry (file or directory) in the session file tree.

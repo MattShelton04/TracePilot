@@ -6,8 +6,8 @@ use super::security::{
     reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
-    MAX_IMAGE_DIMENSION, MAX_IMAGE_INPUT_BYTES, MAX_IMAGE_PIXELS, MAX_IMAGE_PREVIEW_BYTES,
-    MAX_IMAGE_PREVIEW_EDGE, SessionFileType, SessionImagePreview,
+    FileArea, MAX_IMAGE_DIMENSION, MAX_IMAGE_INPUT_BYTES, MAX_IMAGE_PIXELS,
+    MAX_IMAGE_PREVIEW_BYTES, MAX_IMAGE_PREVIEW_EDGE, SessionFileType, SessionImagePreview,
 };
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
@@ -126,12 +126,13 @@ pub async fn session_read_image_preview(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
     relative_path: String,
+    area: Option<FileArea>,
 ) -> CmdResult<SessionImagePreview> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let config = read_config(&state);
 
     blocking_cmd!({
-        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let scope = ExplorerScope::for_session(&config, &sid, area.unwrap_or_default())?;
         let (session_dir, inner_path) = scope.locate(&relative_path)?;
         let file_path = safe_session_file_path(&session_dir, inner_path)?;
         if !file_path.exists() {

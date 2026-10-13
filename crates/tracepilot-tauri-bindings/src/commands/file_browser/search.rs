@@ -5,7 +5,7 @@ use super::security::{
     reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
-    MAX_ENTRIES, MAX_SEARCH_BYTES_PER_FILE, MAX_SEARCH_MATCHES_PER_FILE, MAX_SEARCH_RESULTS,
+    FileArea, MAX_SEARCH_BYTES_PER_FILE, MAX_SEARCH_MATCHES_PER_FILE, MAX_SEARCH_RESULTS,
     MAX_SEARCH_TOTAL_BYTES, SessionFileSearchMatch, SessionFileSearchResponse, SessionFileType,
 };
 use crate::blocking_cmd;
@@ -38,6 +38,7 @@ pub async fn session_search_files(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
     query: String,
+    area: Option<FileArea>,
 ) -> CmdResult<SessionFileSearchResponse> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let query = query.trim();
@@ -55,15 +56,16 @@ pub async fn session_search_files(
     let config = read_config(&state);
 
     blocking_cmd!({
-        let scope = ExplorerScope::for_session(&config, &sid)?;
-        let mut entries = scope.list(&session_id)?;
+        let scope = ExplorerScope::for_session(&config, &sid, area.unwrap_or_default())?;
+        let listing = scope.list(&session_id)?;
+        let mut entries = listing.entries;
         entries.sort_by(|a, b| a.path.cmp(&b.path));
 
         let mut response = SessionFileSearchResponse {
             matches: Vec::new(),
             scanned_files: 0,
             skipped_files: 0,
-            truncated: entries.len() >= MAX_ENTRIES,
+            truncated: listing.truncated,
         };
         let mut total_bytes = 0_u64;
 

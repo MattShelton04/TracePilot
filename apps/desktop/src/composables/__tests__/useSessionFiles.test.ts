@@ -82,9 +82,9 @@ describe("useSessionFiles", () => {
     // Settle the mocked listing and any automatic workspace read.
     await flushPromises();
 
-    expect(mockSessionListFiles).toHaveBeenCalledWith("test-session-id");
+    expect(mockSessionListFiles).toHaveBeenCalledWith("test-session-id", "session");
     expect(instance.files).toEqual(fakeEntries);
-    expect(instance.root).toBe("/sessions/test-session-id");
+    expect(instance.layout?.root).toBe("/sessions/test-session-id");
     expect(instance.filesLoading).toBe(false);
     expect(instance.filesError).toBeNull();
   });
@@ -125,7 +125,12 @@ describe("useSessionFiles", () => {
 
     await instance.selectFile("workspace.yaml", "yaml");
 
-    expect(mockSessionReadFile).toHaveBeenCalledWith("test-session-id", "workspace.yaml");
+    expect(mockSessionReadFile).toHaveBeenCalledWith(
+      "test-session-id",
+      "workspace.yaml",
+      false,
+      "session",
+    );
     expect(instance.selectedPath).toBe("workspace.yaml");
     expect(instance.fileContent).toBe("cwd: /home/user\n");
     expect(instance.fileContentError).toBeNull();
@@ -149,7 +154,7 @@ describe("useSessionFiles", () => {
     await instance.selectFile("session.db", "sqlite");
 
     expect(mockSessionReadFile).not.toHaveBeenCalled();
-    expect(mockSessionReadSqlite).toHaveBeenCalledWith("test-session-id", "session.db");
+    expect(mockSessionReadSqlite).toHaveBeenCalledWith("test-session-id", "session.db", "session");
     expect(instance.selectedPath).toBe("session.db");
     expect(instance.fileContent).toBeNull();
     expect(instance.fileContentError).toBeNull();
@@ -176,7 +181,7 @@ describe("useSessionFiles", () => {
 
     await instance.selectFile("session.db", "sqlite");
 
-    expect(mockSessionReadSqlite).toHaveBeenCalledWith("test-session-id", "session.db");
+    expect(mockSessionReadSqlite).toHaveBeenCalledWith("test-session-id", "session.db", "session");
     expect(instance.dbData).toEqual(fakeTables);
     expect(instance.dbDataLoading).toBe(false);
     expect(instance.dbDataError).toBeNull();
@@ -237,6 +242,7 @@ describe("useSessionFiles", () => {
     expect(mockSessionReadImagePreview).toHaveBeenCalledWith(
       "test-session-id",
       "files/screenshot.png",
+      "session",
     );
     expect(mockSessionReadFile).not.toHaveBeenCalled();
     expect(instance.imagePreview).toEqual(preview);
@@ -261,7 +267,12 @@ describe("useSessionFiles", () => {
 
     expect(instance.fileCanLoadMore).toBe(true);
     await instance.loadFullFile();
-    expect(mockSessionReadFile).toHaveBeenLastCalledWith("test-session-id", "events.jsonl", true);
+    expect(mockSessionReadFile).toHaveBeenLastCalledWith(
+      "test-session-id",
+      "events.jsonl",
+      true,
+      "session",
+    );
     expect(instance.fileContent).toBe("full content");
     expect(instance.fileCanLoadMore).toBe(false);
   });
