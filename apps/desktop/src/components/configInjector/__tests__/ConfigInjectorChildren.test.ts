@@ -282,6 +282,18 @@ describe("ConfigInjectorBackupsTab", () => {
     );
   });
 
+  it("names the configured data folder as the backup location", () => {
+    const ctx = makeCtx();
+    const wrapper = mount(wrap(ConfigInjectorBackupsTab, ctx));
+    expect(wrapper.get(".backup-guidance").text()).toContain("your TracePilot data folder");
+
+    (ctx.store as any).dataFolder = "C:\\Users\\me\\.tracepilot\\";
+    const configured = mount(wrap(ConfigInjectorBackupsTab, ctx));
+    expect(configured.get(".backup-guidance code").text()).toBe(
+      "C:\\Users\\me\\.tracepilot\\backups\\agents",
+    );
+  });
+
   it("renders backup list items when backups exist", () => {
     const ctx = makeCtx();
     (ctx.store as any).backups = [

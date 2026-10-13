@@ -1,4 +1,6 @@
-//! TracePilot configuration — loaded from `~/.copilot/tracepilot/config.toml`.
+//! TracePilot configuration — loaded from `config.toml` in the TracePilot root:
+//! `~/.tracepilot` for new installs, or the legacy `~/.copilot/tracepilot` when
+//! an existing install already has its config there (see [`config_file_path`]).
 //!
 //! The top-level [`TracePilotConfig`] aggregates a handful of per-concern
 //! sub-configs which live in dedicated sibling modules. Re-exports below
@@ -45,6 +47,8 @@ mod tool_rendering;
 mod ui;
 
 #[cfg(test)]
+mod location_tests;
+#[cfg(test)]
 mod persistence_tests;
 #[cfg(test)]
 mod tests;
@@ -67,6 +71,9 @@ pub use sources::{ClaudeCodeSourceConfig, SourcesConfig};
 pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
 
+/// Where `config.toml` is read from and written to, resolved on every call by
+/// [`tracepilot_core::paths::resolve_tracepilot_root`]. It is the bootstrap
+/// anchor and stays put whatever `paths.tracepilotHome` says.
 pub fn config_file_path() -> Option<PathBuf> {
     tracepilot_core::paths::TracePilotPaths::try_default().map(|p| p.config_toml())
 }
@@ -122,6 +129,16 @@ impl Default for TracePilotConfig {
             .unwrap_or_else(|| tracepilot_core::paths::CopilotPaths::from_home(PathBuf::new()));
         let tracepilot_paths = tracepilot_core::paths::TracePilotPaths::try_default()
             .unwrap_or_else(|| tracepilot_core::paths::TracePilotPaths::from_root(PathBuf::new()));
+        Self::with_roots(&copilot_paths, &tracepilot_paths)
+    }
+}
+
+impl TracePilotConfig {
+    /// Defaults for the given Copilot home and TracePilot root.
+    pub(crate) fn with_roots(
+        copilot_paths: &tracepilot_core::paths::CopilotPaths,
+        tracepilot_paths: &tracepilot_core::paths::TracePilotPaths,
+    ) -> Self {
         Self {
             version: Self::CURRENT_VERSION,
             paths: PathsConfig {
@@ -260,7 +277,13 @@ impl TracePilotConfig {
     /// Load config from the standard location, or return None if it doesn't exist.
     /// Applies pending migrations and auto-saves if the version was bumped.
     pub fn load() -> Option<Self> {
-        let path = config_file_path()?;
+        Self::load_at(&config_file_path()?)
+    }
+
+    /// [`load()`](Self::load) from a resolved config path; any migration or
+    /// recovery is saved back to that same path.
+    pub(crate) fn load_at(path: &Path) -> Option<Self> {
+        let path = path.to_path_buf();
         match Self::load_from_or_backup(&path) {
             Ok((mut config, recovered_from_backup)) => {
                 tracing::info!(path = %path.display(), version = config.version, "Loaded config.toml");
@@ -354,10 +377,16 @@ impl TracePilotConfig {
         let path = config_file_path().ok_or_else(|| {
             BindingsError::Validation("Cannot determine home directory for config file".into())
         })?;
+        self.save_at(&path)
+    }
+
+    /// [`save()`](Self::save) to a resolved config path: normalizes and checks
+    /// the isolation boundary before writing.
+    pub(crate) fn save_at(&self, path: &Path) -> Result<(), BindingsError> {
         let mut normalized = self.clone();
         normalized.normalize_paths();
         normalized.validate_isolation_boundary()?;
-        normalized.save_to(&path)
+        normalized.save_to(path)
     }
 
     /// Write the config to an arbitrary path, creating parent directories as
@@ -417,6 +446,8 @@ impl TracePilotConfig {
             self.paths.copilot_home = defaults.paths.copilot_home;
         }
 
+        // Configs this old predate `~/.tracepilot`, so an empty home falls back
+        // to the legacy `<copilotHome>/tracepilot` folder on purpose.
         if self.paths.tracepilot_home.trim().is_empty() {
             let legacy_parent = PathBuf::from(&self.paths.index_db_path)
                 .parent()

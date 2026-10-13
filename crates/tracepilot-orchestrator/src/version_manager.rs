@@ -191,27 +191,10 @@ pub fn migration_diffs(
     Ok(diffs)
 }
 
-/// Migrate customized agent definitions from one version to another.
-/// This copies the customized file to the target version directory.
-pub fn migrate_agent(
-    copilot_home: &Path,
-    file_name: &str,
-    from_version: &str,
-    to_version: &str,
-) -> Result<()> {
-    let backup_dir = crate::config_injector::backup_dir()?;
-    migrate_agent_with_backup_dir(
-        copilot_home,
-        file_name,
-        from_version,
-        to_version,
-        &backup_dir,
-    )
-}
-
-/// Migrate an agent while retaining its previous definition in the configured
-/// backup directory. Root-aware callers hold their relocation lease until this
-/// operation completes; the legacy entry point keeps its default backup root.
+/// Migrate a customized agent definition from one version to another,
+/// copying it to the target version directory and keeping its previous
+/// definition in the configured backup directory. Callers hold their
+/// relocation lease until this operation completes.
 pub fn migrate_agent_with_backup_dir(
     copilot_home: &Path,
     file_name: &str,

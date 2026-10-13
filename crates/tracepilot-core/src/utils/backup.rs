@@ -25,10 +25,11 @@
 //! # Directory layout
 //!
 //! Both callers keep their backups in separate sub-directories under the
-//! shared `backups/` root:
+//! shared `backups/` root of the TracePilot data folder (`~/.tracepilot` by
+//! default, `~/.copilot/tracepilot` for older installs):
 //!
 //! ```text
-//! ~/.copilot/tracepilot/backups/
+//! <tracepilotHome>/backups/
 //!   ├── database/          ← DB migration snapshots  (*.pre-v*.bak)
 //!   └── agents/            ← Agent / config backups  ({stem}-{label}-{ts})
 //! ```

@@ -7,6 +7,10 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Changed
+
+- **New data folder** — New installs keep TracePilot's data in `~/.tracepilot`. Existing installs keep using `~/.copilot/tracepilot`, and nothing is moved.
+
 ### Fixed
 
 - **Setup without Copilot CLI** — First-run setup no longer stops at the Copilot step when Copilot CLI isn't installed, so Claude Code users can finish it.

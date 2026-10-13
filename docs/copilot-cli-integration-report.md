@@ -346,7 +346,7 @@ await client.deleteSession("uuid");
 }
 ```
 
-**`~/.copilot/tracepilot/config.toml`** — TracePilot config:
+**`~/.copilot/tracepilot/config.toml`** — TracePilot config (new installs now use `~/.tracepilot/config.toml`; see [on-disk paths](on-disk-paths.md#tracepilot-root)):
 ```toml
 version = 1
 [paths]
