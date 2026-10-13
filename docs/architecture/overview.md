@@ -1,6 +1,6 @@
 # TracePilot Architecture Overview
 
-TracePilot is a desktop application for visualising, searching, and analysing GitHub Copilot CLI sessions. It is built with **Tauri 2** (Rust backend) and **Vue 3 + TypeScript** (frontend).
+TracePilot is a desktop application for visualising, searching, and analysing GitHub Copilot CLI sessions, and (experimentally) Claude Code sessions. It is built with **Tauri 2** (Rust backend) and **Vue 3 + TypeScript** (frontend).
 
 ## Repository Structure
 
@@ -32,7 +32,7 @@ TracePilot/
 
 ### tracepilot-core
 
-The foundational crate. Parses Copilot session JSONL files into a structured turn-based model. Provides:
+The foundational crate. Loads sessions from each source through [session providers](#session-providers) and builds a structured turn-based model. Provides:
 
 - **Session model**: `Turn`, `Event`, `ToolCall`, `ToolResult`, `Message` types
 - **Analytics**: Token counts, tool usage stats, timing analysis, code impact metrics
@@ -126,10 +126,10 @@ Standalone Node CLI that reads Copilot session files directly. Its `search` comm
 ## Data Flow
 
 ```
- Disk (JSONL files)
+ Disk (Copilot CLI / Claude Code files)
        │
        ▼
- tracepilot-core          ← Parses sessions into Turn/Event model
+ tracepilot-core          ← Providers load sessions as events; Turn/Event model
        │
        ├──► tracepilot-indexer    ← Indexes into SQLite FTS5 for search
        │
@@ -146,6 +146,17 @@ Standalone Node CLI that reads Copilot session files directly. Its `search` comm
        ▼
  @tracepilot/desktop       ← Vue 3 SPA (Pinia stores → Views → Components)
 ```
+
+## Session Providers
+
+Every session source sits behind one seam in [`crates/tracepilot-core/src/provider/`](../../crates/tracepilot-core/src/provider/mod.rs). Code outside that module works on `SessionLocator`s, `SourceFingerprint`s and normalized `TypedEvent`s, never on a source's file layout.
+
+- **`SessionProvider` trait**: `discover`, `fingerprint`, `load_snapshot` (strict for durable indexes, best effort for display), `load_events_strict`, `liveness`, `artifacts`, `resume_launch` and `resolve`. `SourceCapabilities` says what a source supports.
+- **`CopilotProvider`** (`provider/copilot/`): a thin wrapper over the Copilot CLI loaders for `session-state/<id>/`. Always registered.
+- **`ClaudeCodeProvider`** (`provider/claude_code/`): translates `projects/<cwd-slug>/<uuid>.jsonl` transcripts and their subagent files into Copilot-shaped events, so the existing turn reconstructor and analytics work unchanged. Registered only while the experimental flag is on; see [Claude Code sessions](../claude-code-sessions.md) and the [mapping reference](../research/claude-code-integration/mapping.md).
+- **`ProviderRegistry`**: at most one provider per `SessionSource`. The app builds it from config in [`providers.rs`](../../crates/tracepilot-tauri-bindings/src/providers.rs) (`registry_for`), and `locate` resolves an id through the stored locator only when its provider still owns it.
+
+Into the index: `tracepilot-indexer` takes an `IndexScope` (a registry snapshot plus a per-source configuration generation) and discovers each source independently, so one failed source never hides or prunes another. Changed sessions are found by comparing stored fingerprints (`sessions.source_fingerprint`, `sessions.search_source_fingerprint`), loaded with strict loads, and written with their `source`. A source's rows are pruned only after a complete scan of its root, and a pass whose source configuration changed mid-run rolls back. Adding a source means a new `SessionSource` variant, a provider module and a `registry_for` entry.
 
 ## Key Design Decisions
 
