@@ -97,7 +97,7 @@ function Show-AllInstances {
         $ui = if ($claim.uiPort) { $claim.uiPort } else { '-' }
         $cdp = if ($claim.cdpPort) { $claim.cdpPort } else { '-' }
         $name = if ($claim.instanceName) { $claim.instanceName } else { '(default)' }
-        $data = if ($claim.mode -eq 'ui') { 'frontend mocks' } elseif ($claim.dataRoot) { $claim.dataRoot } else { 'configured user data' }
+        $data = if ($claim.mode -eq 'ui') { 'frontend mocks' } elseif ($claim.realData) { "$($claim.dataRoot) (real-data snapshot)" } elseif ($claim.dataRoot) { $claim.dataRoot } else { 'configured user data' }
         Write-Host "$name | $($claim.mode)/$($claim.runtime) | UI $ui | CDP $cdp | checkout $($claim.repoRoot) | data $data"
     }
 }
