@@ -1082,22 +1082,21 @@
 }
 
 /* ── Keyboard hints ──────────────────────────────────────── */
+/* An in-flow footer row of the view, so it takes its own space below the
+   results instead of floating over them. */
 .search-view .keyboard-hints {
-  position: fixed;
-  bottom: 16px;
-  right: 24px;
+  flex-shrink: 0;
+  align-self: flex-end;
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 8px;
   font-size: 0.8125rem;
   color: var(--text-secondary);
-  opacity: 0.85;
-  pointer-events: none;
   background: var(--canvas-subtle);
-  padding: 6px 14px;
+  padding: 4px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-muted);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 .search-view .keyboard-hints kbd {
   display: inline-flex;

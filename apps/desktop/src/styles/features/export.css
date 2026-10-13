@@ -44,21 +44,28 @@
   gap: 24px;
   align-items: start;
 }
-@media (max-width: 1000px) {
-  .export-feature .export-split {
-    grid-template-columns: 1fr;
-  }
-  .export-feature .preview-col {
-    order: -1;
-  }
-}
-
 .export-feature .config-col,
 .export-feature .preview-col {
   max-height: calc(100vh - 180px);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-default) transparent;
+}
+
+/* Stacked: config (and the Export button) first, scrolling with the page;
+   only the preview body scrolls, so its header and footer stay in view. */
+@media (max-width: 1000px) {
+  .export-feature .export-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .export-feature .config-col,
+  .export-feature .preview-col {
+    max-height: none;
+    overflow-y: visible;
+  }
+  .export-feature .preview-body {
+    max-height: calc(100vh - 240px);
+  }
 }
 .export-feature .config-col {
   padding: 0 8px;

@@ -86,7 +86,7 @@ describe("agent metrics UI", () => {
     ).toBe("40");
     expect(wrapper.find("select").exists()).toBe(false);
     expect(rowIds()).toEqual(["main", "paid", "free", "unknown"]);
-    const credits = wrapper.get('button[aria-label="Sort by Recorded credits"]');
+    const credits = wrapper.get('button[aria-label="Sort by Recorded cost"]');
     await credits.trigger("click");
     expect(rowIds()).toEqual(["paid", "main", "free", "unknown"]);
     expect(credits.element.closest("th")?.getAttribute("aria-sort")).toBe("descending");
@@ -168,7 +168,8 @@ describe("agent metrics UI", () => {
         ],
       },
     });
-    expect(wrapper.text()).toContain("0 AIC");
+    // An observed zero reads as $0.00, not a dash.
+    expect(wrapper.text()).toContain("Attributed cost: $0.00");
     await wrapper
       .findAll("button")
       .find((button) => button.text() === "Worker")

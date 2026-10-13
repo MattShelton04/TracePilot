@@ -2,6 +2,7 @@
 
 export {
   formatAiCredits,
+  formatAiCreditsUsd,
   formatBytes,
   formatClockTime,
   formatCost,

@@ -3,14 +3,13 @@
  * shared by its panels: what each source cost, what the tokens were, and
  * each model's share and cost.
  *
- * Costs keep each source's own unit (AI Credits for Copilot, API-equivalent
- * USD for Claude Code) and meet on one USD scale only where sources are
- * added together, with AI Credits at $0.01 each.
+ * Every cost reads in USD: Copilot's AI Credits at $0.01 each and Claude
+ * Code's API-equivalent estimate, so sources share one scale throughout.
  */
 import {
   AI_CREDIT_USD,
   type AnalyticsData,
-  formatAiCredits,
+  formatAiCreditsUsd,
   formatCost,
   formatNumber,
   type SessionSource,
@@ -105,7 +104,7 @@ export interface ModelRow {
   share: number;
   requests: number;
   composition: TokenComposition;
-  /** The model's cost in its source's unit, formatted; `—` when unpriced. */
+  /** The model's cost in USD, formatted; `—` when unpriced. */
   costText: string;
   /** The same cost in USD, for ranking across sources. */
   usd: number | null;
@@ -125,8 +124,6 @@ export interface DashboardSummary {
   costRows: SourceCostRow[];
   /** Every source in USD; AI Credits at $0.01. */
   costTotal: CombinedCostTotal;
-  /** Every source in range is billed in AI Credits, so cost reads in them. */
-  inAiCredits: boolean;
   composition: TokenComposition;
   models: ModelRow[];
   cacheBySource: SourceCacheRow[];
@@ -176,7 +173,7 @@ export function buildDashboardSummary(payload: AnalyticsData, pricing: Pricing):
       if (sourceCapabilities(source).hasAic) {
         const aic = usageAiCredits(m, pricing.computeUsageBasedCost, pricing.computeWholesaleCost);
         if (aic != null) {
-          costText = formatAiCredits(aic);
+          costText = formatAiCreditsUsd(aic);
           usd = aic * AI_CREDIT_USD;
         }
       } else if (m.costUsd != null) {
@@ -228,7 +225,6 @@ export function buildDashboardSummary(payload: AnalyticsData, pricing: Pricing):
     credits,
     costRows,
     costTotal: combinedCostTotal(costRows),
-    inAiCredits: sources.length > 0 && sources.every((s) => sourceCapabilities(s).hasAic),
     composition: addCompositions(models.map((m) => m.composition)),
     models,
     cacheBySource,
@@ -236,17 +232,15 @@ export function buildDashboardSummary(payload: AnalyticsData, pricing: Pricing):
   };
 }
 
-/** Cost in the dashboard's unit: AI Credits when only they are in range. */
-export function formatDashboardCost(value: number, inAiCredits: boolean): string {
-  if (inAiCredits) return formatAiCredits(value);
+/** A dashboard cost in USD, compact once it reaches the hundreds. */
+export function formatDashboardCost(value: number): string {
   if (value >= 10_000) return `$${formatNumber(value)}`;
   if (value >= 100) return `$${Math.round(value).toLocaleString("en-US")}`;
   return formatCost(value);
 }
 
 /** Axis labels: whole units, compact past a thousand. */
-export function formatAxisCost(value: number, inAiCredits: boolean): string {
-  if (inAiCredits) return value >= 1_000 ? formatNumber(value) : `${Math.round(value * 10) / 10}`;
+export function formatAxisCost(value: number): string {
   if (value >= 1_000) return `$${formatNumber(value)}`;
   return value >= 10 || value === 0 ? `$${Math.round(value)}` : `$${value.toFixed(2)}`;
 }

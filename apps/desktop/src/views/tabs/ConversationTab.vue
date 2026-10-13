@@ -199,6 +199,12 @@ function retryLoadTurns() {
   store.loadTurns();
 }
 
+// Zero turns is only a fact once the load has finished; until then (or after
+// it fails) the counts are unknown rather than zero.
+const turnsKnown = computed(() => store.turns.length > 0 || store.loaded.has("turns"));
+const turnsPending = computed(() => !turnsKnown.value && !store.turnsError);
+const liveChat = computed(() => activeView.value === "chat" && liveCapable.value);
+
 // ── Conversation objective ──────────────────────────────────────────────
 // Latest recorded main-agent objective. Saved session metadata cannot establish
 // whether this objective is still running or has been completed.
@@ -241,9 +247,9 @@ function richEnabledFor(toolName: string): boolean {
 
     <!-- Mini stat row -->
     <div class="grid-3 mb-4">
-      <StatCard :value="store.turns.length" label="Turns" color="accent" mini />
-      <StatCard :value="totalToolCalls" label="Tool Calls" color="accent" mini />
-      <StatCard :value="formatRecordedDuration(totalDurationMs)" label="Turn Time" color="done" mini :tooltip="DURATION_HINTS.turnTime" />
+      <StatCard :value="turnsKnown ? store.turns.length : '—'" label="Turns" color="accent" mini />
+      <StatCard :value="turnsKnown ? totalToolCalls : '—'" label="Tool Calls" color="accent" mini />
+      <StatCard :value="turnsKnown ? formatRecordedDuration(totalDurationMs) : '—'" label="Turn Time" color="done" mini :tooltip="DURATION_HINTS.turnTime" />
     </div>
 
     <ObjectiveBanner
@@ -257,8 +263,11 @@ function richEnabledFor(toolName: string): boolean {
     <!-- View mode toggle -->
     <ConversationViewSwitcher v-model="activeView" />
 
+    <p v-if="turnsPending && !liveChat" role="status" class="text-sm text-[var(--text-tertiary)] mb-4">
+      Loading conversation…
+    </p>
     <EmptyState
-      v-if="store.turns.length === 0 && !store.turnsError && !(activeView === 'chat' && liveCapable)"
+      v-else-if="store.turns.length === 0 && !store.turnsError && !liveChat"
       description="No conversation turns found."
     />
 

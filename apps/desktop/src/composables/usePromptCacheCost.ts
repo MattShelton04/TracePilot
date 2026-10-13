@@ -10,7 +10,7 @@
  * charged at the window's recorded TTL tier.
  */
 import { type CacheWindow, type SessionSource, sourceCapabilities } from "@tracepilot/types";
-import { formatAiCredits } from "@tracepilot/ui";
+import { formatAiCreditsUsd } from "@tracepilot/ui";
 import { type MaybeRefOrGetter, toValue } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatUsd, sourceTokenUsd } from "@/utils/sourceCost";
@@ -101,7 +101,7 @@ export function usePromptCacheCost(source?: MaybeRefOrGetter<SessionSource | und
   }
 
   function formatMissCost(value: number): string {
-    return inUsd() ? formatUsd(value) : formatAiCredits(value);
+    return inUsd() ? formatUsd(value) : formatAiCreditsUsd(value);
   }
 
   return {

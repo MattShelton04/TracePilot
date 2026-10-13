@@ -3,7 +3,7 @@ import type { ConversationTurn, ShutdownMetrics } from "@tracepilot/types";
 import {
   Badge,
   DataTable,
-  formatAiCredits,
+  formatAiCreditsUsd,
   formatDuration,
   formatNumber,
   SectionPanel,
@@ -93,7 +93,7 @@ const detail = useMetricsTabData(selectedMetrics, usePreferencesStore(), true);
 const columns = (
   [
     { key: "name", label: "Agent" },
-    { key: "credits", label: "Recorded credits", align: "right" as const },
+    { key: "credits", label: "Recorded cost", align: "right" as const },
     { key: "share", label: "Session share", align: "right" as const },
     { key: "total", label: "Tokens", align: "right" as const },
     { key: "requests", label: "Requests", align: "right" as const },
@@ -143,7 +143,7 @@ const snapshotDate = computed(() =>
           <div class="text-xs text-[var(--text-tertiary)] max-w-64 truncate" :title="row.modelNames as string">{{ row.modelNames }}</div>
         </div>
       </template>
-      <template #cell-credits="{ value, row }">{{ formatAiCredits(value as number | null) }}<span v-if="row.partial && value != null" title="Includes known credits only"> (partial)</span></template>
+      <template #cell-credits="{ value, row }">{{ formatAiCreditsUsd(value as number | null) }}<span v-if="row.partial && value != null" title="Includes known costs only"> (partial)</span></template>
       <template #cell-share="{ value }">{{ value != null ? `${(value as number).toFixed(1)}%` : '—' }}</template>
       <template #cell-total="{ value }">{{ format(value) }}</template>
       <template #cell-requests="{ value }">{{ format(value) }}</template>
@@ -156,7 +156,7 @@ const snapshotDate = computed(() =>
       <button class="btn btn-secondary" :disabled="page + 1 >= pageCount" @click="page++">Next</button>
     </div>
     <p v-if="descendants" class="text-xs text-[var(--text-tertiary)] mt-3">Rows include descendants and overlap; do not add them together.</p>
-    <p v-if="coverage.attributed != null" class="text-xs text-[var(--text-secondary)] mt-4">Attributed credits: {{ formatAiCredits(coverage.attributed) }}{{ coverage.complete ? '' : ' (partial)' }}<span v-if="coverage.remainder != null"> · Not attributed to an agent: {{ formatAiCredits(coverage.remainder) }}</span></p>
+    <p v-if="coverage.attributed != null" class="text-xs text-[var(--text-secondary)] mt-4">Attributed cost: {{ formatAiCreditsUsd(coverage.attributed) }}{{ coverage.complete ? '' : ' (partial)' }}<span v-if="coverage.remainder != null"> · Not attributed to an agent: {{ formatAiCreditsUsd(coverage.remainder) }}</span></p>
     <p v-if="coverage.exceedsTotal" class="text-xs text-[var(--attention-fg)] mt-3">Agent credits exceed the recorded session total.</p>
   </SectionPanel>
   <SectionPanel v-if="selected" :title="`${selected.name} · Own usage`" class="mb-6" data-testid="agent-usage-detail">

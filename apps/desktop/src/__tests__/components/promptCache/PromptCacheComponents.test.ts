@@ -121,7 +121,7 @@ describe("CacheResumeDivider", () => {
     expect(detail.text()).toContain("gpt-5.6-luna · TTL 30m");
   });
 
-  it("prices a miss in the open session's unit", async () => {
+  it("prices a miss in USD for every source", async () => {
     const miss = makeWindow({
       outcome: "expired",
       model: "claude-opus-4-6",
@@ -146,8 +146,9 @@ describe("CacheResumeDivider", () => {
     });
     await copilot.get(".cache-divider__label").trigger("click");
     const detail = copilot.get('[data-testid="cache-resume-detail"]').text();
-    expect(detail).toContain("Est. extra cost");
-    expect(detail).not.toContain("$");
+    // Copilot misses are priced in AI Credits and shown at $0.01 each.
+    expect(detail).toMatch(/Est\. extra cost\s*\$\d/);
+    expect(detail).not.toContain("AIC");
   });
 
   it("uses a dashed, labelled style for estimates", () => {
@@ -383,8 +384,8 @@ describe("AnalyticsCachePanel", () => {
         ],
       },
     });
-    expect(wrapper.text()).toContain("Est. extra cost");
-    expect(wrapper.text()).toContain("2.3 AIC");
+    // 2.3 AI Credits at $0.01 each.
+    expect(wrapper.text()).toContain("Est. extra cost $0.02");
   });
 
   it("leaves out the AI Credits figure when a source in range is not billed in them", () => {

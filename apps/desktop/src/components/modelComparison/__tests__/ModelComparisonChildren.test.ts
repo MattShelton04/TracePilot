@@ -118,14 +118,17 @@ describe("ModelStatsGrid", () => {
 });
 
 describe("ModelLeaderboard", () => {
-  it("renders an AIC-first table without legacy cost toggles", () => {
+  it("renders a USD cost column without legacy cost toggles", () => {
     const ctx = makeCtxStub({
       modelRows: [makeRow()],
       displayRows: [makeRow()],
     });
     const wrapper = mount(hostFor(ModelLeaderboard, ctx));
     expect(wrapper.findAll("tbody tr").length).toBe(1);
-    expect(wrapper.text()).toContain("AI Credits");
+    const header = wrapper.get('button[aria-label="Sort by Cost"]');
+    expect(header.element.closest("th")?.getAttribute("title")).toContain("$0.01 each");
+    // 5 AI Credits at $0.01 each.
+    expect(wrapper.get(".matrix-cost-value").text()).toBe("$0.05");
     expect(wrapper.find(".cost-toggle").exists()).toBe(false);
   });
 
@@ -139,7 +142,7 @@ describe("ModelLeaderboard", () => {
     expect(ctx.toggleSort).toHaveBeenCalledWith("model");
   });
 
-  it("formats raw AI Credits with grouping separators", () => {
+  it("formats a large AI Credit cost in USD with grouping separators", () => {
     const largeCredits = 111_123_141.341;
     const ctx = makeCtxStub({
       modelRows: [makeRow({ aiCredits: largeCredits })],
@@ -148,7 +151,7 @@ describe("ModelLeaderboard", () => {
 
     const wrapper = mount(hostFor(ModelLeaderboard, ctx));
 
-    expect(wrapper.find(".matrix-cost-value").text()).toBe("111,123,141 AIC");
+    expect(wrapper.find(".matrix-cost-value").text()).toBe("$1,111,231.41");
   });
 
   it("shows every cost in USD when AI Credit and USD models are side by side", () => {
@@ -162,7 +165,7 @@ describe("ModelLeaderboard", () => {
     });
     const ctx = makeCtxStub({ modelRows: [copilot, claude], displayRows: [copilot, claude] });
     const wrapper = mount(hostFor(ModelLeaderboard, ctx));
-    const header = wrapper.get('button[aria-label="Sort by Cost (USD)"]');
+    const header = wrapper.get('button[aria-label="Sort by Cost"]');
     expect(header.element.closest("th")?.getAttribute("title")).toContain("$0.01 each");
     expect(wrapper.findAll(".matrix-cost-value").map((cell) => cell.text())).toEqual([
       "$3.00",
@@ -207,18 +210,18 @@ describe("ModelStatsGrid cost cards", () => {
       totalAiCredits: 300,
     });
     expect(labels(ctx).slice(2)).toEqual([
-      ["AI Credits", "300 AIC"],
-      ["Total Cost (USD)", "$4.50"],
+      ["Total Cost", "$4.50"],
+      ["Sessions with Observed Cost", 0],
     ]);
   });
 
-  it("keeps the Copilot-only cards", () => {
-    const ctx = makeCtxStub({ modelRows: [makeRow()] });
-    expect(labels(ctx).map(([label]) => label)).toEqual([
-      "Models Used",
-      "Total Tokens",
-      "AI Credits",
-      "Sessions with Observed AIC",
+  it("shows Copilot alone in USD, AI Credits at $0.01 each", () => {
+    const ctx = makeCtxStub({ modelRows: [makeRow()], totalAiCredits: 300 });
+    expect(labels(ctx)).toEqual([
+      ["Models Used", 0],
+      ["Total Tokens", "0"],
+      ["Total Cost", "$3.00"],
+      ["Sessions with Observed Cost", 0],
     ]);
   });
 });

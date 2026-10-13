@@ -85,7 +85,8 @@ fn snapshot_plus_tail_counts_only_new_main_and_launched_child_calls() {
     assert_usage(m, OPUS, [2220, 200, 2000, 24, 4]);
     assert_usage(m, HAIKU, [555, 50, 500, 6, 0]);
     assert!(m.model_metrics[HAIKU].requests.is_none());
-    assert_eq!(m.total_api_duration_ms, Some(1000));
+    // Covered 1000 ms + main tail 2000 ms + child tail 1000 ms (timestamps).
+    assert_eq!(m.total_api_duration_ms, Some(4000));
     assert_eq!(m.total_api_duration_without_retries_ms, Some(900));
     assert_eq!(m.total_tool_duration_ms, Some(800));
     assert_eq!(m.total_duration_ms, Some(2100)); // latest duplicate, not sum
@@ -589,4 +590,62 @@ fn orphan_descendants_never_use_child_file_lines_as_snapshot_anchors() {
     let m = load(&files).summary.shutdown_metrics.unwrap();
     assert_usage(&m, OPUS, [111, 10, 100, 2, 5]);
     assert_eq!(m.coverage.unwrap().tail_calls, 0);
+}
+
+/// A resumed run that edits after the last `cost-state` (still running, or
+/// killed before it wrote a new one) adds its patches and API time on top of
+/// the snapshot, like its tokens. Covered edits are not counted twice.
+#[test]
+fn edits_and_api_time_after_the_last_snapshot_add_to_its_totals() {
+    use tracepilot_test_support::claude::{Subagent, subagent_meta, tool_use};
+    let edit = |t: &mut Transcript, id: &str, lines: &[&str]| {
+        let path = format!("src/{id}.rs");
+        t.call(
+            id,
+            OPUS,
+            vec![tool_use(id, "Edit", json!({"file_path": path}))],
+            Usage::new(1, 0, 0, 1),
+            "tool_use",
+        );
+        t.tool_result(
+            id,
+            json!("Edited."),
+            json!({"filePath": path, "structuredPatch":
+                [{"oldStart":1,"oldLines":1,"newStart":1,"newLines":2,"lines":lines}]}),
+            false,
+        );
+    };
+    let mut t = Transcript::main();
+    t.prompt("Edit.");
+    edit(&mut t, "covered", &["-old", "+new", "+more", "+most"]);
+    t.cost_state(&[(OPUS, Usage::new(1, 0, 0, 1), 0.5)]); // +3 -1, 60,000 ms
+    t.prompt("Resume and edit again.");
+    edit(&mut t, "resumed", &[" keep", "-gone", "+here"]);
+    t.call(
+        "launch",
+        OPUS,
+        vec![tool_use("child", "Agent", json!({"prompt":"Edit too."}))],
+        Usage::new(1, 0, 0, 1),
+        "tool_use",
+    );
+    let mut child = Transcript::subagent("child", 3);
+    child.prompt("Edit too.");
+    edit(&mut child, "by_child", &["+added"]);
+    let files = write_session(
+        &t,
+        &[Subagent {
+            agent_id: "child",
+            transcript: &child,
+            meta: Some(subagent_meta("child", "general-purpose", 1)),
+        }],
+    );
+    let m = load(&files).summary.shutdown_metrics.unwrap();
+    assert_eq!(m.coverage.as_ref().unwrap().tail_calls, 3);
+    let code = m.code_changes.as_ref().unwrap();
+    // Snapshot 3/1, plus the resumed edit's 1/1 and the child's 1/0.
+    assert_eq!((code.lines_added, code.lines_removed), (Some(5), Some(2)));
+    // Snapshot 60 s plus each tail call's 1 s from request to response.
+    assert_eq!(m.total_api_duration_ms, Some(63_000));
+    // Wall-clock and tool time are not estimated for the tail.
+    assert_eq!(m.total_duration_ms, Some(120_000));
 }

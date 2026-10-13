@@ -6,6 +6,8 @@
  * empty strings or zero values as appropriate.
  */
 
+import { AI_CREDIT_USD } from "../pricing.js";
+
 /** Format milliseconds into a human-readable duration string. */
 export function formatDuration(ms?: number | null): string {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
@@ -116,6 +118,17 @@ export function formatAiCredits(credits?: number | null): string {
     minimumFractionDigits: 0,
     maximumFractionDigits,
   })} AIC`;
+}
+
+/**
+ * GitHub AI Credits at their USD value ($0.01 each), so Copilot cost reads in
+ * the same unit as every other source. A nonzero amount below half a cent
+ * never reads as $0.00.
+ */
+export function formatAiCreditsUsd(credits?: number | null): string {
+  if (credits == null || !Number.isFinite(credits)) return "—";
+  const usd = credits * AI_CREDIT_USD;
+  return usd > 0 && usd < 0.005 ? "< $0.01" : formatCost(usd);
 }
 
 /** Truncate a string to a max length, appending ellipsis. */

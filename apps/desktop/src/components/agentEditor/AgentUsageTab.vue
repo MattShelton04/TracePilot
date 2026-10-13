@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { calculateObservedAiCredits } from "@tracepilot/types";
 import {
-  formatAiCredits,
+  formatAiCreditsUsd,
   formatDuration,
   formatNumber,
   formatRelativeTime,
@@ -49,7 +49,7 @@ const kpis = computed(() => {
   const rate = failureRate(value);
   const credits =
     value.ownNanoAiu != null && value.runsWithCredits > 0
-      ? formatAiCredits(calculateObservedAiCredits(value.ownNanoAiu))
+      ? formatAiCreditsUsd(calculateObservedAiCredits(value.ownNanoAiu))
       : null;
   return [
     {
@@ -81,7 +81,7 @@ const kpis = computed(() => {
     },
     {
       key: "credits",
-      label: "Credits",
+      label: "Cost",
       value: credits ?? "—",
       note:
         value.runsWithCredits > 0

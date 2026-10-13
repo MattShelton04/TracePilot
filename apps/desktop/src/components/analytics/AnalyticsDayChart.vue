@@ -353,7 +353,8 @@ const readout = computed(() => {
       shownMode.value === "lines"
         ? lineBands.value
             .filter((_, j) => row.values[j] > 0)
-            .map((band) => ({ key: band.key, color: band.color, top: 100 - pct(band.tops[i]) }))
+            // `tops` are already in percent of the plot height.
+            .map((band) => ({ key: band.key, color: band.color, top: 100 - band.tops[i] }))
         : [],
   };
 });
@@ -665,7 +666,8 @@ const readout = computed(() => {
   position: absolute;
   width: 8px;
   height: 8px;
-  margin: -4px 0 0 -4px;
+  /* Centre the 12px box (8px + 2px border each side) on the point. */
+  margin: -6px 0 0 -6px;
   border-radius: 50%;
   border: 2px solid var(--canvas-subtle);
   box-sizing: content-box;

@@ -13,7 +13,7 @@ import { calculateObservedAiCredits, formatNumber, formatTime } from "@tracepilo
 import {
   Badge,
   ExpandChevron,
-  formatAiCredits,
+  formatAiCreditsUsd,
   SectionPanel,
   StatCard,
   Tooltip,
@@ -137,7 +137,7 @@ function detailRows(window: CacheWindow) {
   if (window.interactionNanoAiu != null) {
     rows.push({
       label: "Next interaction",
-      value: formatAiCredits(calculateObservedAiCredits(window.interactionNanoAiu)),
+      value: formatAiCreditsUsd(calculateObservedAiCredits(window.interactionNanoAiu)),
     });
   }
   return rows;

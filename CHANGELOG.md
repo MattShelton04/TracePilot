@@ -10,10 +10,12 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Changed
 
 - **New data folder** — New installs keep TracePilot's data in `~/.tracepilot`. Existing installs keep using `~/.copilot/tracepilot`, and nothing is moved.
+- **Costs in dollars everywhere** — Copilot costs show in USD (AI Credits at $0.01 each) like Claude Code, with AI Credits kept as secondary detail.
 
 ### Fixed
 
 - **Setup without Copilot CLI** — First-run setup no longer stops at the Copilot step when Copilot CLI isn't installed, so Claude Code users can finish it.
+- **Line chart hover** — The Analytics Activity chart's hover dot sits on the line again, and partly priced model costs stay aligned.
 
 ## [0.9.2] - 2026-10-11
 

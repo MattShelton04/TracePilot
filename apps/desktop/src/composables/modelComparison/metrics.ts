@@ -9,7 +9,7 @@
 import {
   AI_CREDIT_USD,
   calculateObservedAiCredits,
-  formatAiCredits,
+  formatAiCreditsUsd,
   formatNumber as formatCompactNumber,
   formatCost,
   formatNumber,
@@ -220,33 +220,20 @@ export function crossSourcePair(rows: readonly ModelRow[]): [string, string] | n
   return null;
 }
 
-/** The cost a row is priced in, in that row's own unit. */
+/** A row's cost in USD; API-equivalent estimates say so. */
 export function formatRowCost(row: ModelRow): string {
-  if (row.billedInAiCredits) return formatAiCredits(row.aiCredits);
+  if (row.billedInAiCredits) return formatAiCreditsUsd(row.aiCredits);
   return row.costUsd == null ? "—" : `${formatCost(row.costUsd)} est.`;
 }
 
-/** A row's cost for the narrow matrix column: the header says it is an estimate. */
-export function formatRowCostShort(row: ModelRow): string {
-  if (row.billedInAiCredits) return formatAiCredits(row.aiCredits);
-  return row.costUsd == null ? "—" : formatCost(row.costUsd);
-}
-
 /**
- * A row's cost-column value in the active normalisation mode: in USD when
- * the table mixes units, otherwise in the row's own unit. AI Credits say
- * "AIC", USD "$", shares "%".
+ * A row's cost-column value in USD (AI Credits at $0.01 each) in the active
+ * normalisation mode: dollars, or a share in percent.
  */
-export function formatRowCostNorm(row: ModelRow, mode: NormMode, inUsd = false): string {
-  if (inUsd) {
-    if (mode !== "raw" || row.usdEquivalent == null)
-      return formatNorm(row.usdEquivalent, true, mode);
-    return formatCost(row.usdEquivalent);
-  }
-  if (mode === "raw") return formatRowCostShort(row);
-  const value = row.billedInAiCredits ? row.aiCredits : row.costUsd;
-  if (mode === "per-10m-tokens" && row.billedInAiCredits) return formatAiCredits(value);
-  return formatNorm(value, !row.billedInAiCredits, mode);
+export function formatRowCostNorm(row: ModelRow, mode: NormMode): string {
+  if (mode !== "raw") return formatNorm(row.usdEquivalent, true, mode);
+  if (row.billedInAiCredits) return formatAiCreditsUsd(row.aiCredits);
+  return row.usdEquivalent == null ? "—" : formatCost(row.usdEquivalent);
 }
 
 /**
@@ -441,28 +428,16 @@ function premiumMetric(
   };
 }
 
-/**
- * Cost in the pair's shared unit. A cross-source pair (AI Credits against
- * USD) compares in USD, AI Credits at $0.01 each.
- */
+/** Cost in USD, AI Credits at $0.01 each, so any pair compares directly. */
 function costMetric(
   a: ModelRow,
   b: ModelRow,
   fmtNorm: (value: number | null, isCost?: boolean) => string,
 ): CompareMetric {
-  if (a.billedInAiCredits && b.billedInAiCredits) {
-    return {
-      label: "AI Credits",
-      valueA: formatAiCredits(a.aiCredits),
-      valueB: formatAiCredits(b.aiCredits),
-      ...formatModelDelta(a.aiCredits ?? 0, b.aiCredits ?? 0, false),
-    };
-  }
-  const sameUnit = !a.billedInAiCredits && !b.billedInAiCredits;
-  const va = sameUnit ? a.costUsd : a.usdEquivalent;
-  const vb = sameUnit ? b.costUsd : b.usdEquivalent;
+  const va = a.usdEquivalent;
+  const vb = b.usdEquivalent;
   return {
-    label: sameUnit ? "Estimated Cost" : "Cost (USD)",
+    label: !a.billedInAiCredits && !b.billedInAiCredits ? "Estimated Cost" : "Cost",
     valueA: fmtNorm(va, true),
     valueB: fmtNorm(vb, true),
     ...(va == null || vb == null

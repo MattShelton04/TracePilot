@@ -51,7 +51,7 @@ describe("AnalyticsAgentsPanel", () => {
     expect(agentsUsageSummary).toHaveBeenCalledWith(
       expect.objectContaining({ fromDate: "2026-09-01", repo: undefined, source: undefined }),
     );
-    // Runs, failed share, deepest nesting and own credits, as in Skills' header.
+    // Runs, failed share, deepest nesting and own cost, as in Skills' header.
     expect(wrapper.findAll(".agents-panel__value").map((el) => el.text())).toEqual([
       "100",
       "10%",
@@ -100,7 +100,8 @@ describe("AnalyticsAgentsPanel", () => {
     const wrapper = mount(AnalyticsAgentsPanel);
     await flushPromises();
     expect(wrapper.text()).toContain("25 of 100 runs");
-    expect(wrapper.findAll(".agents-panel__value")[3].text()).not.toBe("—");
+    // One AI Credit of own usage, at $0.01 each.
+    expect(wrapper.findAll(".agents-panel__value")[3].text()).toBe("$0.01");
   });
 
   it.each([
