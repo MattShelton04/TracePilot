@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   formatAiCredits,
+  formatAiCreditsUsd,
   formatCost,
   formatNumber,
   formatPercent,
@@ -14,7 +15,7 @@ import { useModelComparisonContext } from "@/composables/useModelComparison";
 
 const ctx = useModelComparisonContext();
 
-/** False only when every model is priced in USD (one non-AIC source). */
+/** False only when no model is billed in AI Credits (e.g. only Claude Code). */
 const showAiCredits = computed(
   () => ctx.modelRows.length === 0 || ctx.usdRows.length < ctx.modelRows.length,
 );
@@ -41,17 +42,18 @@ const visibleCards = computed(() =>
     <StatCard :value="ctx.modelCount" label="Models Used" />
     <StatCard :value="formatNumber(ctx.totalTokens)" label="Total Tokens" color="done" />
     <StatCard
-      v-if="showAiCredits"
-      :value="formatAiCredits(ctx.totalAiCredits)"
-      label="AI Credits"
-      color="success"
-    />
-    <StatCard
       v-if="ctx.mixedUnits"
       :value="ctx.totalUsd == null ? '—' : formatCost(ctx.totalUsd)"
-      label="Total Cost (USD)"
+      label="Total Cost"
       color="success"
       tooltip="Every model in USD: AI Credits at $0.01 each, other sources at API-equivalent rates."
+    />
+    <StatCard
+      v-else-if="showAiCredits"
+      :value="formatAiCreditsUsd(ctx.totalAiCredits)"
+      label="Total Cost"
+      color="success"
+      :tooltip="ctx.totalAiCredits == null ? undefined : `${formatAiCredits(ctx.totalAiCredits)} at $0.01 each.`"
     />
     <StatCard
       v-else-if="ctx.usdSource"
@@ -67,10 +69,11 @@ const visibleCards = computed(() =>
       color="done"
     />
     <StatCard
-      v-else-if="!ctx.mixedUnits"
+      v-else
       :value="ctx.data?.sessionsWithObservedAiCredits ?? 0"
-      label="Sessions with Observed AIC"
+      label="Sessions with Observed Cost"
       color="done"
+      tooltip="Copilot sessions with recorded AI Credit billing."
     />
   </div>
 
@@ -88,7 +91,7 @@ const visibleCards = computed(() =>
           <div class="model-card-stat-value">{{ formatNumber(row.tokens) }}</div>
         </div>
         <div>
-          <div class="model-card-stat-label">{{ row.billedInAiCredits ? 'AI Credits' : 'Est. Cost' }}</div>
+          <div class="model-card-stat-label">{{ row.billedInAiCredits ? 'Cost' : 'Est. Cost' }}</div>
           <div class="model-card-stat-value">{{ formatRowCost(row) }}</div>
         </div>
         <div>
@@ -96,7 +99,7 @@ const visibleCards = computed(() =>
           <div class="model-card-stat-value">{{ formatPercent(row.cacheHitRate) }}</div>
         </div>
         <div>
-          <div class="model-card-stat-label">{{ row.billedInAiCredits ? 'AIC Source' : 'Cost Source' }}</div>
+          <div class="model-card-stat-label">Cost Source</div>
           <div class="model-card-stat-value">{{ rowCostSource(row) }}</div>
         </div>
       </div>

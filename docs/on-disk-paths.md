@@ -8,7 +8,7 @@ TracePilot reads data owned by the GitHub Copilot CLI and writes its own local s
 | --- | --- | --- |
 | Rust path shapes | `crates/tracepilot-core/src/paths.rs` | Shared constants and resolvers for Copilot-owned paths, TracePilot-owned paths, and repo-scoped skill roots. |
 | Rust command names | `crates/tracepilot-core/src/constants.rs` | Default executable names for `copilot`, `git`, and `gh`, plus model/process constants. |
-| User-configured runtime paths | `~/.copilot/tracepilot/config.toml` via `TracePilotConfig.paths` | Persists `copilotHome`, `tracepilotHome`, plus derived compatibility fields `sessionStateDir` and `indexDbPath`. |
+| User-configured runtime paths | `config.toml` in the [TracePilot root](#tracepilot-root) via `TracePilotConfig.paths` | Persists `copilotHome`, `tracepilotHome`, plus derived compatibility fields `sessionStateDir` and `indexDbPath`. |
 | TypeScript UI placeholders | `packages/types/src/paths.ts` | Non-authoritative placeholders and common command names used only by UI copy/dev-mode fallbacks. |
 | Frontend persisted config | `packages/types/src/defaults.ts` + backend `get_config` | TS defaults deliberately leave absolute paths empty; backend resolves absolute paths. |
 
@@ -16,7 +16,7 @@ TracePilot reads data owned by the GitHub Copilot CLI and writes its own local s
 
 | Path | Owner | Contents | Current references | Configuration and migration recommendation |
 | --- | --- | --- | --- | --- |
-| `~/.copilot/` | Copilot CLI | CLI home containing settings, versions, MCP config, skills, session state, and TracePilot's default colocated app data. | `TracePilotConfig.paths.copilotHome`, config injector, MCP, skills, version manager. | Default path shape comes from `CopilotPaths`; users may override TracePilot's Copilot-home view in Settings. Do not move or copy contents automatically because Copilot owns this tree. |
+| `~/.copilot/` | Copilot CLI | CLI home containing settings, versions, MCP config, skills and session state. Installs from before `~/.tracepilot` also keep TracePilot's data here. | `TracePilotConfig.paths.copilotHome`, config injector, MCP, skills, version manager. | Default path shape comes from `CopilotPaths`; users may override TracePilot's Copilot-home view in Settings. Do not move or copy contents automatically because Copilot owns this tree. |
 | `~/.copilot/session-state/` | Copilot CLI | One subdirectory per session UUID. | `TracePilotConfig::session_state_dir`, session discovery/indexing/export/import commands. | Derived from `copilotHome` as `{copilotHome}/session-state` for new/UI-driven config; legacy custom `sessionStateDir` values are preserved for compatibility. Do not move data automatically because Copilot owns it; re-scan the active root and show the resulting session count. |
 | `~/.copilot/session-state/<uuid>/workspace.yaml` | Copilot CLI | Workspace metadata for a session. | `tracepilot-core` discovery/summary parsers and docs. | Treat as read-only session file; file name remains centralized conceptually under session parsing. |
 | `~/.copilot/session-state/<uuid>/events.jsonl` | Copilot CLI | Event stream used for conversations, telemetry, tool calls, alerts, indexing, and a running session's Busy/Waiting status (read from the tail while the session holds its lock). | `tracepilot-core` parsers, indexer, alert watcher, tests. | Read-only; no relocation independent of the session root. |
@@ -38,17 +38,38 @@ TracePilot reads data owned by the GitHub Copilot CLI and writes its own local s
 | `~/.agents/skills/` | Copilot CLI / user | The CLI's second personal skills root, listed alongside `~/.copilot/skills/` in `copilot skill --help`. | `skills::discovery::personal_skill_dirs`. | Existing skills are editable and use personal enablement settings; new skills are still created under `<COPILOT_HOME>/skills/`. |
 | `<dist>/builtin-skills/`, `<dist>/builtin/` | Copilot CLI | Built-in `SKILL.md` directories shipped with the CLI. `builtin-skills/` is the current spelling; `builtin/` is the older one and both appear in recent packages. | `skills::discovery::discover_builtin_skills` via `cli_install::DistRoot::builtin_skills_dir`. | Read-only. The newest-versioned copy of each name wins. |
 | `<dist>/definitions/` | Copilot CLI | Built-in `*.agent.yaml` definitions. | `agents::discovery`, `config_injector::read_agent_definitions`. | Read-only unless the `configInjector` flag is on. Exactly one distribution root contributes, so two installations cannot list every built-in agent twice. |
-| `~/.copilot/tracepilot/` | TracePilot | App-owned local state colocated under Copilot home by default. | `TracePilotConfig.paths.tracepilotHome`, templates, repo registry, backups, docs. | Path shape comes from `TracePilotPaths`. Users can change this app data directory in setup or Settings; TracePilot copies known app-owned files/directories into the new root and preserves the old root. |
-| `~/.copilot/tracepilot/config.toml` | TracePilot | Main persisted app config and path overrides. | `tracepilot-tauri-bindings/src/config/mod.rs`. | Bootstrap location intentionally stays at the default TracePilot config path so the app can find overrides before reading them. Runtime data can move via `tracepilotHome`; the config file itself is not relocated. |
-| `~/.copilot/tracepilot/index.db` | TracePilot | Search/index SQLite DB derived from sessions. | `tracepilot-indexer`, `TracePilotConfig.paths.indexDbPath`, setup wizard. | Derived from `tracepilotHome` as `{tracepilotHome}/index.db`; users choose the directory, not this file path. `indexDbPath` remains serialized for compatibility and is normalized on save/load. |
-| `~/.copilot/tracepilot/index.db-wal`, `index.db-shm` | TracePilot / SQLite | SQLite WAL/SHM sidecars. | `remove_index_db_files`, SQLite runtime. | Treat as part of `index.db` for deletion/copy/backup. Never configure separately. |
-| `~/.copilot/tracepilot/backups/database/` | TracePilot | Pre-migration DB backups. | Index DB migration code. | Path shape comes from `TracePilotPaths::database_backups_dir` relative to each DB parent. Keep with the DB being migrated. |
-| `~/.copilot/tracepilot/backups/agents/` | TracePilot | Agent/config backups with metadata sidecars. | `config_injector::backup_dir`, config-injector UI, `agents::write`. | Path shape comes from `TracePilotPaths::agent_backups_dir`. If app data root changes, copy recursively. |
-| `~/.copilot/tracepilot/templates/` | TracePilot | Session launcher templates and dismissed-default marker. | Config-aware Tauri template commands plus `templates.rs` fallback helpers. | Derived from `tracepilotHome`; copied recursively on app data root change. |
-| `~/.copilot/tracepilot/repo-registry.json` | TracePilot | Known repository registry. | Config-aware Tauri registry commands plus `repo_registry.rs` fallback helpers. | Derived from `tracepilotHome`; copied on app data root change and written atomically. |
+| `~/.tracepilot/` | TracePilot | App-owned local state. The default for new installs; existing installs keep the legacy `<COPILOT_HOME or ~/.copilot>/tracepilot` ([TracePilot root](#tracepilot-root)). | `TracePilotConfig.paths.tracepilotHome`, templates, repo registry, backups, docs. | Path shape comes from `TracePilotPaths`. Users can change this app data directory in setup or Settings; TracePilot copies known app-owned files/directories into the new root and preserves the old root. |
+| `~/.tracepilot/config.toml` | TracePilot | Main persisted app config and path overrides. | `tracepilot-tauri-bindings/src/config/mod.rs`. | Bootstrap anchor: always read from and written to the [TracePilot root](#tracepilot-root), whatever `tracepilotHome` says, so the app can find overrides before reading them. Runtime data can move via `tracepilotHome`; the config file itself is not relocated. `config.toml.bak` beside it is the last-known-good copy. |
+| `~/.tracepilot/index.db` | TracePilot | Search/index SQLite DB derived from sessions. | `tracepilot-indexer`, `TracePilotConfig.paths.indexDbPath`, setup wizard. | Derived from `tracepilotHome` as `{tracepilotHome}/index.db`; users choose the directory, not this file path. `indexDbPath` remains serialized for compatibility and is normalized on save/load. |
+| `~/.tracepilot/index.db-wal`, `index.db-shm` | TracePilot / SQLite | SQLite WAL/SHM sidecars. | `remove_index_db_files`, SQLite runtime. | Treat as part of `index.db` for deletion/copy/backup. Never configure separately. |
+| `~/.tracepilot/backups/database/` | TracePilot | Pre-migration DB backups. | Index DB migration code. | Path shape comes from `TracePilotPaths::database_backups_dir` relative to each DB parent. Keep with the DB being migrated. |
+| `~/.tracepilot/backups/agents/` | TracePilot | Agent/config backups with metadata sidecars. | Config-aware Tauri backup commands, config-injector UI, `agents::write`. | Path shape comes from `TracePilotPaths::agent_backups_dir` under `tracepilotHome`. If app data root changes, copy recursively. |
+| `~/.tracepilot/templates/` | TracePilot | Session launcher templates and dismissed-default marker. | Config-aware Tauri template commands (`templates::*_in`). | Derived from `tracepilotHome`; copied recursively on app data root change. |
+| `~/.tracepilot/repo-registry.json` | TracePilot | Known repository registry. | Config-aware Tauri registry commands (`repo_registry::*_in`). | Derived from `tracepilotHome`; copied on app data root change and written atomically. |
 | User repository/worktree paths | User/git | Source repositories and generated git worktrees. | Session launcher, worktree commands, repo registry, file browser. | User-provided paths must remain explicit, canonicalized, and not derived from app data roots. Never move without explicit user action. |
 | OS temp directories | OS/test tooling | Profiling/test session fixtures and temporary files. | Tests/profiling helpers. | Test-only or OS-managed; do not centralize into product config. |
 | Build outputs: `dist/`, `target/`, `.tauri/`, generated clients | Build tooling | Build artifacts. | package scripts, workflows, Biome excludes. | Build/test-only; centralize through package scripts/workflows, not runtime path registry. |
+
+## TracePilot root
+
+The TracePilot root holds `config.toml` and is the default data folder offered for a
+new config. `tracepilot_core::paths::resolve_tracepilot_root` picks it on every call
+(nothing is cached, so a factory reset followed by setup in one run lands in the new
+folder):
+
+1. Under `TRACEPILOT_DATA_ROOT` isolation: `<data root>/tracepilot`, unchanged.
+2. `~/.tracepilot`, if it contains `config.toml` or `config.toml.bak`.
+3. Otherwise the legacy `<COPILOT_HOME or ~/.copilot>/tracepilot`, if it contains
+   either. This is an existing install; it keeps that folder for its config and as
+   its default data folder.
+4. Otherwise (a fresh install, or after a factory reset): `~/.tracepilot`.
+
+TracePilot never moves, copies or deletes anything in the legacy folder on its own.
+A legacy config saved without `tracepilotHome` still falls back to
+`<copilotHome>/tracepilot` when normalized. Factory reset deletes only the config and
+the index, so a legacy install's templates, backups and repo registry stay in the
+legacy folder and are not carried into `~/.tracepilot`. After a fresh install, an
+older TracePilot that only knows the legacy folder will run setup again.
 
 ## Claude Code (experimental)
 
@@ -134,7 +155,7 @@ match, `cli_install::executable_dist_dirs` follows the `copilot` executable on
 
 | Variable | Effect on TracePilot |
 | --- | --- |
-| `COPILOT_HOME` | Replaces `~/.copilot` as the CLI home when TracePilot has no configured `copilotHome`, so personal skills, agents, settings and session state follow it. |
+| `COPILOT_HOME` | Replaces `~/.copilot` as the CLI home when TracePilot has no configured `copilotHome`, so personal skills, agents, settings and session state follow it. For TracePilot's own folder it only locates a legacy install (`<COPILOT_HOME>/tracepilot`); new installs use `~/.tracepilot` regardless. |
 | `COPILOT_SKILLS_DIRS` | `PATH`-separated extra personal skill roots, scanned alongside `<COPILOT_HOME>/skills`. |
 | `COPILOT_CLI_DIST_DIR` | Names the distribution root directly. |
 | `COPILOT_PKG_CACHE_HOME`, `COPILOT_CACHE_HOME` | Additional self-extractor cache roots; each contains `pkg/<target>/<version>/`. |
@@ -184,7 +205,8 @@ TracePilot cannot find keeps everything else:
 | Changed path | Ownership | Behavior |
 | --- | --- | --- |
 | `sessionStateDir` | Copilot CLI | Derived from `copilotHome` for new/UI-driven configs, with legacy custom values preserved. Do not move contents. Validate/re-scan after the active session root changes. Existing index rows become stale until reindex; reindex should reconcile the new source. |
-| `tracepilotHome` | TracePilot | Copy known app-owned files (`index.db`, sidecars, repo registry) and directories (backups, templates) into the new root if absent. Preserve old data by default; cleanup should be an explicit future action with confirmation. Surface errors if copy fails. |
+| `tracepilotHome` | TracePilot | Copy known app-owned files (`index.db`, sidecars, repo registry) and directories (backups, templates) into the new root if absent. Preserve old data by default; cleanup should be an explicit future action with confirmation. Surface errors if copy fails. `config.toml` stays in the [TracePilot root](#tracepilot-root). |
+| TracePilot root default | TracePilot | New installs use `~/.tracepilot`; installs with a config in `<COPILOT_HOME or ~/.copilot>/tracepilot` keep it. Nothing is migrated automatically. |
 | `indexDbPath` | TracePilot | Derived compatibility field only. Normalize to `{tracepilotHome}/index.db` on load/save. |
 | `copilotHome` | Copilot CLI | Update where TracePilot reads/writes Copilot settings, MCP config, versions, and global skills. Do not move or copy Copilot-owned data automatically. |
 | Repo/worktree paths | User/git | Never move automatically. Worktree creation/removal remains explicit through git worktree operations. |
@@ -193,7 +215,7 @@ TracePilot cannot find keeps everything else:
 
 | Area | Tests |
 | --- | --- |
-| Rust path registry | Unit tests in `tracepilot-core::paths` verifying derived path shapes. |
+| Rust path registry | Unit tests in `tracepilot-core::paths` verifying derived path shapes, plus `paths::tracepilot_root` cases for fresh, legacy, both, a moved `COPILOT_HOME` and isolation. Config tests in `config::location_tests` use an injected home, never the real one. |
 | Config defaults | `tracepilot-tauri-bindings::config` tests verify default homes, derived `indexDbPath`, and migration from legacy custom DB files into `tracepilotHome`. |
 | Runtime callers | Targeted Rust tests for config, session discovery, indexer migrations, MCP config path, and template directories. |
 | TypeScript placeholders | `packages/types` tests should verify placeholder constants and `createDefaultConfig` behavior. |
@@ -202,4 +224,4 @@ TracePilot cannot find keeps everything else:
 
 ## Implementation status
 
-This document reflects the current implementation: Rust default/derived product paths are centralized in `tracepilot_core::paths`, common Rust command names are constants, frontend user-facing placeholders are centralized in `packages/types/src/paths.ts`, and runtime overrides are persisted in `TracePilotConfig.paths` inside the default `~/.copilot/tracepilot/config.toml` bootstrap file. Frontend placeholder definitions are non-authoritative; production values from backend `get_config` override them.
+This document reflects the current implementation: Rust default/derived product paths are centralized in `tracepilot_core::paths`, common Rust command names are constants, frontend user-facing placeholders are centralized in `packages/types/src/paths.ts`, and runtime overrides are persisted in `TracePilotConfig.paths` inside the `config.toml` bootstrap file in the [TracePilot root](#tracepilot-root) (`~/.tracepilot` for new installs, `~/.copilot/tracepilot` for existing ones). Frontend placeholder definitions are non-authoritative; production values from backend `get_config` override them.

@@ -231,6 +231,53 @@ async fn reset_rejects_a_queued_preference_patch_and_allows_fresh_setup() {
 }
 
 #[tokio::test]
+async fn reset_of_a_legacy_install_moves_the_next_setup_to_the_new_folder() {
+    use tracepilot_core::paths::{CopilotPaths, resolve_tracepilot_root};
+    // A temporary home stands in for the user's; the real one is never read.
+    let home = tempfile::tempdir().unwrap();
+    let legacy_copilot = home.path().join(".copilot");
+    let resolve =
+        || resolve_tracepilot_root(Some(home.path()), Some(&legacy_copilot), Path::exists).unwrap();
+    let copilot = CopilotPaths::from_user_home(home.path());
+    let legacy = copilot.tracepilot();
+    let initial = TracePilotConfig::with_roots(&copilot, &legacy);
+    initial.save_to(&legacy.config_toml()).unwrap();
+    initial.save_to(&legacy.config_toml()).unwrap();
+    let template = legacy.templates_dir().join("kept.json");
+    std::fs::create_dir_all(legacy.templates_dir()).unwrap();
+    std::fs::write(&template, "{}").unwrap();
+    assert_eq!(resolve(), legacy);
+
+    let state = Arc::new(RwLock::new(Some(initial)));
+    let gates = Arc::new(IndexingSemaphores::new());
+    let coordinator = ConfigCoordinator::default();
+    factory_reset_at(&state, &gates, &coordinator, Some(resolve().config_toml()))
+        .await
+        .unwrap();
+    assert!(!legacy.config_toml().exists());
+    assert!(!legacy.config_toml_backup().exists());
+    assert!(template.exists(), "reset leaves other legacy data alone");
+
+    // Setup in the same run defaults to, and saves in, the new folder.
+    let fresh = resolve();
+    assert_eq!(fresh.root(), home.path().join(".tracepilot"));
+    let setup_path = fresh.config_toml();
+    mutate_config(
+        &state,
+        gates,
+        &coordinator,
+        ConfigMutation::Replace(TracePilotConfig::with_roots(&copilot, &fresh)),
+        move |config| config.save_at(&setup_path),
+    )
+    .await
+    .unwrap();
+    let saved = TracePilotConfig::load_from(&fresh.config_toml()).unwrap();
+    assert_eq!(saved.tracepilot_home(), fresh.root());
+    assert!(!legacy.config_toml().exists());
+    assert_eq!(resolve(), fresh);
+}
+
+#[tokio::test]
 async fn changing_session_source_excludes_indexers_without_blocking_capture_writers() {
     use std::future::Future;
     use std::task::Poll;

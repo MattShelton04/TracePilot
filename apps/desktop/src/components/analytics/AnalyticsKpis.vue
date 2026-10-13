@@ -2,12 +2,13 @@
 /**
  * The dashboard's five headline numbers, each with the context that makes it
  * readable: sessions (runs and active days), tokens (what they were), cost
- * (in its source's unit, or every source in USD), model time (median and
+ * (in USD, AI Credits at $0.01 each), model time (median and
  * p95) and errors (rate limits and sessions hit).
  */
 import { type AnalyticsData, sourceLabel } from "@tracepilot/types";
 import {
   formatAiCredits,
+  formatAiCreditsUsd,
   formatCost,
   formatDuration,
   formatNumber,
@@ -65,7 +66,6 @@ const tokens = computed(() => {
 interface CostKpi {
   label: string;
   value: string;
-  unit?: string;
   note: string;
   partial: boolean;
   tooltip: string;
@@ -73,8 +73,8 @@ interface CostKpi {
 }
 
 /**
- * Copilot alone reads in AI Credits; Claude Code alone in its API-equivalent
- * estimate; together, every source adds up in USD with AI Credits at $0.01.
+ * Cost always reads in USD: Copilot's AI Credits at $0.01 each, Claude Code's
+ * API-equivalent estimate, and the two added together when both are in range.
  */
 const cost = computed<CostKpi>(() => {
   const { summary, data } = props;
@@ -89,20 +89,18 @@ const cost = computed<CostKpi>(() => {
       meter: [],
     };
   }
-  if (summary.inAiCredits) {
+  if (rows.length === 1 && rows[0].unit === "aic") {
     const credits = summary.credits;
     const copilot = rows[0];
-    const value = formatAiCredits(credits.credits);
     return {
-      label: "AI Credits",
-      value: value.replace(/ AIC$/, ""),
-      unit: credits.credits == null ? undefined : "AIC",
+      label: "Cost",
+      value: formatAiCreditsUsd(credits.credits),
       note:
-        credits.usdEquivalent == null
+        credits.credits == null
           ? "No compatible pricing"
-          : `≈ ${formatCost(credits.usdEquivalent)} · ${formatNumberFull(data.sessionsWithObservedAiCredits ?? 0)} of ${formatNumberFull(copilot.sessions)} observed`,
+          : `${formatNumberFull(data.sessionsWithObservedAiCredits ?? 0)} of ${formatNumberFull(copilot.sessions)} observed`,
       partial: credits.isPartial,
-      tooltip: aiCreditBasis(credits),
+      tooltip: `${aiCreditBasis(credits)}${credits.credits == null ? "" : ` ${formatAiCredits(credits.credits)} at $0.01 each.`}`,
       meter: [],
     };
   }
@@ -200,7 +198,7 @@ const pace = computed(() => {
       </template>
     </KPI>
 
-    <KPI :label="cost.label" :value="cost.value" :unit="cost.unit" :description="cost.tooltip || undefined">
+    <KPI :label="cost.label" :value="cost.value" :description="cost.tooltip || undefined">
       <template #icon><Coins :size="13" /></template>
       <template #footer>
         <div v-if="cost.meter.length" class="ad-meter" aria-hidden="true">

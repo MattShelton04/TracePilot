@@ -4,6 +4,7 @@ import {
   discoverCopilotVersions,
   getActiveCopilotVersion,
   getAgentDefinitions,
+  getConfig,
   getCopilotConfig,
   getMigrationDiffs,
   listConfigBackups,
@@ -37,6 +38,8 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   const versions = ref<CopilotVersion[]>([]);
   const activeVersion = ref<CopilotVersion | null>(null);
   const backups = ref<BackupEntry[]>([]);
+  /** The configured TracePilot data folder, which holds the backups. */
+  const dataFolder = ref<string | null>(null);
   const migrationDiffs = ref<MigrationDiff[]>([]);
   const selectedAgent = ref<AgentDefinition | null>(null);
   const editingYaml = ref("");
@@ -77,8 +80,9 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
           versions: discoverCopilotVersions(),
           active: getActiveCopilotVersion(),
           backups: listConfigBackups(),
+          appConfig: getConfig(),
         }),
-      onSuccess: (settled) => {
+      onSuccess: ({ appConfig, ...settled }) => {
         if (settled.agents.status === "fulfilled") agents.value = settled.agents.value;
         if (settled.config.status === "fulfilled") {
           copilotConfig.value = settled.config.value;
@@ -87,6 +91,10 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
         if (settled.versions.status === "fulfilled") versions.value = settled.versions.value;
         if (settled.active.status === "fulfilled") activeVersion.value = settled.active.value;
         if (settled.backups.status === "fulfilled") backups.value = settled.backups.value;
+        // Only labels where backups live, so a failed read is not an error.
+        if (appConfig.status === "fulfilled") {
+          dataFolder.value = appConfig.value.paths.tracepilotHome.trim() || null;
+        }
 
         error.value = aggregateSettledErrors(Object.values(settled));
       },
@@ -223,6 +231,7 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
     versions,
     activeVersion,
     backups,
+    dataFolder,
     migrationDiffs,
     selectedAgent,
     editingYaml,

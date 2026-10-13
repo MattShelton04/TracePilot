@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 pub mod cli_install;
 mod isolation;
+mod tracepilot_root;
 
 pub use cli_install::{
     COPILOT_CLI_DIST_DIR_ENV, COPILOT_HOME_ENV, COPILOT_SKILLS_DIRS_ENV, DistRoot, DistSource,
@@ -16,9 +17,13 @@ pub use isolation::{
     DataRootError, ISOLATED_LOGS_DIR_NAME, TRACEPILOT_DATA_ROOT_ENV, isolated_data_root,
     isolated_log_dir, path_is_allowed_by_isolation, path_is_within_data_root, validate_data_root,
 };
+pub use tracepilot_root::resolve_tracepilot_root;
 
 pub const COPILOT_DIR_NAME: &str = ".copilot";
+/// TracePilot's folder under a Copilot home or an isolation root.
 pub const TRACEPILOT_DIR_NAME: &str = "tracepilot";
+/// TracePilot's folder under the user home, the default for new installs.
+pub const TRACEPILOT_HOME_DIR_NAME: &str = ".tracepilot";
 pub const SESSION_STATE_DIR_NAME: &str = "session-state";
 pub const SKILLS_DIR_NAME: &str = "skills";
 pub const AGENTS_DIR_NAME: &str = "agents";
@@ -31,6 +36,7 @@ pub const COPILOT_CONFIG_FILE: &str = "config.json";
 pub const COPILOT_MCP_CONFIG_FILE: &str = "mcp-config.json";
 
 pub const TRACEPILOT_CONFIG_FILE: &str = "config.toml";
+pub const TRACEPILOT_CONFIG_BACKUP_FILE: &str = "config.toml.bak";
 pub const TRACEPILOT_INDEX_DB_FILE: &str = "index.db";
 pub const TRACEPILOT_REPO_REGISTRY_FILE: &str = "repo-registry.json";
 pub const TRACEPILOT_TEMPLATES_DIR: &str = "templates";
@@ -60,7 +66,8 @@ impl CopilotPaths {
 
     /// The Copilot home this machine would use: the isolation root when one is
     /// set, then `COPILOT_HOME` (which the CLI itself honours), then
-    /// `~/.copilot`.
+    /// `~/.copilot`. For TracePilot's own folder, `COPILOT_HOME` only locates
+    /// a legacy install (see [`TracePilotPaths::try_default`]).
     pub fn try_default() -> Option<Self> {
         match isolated_data_root() {
             Ok(Some(root)) => Some(Self::from_home(root.join("copilot"))),
@@ -149,8 +156,9 @@ impl CopilotPaths {
         self.pkg_universal_dir().join(version)
     }
 
+    /// The legacy TracePilot folder shape, `<copilot home>/tracepilot`.
     pub fn tracepilot(&self) -> TracePilotPaths {
-        TracePilotPaths::from_root(self.home.join(TRACEPILOT_DIR_NAME))
+        TracePilotPaths::from_copilot_home(&self.home)
     }
 }
 
@@ -164,14 +172,24 @@ impl TracePilotPaths {
         Self { root: root.into() }
     }
 
+    /// The legacy shape, `<copilot home>/tracepilot`, which installs made
+    /// before `~/.tracepilot` became the default still use.
     pub fn from_copilot_home(copilot_home: impl AsRef<Path>) -> Self {
         Self::from_root(copilot_home.as_ref().join(TRACEPILOT_DIR_NAME))
     }
 
+    /// `<user home>/.tracepilot`, the default for new installs.
+    pub fn from_user_home(home: impl AsRef<Path>) -> Self {
+        Self::from_root(home.as_ref().join(TRACEPILOT_HOME_DIR_NAME))
+    }
+
+    /// The root holding `config.toml`, and the default data folder for a new
+    /// config: `<data root>/tracepilot` under isolation, otherwise
+    /// [`resolve_tracepilot_root`] against the real home. Evaluated on every
+    /// call. `None` when isolation is invalid or no home can be found.
     pub fn try_default() -> Option<Self> {
         match isolated_data_root() {
-            Ok(Some(root)) => Some(Self::from_root(root.join(TRACEPILOT_DIR_NAME))),
-            Ok(None) => CopilotPaths::try_default().map(|p| p.tracepilot()),
+            Ok(isolated) => tracepilot_root::current_tracepilot_root(isolated.as_deref()),
             Err(_) => None,
         }
     }
@@ -182,6 +200,11 @@ impl TracePilotPaths {
 
     pub fn config_toml(&self) -> PathBuf {
         self.root.join(TRACEPILOT_CONFIG_FILE)
+    }
+
+    /// The last-known-good copy kept beside `config.toml`.
+    pub fn config_toml_backup(&self) -> PathBuf {
+        self.root.join(TRACEPILOT_CONFIG_BACKUP_FILE)
     }
 
     pub fn index_db(&self) -> PathBuf {
@@ -369,22 +392,22 @@ pub fn default_claude_config_dir_opt() -> Option<PathBuf> {
     }
 }
 
-pub fn default_tracepilot_root() -> PathBuf {
+/// [`TracePilotPaths::try_default`], panicking only on an invalid isolation
+/// root and falling back to the placeholder home when none can be found.
+fn default_tracepilot_paths() -> TracePilotPaths {
     match isolated_data_root() {
-        Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME))
-            .root()
-            .to_path_buf(),
-        Ok(None) => default_copilot_paths().tracepilot().root().to_path_buf(),
+        Ok(isolated) => tracepilot_root::current_tracepilot_root(isolated.as_deref())
+            .unwrap_or_else(|| TracePilotPaths::from_user_home(crate::utils::home_dir())),
         Err(error) => panic!("invalid application data isolation: {error}"),
     }
 }
 
+pub fn default_tracepilot_root() -> PathBuf {
+    default_tracepilot_paths().root().to_path_buf()
+}
+
 pub fn default_index_db_path() -> PathBuf {
-    match isolated_data_root() {
-        Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME)).index_db(),
-        Ok(None) => default_copilot_paths().tracepilot().index_db(),
-        Err(error) => panic!("invalid application data isolation: {error}"),
-    }
+    default_tracepilot_paths().index_db()
 }
 
 #[cfg(test)]
@@ -421,6 +444,20 @@ mod tests {
         assert_eq!(
             paths.context_captures_dir(),
             Path::new("/home/alice/.copilot/tracepilot/context-captures")
+        );
+    }
+
+    #[test]
+    fn tracepilot_paths_are_derived_from_user_home() {
+        let paths = TracePilotPaths::from_user_home(Path::new("/home/alice"));
+        assert_eq!(paths.root(), Path::new("/home/alice/.tracepilot"));
+        assert_eq!(
+            paths.config_toml_backup(),
+            Path::new("/home/alice/.tracepilot/config.toml.bak")
+        );
+        assert_eq!(
+            paths.index_db(),
+            Path::new("/home/alice/.tracepilot/index.db")
         );
     }
 

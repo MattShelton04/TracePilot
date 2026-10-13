@@ -19,6 +19,7 @@ import {
   COPILOT_SESSION_STATE_DIR_PLACEHOLDER,
   deriveIndexDbPath,
   deriveSessionStateDir,
+  TRACEPILOT_HOME_PLACEHOLDER,
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "../src/paths.js";
 
@@ -156,7 +157,8 @@ describe("createDefaultConfig", () => {
 
   it("path placeholders track the documented default locations", () => {
     expect(COPILOT_SESSION_STATE_DIR_PLACEHOLDER).toBe("~/.copilot/session-state");
-    expect(TRACEPILOT_INDEX_DB_PLACEHOLDER).toBe("~/.copilot/tracepilot/index.db");
+    expect(TRACEPILOT_HOME_PLACEHOLDER).toBe("~/.tracepilot");
+    expect(TRACEPILOT_INDEX_DB_PLACEHOLDER).toBe("~/.tracepilot/index.db");
     expect(deriveIndexDbPath("C:\\Users\\me\\.copilot\\tracepilot")).toBe(
       "C:\\Users\\me\\.copilot\\tracepilot\\index.db",
     );

@@ -40,12 +40,12 @@ export function formatRate(value: number | null): string {
   return `$${value.toFixed(value >= 0.1 ? 2 : 3)}`;
 }
 
-/** A row's cost in its own unit, with the USD equivalent for AI Credits. */
+/** A row's cost in USD, with the AI Credits it was billed in. */
 export function formatRowSpend(row: ModelRow): string {
   if (row.billedInAiCredits) {
     return row.aiCredits == null
       ? "Unpriced"
-      : `${formatAiCredits(row.aiCredits)} ≈ ${formatUsd(row.usdEquivalent)}`;
+      : `${formatUsd(row.usdEquivalent)} (${formatAiCredits(row.aiCredits)})`;
   }
   return row.costUsd == null ? "Unpriced" : `${formatUsd(row.costUsd)} est.`;
 }

@@ -1,7 +1,7 @@
 import type { FileCheckpoint } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
 import type { SessionDetail, SessionIncident, ShutdownMetrics } from "@tracepilot/types";
-import { KPI } from "@tracepilot/ui";
+import { ErrorAlert, KPI } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { reactive } from "vue";
@@ -17,6 +17,11 @@ const store = reactive({
   fileHistory: [] as FileCheckpoint[],
   turnActivity: [] as (number | null)[],
   turnActivityError: null as string | null,
+  metricsError: null as string | null,
+  incidentsError: null as string | null,
+  planError: null as string | null,
+  checkpointsError: null as string | null,
+  fileHistoryError: null as string | null,
   loaded: new Set<string>(),
   pendingCheckpointFocus: null,
   loadCheckpoints: vi.fn(),
@@ -36,6 +41,8 @@ afterEach(() => {
   store.fileHistory = [];
   store.turnActivity = [];
   store.loaded = new Set();
+  store.metricsError = null;
+  store.incidentsError = null;
   store.loadFileHistory.mockClear();
 });
 
@@ -68,13 +75,13 @@ it("shows a Claude Code session's labelled USD estimate and recorded calls", () 
   expect(kpi("Model calls")?.props("value")).toBe("4");
   expect(kpi("Model calls")?.text()).toContain("2.0 per turn");
   expect(kpi("Checkpoints")).toBeUndefined();
-  expect(kpi("AI credits")).toBeUndefined();
+  expect(kpi("Cost")).toBeUndefined();
   expect(wrapper.get('[data-testid="outcome-exit"]').text()).toContain("Not running");
   expect(wrapper.find(".host-chip").exists()).toBe(false);
   wrapper.unmount();
 });
 
-it("keeps Copilot's checkpoints, credits, exit record and host", () => {
+it("keeps Copilot's checkpoints, cost, exit record and host", () => {
   store.detail = {
     id: "s1",
     source: "copilot",
@@ -86,16 +93,28 @@ it("keeps Copilot's checkpoints, credits, exit record and host", () => {
   store.shutdownMetrics = { shutdownType: "routine" };
   const { wrapper, kpi } = mountOverview();
   expect(kpi("Checkpoints")?.props("value")).toBe("2");
-  expect(kpi("AI credits")).toBeDefined();
+  expect(kpi("Cost")?.props("value")).toBe("—");
   expect(kpi("Est. cost")).toBeUndefined();
   expect(wrapper.get('[data-testid="outcome-exit"]').text()).toContain("Ended normally");
   expect(wrapper.get(".host-chip").text()).toBe("github");
   wrapper.unmount();
 
+  // Only a completed metrics load can say the session recorded no exit.
   store.shutdownMetrics = null;
+  store.loaded = new Set(["metrics"]);
   const bare = mountOverview().wrapper;
   expect(bare.get('[data-testid="outcome-exit"]').text()).toContain("No exit record");
   bare.unmount();
+});
+
+it("shows Copilot's observed AI Credits in USD, at $0.01 each", () => {
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: false };
+  store.shutdownMetrics = { totalNanoAiu: 150_000_000_000 };
+  const { wrapper, kpi } = mountOverview();
+  const cost = kpi("Cost");
+  expect(cost?.props("value")).toBe("$1.50");
+  expect(cost?.props("description")).toContain("150 AIC at $0.01 each");
+  wrapper.unmount();
 });
 
 it("shows lines changed in place of checkpoints when the session recorded them", () => {
@@ -126,6 +145,7 @@ it("counts files when a session lists changed files without line counts", () => 
   wrapper.unmount();
 
   store.shutdownMetrics = { codeChanges: { linesAdded: 0, linesRemoved: 0, filesModified: [] } };
+  store.loaded = new Set(["metrics", "fileHistory"]);
   ({ wrapper, kpi } = mountOverview());
   expect(kpi("Code changes")).toBeUndefined();
   expect(wrapper.get('[data-testid="outcome-changes"]').text()).toContain("None recorded");
@@ -295,4 +315,98 @@ it("shows the recorded effort, and says Claude Code's is not recorded rather tha
     expect(shownEffort.find(".effort__bars").exists()).toBe(shown !== "Not recorded");
     wrapper.unmount();
   }
+});
+
+const ALL_SECTIONS = ["metrics", "incidents", "plan", "checkpoints", "fileHistory", "activity"];
+
+function outcome(wrapper: ReturnType<typeof mountOverview>["wrapper"]) {
+  const tile = (id: string) => wrapper.get(`[data-testid="outcome-${id}"]`).text();
+  return {
+    exit: tile("exit"),
+    incidents: tile("incidents"),
+    changes: tile("changes"),
+    saved: tile("saved"),
+    time: tile("time"),
+    card:
+      wrapper
+        .findAll(".card")
+        .find((card) => card.find("h3").text() === "Incidents")
+        ?.text() ?? "",
+  };
+}
+
+it("doesn't report an empty outcome before the overview's sections have loaded", async () => {
+  store.detail = {
+    id: "s1",
+    source: "copilot",
+    hasPlan: false,
+    hasCheckpoints: true,
+    createdAt: "2026-07-17T09:00:00Z",
+    updatedAt: "2026-07-17T09:30:00Z",
+  };
+  const { wrapper } = mountOverview();
+  let shown = outcome(wrapper);
+  expect(shown.exit).toContain("Checking exit record");
+  expect(shown.exit).not.toContain("No exit record");
+  expect(shown.incidents).toContain("Checking incidents");
+  expect(shown.incidents).not.toContain("No incidents");
+  expect(shown.changes).not.toContain("None recorded");
+  expect(shown.saved).not.toContain("Nothing saved");
+  expect(shown.time).not.toContain("No model timing recorded");
+  expect(shown.card).toContain("Loading incidents");
+  expect(shown.card).not.toContain("No incidents recorded");
+  expect(shown.card).not.toMatch(/\d/);
+  const kpis = () => wrapper.get('[data-testid="overview-kpis"]').text();
+  expect(kpis()).toContain("Loading model timing…");
+  expect(kpis()).not.toContain("No model timing recorded");
+  expect(kpis()).not.toContain("No code changes recorded");
+
+  store.loaded = new Set(ALL_SECTIONS);
+  await wrapper.vm.$nextTick();
+  shown = outcome(wrapper);
+  expect(shown.exit).toContain("No exit record");
+  expect(shown.incidents).toContain("No incidents");
+  expect(shown.changes).toContain("None recorded");
+  expect(shown.saved).toContain("Nothing saved");
+  expect(shown.time).toContain("No model timing recorded");
+  expect(shown.card).toContain("No incidents recorded for this session.");
+  expect(shown.card).toContain("0");
+  expect(kpis()).toContain("No model timing recorded");
+  expect(kpis()).toContain("No code changes recorded");
+  wrapper.unmount();
+});
+
+it("says what couldn't be loaded instead of reporting a clean session", () => {
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: true };
+  store.loaded = new Set(["plan", "checkpoints", "activity"]);
+  store.metricsError = "metrics unreadable";
+  store.incidentsError = "incidents unreadable";
+  const { wrapper } = mountOverview();
+  const alerts = wrapper.findAllComponents(ErrorAlert).map((a) => a.props("message"));
+  expect(alerts).toEqual(["Metrics: metrics unreadable", "Incidents: incidents unreadable"]);
+  const shown = outcome(wrapper);
+  expect(shown.exit).toContain("Exit record unavailable");
+  expect(shown.incidents).toContain("Incidents unavailable");
+  expect(shown.incidents).not.toContain("No incidents");
+  expect(shown.changes).toContain("Unavailable");
+  expect(shown.changes).not.toContain("None recorded");
+  expect(shown.saved).toContain("Nothing saved");
+  expect(shown.time).toContain("Model timing unavailable");
+  expect(shown.card).toContain("Couldn't load incidents");
+  expect(shown.card).not.toContain("No incidents recorded");
+  wrapper.unmount();
+});
+
+it("shows loaded incidents in the tile and the incidents card", () => {
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: true };
+  store.loaded = new Set(ALL_SECTIONS);
+  store.incidents = [
+    { eventType: "warning", sourceEventType: "session.warning", severity: "warning", summary: "w" },
+  ];
+  const { wrapper } = mountOverview();
+  const shown = outcome(wrapper);
+  expect(shown.incidents).toContain("1 incident");
+  expect(shown.card).toContain("1");
+  expect(shown.card).not.toContain("Loading incidents");
+  wrapper.unmount();
 });

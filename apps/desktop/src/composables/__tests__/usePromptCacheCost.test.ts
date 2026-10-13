@@ -71,10 +71,12 @@ describe("usePromptCacheCost for sources priced in USD", () => {
     expect(totalMissCost([{ ...miss, ttlSeconds: null }])).toBeNull();
   });
 
-  it("keeps Copilot misses in AI Credits", () => {
+  it("prices Copilot misses in AI Credits and shows them in USD", () => {
     const { windowMissCost, windowMissCredits, formatMissCost } = usePromptCacheCost("copilot");
     const window = makeWindow({ outcome: "expired", prefixTokens: 100_000 });
     expect(windowMissCost(window)).toBe(windowMissCredits(window));
-    expect(formatMissCost(2.3)).not.toContain("$");
+    // AI Credits at $0.01 each; a sub-cent miss never reads as $0.00.
+    expect(formatMissCost(230)).toBe("$2.30");
+    expect(formatMissCost(0.2)).toBe("< $0.01");
   });
 });

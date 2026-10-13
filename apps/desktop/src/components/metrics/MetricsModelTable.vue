@@ -2,7 +2,7 @@
 import {
   Badge,
   DataTable,
-  formatAiCredits,
+  formatAiCreditsUsd,
   formatNumber,
   SectionPanel,
   TokenBar,
@@ -39,7 +39,7 @@ const columns = computed(() => [
   { key: "requests", label: "Requests", align: "right" as const },
   ...(props.showCredits
     ? [
-        { key: "aiCredits", label: "AI Credits", align: "right" as const },
+        { key: "aiCredits", label: "Cost", align: "right" as const },
         { key: "aiCreditSource", label: "Source" },
       ]
     : []),
@@ -62,7 +62,7 @@ const rows = computed(() => props.modelEntries.map((entry) => ({ ...entry, ...en
     <DataTable :columns="columns" :rows="rows" class="mb-3" style="overflow-x: auto;">
       <template #cell-name="{ value }"><Badge variant="done" :title="value as string">{{ modelName(value as string) }}</Badge></template>
       <template #cell-requests="{ value }">{{ value == null ? '—' : formatNumber(value as number) }}</template>
-      <template #cell-aiCredits="{ value }">{{ formatAiCredits(value as number | null) }}</template>
+      <template #cell-aiCredits="{ value }">{{ formatAiCreditsUsd(value as number | null) }}</template>
       <template #cell-aiCreditSource="{ value }">
         <Badge :variant="value === 'observed' ? 'success' : 'neutral'">
           {{ value === 'observed' ? 'Observed' : value === 'unavailable' ? 'Unavailable' : 'Estimated' }}

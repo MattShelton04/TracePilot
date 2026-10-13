@@ -31,7 +31,8 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 
 | Claude Code record | Count (main) | Emitted event(s) | Notes |
 | --- | ---: | --- | --- |
-| `user` human prompt (string/text, not meta, no tool_result) | 194 | `user.message` `{content, interactionId: promptId, source: "user", attachments}` | Opens a user turn. Pasted images become attachments |
+| `user` human prompt (string/text, not meta, no tool_result) | 194 | `user.message` `{content, interactionId: promptId, source: "user", attachments}` | Opens a user turn. Pasted images become attachments that keep the record's `line` and the block's `pointer`, so the conversation reads the picture back on demand (`get_prompt_image`) |
+| `attachment:queued_command` from a human (`origin.kind: human`), a prompt typed while the model works | — | `user.message` `{content, interactionId: <current>, source: "user", delivery: "steering", attachments}` | Claude Code writes no `user` record for it: the running loop absorbs it (`queue-operation` `remove`, `absorbed_mid_turn`). It closes the open call and opens a steering turn in the same interaction. `prompt` is a string, or blocks when images are pasted |
 | `user` slash command / `local-command-stdout` | 22 / 19 | `user.message` `{content: "/<name> <args>", source: "command-<name>"}` | Matches Copilot's `command-*` sources (`messages.rs:188-197`). The content is the command as typed, from `<command-name>` and `<command-args>`. A typed `/compact` is written twice: first as plain text (`/compact`, only a `promptId`), then, after the compaction, as the `<command-name>` record. The text opens the command turn and the later record adds nothing (Events tab only; S3 census: all 15 such records). The `<local-command-caveat>` meta record before a command is for the model and is Events-tab only |
 | `user` isMeta (skill context, auto-continuation) | 101 | Never `user.message`. Skill context → `skill.context_delivered`; other meta → `system.message` (§1.1) | A `user.message` always closes the active turn, whatever its `source` (§1.1) |
 | `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report. No turn. A peer message without `handback` is only the agent message |
@@ -266,10 +267,13 @@ C5 returns totals in the provider snapshot, the consuming summary's
 `coverage.partial` is always true: even a snapshot with no tail does not prove the
 session ended or that every call was persisted. Request counts cover recorded calls
 only; side-model token usage from `cost-state` has no recorded request count.
-Snapshot durations and line counts retain their recorded coverage. Without a snapshot
-(a session still running), line counts are the `+`/`-` lines of successful edit results'
-`structuredPatch` hunks, plus every line of a file `Write` created; distinct modified
-files come from recorded results and edited-file attachments. Indexed Claude catalog
+Edit line counts are the `+`/`-` lines of successful edit results' `structuredPatch`
+hunks, plus every line of a file `Write` created. Without a snapshot (a session still
+running), they are the line totals. With one, the edits of tail calls (a resumed run
+that has not written a new snapshot) add to its line totals, and the tail calls' API
+time, estimated from timestamps, adds to its API duration. Wall-clock and tool
+durations stay the snapshot's. Distinct modified files come from recorded results and
+edited-file attachments. Indexed Claude catalog
 rows expose `metricsPartial: true`, including rows written before C5.
 
 WP13 (C11) prices the tail from recorded calls at verified Anthropic API rates, including
@@ -293,9 +297,9 @@ Source-aware presentation shipped in U2, U3 and U4.
 | AI Credits (`total_nano_aiu`) | observed | `None` | ⛔ |
 | Premium requests | `requests.cost` | `None` | ⛔ |
 | **Cost** | AIC: `costBasis: billed` from shutdown, or `tracepilotEstimate` from GitHub rates | `cost-state.totalCostUSD`: `costBasis: providerEstimate`, `costUnit: usd`, an API-equivalent estimate and not a bill. With a tail or no snapshot: price the de-duplicated usage with Anthropic API rates (1h writes at 2× input, 5m at 1.25×), `costBasis: tracepilotEstimate`. Vocabulary in [architecture §3.2](architecture.md#32-source-neutral-ir-additions) | 🟡: labelled estimate |
-| API duration | `totalApiDurationMs` | `cost-state.totalAPIDuration` (+ `WithoutRetries`) | ✅ |
+| API duration | `totalApiDurationMs` | `cost-state.totalAPIDuration` (+ `WithoutRetries`), plus the tail calls' timestamp estimate | ✅ |
 | Tool duration | per tool | per tool (ts delta) + `cost-state.totalToolDuration` | ✅ |
-| Code changes (lines ±) | `codeChanges` | `cost-state.totalLinesAdded/Removed` | ✅ |
+| Code changes (lines ±) | `codeChanges` | `cost-state.totalLinesAdded/Removed`, plus the tail edits' `structuredPatch` lines | ✅ |
 | Files modified | `codeChanges.filesModified` | Distinct `filePath` from Edit/Write `toolUseResult` + `attachment:edited_text_file` | ✅ |
 | Context gauges (system/tools/conversation) | shutdown / compaction | ❌ split. Exact **total** per call | 🟡 total only |
 | Cache windows / TTL | predicted (`usage_checkpoint`) | **Observed** reads and writes per call, with the TTL tier from the `cache_creation` split (all 1h in this corpus). Expiry is still an estimate ([architecture §3.7](architecture.md#37-prompt-cache-expiry-is-an-estimate)) | ✅⭐ |

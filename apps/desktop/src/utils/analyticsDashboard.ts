@@ -7,8 +7,12 @@
  * here works on a zero-filled list of UTC days: a quiet day stays on the axis
  * as a flat baseline instead of vanishing.
  */
-import type { AnalyticsData, ApiDurationStats, SessionSource } from "@tracepilot/types";
-import { sourceCapabilities } from "@tracepilot/types";
+import {
+  AI_CREDIT_USD,
+  type AnalyticsData,
+  type ApiDurationStats,
+  type SessionSource,
+} from "@tracepilot/types";
 import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
 
 const DAY_MS = 86_400_000;
@@ -108,12 +112,6 @@ export const SOURCE_COLORS: Record<SessionSource, string> = {
   claudeCode: "var(--claude-fg)",
 };
 
-/** True when every source in range is billed in AI Credits, so cost reads in them. */
-export function costInAiCredits(data: AnalyticsData): boolean {
-  const sources = payloadSources(data);
-  return sources.length > 0 && sources.every((source) => sourceCapabilities(source).hasAic);
-}
-
 export interface ActivityInput {
   data: AnalyticsData;
   days: string[];
@@ -178,11 +176,11 @@ export function activityRows(input: ActivityInput): { series: DaySeries[]; rows:
         }
       }
     } else {
-      const credits = costInAiCredits(data);
+      // Every source in USD: AI Credits at $0.01 each.
       const copilot = at("copilot");
       for (const [date, aic] of input.aiCreditsByDay) {
         const i = index.get(date);
-        if (i != null && copilot) copilot[i] += credits ? aic : aic * 0.01;
+        if (i != null && copilot) copilot[i] += aic * AI_CREDIT_USD;
       }
       const claude = at("claudeCode");
       for (const point of data.costUsdByDay ?? []) {

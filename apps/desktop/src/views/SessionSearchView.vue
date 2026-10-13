@@ -257,7 +257,8 @@ const {
 
     </div>
 
-    <div v-if="store.hasResults && !store.loading" class="keyboard-hints">
+    <!-- In flow: stay up through a re-search so the layout doesn't jump. -->
+    <div v-if="store.hasResults" class="keyboard-hints">
       <kbd>↑↓</kbd> navigate
       <kbd>Enter</kbd> expand
       <kbd>Esc</kbd> back to search

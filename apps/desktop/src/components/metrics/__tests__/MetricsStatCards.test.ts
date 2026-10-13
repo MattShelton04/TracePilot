@@ -56,6 +56,7 @@ describe("MetricsStatCards direct API fallback", () => {
     });
     const cards = wrapper.findAllComponents(StatCard);
     const card = (label: string) => cards.find((item) => item.props("label") === label);
+    expect(card("Cost")?.props("value")).toBe("—");
     expect(card("AI Credits")?.props("value")).toBe("—");
     expect(card("Total Tokens")?.props("value")).toBe(withObservedModel ? "0" : "—");
     expect(card("Legacy Premium Requests")?.props("value")).toBe("3.0");

@@ -356,7 +356,7 @@ function definitionDetail(path: string): AgentDefinitionDetail {
 }
 
 function write(path: string): AgentWriteResult {
-  return { path, backupPath: `/home/dev/.copilot/tracepilot/backups/agents/${Date.now()}` };
+  return { path, backupPath: `/home/dev/.tracepilot/backups/agents/${Date.now()}` };
 }
 
 /** Browser-mode fallback for the Agents explorer commands. */

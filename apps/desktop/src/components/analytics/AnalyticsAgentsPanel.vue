@@ -10,7 +10,7 @@
  * than a chart to read and leave.
  */
 import { type AgentUsageSummary, calculateObservedAiCredits } from "@tracepilot/types";
-import { formatAiCredits, formatDuration, formatNumber } from "@tracepilot/ui";
+import { formatAiCreditsUsd, formatDuration, formatNumber } from "@tracepilot/ui";
 import { ArrowRight, Bot, Coins, Network, OctagonX } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -63,7 +63,7 @@ const credits = computed(() => {
   const value = summary.value;
   if (!value || value.runsWithCredits === 0) return null;
   return {
-    total: formatAiCredits(calculateObservedAiCredits(value.totalOwnNanoAiu)),
+    total: formatAiCreditsUsd(calculateObservedAiCredits(value.totalOwnNanoAiu)),
     coverage: `${formatNumber(value.runsWithCredits)} of ${formatNumber(value.totalRuns)} runs`,
   };
 });
@@ -98,7 +98,7 @@ const tiles = computed(() => {
     {
       key: "credits",
       icon: Coins,
-      label: "Own credits",
+      label: "Own cost",
       value: credits.value?.total ?? "—",
       detail: credits.value ? credits.value.coverage : "no metrics ledger",
     },
