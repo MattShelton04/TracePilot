@@ -103,7 +103,6 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
 
   // ── Local UI state ───────────────────────────────────────────
   const filtersOpen = ref(true);
-  const activeDatePreset = ref<string>("all");
   const { success: toastSuccess, error: toastError, dismiss: toastDismiss } = useToast();
   let lastCopyToastId: string | null = null;
   const showSyntaxHelp = ref(false);
@@ -188,7 +187,6 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
   // ── Clear all filters ─────────────────────────────────────────
   function handleClearFilters() {
     store.clearFilters();
-    activeDatePreset.value = "all";
     filteredSessionNameOverride.value = null;
   }
 
@@ -254,7 +252,6 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     visiblePages,
     // UI state
     filtersOpen,
-    activeDatePreset,
     showSyntaxHelp,
     // copy
     handleCopyResult,

@@ -144,21 +144,56 @@ onUnmounted(() => {
 .auto-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 2px 4px;
   cursor: pointer;
   user-select: none;
 }
 
+/* Drawn from tokens like the Search filter boxes; the native box ignores the dark theme. */
 .auto-toggle input[type="checkbox"] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: var(--accent-fg);
+  border: 1px solid var(--text-tertiary);
+  border-radius: 3px;
+  background: var(--canvas-overlay);
   cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.auto-toggle input[type="checkbox"]::before {
+  content: "";
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid var(--text-on-emphasis);
+  border-bottom: 1.5px solid var(--text-on-emphasis);
+  transform: translateY(-1px) rotate(-45deg);
+  opacity: 0;
+}
+
+.auto-toggle:hover input[type="checkbox"]:not(:checked) {
+  border-color: var(--text-secondary);
+}
+
+.auto-toggle input[type="checkbox"]:checked {
+  background: var(--accent-emphasis);
+  border-color: var(--accent-emphasis);
+}
+
+.auto-toggle input[type="checkbox"]:checked::before {
+  opacity: 1;
 }
 
 .auto-toggle-label {
   font-size: 0.6875rem;
+  line-height: 14px;
   color: var(--text-secondary);
 }
 

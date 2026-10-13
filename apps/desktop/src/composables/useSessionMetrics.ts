@@ -159,16 +159,20 @@ export function totalToolCalls(turns: ConversationTurn[]): number {
   return turns.reduce((s, t) => s + (t.toolCalls?.length ?? 0), 0);
 }
 
-export function successRate(turns: ConversationTurn[]): number {
-  let total = 0;
+/**
+ * Successful calls among completed ones, as the Tools page rates them: a
+ * pending call is neither. Null when no call has completed.
+ */
+export function successRate(turns: ConversationTurn[]): number | null {
   let success = 0;
+  let failure = 0;
   for (const t of turns) {
     for (const tc of t.toolCalls ?? []) {
-      total++;
       if (tc.success === true) success++;
+      else if (tc.success === false) failure++;
     }
   }
-  return total === 0 ? 1 : success / total;
+  return success + failure === 0 ? null : success / (success + failure);
 }
 
 export function toolCounts(turns: ConversationTurn[]): Record<string, number> {
@@ -181,15 +185,21 @@ export function toolCounts(turns: ConversationTurn[]): Record<string, number> {
   return counts;
 }
 
-export function sessionDurationMs(detail: SessionDetail | null): number {
-  if (!detail?.createdAt || !detail?.updatedAt) return 0;
-  return new Date(detail.updatedAt).getTime() - new Date(detail.createdAt).getTime();
+/** Wall-clock span, as Overview measures it; null when either end is unknown. */
+export function sessionDurationMs(detail: SessionDetail | null): number | null {
+  const start = detail?.createdAt ? Date.parse(detail.createdAt) : Number.NaN;
+  const end = detail?.updatedAt ? Date.parse(detail.updatedAt) : Number.NaN;
+  return end > start ? end - start : null;
 }
 
-export function linesChanged(m: ShutdownMetrics | null): number {
-  return (m?.codeChanges?.linesAdded ?? 0) + (m?.codeChanges?.linesRemoved ?? 0);
+/** Lines added plus removed; null without recorded line counts. */
+export function linesChanged(m: ShutdownMetrics | null): number | null {
+  const changes = m?.codeChanges;
+  if (changes?.linesAdded == null && changes?.linesRemoved == null) return null;
+  return (changes.linesAdded ?? 0) + (changes.linesRemoved ?? 0);
 }
 
-export function filesModified(m: ShutdownMetrics | null): number {
-  return m?.codeChanges?.filesModified?.length ?? 0;
+/** Files modified; null without a recorded file list. */
+export function filesModified(m: ShutdownMetrics | null): number | null {
+  return m?.codeChanges?.filesModified?.length ?? null;
 }

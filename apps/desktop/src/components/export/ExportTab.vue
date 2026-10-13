@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { exportSessionFolderZip, exportSessions, getSessionSections } from "@tracepilot/client";
 import { type SectionId, type SessionSectionsInfo, sourceCapabilities } from "@tracepilot/types";
-import { formatBytes, useToast } from "@tracepilot/ui";
-import { computed, onMounted, ref, watch } from "vue";
+import { formatBytes, useAsyncGuard, useToast } from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { runUiAction } from "@/composables/useAsyncAction";
 import { browseForSavePath } from "@/composables/useBrowseDirectory";
@@ -66,16 +66,20 @@ const {
 // ── Session Sections Info ────────────────────────────────────
 
 const sectionsInfo = ref<SessionSectionsInfo | null>(null);
+// A large session answers much later than a small one, so only the latest
+// selection's answer may land.
+const sectionsGuard = useAsyncGuard();
 
 async function loadSectionsInfo(sessionId: string) {
-  if (!sessionId) {
-    sectionsInfo.value = null;
-    return;
-  }
+  const token = sectionsGuard.start();
+  // Drop the previous session's stats and "(empty)" hints while this one loads.
+  sectionsInfo.value = null;
+  if (!sessionId) return;
   try {
-    sectionsInfo.value = await getSessionSections(sessionId);
+    const info = await getSessionSections(sessionId);
+    if (sectionsGuard.isValid(token)) sectionsInfo.value = info;
   } catch {
-    sectionsInfo.value = null;
+    // Leave it null: no stats line and no "(empty)" hints for this session.
   }
 }
 
@@ -207,18 +211,18 @@ onMounted(() => {
     ? route.query.preset[0]
     : route.query.preset;
 
+  // The selectedSessionId watcher loads the section info.
   if (querySessionId) {
     selectedSessionId.value = querySessionId;
-    loadSectionsInfo(querySessionId);
     if (queryPreset) {
       applyPreset(queryPreset);
     }
-  } else if (selectedSessionId.value) {
-    loadSectionsInfo(selectedSessionId.value);
   }
 });
 
-watch(selectedSessionId, (id) => loadSectionsInfo(id));
+watch(selectedSessionId, (id) => loadSectionsInfo(id), { immediate: true });
+
+onUnmounted(() => sectionsGuard.invalidate());
 </script>
 
 <template>

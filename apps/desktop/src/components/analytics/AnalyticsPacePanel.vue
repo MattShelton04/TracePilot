@@ -5,17 +5,17 @@
  * seconds to hours), then turns, tool calls, tokens per turn and throughput.
  */
 import type { AnalyticsData } from "@tracepilot/types";
-import { formatDuration, formatNumber, formatNumberFull } from "@tracepilot/types";
+import { formatNumber, formatNumberFull } from "@tracepilot/types";
 import { Tooltip } from "@tracepilot/ui";
 import { Gauge, MessageSquare, Timer, Wrench, Zap } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useElementWidth } from "@/composables/useElementWidth";
-import { durationStrip } from "@/utils/analyticsDashboard";
+import { durationStrip, type StripKey } from "@/utils/analyticsDashboard";
 
 const props = defineProps<{ data: AnalyticsData }>();
 
-const MARK_COLORS: Record<string, string> = {
+const MARK_COLORS: Record<StripKey, string> = {
   min: "var(--text-tertiary)",
   median: "var(--accent-fg)",
   avg: "var(--chart-secondary)",
@@ -28,25 +28,31 @@ const stats = computed(() => {
   return value && value.totalSessionsWithDuration > 0 ? value : null;
 });
 
-// Labels this many pixels apart share a row; closer ones alternate rows.
+// Labels are placed against the measured strip width so they never overlap.
 // The wrapper is always rendered, so its width is known before any data.
-const LABEL_PX = 88;
+// The strip sits 12px inside each side of the wrapper's content box.
 const stripEl = ref<HTMLElement | null>(null);
 const stripWidth = useElementWidth(stripEl, 800);
 
 const marks = computed(() =>
   stats.value
-    ? durationStrip(stats.value, (LABEL_PX / Math.max(1, stripWidth.value)) * 100).map((mark) => ({
+    ? durationStrip(stats.value, Math.max(1, stripWidth.value - 24)).map((mark) => ({
         ...mark,
-        color: MARK_COLORS[mark.key],
-        text: formatDuration(mark.ms) || "0s",
+        // A merged mark takes the colour of its most telling statistic.
+        color: MARK_COLORS[mark.keys.find((key) => key !== "min" && key !== "max") ?? mark.keys[0]],
       }))
     : [],
 );
+const LABEL_TOP = 34;
+const ROW_PX = 14;
+const stripHeight = computed(() =>
+  Math.max(62, LABEL_TOP + (Math.max(0, ...marks.value.map((m) => m.row)) + 1) * ROW_PX),
+);
 const band = computed(() => {
-  const median = marks.value.find((mark) => mark.key === "median");
-  const p95 = marks.value.find((mark) => mark.key === "p95");
-  return median && p95 ? { left: median.pct, width: Math.max(0, p95.pct - median.pct) } : null;
+  const median = marks.value.find((mark) => mark.keys.includes("median"));
+  const p95 = marks.value.find((mark) => mark.keys.includes("p95"));
+  const width = median && p95 ? p95.pct - median.pct : 0;
+  return median && width > 0 ? { left: median.pct, width } : null;
 });
 
 const tiles = computed(() => {
@@ -93,7 +99,13 @@ const tiles = computed(() => {
           {{ formatNumberFull(stats.totalSessionsWithDuration) }} of {{ formatNumberFull(data.totalSessions) }} sessions timed · log scale
         </span>
       </div>
-      <div v-if="stats" class="pace__strip" role="img" :aria-label="marks.map((m) => `${m.label} ${m.text}`).join(', ')">
+      <div
+        v-if="stats"
+        class="pace__strip"
+        role="img"
+        :aria-label="marks.map((m) => `${m.label} ${m.text}`).join(', ')"
+        :style="{ height: `${stripHeight}px` }"
+      >
         <div class="pace__axis" />
         <span
           v-if="band"
@@ -105,12 +117,12 @@ const tiles = computed(() => {
             <span class="pace__band-hit" />
           </Tooltip>
         </span>
-        <template v-for="mark in marks" :key="mark.key">
+        <template v-for="mark in marks" :key="mark.keys.join()">
           <span class="pace__tick" :style="{ left: `${mark.pct}%`, background: mark.color }" data-reveal="pop" />
           <span
             class="pace__label"
-            :class="{ 'pace__label--start': mark.pct < 4, 'pace__label--end': mark.pct > 96 }"
-            :style="{ left: `${mark.pct}%`, top: `${34 + mark.row * 14}px` }"
+            :class="`pace__label--${mark.align}`"
+            :style="{ left: `${mark.pct}%`, top: `${LABEL_TOP + mark.row * ROW_PX}px` }"
           >{{ mark.label }} <b>{{ mark.text }}</b></span>
         </template>
       </div>
@@ -133,7 +145,6 @@ const tiles = computed(() => {
 
 .pace__strip {
   position: relative;
-  height: 62px;
   margin: 6px 12px 0;
 }
 
@@ -173,14 +184,13 @@ const tiles = computed(() => {
 
 .pace__label {
   position: absolute;
-  transform: translateX(-50%);
   font: 10px/12px var(--font-mono);
   color: var(--text-tertiary);
   white-space: nowrap;
 }
 
-.pace__label--start {
-  transform: none;
+.pace__label--center {
+  transform: translateX(-50%);
 }
 
 .pace__label--end {
