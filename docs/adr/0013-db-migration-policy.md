@@ -150,11 +150,11 @@ and documenting the policy in an ADR.
 
 ## Implementation
 
-- `crates/tracepilot-core/src/utils/migrator.rs` — shared framework.
+- `crates/tracepilot-core/src/utils/migrator/` — shared framework.
 - `crates/tracepilot-indexer/src/index_db/migrations.rs` — `INDEX_DB_PLAN`
   (11 migrations, preserves the v9 pre-hook and the always-run post-hook).
-- `crates/tracepilot-orchestrator/src/task_db/mod.rs` — `TASK_DB_PLAN`
-  (2 migrations) plus `bootstrap_legacy_schema_version` for dual-read.
+- The orchestrator task database (`TASK_DB_PLAN`, 2 migrations) also used it
+  until the AI tasks system was removed in #547.
 - Unit tests cover: fresh install, partial install, backup contents,
   retention pruning, transaction rollback, WAL-mode backup correctness, and
   the legacy `task_meta` dual-read path.

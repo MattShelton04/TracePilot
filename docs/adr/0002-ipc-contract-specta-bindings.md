@@ -61,8 +61,7 @@ TracePilot commits to a **generator-as-source-of-truth** IPC contract.
    happen outside our control. The `narrowSessionEvent` helper in
    `@tracepilot/types` (`session-event-payloads.ts`) performs a
    tagged-union narrowing at the UI layer — the wire format stays
-   loose, the consumer sees a discriminated union. See
-   `apps/desktop/src/utils/orchestratorActivity.ts` for usage.
+   loose, the consumer sees a discriminated union.
 
 ## Consequences
 
