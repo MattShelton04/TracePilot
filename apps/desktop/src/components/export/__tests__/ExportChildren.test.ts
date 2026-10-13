@@ -71,7 +71,8 @@ vi.mock("vue-router", () => ({
 
 // ── Stub out the UI package for lightweight mounting ────────────
 
-vi.mock("@tracepilot/ui", () => {
+vi.mock("@tracepilot/ui", async (importOriginal) => {
+  const { useAsyncGuard } = await importOriginal<typeof import("@tracepilot/ui")>();
   const passthrough = (name: string) =>
     defineComponent({
       name,
@@ -99,6 +100,7 @@ vi.mock("@tracepilot/ui", () => {
     TabNav: passthrough("TabNav"),
     formatBytes: (n: number) => `${n}B`,
     projectLabelFromCwd: (cwd: string | null) => cwd?.split(/[\\/]/).pop() || null,
+    useAsyncGuard,
     useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
   };
 });
