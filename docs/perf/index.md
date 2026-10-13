@@ -237,8 +237,12 @@ contains the six changes in [#1020](https://github.com/MattShelton04/TracePilot/
 [#1026](https://github.com/MattShelton04/TracePilot/pull/1026).
 The original product is `d95f6d81d8a27f9ee3b18967f00b81d76c25e723` and the
 measured combined product is `e3097fb3772907fa706f0c6dcafd9fdd08e73e64`.
-Subsequent result-publication edits change documentation only. The combined
-measurements below are separate from the independent-change results above.
+Publication commit `20138afb` changes documentation only. A later CI repair
+updates the locked optional `quinn-proto` dependency from 0.11.15 to 0.11.18
+after five new security advisories. It has no active reverse dependency in
+`cargo tree --locked --workspace --target all --invert quinn-proto`.
+The measurements below remain attributed to `e3097fb` and are separate from
+the independent-change results above; they were not rerun for the lock update.
 
 ### First setup in the native app
 
