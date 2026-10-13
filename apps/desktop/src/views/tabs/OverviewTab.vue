@@ -18,7 +18,9 @@ import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import SessionActivityChart from "@/components/overview/SessionActivityChart.vue";
 import SessionContextPanel from "@/components/overview/SessionContextPanel.vue";
 import SessionOutcomeTiles, {
+  type OutcomeStatus,
   type OverviewSection,
+  type SectionStatus,
 } from "@/components/overview/SessionOutcomeTiles.vue";
 import SessionOverviewKpis, {
   type OverviewCost,
@@ -198,6 +200,40 @@ const markers = computed<ActivityMarker[]>(() => {
 
 const activityLoaded = computed(() => store.loaded.has("activity"));
 
+const SECTION_ERRORS = {
+  metrics: () => store.metricsError,
+  incidents: () => store.incidentsError,
+  plan: () => store.planError,
+  checkpoints: () => store.checkpointsError,
+  fileHistory: () => store.fileHistoryError,
+} as const;
+type OverviewDataSection = keyof typeof SECTION_ERRORS;
+
+/** Error beats pending; a section is `ready` only once every load completed. */
+function sectionStatus(keys: OverviewDataSection[]): SectionStatus {
+  if (keys.some((key) => SECTION_ERRORS[key]())) return "error";
+  return keys.every((key) => store.loaded.has(key)) ? "ready" : "pending";
+}
+
+const outcomeStatus = computed<OutcomeStatus>(() => {
+  const fileHistory: OverviewDataSection[] = capabilities.value.hasFileHistory
+    ? ["fileHistory"]
+    : [];
+  const checkpoints: OverviewDataSection[] = capabilities.value.hasCheckpoints
+    ? ["checkpoints"]
+    : [];
+  return {
+    // Metrics that are present were loaded, even if a later refresh failed.
+    metrics: metrics.value ? "ready" : sectionStatus(["metrics"]),
+    incidents: sectionStatus(["incidents"]),
+    changes: codeChanges.value ? "ready" : sectionStatus(["metrics", ...fileHistory]),
+    saved: sectionStatus(["plan", ...checkpoints, ...fileHistory]),
+  };
+});
+const incidentsStatus = computed<SectionStatus>(() =>
+  incidents.value.length ? "ready" : outcomeStatus.value.incidents,
+);
+
 const overviewRoot = ref<HTMLElement | null>(null);
 const incidentsRef = ref<HTMLElement | null>(null);
 const planRef = ref<HTMLElement | null>(null);
@@ -356,6 +392,7 @@ function retryLoadSection(section: string) {
       :checkpoints="capabilities.hasCheckpoints ? (detail.checkpointCount ?? 0) : null"
       :file-snapshots="store.fileHistory.length"
       :cost="cost"
+      :metrics-status="outcomeStatus.metrics"
     />
 
 
@@ -384,6 +421,7 @@ function retryLoadSection(section: string) {
         :span-ms="spanMs"
         :api-ms="metrics?.totalApiDurationMs"
         :tool-ms="metrics?.totalToolDurationMs"
+        :status="outcomeStatus"
         @jump="scrollToSection"
       />
     </div>
@@ -408,7 +446,7 @@ function retryLoadSection(section: string) {
     <div ref="incidentsRef" class="card mb-6 overview-anchor">
       <div class="flex items-center gap-2 mb-3">
         <h3 class="incidents-heading">Incidents</h3>
-        <Badge :variant="incidents.length > 0 ? 'warning' : 'neutral'">{{ incidents.length }}</Badge>
+        <Badge v-if="incidentsStatus === 'ready'" :variant="incidents.length > 0 ? 'warning' : 'neutral'">{{ incidents.length }}</Badge>
       </div>
       <div v-if="incidents.length > 0" class="incidents-list">
         <div v-for="(incident, idx) in incidents" :key="idx" class="incident-row">
@@ -450,6 +488,12 @@ function retryLoadSection(section: string) {
           </div>
         </div>
       </div>
+      <p v-else-if="incidentsStatus === 'pending'" role="status" class="text-muted incidents-empty">
+        Loading incidents…
+      </p>
+      <p v-else-if="incidentsStatus === 'error'" class="text-muted incidents-empty">
+        Couldn't load incidents for this session.
+      </p>
       <p v-else class="text-muted incidents-empty">
         No incidents recorded for this session.
       </p>

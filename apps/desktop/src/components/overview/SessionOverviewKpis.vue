@@ -10,6 +10,7 @@ import { Archive, Clock, Coins, FileDiff, MessageSquare, Zap } from "lucide-vue-
 import { computed } from "vue";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { splitSessionTime } from "@/utils/sessionOverview";
+import type { SectionStatus } from "./SessionOutcomeTiles.vue";
 
 export interface OverviewCost {
   label: string;
@@ -38,7 +39,25 @@ const props = defineProps<{
   checkpoints: number | null;
   fileSnapshots: number;
   cost: OverviewCost;
+  /**
+   * Whether shutdown metrics (model time, code changes, calls, cost) have
+   * loaded. Until `ready`, their absence is unknown rather than "not recorded".
+   */
+  metricsStatus: SectionStatus;
 }>();
+
+/** Copy for a metric that isn't known yet, or null once metrics are ready. */
+const metricsUnknown = computed(() =>
+  props.metricsStatus === "pending"
+    ? { timing: "Loading model timing…", changes: "Checking code changes…", note: "Loading…" }
+    : props.metricsStatus === "error"
+      ? {
+          timing: "Model timing unavailable",
+          changes: "Code changes unavailable",
+          note: "Unavailable",
+        }
+      : null,
+);
 
 const eventsPerTurn = computed(() =>
   props.turnCount > 0 ? (props.eventCount / props.turnCount).toFixed(1) : null,
@@ -88,6 +107,7 @@ const hasLineCounts = computed(
         </div>
         <span class="kpi-note">
           <template v-if="apiMs"><b>{{ formatRecordedDuration(apiMs) }}</b> waiting on the model</template>
+          <template v-else-if="metricsUnknown">{{ metricsUnknown.timing }}</template>
           <template v-else>No model timing recorded</template>
         </span>
       </template>
@@ -124,6 +144,7 @@ const hasLineCounts = computed(
       <template #footer>
         <span class="kpi-note">
           <template v-if="calls != null && turnCount > 0">{{ (calls / turnCount).toFixed(1) }} per turn</template>
+          <template v-else-if="calls == null && metricsUnknown">{{ metricsUnknown.note }}</template>
           <template v-else>Not recorded</template>
           <template v-if="fileSnapshots"> · <b>{{ fileSnapshots }}</b> file snapshots</template>
         </span>
@@ -132,14 +153,20 @@ const hasLineCounts = computed(
     <KPI v-else label="Checkpoints" :value="formatNumberFull(checkpoints)">
       <template #icon><Archive :size="13" /></template>
       <template #footer>
-        <span class="kpi-note">No code changes recorded</span>
+        <span class="kpi-note">{{ metricsUnknown?.changes ?? "No code changes recorded" }}</span>
       </template>
     </KPI>
 
-    <KPI :label="cost.label" :value="cost.value" :unit="cost.unit" :description="cost.tooltip">
+    <KPI
+      :label="cost.label"
+      :value="metricsUnknown ? '—' : cost.value"
+      :unit="metricsUnknown ? undefined : cost.unit"
+      :description="metricsUnknown ? undefined : cost.tooltip"
+    >
       <template #icon><Coins :size="13" /></template>
       <template #footer>
-        <span class="kpi-note">
+        <span v-if="metricsUnknown" class="kpi-note">{{ metricsUnknown.note }}</span>
+        <span v-else class="kpi-note">
           <b>{{ cost.basis }}</b>
           <template v-if="cost.partial"> · <span class="partial">partial</span></template>
           <template v-else-if="cost.perTurn"> · {{ cost.perTurn }}/turn</template>
