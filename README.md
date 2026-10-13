@@ -8,6 +8,11 @@
   <strong>A desktop app for inspecting, searching, and launching GitHub Copilot CLI and Claude Code sessions.</strong>
 </p>
 
+<p align="center">
+  <a href="https://mattshelton04.github.io/TracePilot/"><strong>Website and live demo</strong></a> ·
+  <a href="https://github.com/MattShelton04/TracePilot/releases/latest"><strong>Download</strong></a>
+</p>
+
 TracePilot is built for developers who lean on coding agents and want a clearer view of what happened across their sessions: prompts, assistant turns, subagents and the messages they exchange, tool calls, todos, checkpoints, context growth, prompt-cache state, token usage, cost, search, and orchestration.
 
 It reads the sessions Copilot CLI writes under `~/.copilot/session-state/` and Claude Code writes under `~/.claude/projects/`, indexes them locally, and shows them side by side in a Tauri desktop app backed by Rust, SQLite, and Vue. Your session data stays on your machine.
@@ -22,7 +27,6 @@ It reads the sessions Copilot CLI writes under `~/.copilot/session-state/` and C
   <a href="#what-you-can-do">What you can do</a> |
   <a href="#screenshots">Screenshots</a> |
   <a href="https://mattshelton04.github.io/TracePilot/visual/">Visual history</a> |
-  <a href="https://mattshelton04.github.io/TracePilot/">Website</a> |
   <a href="#install-and-run">Install and run</a> |
   <a href="#architecture">Architecture</a> |
   <a href="#development">Development</a> |
