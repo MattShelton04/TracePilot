@@ -55,6 +55,59 @@ test("explicit missing source files remain skipped", (t) => {
   assert.match(result.stdout, /doc-link check passed \(2 file\(s\)\)/);
 });
 
+function write(root, rel, contents) {
+  mkdirSync(dirname(join(root, rel)), { recursive: true });
+  writeFileSync(join(root, rel), contents);
+}
+
+test("code-span repo paths must exist", (t) => {
+  const { run } = fixture(
+    t,
+    "ordinary",
+    "See `scripts/check-doc-links.mjs:12` and `crates/gone/src/lib.rs`.\n",
+  );
+  const result = run("README.md");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /README\.md:1\s+→\s+`crates\/gone\/src\/lib\.rs`/);
+  assert.doesNotMatch(result.stderr, /check-doc-links\.mjs/);
+});
+
+test("code spans that are not plain repo paths are ignored", (t) => {
+  const spans = [
+    "crates/*/src/lib.rs",
+    "docs/adr/<NNNN>-title.md",
+    "apps/{a,b}/x.ts",
+    "packages/$NAME/index.ts",
+    "crates/gone/src/lib.rs --flag",
+    "crates/.../lib.rs",
+    "src/missing.rs",
+    "node_modules/x/index.js",
+  ];
+  const { run } = fixture(t, "ordinary", `${spans.map((s) => `\`${s}\``).join(" ")}\n`);
+  const result = run("README.md");
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("code-span paths may be relative to the doc or Git-ignored outputs", (t) => {
+  const { root, run } = fixture(t, "ordinary", "Build output: `apps/web/out/`.\n");
+  write(root, ".gitignore", "apps/web/out/\n");
+  write(root, "crates/demo/tests/golden.rs", "\n");
+  write(root, "crates/demo/README.md", "Golden test: `tests/golden.rs`.\n");
+  const result = run("README.md", "crates/demo/README.md");
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("archived docs, dated reports and linked spans skip the code-span check", (t) => {
+  const { root, run } = fixture(t, "ordinary", "[`crates/gone.rs`](target.txt)\n");
+  write(root, "docs/archive/old.md", "Was `crates/gone.rs`.\n");
+  write(root, "docs/reports/2026-01-01.md", "Was `crates/gone.rs`.\n");
+  write(root, "docs/reports/versions/README.md", "Now `crates/gone.rs`.\n");
+  const result = run();
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /1 broken/);
+  assert.match(result.stderr, /docs\/reports\/versions\/README\.md:1\s+→\s+`crates\/gone\.rs`/);
+});
+
 test("full repository checks omit tracked source files deleted from disk", (t) => {
   const { root, run } = fixture(t, "ordinary", "[Link](missing.md)\n");
   execFileSync("git", ["add", "README.md"], { cwd: root });
