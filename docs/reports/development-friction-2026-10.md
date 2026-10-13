@@ -290,7 +290,7 @@ not a code PR.
 | 2 | Changelog lines go in the PR body for every card, not just orchestrate. Optionally use per-PR fragment files assembled at release. | The biggest single conflict source (20% of PRs) | S |
 | 3 | Run `cancel-in-progress` only for `pull_request` events | 25% of main runs cancelled; breaks that can't be traced to a commit | S |
 | 4 | Move `pnpm audit` / `cargo audit` out of the PR gate (schedule + main pushes, or only when lockfiles change) | 22% of red jobs | S |
-| 5 | **[settings]** Make `required` a required status check on main without an admin bypass, or use a merge queue | 17 red merges; main red 13% of the time | S |
+| 5 | ~~Make `required` a required status check or use a merge queue~~ **Declined:** the maintainer often merges before checks finish, and gating adds too much overhead. Items 3, 4, 6 and 29 reduce how often main goes red instead. | 17 red merges; main red 13% of the time | — |
 | 6 | Give Dependabot grouping (Tauri npm + crates together), ignore majors, monthly schedule | 32% of red jobs; 0/25 Dependabot PRs merged | S |
 | 7 | Add `rust-toolchain.toml` pinning the CI toolchain | clippy drift between local and CI | S |
 | 8 | Fix `just ci` / `just lint`: drop the advisory `-` prefixes and add the missing CI steps, or label it as a subset | A local "CI" that passes what CI rejects | S |
