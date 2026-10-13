@@ -11,7 +11,8 @@
 //! data forces are in `data-comparison.md` §2.
 //!
 //! Parsing never opens referenced files (`tool-results/`, task output, file
-//! history, plans), and image base64 never leaves the reader.
+//! history, plans), and image base64 never leaves the reader: a pasted
+//! prompt image is read back on its own by [`read_prompt_image`].
 
 mod branch;
 mod census;
@@ -22,6 +23,7 @@ mod notify;
 mod plans;
 pub(crate) mod pricing;
 mod privacy;
+mod prompt_images;
 mod prompts;
 mod provider;
 mod reader;
@@ -53,6 +55,7 @@ pub use census::{FormatCensus, format_census};
 pub use drift::{safe_type_name, safe_version, version_order};
 pub use liveness::{ProcessStart, StalePidFiles};
 pub(crate) use privacy::redact_record;
+pub use prompt_images::{PromptImage, read_prompt_image};
 pub use prompts::without_paste_tags;
 pub(super) use provider::CAPABILITIES;
 pub use provider::ClaudeCodeProvider;

@@ -1,4 +1,5 @@
-//! Bounded, sanitized raster-image previews for the session explorer.
+//! Bounded, sanitized raster-image previews for the session explorer and
+//! for images attached to a prompt.
 
 use super::scope::ExplorerScope;
 use super::security::{
@@ -156,19 +157,53 @@ pub async fn session_read_image_preview(
             )));
         }
 
-        let file = std::fs::File::open(&file_path)?;
-        let mut bytes = Vec::new();
-        let count = file
-            .take(MAX_IMAGE_INPUT_BYTES + 1)
-            .read_to_end(&mut bytes)?;
-        if count > MAX_IMAGE_INPUT_BYTES as usize {
-            return Err(BindingsError::Validation(format!(
-                "Image exceeds the {} MiB preview limit",
-                MAX_IMAGE_INPUT_BYTES / (1024 * 1024)
-            )));
-        }
-        build_image_preview(&bytes)
+        build_image_preview(&read_bounded(&file_path)?)
     })
+}
+
+/// Read at most the preview input limit of an image file.
+fn read_bounded(file_path: &std::path::Path) -> Result<Vec<u8>, BindingsError> {
+    let file = std::fs::File::open(file_path)?;
+    let mut bytes = Vec::new();
+    let count = file
+        .take(MAX_IMAGE_INPUT_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if count > MAX_IMAGE_INPUT_BYTES as usize {
+        return Err(too_large());
+    }
+    Ok(bytes)
+}
+
+fn too_large() -> BindingsError {
+    BindingsError::Validation(format!(
+        "Image exceeds the {} MiB preview limit",
+        MAX_IMAGE_INPUT_BYTES / (1024 * 1024)
+    ))
+}
+
+/// A prompt image's bytes as the same bounded, metadata-free PNG preview.
+pub(crate) fn prompt_image_preview(bytes: &[u8]) -> Result<SessionImagePreview, BindingsError> {
+    if bytes.len() as u64 > MAX_IMAGE_INPUT_BYTES {
+        return Err(too_large());
+    }
+    build_image_preview(bytes)
+}
+
+/// An image file a prompt attached by path, as a preview. Only a supported
+/// raster file is read, and its bytes must decode as one.
+pub(crate) fn prompt_image_file_preview(
+    file_path: &std::path::Path,
+) -> Result<SessionImagePreview, BindingsError> {
+    let file_name = file_path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if SessionFileType::from_name(&file_name) != SessionFileType::Image || !file_path.is_file() {
+        return Err(BindingsError::Validation(
+            "The attached image is no longer on disk".into(),
+        ));
+    }
+    build_image_preview(&read_bounded(file_path)?)
 }
 
 #[cfg(test)]

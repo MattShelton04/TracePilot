@@ -97,15 +97,15 @@ pub(super) fn read_jsonl_bounded(
     Ok(lines)
 }
 
-struct LineRead {
-    consumed: usize,
-    oversized: bool,
+pub(super) struct LineRead {
+    pub(super) consumed: usize,
+    pub(super) oversized: bool,
 }
 
 /// Read one line, newline included, into `bytes`. A line longer than `max`
 /// is consumed without being kept, leaving `bytes` empty. Cancellation is
 /// checked between buffer fills, so a huge line cannot delay it.
-fn read_line_bounded(
+pub(super) fn read_line_bounded(
     reader: &mut impl BufRead,
     bytes: &mut Vec<u8>,
     max: usize,
