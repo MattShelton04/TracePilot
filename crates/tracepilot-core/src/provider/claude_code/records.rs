@@ -90,14 +90,7 @@ impl<'a> Rec<'a> {
     pub(super) fn text(self) -> Option<String> {
         match self.blocks() {
             Blocks::Text(text) => Some(text.clone()),
-            Blocks::Array(items) => {
-                let parts: Vec<&str> = items
-                    .iter()
-                    .filter(|b| block_type(b) == "text")
-                    .filter_map(|b| b.get("text").and_then(Value::as_str))
-                    .collect();
-                (!parts.is_empty()).then(|| parts.join("\n"))
-            }
+            Blocks::Array(items) => blocks_text(items),
         }
     }
 
@@ -114,6 +107,16 @@ impl<'a> Rec<'a> {
 pub(super) enum Blocks<'a> {
     Array(&'a [Value]),
     Text(&'a String),
+}
+
+/// The text blocks of a prompt, joined.
+pub(super) fn blocks_text(items: &[Value]) -> Option<String> {
+    let parts: Vec<&str> = items
+        .iter()
+        .filter(|b| block_type(b) == "text")
+        .filter_map(|b| b.get("text").and_then(Value::as_str))
+        .collect();
+    (!parts.is_empty()).then(|| parts.join("\n"))
 }
 
 pub(super) fn block_type(block: &Value) -> &str {

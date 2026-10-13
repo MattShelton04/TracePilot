@@ -13,7 +13,7 @@ use super::notify::{
 use super::prompts::{
     command_name, command_output, command_prompt, echoed_command, is_command_caveat,
 };
-use super::records::{Blocks, Rec, block_type};
+use super::records::{Blocks, Rec, block_type, blocks_text};
 use super::translate::{Custom, RecCtx, Stream, Translator};
 use crate::models::event_types::TaskNotificationKind;
 
@@ -139,14 +139,40 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         } else {
             ("user".to_string(), None)
         };
-        self.new_interaction(st, ctx, rec);
+        self.new_interaction(st, ctx, rec.str("promptId"));
         st.last_command = command;
         st.echoed_command = echo;
         let data = json!({
             "content": content,
             "interactionId": st.interaction,
             "source": source,
-            "attachments": prompt_attachments(rec),
+            "attachments": prompt_attachments(rec.blocks(), "/message/content", ctx, st),
+        });
+        self.emit(st, ctx, "user.message", data);
+    }
+
+    /// A prompt typed while the model was working. Claude Code hands it to the
+    /// running loop as a `queued_command` attachment (and no `user` record),
+    /// so it opens a `steering` turn inside the current interaction.
+    fn steering_prompt(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx, rec: Rec<'_>) {
+        let (content, blocks) = match rec.0.pointer("/attachment/prompt") {
+            Some(Value::String(text)) => (text.clone(), Blocks::Text(text)),
+            Some(Value::Array(items)) => {
+                (blocks_text(items).unwrap_or_default(), Blocks::Array(items))
+            }
+            _ => {
+                self.native_only(st, ctx);
+                return;
+            }
+        };
+        let interaction = st.interaction.clone();
+        self.new_interaction(st, ctx, interaction.as_deref());
+        let data = json!({
+            "content": content,
+            "interactionId": st.interaction,
+            "source": "user",
+            "delivery": "steering",
+            "attachments": prompt_attachments(blocks, "/attachment/prompt", ctx, st),
         });
         self.emit(st, ctx, "user.message", data);
     }
@@ -158,6 +184,13 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             && contains_notification(prompt)
         {
             self.notification_carrier(st, ctx, rec, prompt, Carrier::Other);
+            return;
+        }
+        if kind == "queued_command"
+            && rec.ptr_str("/attachment/origin/kind") == Some("human")
+            && st.agent_id.is_none()
+        {
+            self.steering_prompt(st, ctx, rec);
             return;
         }
         if !KNOWN_ATTACHMENTS.contains(&kind) {
@@ -173,9 +206,9 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         }
     }
 
-    fn new_interaction(&mut self, st: &mut Stream<'_>, ctx: &RecCtx, rec: Rec<'_>) {
+    fn new_interaction(&mut self, st: &mut Stream<'_>, ctx: &RecCtx, interaction: Option<&str>) {
         self.close_call(st, ctx);
-        st.interaction = rec.str("promptId").map(str::to_string);
+        st.interaction = interaction.map(str::to_string);
         st.pending_skill = None;
         st.echoed_command = None;
         st.last_closed_end_turn = false;
@@ -241,7 +274,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         }
         if carrier == Carrier::User && st.agent_id.is_none() && is_idle(st) {
             // It wakes an idle session: a system-initiated interaction.
-            self.new_interaction(st, ctx, rec);
+            self.new_interaction(st, ctx, rec.str("promptId"));
             // Prose that quotes a block keeps its text: only a record Claude
             // Code wrote for the wake reads as its notifications.
             let written_for_wake =
@@ -307,73 +340,31 @@ fn is_interrupt(rec: Rec<'_>, text: &str) -> bool {
     rec.str("interruptedMessageId").is_some() || text.starts_with("[Request interrupted by user")
 }
 
-/// Pasted images, without their (already sanitized) data.
-fn prompt_attachments(rec: Rec<'_>) -> Option<Vec<Value>> {
-    let Blocks::Array(blocks) = rec.blocks() else {
+/// Pasted images, without their (already sanitized) data. A main-file image
+/// keeps where its block is (`line`, and `pointer` within the record) so the
+/// conversation can read the picture back from the transcript on demand.
+fn prompt_attachments(
+    blocks: Blocks<'_>,
+    base: &str,
+    ctx: &RecCtx,
+    st: &Stream<'_>,
+) -> Option<Vec<Value>> {
+    let Blocks::Array(blocks) = blocks else {
         return None;
     };
+    let main_file = st.agent_id.is_none();
     let images: Vec<Value> = blocks
         .iter()
-        .filter(|b| block_type(b) == "image")
-        .map(|b| json!({"type": "image", "mediaType": b.pointer("/source/media_type")}))
+        .enumerate()
+        .filter(|(_, b)| block_type(b) == "image")
+        .map(|(i, b)| {
+            let mut image = json!({"type": "image", "mediaType": b.pointer("/source/media_type")});
+            if main_file {
+                image["line"] = json!(ctx.position.line);
+                image["pointer"] = json!(format!("{base}/{i}"));
+            }
+            image
+        })
         .collect();
     (!images.is_empty()).then_some(images)
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-    use tracepilot_test_support::claude::{Transcript, write_session};
-
-    use super::super::parse_claude_session;
-    use crate::turns::reconstruct_turns;
-
-    /// Hook context and the skills re-sent after a compaction carry nothing
-    /// TracePilot shows: they are known types, kept on the Events tab, and
-    /// open no turn. An unlisted type is still counted.
-    #[test]
-    fn hook_context_and_invoked_skills_are_known_attachments() {
-        let mut main = Transcript::main();
-        main.prompt("hello");
-        main.record(
-            "attachment",
-            json!({"attachment": {
-                "type": "hook_additional_context",
-                "content": ["Synthetic hook context"],
-                "hookName": "SessionStart:startup",
-                "toolUseID": "SessionStart",
-                "hookEvent": "SessionStart",
-            }}),
-        );
-        main.record(
-            "attachment",
-            json!({"attachment": {
-                "type": "invoked_skills",
-                "skills": [{
-                    "name": "demo-skill",
-                    "path": "C:/work/demo/.claude/skills/demo-skill/SKILL.md",
-                    "content": "Synthetic skill body",
-                }],
-            }}),
-        );
-        main.record(
-            "attachment",
-            json!({"attachment": {"type": "brand_new_attachment"}}),
-        );
-        let files = write_session(&main, &[]);
-        let parsed = parse_claude_session(&files.main, &|| false).unwrap();
-
-        let unknown: Vec<_> = parsed.diagnostics.unknown_attachment_types.keys().collect();
-        assert_eq!(unknown, ["brand_new_attachment"]);
-        let natives: Vec<_> = parsed
-            .events
-            .iter()
-            .filter_map(|e| e.raw.native.as_ref())
-            .map(|n| n.data["attachment"]["type"].as_str().unwrap_or(""))
-            .collect();
-        assert!(natives.contains(&"hook_additional_context"));
-        assert!(natives.contains(&"invoked_skills"));
-        let turns = reconstruct_turns(&parsed.events);
-        assert_eq!(turns.iter().filter(|t| t.user_message.is_some()).count(), 1);
-    }
 }

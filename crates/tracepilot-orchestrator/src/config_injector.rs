@@ -26,7 +26,7 @@ pub use copilot_config::{
 
 use crate::error::{OrchestratorError, Result};
 use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, ConfigDiff};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tracepilot_core::TracePilotError;
 use tracepilot_core::utils::backup::BackupStore;
 
@@ -205,15 +205,6 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
     Ok(entries)
 }
 
-/// Delete a backup file and its sidecar metadata.
-/// The backup_path must reside within the expected backup directory.
-pub fn delete_backup(backup_path: &Path) -> Result<()> {
-    let expected_dir = backup_dir()?;
-    let store = BackupStore::new(expected_dir);
-    store.delete_file(backup_path)?;
-    Ok(())
-}
-
 /// Restore a backup file to its original location.
 ///
 /// `backup_path` is validated by the Tauri command layer before this call.
@@ -278,17 +269,6 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
         diff_text,
         has_changes,
     })
-}
-
-// ─── Internal helpers ─────────────────────────────────────────────
-
-/// Get the backup directory for TracePilot agent/config backups.
-pub fn backup_dir() -> Result<PathBuf> {
-    Ok(
-        tracepilot_core::paths::CopilotPaths::from_home(crate::launcher::copilot_home()?)
-            .tracepilot()
-            .agent_backups_dir(),
-    )
 }
 
 #[cfg(test)]

@@ -137,7 +137,7 @@ The repository registry persists your tracked repositories so you don't have to 
 
 ### How It Works
 
-- Stored in `~/.copilot/tracepilot/repo-registry.json`
+- Stored in `repo-registry.json` in the TracePilot data folder (`~/.tracepilot` by default; older installs keep `~/.copilot/tracepilot`)
 - Uses atomic writes (temp file + rename) to prevent corruption
 - Paths are canonicalized and deduplicated (case-insensitive on Windows)
 - Each repo tracks: path, name, when it was added, when last used, and how it was added (manual or auto-discovered)

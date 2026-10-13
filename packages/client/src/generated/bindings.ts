@@ -339,6 +339,8 @@ export type ValidateSessionDirResult = {
 	valid: boolean,
 	sessionCount: number,
 	error: string | null,
+	// Nothing exists at the path, as when the source's tool is not installed.
+	missing: boolean,
 };
 
 /* Tauri Specta runtime */

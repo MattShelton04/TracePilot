@@ -10,6 +10,8 @@ export const defaultFeatures = Object.freeze({
   copilotSdk: false,
   exactContextCapture: false,
   configInjector: false,
+  // First-run setup turns Claude Code on when its sessions are found.
+  claudeCodeSessions: true,
 });
 
 export function configureVisualFeatures(config, enabled = []) {

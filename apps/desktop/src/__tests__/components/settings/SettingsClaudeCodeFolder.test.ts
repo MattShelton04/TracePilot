@@ -53,6 +53,7 @@ describe("SettingsClaudeCodeFolder", () => {
       valid: true,
       sessionCount: 2,
       error: null,
+      missing: false,
     });
     await input.setValue("D:\\claude-config");
     await applyButton(wrapper).trigger("click");
@@ -71,6 +72,7 @@ describe("SettingsClaudeCodeFolder", () => {
       valid: false,
       sessionCount: 0,
       error: "Directory does not exist",
+      missing: true,
     });
     await wrapper.get("#settings-claude-code-folder").setValue("D:\\missing");
     await applyButton(wrapper).trigger("click");

@@ -7,7 +7,7 @@ import {
   resolveLucideIcon,
   shortenPath,
 } from "@tracepilot/ui";
-import { useId } from "vue";
+import { computed, useId } from "vue";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const {
@@ -31,6 +31,14 @@ const {
 } = useConfigInjectorContext();
 const formId = useId();
 
+// Agent backups live in `<data folder>/backups/agents`.
+const backupsDir = computed(() => {
+  const home = store.dataFolder?.replace(/[\\/]+$/, "");
+  if (!home) return null;
+  const separator = home.includes("\\") ? "\\" : "/";
+  return [home, "backups", "agents"].join(separator);
+});
+
 function backupIcon(path: string): unknown {
   return resolveLucideIcon(backupIconName(path), LUCIDE_ICON_COMPONENTS["file-text"]);
 }
@@ -43,7 +51,8 @@ function backupIcon(path: string): unknown {
       <h3 class="section-heading">Create Backup</h3>
       <p class="backup-guidance">
         Select a config file to back up. This creates a timestamped copy you can restore later.
-        Backups are stored in <code>~/.copilot/tracepilot/backups/</code>.
+        <template v-if="backupsDir">Backups are stored in <code>{{ backupsDir }}</code>.</template>
+        <template v-else>Backups are stored in your TracePilot data folder.</template>
         Unsaved Global Config edits are kept when restoring a backup.
       </p>
       <div class="backup-form">

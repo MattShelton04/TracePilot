@@ -248,7 +248,10 @@ async function persistPaths(options: { revalidateSessionDir: boolean }) {
   try {
     if (options.revalidateSessionDir || paths.copilotHome !== savedCopilotHome.value) {
       const result = await validateSessionDir(paths.sessionStateDir);
-      if (!result.valid) {
+      // Without Copilot CLI its folder is missing; that must not block
+      // changing the other paths.
+      const unchangedAndMissing = result.missing && paths.copilotHome === savedCopilotHome.value;
+      if (!result.valid && !unchangedAndMissing) {
         toast.error(result.error ?? "Derived Copilot sessions directory is not valid.");
         return;
       }

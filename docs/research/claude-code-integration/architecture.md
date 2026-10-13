@@ -261,11 +261,11 @@ The reshape has to happen in Rust:
 - **Toggle effects:** the provider registry is rebuilt on config change. Enabling triggers a
   reindex of that source. Disabling follows the generation ordering in §3.4: cancel, purge,
   then invalidate.
-- **Setup wizard** is unchanged while TracePilot is Copilot-first (decision D1). It still
-  requires a valid Copilot folder (`SetupWizard.vue:93-98`,
-  `tauri-bindings/src/commands/config_cmds.rs:103-108`). Allowing a Claude-only setup, and
-  moving TracePilot's data root out of `<COPILOT_HOME>/tracepilot` for such installs, belongs
-  with a future positioning change.
+- **Setup wizard** stays Copilot-first (decision D1) but does not require Copilot CLI: a
+  missing session folder at the default Copilot home (`ValidateSessionDirResult.missing`)
+  lets setup continue, and a missing custom path is still rejected as a likely typo. New
+  installs keep TracePilot's data in `~/.tracepilot`, outside the Copilot home; existing
+  installs stay in `<COPILOT_HOME>/tracepilot` ([on-disk paths](../../on-disk-paths.md#tracepilot-root)).
 
 ### 3.6 Liveness and live refresh
 

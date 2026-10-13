@@ -180,6 +180,8 @@ defineExpose({ revealEvent });
                 :timestamp="turn.timestamp"
                 :event-index="turn.eventIndex"
                 :render-markdown="renderMd"
+                :attachments="turn.attachments"
+                :session-id="store.sessionId"
               />
 
               <!-- Turn block with timeline line -->

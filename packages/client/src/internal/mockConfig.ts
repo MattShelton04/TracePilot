@@ -4,7 +4,7 @@ import type { TracePilotConfigPatch } from "../config.js";
 let config = createDefaultConfig({
   paths: {
     sessionStateDir: "~/.copilot/session-state",
-    indexDbPath: "~/.copilot/tracepilot/index.db",
+    indexDbPath: "~/.tracepilot/index.db",
   },
   general: { setupComplete: true },
 });

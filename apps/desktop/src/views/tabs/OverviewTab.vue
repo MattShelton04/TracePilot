@@ -360,6 +360,15 @@ function retryLoadSection(section: string) {
 
 
     <div v-if="detail" class="overview-row mb-4">
+      <SessionContextPanel
+        :detail="detail"
+        :model="currentModel"
+        :model-label="currentModelLabel"
+        :effort="currentEffort"
+        :show-host="showHost"
+        :is-claude="isClaude"
+        :running="activeNow"
+      />
       <SessionOutcomeTiles
         :live="live"
         :has-exit-metrics="capabilities.hasExitMetrics"
@@ -376,15 +385,6 @@ function retryLoadSection(section: string) {
         :api-ms="metrics?.totalApiDurationMs"
         :tool-ms="metrics?.totalToolDurationMs"
         @jump="scrollToSection"
-      />
-      <SessionContextPanel
-        :detail="detail"
-        :model="currentModel"
-        :model-label="currentModelLabel"
-        :effort="currentEffort"
-        :show-host="showHost"
-        :is-claude="isClaude"
-        :running="activeNow"
       />
     </div>
 

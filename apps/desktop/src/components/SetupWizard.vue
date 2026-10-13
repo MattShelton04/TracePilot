@@ -91,13 +91,25 @@ watch(
 );
 
 // ── Computed ───────────────────────────────────────────────────
+// Copilot CLI is optional: with no session folder at its default home (it is
+// not installed, or has never run), setup goes on and indexing picks its
+// sessions up later. A missing folder elsewhere is more likely a typo.
+function acceptsCopilotDir(result: ValidateSessionDirResult, home: string) {
+  return result.valid || (result.missing && home === defaultCopilotHome.value.trim());
+}
+
 const canContinueSlide3 = computed(() => {
   return (
     !validating.value &&
-    validationResult.value?.valid === true &&
+    validationResult.value !== null &&
+    acceptsCopilotDir(validationResult.value, copilotHome.value.trim()) &&
     validatedSessionDir.value === sessionDir.value.trim()
   );
 });
+
+const copilotMissing = computed(
+  () => canContinueSlide3.value && validationResult.value?.missing === true,
+);
 
 const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 
@@ -107,6 +119,8 @@ const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 // the folder was found, whatever the switch says.
 const claudeCode = ref<{ dir: string; sessionCount: number } | null>(null);
 const includeClaudeCode = ref(true);
+// Setup waits for this, so a quick Skip still finds the folder.
+let claudeCodeDetection: Promise<void> = Promise.resolve();
 
 async function detectClaudeCode(dir: string) {
   if (!dir.trim()) return;
@@ -136,7 +150,7 @@ async function validateDir(): Promise<ValidateSessionDirResult | null> {
     if (disposed || requestId !== validationRequestId) return null;
     validationResult.value = result;
     validatedSessionDir.value = requestedPath;
-    if (!result.valid && result.error) {
+    if (!acceptsCopilotDir(result, copilotHome.value.trim()) && result.error) {
       validationError.value = result.error;
     }
     return result;
@@ -202,9 +216,13 @@ async function finishSetup(useDefaults = false) {
     (useDefaults ? defaultTracePilotHome.value : tracepilotHome.value).trim() ||
     defaultTracePilotHome.value;
   try {
+    await claudeCodeDetection;
     const checked = useDefaults ? null : await validateDir();
     if (disposed) return;
-    if (!useDefaults && (!checked?.valid || home !== copilotHome.value.trim())) {
+    if (
+      !useDefaults &&
+      (!checked || !acceptsCopilotDir(checked, home) || home !== copilotHome.value.trim())
+    ) {
       saving.value = false;
       goTo(2);
       return;
@@ -254,7 +272,7 @@ onMounted(async () => {
     defaultSessionDir.value = config.paths.sessionStateDir;
     defaultCopilotHome.value = copilotHome.value;
     defaultTracePilotHome.value = tracepilotHome.value;
-    void detectClaudeCode(config.sources?.claudeCode?.configDir ?? "");
+    claudeCodeDetection = detectClaudeCode(config.sources?.claudeCode?.configDir ?? "");
   } catch {
     // Defaults are fine (dev mode / outside Tauri)
   }
@@ -317,6 +335,7 @@ onUnmounted(() => {
           :validating="validating"
           :validation-result="validationResult"
           :validation-error="validationError"
+          :copilot-missing="copilotMissing"
           :can-continue="canContinueSlide3"
           :claude-code="claudeCode"
           :include-claude-code="includeClaudeCode"
@@ -347,6 +366,7 @@ onUnmounted(() => {
           :session-dir="sessionDir"
           :db-path="dbPath"
           :session-count="sessionCount"
+          :copilot-missing="copilotMissing"
           :claude-code="includeClaudeCode ? claudeCode : null"
           :saving="saving"
           :setup-error="setupError"

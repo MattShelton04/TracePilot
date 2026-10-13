@@ -26,25 +26,78 @@ function usageTotals(sessions) {
   };
 }
 
+// Claude Code's API-equivalent USD rates per million tokens, from
+// packages/types/src/claude-code-pricing-data.json.
+const claudeRates = {
+  "claude-opus-5-5": { input: 4, cacheRead: 0.2, cacheWrite: 5, output: 20 },
+  "claude-sonnet-5": { input: 2, cacheRead: 0.2, cacheWrite: 2.5, output: 10 },
+  "claude-haiku-4-5": { input: 1, cacheRead: 0.1, cacheWrite: 1.25, output: 5 },
+};
+const cacheWrites = (model, inputTokens) =>
+  model.startsWith("claude") ? Math.round(inputTokens * 0.04) : 0;
+
+function claudeCodeUsd(sessions) {
+  let usd = 0;
+  for (const session of sessions) {
+    const rates = claudeRates[session.currentModel];
+    const { inputTokens, outputTokens, cacheReadTokens } = session._usage;
+    const writes = cacheWrites(session.currentModel, inputTokens);
+    const fresh = inputTokens - cacheReadTokens - writes;
+    usd +=
+      (fresh * rates.input +
+        cacheReadTokens * rates.cacheRead +
+        writes * rates.cacheWrite +
+        outputTokens * rates.output) /
+      1e6;
+  }
+  return Number(usd.toFixed(2));
+}
+
+// Rows never merge across sources, so a model used by both appears twice.
 function modelRows() {
-  const models = [...new Set(showcaseSessions.map((session) => session.currentModel))];
-  const rows = models.map((model) => {
-    const usage = usageTotals(showcaseSessions.filter((session) => session.currentModel === model));
+  const keys = [
+    ...new Map(
+      showcaseSessions.map((session) => [
+        `${session.source}:${session.currentModel}`,
+        { source: session.source, model: session.currentModel },
+      ]),
+    ).values(),
+  ];
+  const rows = keys.map(({ source, model }) => {
+    const sessions = showcaseSessions.filter(
+      (session) => session.source === source && session.currentModel === model,
+    );
+    const usage = usageTotals(sessions);
     return {
       model,
+      source,
       tokens: usage.inputTokens + usage.outputTokens,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       cacheReadTokens: usage.cacheReadTokens,
-      cacheWriteTokens: model.startsWith("claude") ? Math.round(usage.inputTokens * 0.04) : 0,
+      cacheWriteTokens: cacheWrites(model, usage.inputTokens),
       premiumRequests: 0,
       requestCount: usage.requests,
+      ...(source === "claudeCode" && { costUsd: claudeCodeUsd(sessions) }),
     };
   });
   const total = sum(rows, "tokens");
   return rows
     .map((row) => ({ ...row, percentage: Number(((row.tokens / total) * 100).toFixed(1)) }))
     .sort((a, b) => b.tokens - a.tokens);
+}
+
+function sourceTotals(source) {
+  const sessions = showcaseSessions.filter((session) => session.source === source);
+  const usage = usageTotals(sessions);
+  const claude = source === "claudeCode";
+  return {
+    source,
+    sessions: sessions.length,
+    tokens: usage.inputTokens + usage.outputTokens,
+    costUsd: claude ? claudeCodeUsd(sessions) : null,
+    sessionsWithCostUsd: claude ? sessions.length : 0,
+  };
 }
 
 function durationStats() {
@@ -88,21 +141,30 @@ export function showcaseAnalytics() {
     activityPerDay: perDay((sessions, date) => ({ date, count: sessions.length })),
     modelDistribution: models,
     costByDay: perDay((_sessions, date) => ({ date, cost: 0 })),
+    costBySource: [sourceTotals("copilot"), sourceTotals("claudeCode")],
+    costUsdByDay: perDay((sessions, date) => ({
+      date,
+      cost: claudeCodeUsd(sessions.filter((session) => session.source === "claudeCode")),
+    })).filter((day) => day.cost > 0),
     modelUsageByDay: days.flatMap((date) =>
       models
-        .map(({ model }) => {
+        .map(({ model, source }) => {
           const day = usageTotals(
             showcaseSessions.filter(
-              (session) => dayOf(session) === date && session.currentModel === model,
+              (session) =>
+                dayOf(session) === date &&
+                session.source === source &&
+                session.currentModel === model,
             ),
           );
           return {
             date,
             model,
+            source,
             inputTokens: day.inputTokens,
             outputTokens: day.outputTokens,
             cacheReadTokens: day.cacheReadTokens,
-            cacheWriteTokens: model.startsWith("claude") ? Math.round(day.inputTokens * 0.04) : 0,
+            cacheWriteTokens: cacheWrites(model, day.inputTokens),
           };
         })
         .filter((row) => row.inputTokens > 0),
@@ -190,6 +252,9 @@ export function showcaseToolAnalysis() {
     };
   });
   const calls = sum(tools, "callCount");
+  const failureRate =
+    tools.reduce((total, tool) => total + (1 - tool.successRate) * tool.callCount, 0) / calls;
+  const avgDurationMs = Math.round(sum(tools, "totalDurationMs") / calls);
   const random = rng(7);
   const activityHeatmap = [];
   for (let day = 0; day < 7; day++) {
@@ -219,10 +284,19 @@ export function showcaseToolAnalysis() {
     totalCalls: calls,
     successRate:
       tools.reduce((total, tool) => total + tool.successRate * tool.callCount, 0) / calls,
-    avgDurationMs: Math.round(sum(tools, "totalDurationMs") / calls),
+    avgDurationMs,
     mostUsedTool: "view",
     tools,
     activityHeatmap,
+    callsByDay: perDay((sessions, date) => {
+      const dayCalls = sessions.reduce((total, session) => total + session._usage.toolCalls, 0);
+      return {
+        date,
+        calls: dayCalls,
+        failures: Math.round(dayCalls * failureRate),
+        durationMs: dayCalls * avgDurationMs,
+      };
+    }).filter((day) => day.calls > 0),
   };
 }
 
