@@ -6,6 +6,7 @@ defineProps<{
   sessionDir: string;
   dbPath: string;
   sessionCount: number;
+  copilotMissing: boolean;
   /** The Claude Code folder chosen for indexing, or null. */
   claudeCode: { dir: string; sessionCount: number } | null;
   saving: boolean;
@@ -50,7 +51,9 @@ const emit = defineEmits<{
             <FolderOpen :size="18" :stroke-width="1.5" />
           </span>
           <div class="summary-text">
-            <span class="summary-label">Sessions ({{ sessionCount }})</span>
+            <span class="summary-label">
+              Copilot sessions{{ copilotMissing ? " · CLI not found" : ` (${sessionCount})` }}
+            </span>
             <span class="summary-value">{{ sessionDir }}</span>
           </div>
         </div>

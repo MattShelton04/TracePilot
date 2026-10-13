@@ -38,13 +38,13 @@ export async function updateConfig(patch: TracePilotConfigPatch): Promise<TraceP
 
 /** Validate a session state directory path. */
 export async function validateSessionDir(path: string): Promise<ValidateSessionDirResult> {
-  if (!isTauri()) return { valid: true, sessionCount: 47, error: null };
+  if (!isTauri()) return { valid: true, sessionCount: 47, error: null, missing: false };
   return invoke<ValidateSessionDirResult>("validate_session_dir", { path });
 }
 
 /** Validate a Claude Code config folder and count its sessions. */
 export async function validateClaudeConfigDir(path: string): Promise<ValidateSessionDirResult> {
-  if (!isTauri()) return { valid: true, sessionCount: 3, error: null };
+  if (!isTauri()) return { valid: true, sessionCount: 3, error: null, missing: false };
   return invoke<ValidateSessionDirResult>("validate_claude_config_dir", { path });
 }
 

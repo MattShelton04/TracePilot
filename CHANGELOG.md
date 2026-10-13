@@ -7,6 +7,10 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Fixed
+
+- **Setup without Copilot CLI** — First-run setup no longer stops at the Copilot step when Copilot CLI isn't installed, so Claude Code users can finish it.
+
 ## [0.9.2] - 2026-10-11
 
 ### Added
