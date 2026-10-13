@@ -72,7 +72,6 @@ const KNOWN_STALE_CODE_PATHS = new Map([
     ]),
   ],
   ["docs/testing.md", new Set(["packages/test-utils/fixtures/"])],
-  ["docs/agents/tasks/qa-pass.md", new Set(["design-system/audit/"])],
 ]);
 
 function sourceTreeDocsFallback() {

@@ -271,7 +271,7 @@ messages across both tools, paraphrased:
 10. **Stale paths in docs.** About 100 backticked paths no longer exist, 62 of them in
     five historical docs. About 61% of `docs/` by line count is historical, plan,
     research or report material that sits next to the current guides.
-    [git-worktree-guide.md](../git-worktree-guide.md) documents the product's Worktree
+    [git-worktree-guide.md](../features/worktree-manager.md) (now moved there) documents the product's Worktree
     Manager, so agents searching for contributor worktree setup land in the wrong place.
 11. **Mixed PowerShell versions.** `package.json` invokes `powershell` (5.1) while the
     justfile requires `pwsh` (7).
