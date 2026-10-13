@@ -1,6 +1,6 @@
 # Version Analysis Implementation Guide
 
-> **Purpose:** Step-by-step guide for addressing the coverage gaps and schema changes identified by `tracepilot versions coverage` and the [Copilot Version Analysis Report](./reports/versions/).
+> **Purpose:** Step-by-step guide for addressing the coverage gaps and schema changes identified by `tracepilot versions coverage` and the [Copilot Version Analysis Report](../reports/versions/).
 >
 > **Audience:** TracePilot contributors working on expanding event type support.
 >

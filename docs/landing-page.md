@@ -289,7 +289,7 @@ The first viewport must not wait for the script bundle:
 1. The inline boot script at the top of `<body>` adds `motion`/`pin` (the same
    media queries as `motion/env.js`) and adds `fonts` once Inter and JetBrains
    Mono load, capped at 1.2s. Its SHA-256 is added to `script-src` by the Vite
-   plugin (`inlineScriptHashes` in `scripts/html-facts.mjs`), so editing it
+   plugin (`inlineScriptHashes` in `site/scripts/html-facts.mjs`), so editing it
    needs no CSP change. Builds preload the first-paint fonts.
 2. The hero copy enters in CSS keyed off `.fonts` ("Hero entrance" in
    `site.css`), so it runs on the compositor while the page wires.

@@ -414,7 +414,7 @@ and rate data stay unchanged.
 
 ## 7. Codex stress test
 
-Each Codex trait from the [feasibility study §4](../codex-claude-code-session-support-feasibility.md)
+Each Codex trait from the [feasibility study §4](../../archive/research/codex-claude-code-session-support-feasibility.md)
 is checked against the seam. The aim is to keep shortcuts that only fit Claude out of shared
 layers.
 

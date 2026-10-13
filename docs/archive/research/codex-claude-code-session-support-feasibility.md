@@ -2,7 +2,7 @@
 
 > **Status:** Research only; nothing implemented.
 > **Date:** 2026-10-04
-> **Follow-up:** The [Claude Code integration plan](claude-code-integration/README.md)
+> **Follow-up:** The [Claude Code integration plan](../../research/claude-code-integration/README.md)
 > (2026-10-05) re-measures the Claude Code data and corrects §3.2. Do **not** follow
 > `leafUuid`/`parentUuid` chains to reconstruct turns: they skip records and cycle after
 > compaction. Take usage from the *last* record per message. That plan also refines §6 and
@@ -271,7 +271,7 @@ Normalize in the provider, not the UI. Add a `canonical_tool` (or map to the Cop
 | todos | Todo tools | `update_plan` |
 | web | `WebFetch`, `WebSearch` | `WebSearch` item |
 
-Per the repo's [visual regression guidance](../visual-regression.md), synthetic renderer fixtures should be added for each new canonical mapping.
+Per the repo's [visual regression guidance](../../visual-regression.md), synthetic renderer fixtures should be added for each new canonical mapping.
 
 ---
 

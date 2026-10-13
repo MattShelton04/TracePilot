@@ -4,7 +4,7 @@
 > pop-out windows, and alert UI have since landed in part; check current code
 > and tests before treating any phase below as open work.
 > **Date:** 2026-04-13  
-> **Prerequisite:** [Multi-Window Architecture](./multi-window-architecture.md) · [Alerting Design](./session-alerting-notifications.md)  
+> **Prerequisite:** [Multi-Window Architecture](multi-window-architecture.md) · [Alerting Design](session-alerting-notifications.md)  
 > **Review provenance:** The review summaries are incorporated in §10; the
 > separate review files are not in this repository.
 

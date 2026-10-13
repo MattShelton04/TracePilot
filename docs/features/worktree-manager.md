@@ -1,4 +1,6 @@
-# Git Worktree Guide for TracePilot
+# Worktree Manager (product feature)
+
+> This page covers the app's Worktree Manager. For contributor worktree setup, see [local builds](../local-builds.md) and `pnpm worktree:new`.
 
 ## What Are Git Worktrees?
 
@@ -242,14 +244,14 @@ git rev-parse --show-toplevel
 For developers working on TracePilot's worktree integration:
 
 ### Backend (Rust)
-- **`crates/tracepilot-orchestrator/src/worktrees.rs`** — Core worktree operations (list, create, delete, prune, lock, details)
+- **`crates/tracepilot-orchestrator/src/worktrees/`** — Core worktree operations (list, create, delete, prune, lock, details)
 - **`crates/tracepilot-orchestrator/src/repo_registry.rs`** — Repository registry with JSON persistence
-- **`crates/tracepilot-orchestrator/src/launcher.rs`** — Session launcher with worktree creation integration
+- **`crates/tracepilot-orchestrator/src/launcher/`** — Session launcher with worktree creation integration
 
 ### Frontend (TypeScript/Vue)
 - **`packages/types/src/orchestration.ts`** — Shared type definitions
 - **`packages/client/src/orchestration.ts`** — Tauri command wrappers
-- **`apps/desktop/src/stores/worktrees.ts`** — Pinia store with full state management
+- **`apps/desktop/src/stores/worktrees/`** — Pinia store with full state management
 - **`apps/desktop/src/views/orchestration/WorktreeManagerView.vue`** — Main worktree UI
 
 ### Tauri Commands

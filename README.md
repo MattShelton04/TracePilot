@@ -244,7 +244,6 @@ Copilot CLI and Claude Code session files
 Useful deeper docs:
 
 - [Architecture overview](docs/architecture/overview.md)
-- [Data integration guide](docs/data-integration-guide.md)
 - [Claude Code sessions](docs/claude-code-sessions.md)
 - [Testing guide](docs/testing.md)
 - [On-disk paths](docs/on-disk-paths.md)

@@ -7,7 +7,7 @@
 > and turn-end rules, usage reconciliation, split foundation acceptance, enable/disable
 > ordering, estimated cache expiry, package contracts.
 > **Date:** 2026-10-05
-> **Builds on:** [Codex and Claude Code feasibility](../codex-claude-code-session-support-feasibility.md)
+> **Builds on:** [Codex and Claude Code feasibility](../../archive/research/codex-claude-code-session-support-feasibility.md)
 > (breadth across both tools). This set goes deeper on Claude Code, re-measures the data and
 > corrects several earlier claims. It also designs the abstraction so Codex can be added later
 > without another core refactor.

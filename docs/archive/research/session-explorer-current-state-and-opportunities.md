@@ -56,7 +56,7 @@ Copilot CLI owns a local session directory, normally:
 └── rewind-snapshots/
 ```
 
-Not every session contains every file. `workspace.yaml` is session metadata, `events.jsonl` is the append-only event stream, `session.db` contains todos and potentially arbitrary agent-created tables, and the remaining folders hold plans, compaction checkpoints, research, workspace artifacts, and rewind metadata. The repository’s [Copilot CLI evolution research](copilot-cli-evolution-risks.md#21-directory-structure) contains the fuller observed layout and format notes. The authoritative application path inventory is [on-disk-paths.md](../on-disk-paths.md).
+Not every session contains every file. `workspace.yaml` is session metadata, `events.jsonl` is the append-only event stream, `session.db` contains todos and potentially arbitrary agent-created tables, and the remaining folders hold plans, compaction checkpoints, research, workspace artifacts, and rewind metadata. The repository’s [Copilot CLI evolution research](copilot-cli-evolution-risks.md#21-directory-structure) contains the fuller observed layout and format notes. The authoritative application path inventory is [on-disk-paths.md](../../on-disk-paths.md).
 
 Most TracePilot tabs interpret particular parts of this data. Explorer serves a different purpose: it exposes the source artifacts themselves. That is useful when a developer wants to:
 
@@ -66,7 +66,7 @@ Most TracePilot tabs interpret particular parts of this data. Explorer serves a 
 - watch artifacts appear or change while a session is still running;
 - copy a path or raw content into an editor, terminal, issue, or debugging workflow.
 
-The feature first appeared in `0.6.3` on 2026-04-19. Subsequent work added a richer SQLite viewer, safer path handling, stable auto-refresh, nested-folder fixes, and file actions. See the relevant entries in [CHANGELOG.md](../../CHANGELOG.md).
+The feature first appeared in `0.6.3` on 2026-04-19. Subsequent work added a richer SQLite viewer, safer path handling, stable auto-refresh, nested-folder fixes, and file actions. See the relevant entries in [CHANGELOG.md](../../../CHANGELOG.md).
 
 ## What the product currently offers
 
@@ -80,7 +80,7 @@ The feature first appeared in `0.6.3` on 2026-04-19. Subsequent work added a ric
 - `workspace.yaml` or `workspace.yml` is auto-selected when present.
 - Folders containing more than 10 descendant files auto-collapse unless the user has explicitly toggled them.
 
-Evidence: [ExplorerTab.vue](../../apps/desktop/src/views/tabs/ExplorerTab.vue), [sessionTabs.ts](../../apps/desktop/src/config/sessionTabs.ts), and [useFileBrowserTree.ts](../../packages/ui/src/composables/useFileBrowserTree.ts).
+Evidence: [ExplorerTab.vue](../../../apps/desktop/src/views/tabs/ExplorerTab.vue), [sessionTabs.ts](../../../apps/desktop/src/config/sessionTabs.ts), and [useFileBrowserTree.ts](../../../packages/ui/src/composables/useFileBrowserTree.ts).
 
 ### File tree behavior
 
@@ -101,7 +101,7 @@ Current limitations:
 - The tree can be silently incomplete after the backend’s depth or entry cap.
 - `filesError` is tracked but not rendered, so a failed listing can look like an empty session.
 
-Evidence: [FileBrowserTree.vue](../../packages/ui/src/components/FileBrowserTree.vue), [useSessionFiles.ts](../../apps/desktop/src/composables/useSessionFiles.ts), and [ExplorerTab.vue](../../apps/desktop/src/views/tabs/ExplorerTab.vue).
+Evidence: [FileBrowserTree.vue](../../../packages/ui/src/components/FileBrowserTree.vue), [useSessionFiles.ts](../../../apps/desktop/src/composables/useSessionFiles.ts), and [ExplorerTab.vue](../../../apps/desktop/src/views/tabs/ExplorerTab.vue).
 
 ### Viewer behavior by file type
 
@@ -131,7 +131,7 @@ Current limitations:
 - Raster images show dimensions/format/size metadata; other binary files have no metadata beyond filename and byte size.
 - Markdown image references do not resolve to session files. Remote images are also blocked by the desktop Content Security Policy, which is desirable for privacy.
 
-Evidence: [file browser types](../../crates/tracepilot-tauri-bindings/src/commands/file_browser/types.rs), [FileContentViewer.vue](../../packages/ui/src/components/FileContentViewer.vue), [CodeBlock.vue](../../packages/ui/src/components/renderers/CodeBlock.vue), [MarkdownContent.vue](../../packages/ui/src/components/MarkdownContent.vue), and [SQLite read-only connection](../../crates/tracepilot-core/src/utils/sqlite/connection.rs).
+Evidence: [file browser types](../../../crates/tracepilot-tauri-bindings/src/commands/file_browser/types.rs), [FileContentViewer.vue](../../../packages/ui/src/components/FileContentViewer.vue), [CodeBlock.vue](../../../packages/ui/src/components/renderers/CodeBlock.vue), [MarkdownContent.vue](../../../packages/ui/src/components/MarkdownContent.vue), and [SQLite read-only connection](../../../crates/tracepilot-core/src/utils/sqlite/connection.rs).
 
 ### File and folder actions
 
@@ -154,7 +154,7 @@ Current limitations:
 - There is no “Open file with default application” or “Open in editor.”
 - Absolute paths for copy/reveal are reconstructed from frontend preferences plus the session ID. Backend reads independently resolve and canonicalize the configured session root.
 
-Evidence: [ExplorerTab.vue](../../apps/desktop/src/views/tabs/ExplorerTab.vue) and [FileContextMenu.vue](../../apps/desktop/src/components/session/FileContextMenu.vue).
+Evidence: [ExplorerTab.vue](../../../apps/desktop/src/views/tabs/ExplorerTab.vue) and [FileContextMenu.vue](../../../apps/desktop/src/components/session/FileContextMenu.vue).
 
 ### Live-session behavior
 
@@ -207,7 +207,7 @@ interface SessionDbTable {
 
 The listing does **not** currently include modification time, MIME/media type, dimensions, hash/fingerprint, file permissions, a truncated-list flag, or the actual canonical root.
 
-Evidence: [session types](../../packages/types/src/session.ts) and the mirrored [Rust types](../../crates/tracepilot-tauri-bindings/src/commands/file_browser/types.rs).
+Evidence: [session types](../../../packages/types/src/session.ts) and the mirrored [Rust types](../../../crates/tracepilot-tauri-bindings/src/commands/file_browser/types.rs).
 
 ### Request path
 
@@ -256,7 +256,7 @@ The backend treats session contents as untrusted, including content produced by 
 - renders Markdown with inline HTML disabled and DOMPurify sanitization;
 - blocks unexpected link schemes, prevents WebView navigation for session-provided links, and uses a restrictive application CSP.
 
-Evidence: [security.rs](../../crates/tracepilot-tauri-bindings/src/commands/file_browser/security.rs), [commands.rs](../../crates/tracepilot-tauri-bindings/src/commands/file_browser/commands.rs), [markdownLoader.ts](../../packages/ui/src/utils/markdownLoader.ts), [MarkdownContent.vue](../../packages/ui/src/components/MarkdownContent.vue), and [tauri.conf.json](../../apps/desktop/src-tauri/tauri.conf.json).
+Evidence: [security.rs](../../../crates/tracepilot-tauri-bindings/src/commands/file_browser/security.rs), [commands.rs](../../../crates/tracepilot-tauri-bindings/src/commands/file_browser/commands.rs), [markdownLoader.ts](../../../packages/ui/src/utils/markdownLoader.ts), [MarkdownContent.vue](../../../packages/ui/src/components/MarkdownContent.vue), and [tauri.conf.json](../../../apps/desktop/src-tauri/tauri.conf.json).
 
 Residual limitations worth preserving or addressing:
 

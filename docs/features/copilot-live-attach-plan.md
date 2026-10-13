@@ -315,7 +315,8 @@ Still open:
 ## References
 
 - Official SDK: <https://github.com/github/copilot-sdk> (`rust/README.md`,
-  `rust/tests/e2e/multi_client.rs`, `docs/features/streaming-events.md`).
+  `rust/tests/e2e/multi_client.rs`,
+  [`docs/features/streaming-events.md`](https://github.com/github/copilot-sdk/blob/main/docs/features/streaming-events.md)).
 - [ADR-0007](../adr/0007-copilot-sdk-always-on.md),
   [ADR-0009](../adr/0009-bridge-lifecycle.md),
   [ADR-0015](../adr/0015-official-copilot-sdk.md).

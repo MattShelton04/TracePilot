@@ -62,8 +62,8 @@ Do **not** write an ADR for:
 - One-off bug fixes or refactors that touch a single module.
 - Style or formatting choices (those belong in `rustfmt.toml` /
   `biome.json`).
-- Temporary workarounds (those belong in code comments or in the current
-  improvement review notes under `docs/improvements/`).
+- Temporary workarounds (those belong in code comments or the tracking
+  issue).
 
 ## Numbering
 
@@ -117,7 +117,7 @@ more than one decision and should split the ADR.
 
 ## Process
 
-1. Copy the template into `docs/adr/NNNN-kebab-case-title.md` with
+1. Copy the template into `docs/adr/<NNNN>-<kebab-case-title>.md` with
    the next free number.
 2. Open the ADR as `Status: Proposed`.
 3. Discuss on the PR. Update the ADR until consensus.

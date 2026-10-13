@@ -63,7 +63,7 @@ The same runtime also contains per-session databases (`session.db`, with `todos`
 
 | Rank | Use | Value | Depends on store? |
 |---|---|---|---|
-| 1 | **Observed cache outcomes** for prompt-cache insights (upgrade Predicted to Observed) | High. It's the only offline source of per-request cache reads. | Optional enrichment ([plan §8](../features/prompt-cache-insights-plan.md)) |
+| 1 | **Observed cache outcomes** for prompt-cache insights (upgrade Predicted to Observed) | High. It's the only offline source of per-request cache reads. | Optional enrichment ([plan §8](../../features/prompt-cache-insights-plan.md)) |
 | 2 | **Per-request latency and throughput** (TTFT, ITL, tokens/s) by model, initiator and agent | High for Model Comparison and the Agents Usage tab | Yes (no events.jsonl equivalent) |
 | 3 | **Linked work**: PR, issue and commit refs per session, plus a `pr:` search qualifier | High, cheap | Yes (TracePilot could extract refs itself, but the CLI already does it) |
 | 4 | **Structured checkpoint sections** for a compaction ledger diff | Medium | No. TracePilot can parse `summaryContent` tags itself, which is preferred. |
