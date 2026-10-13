@@ -601,10 +601,10 @@ TracePilot should implement a **three-tier rendering strategy**:
 ```typescript
 function renderEvent(event: SessionEvent) {
   if (RICH_RENDERERS[event.type]) {
-    return RICH_RENDERERS[event.type](event);
+    return RICH_RENDERERS[event.type](../../research/event);
   }
   if (GENERIC_RENDERERS[event.type]) {
-    return GENERIC_RENDERERS[event.type](event);
+    return GENERIC_RENDERERS[event.type](../../research/event);
   }
   return <UnknownEventRenderer type={event.type} data={event.data} />;
 }

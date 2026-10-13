@@ -3,7 +3,7 @@
 Status: **Implemented** (2026-09-20, PR #841). This extends the existing Skills manager
 (`skills` feature flag). Related: [Agents explorer design](agents-explorer-design.md), which
 shares the editor shell and usage patterns. Also
-[prompt-cache insights](prompt-cache-insights-plan.md).
+[prompt-cache insights](../../features/prompt-cache-insights-plan.md).
 
 What shipped differs from this design in the ways recorded in §14. The sections below are kept
 as written so the reasoning behind each decision stays readable; where they disagree with the

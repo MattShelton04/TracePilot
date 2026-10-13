@@ -4,7 +4,7 @@
 > **Author:** Copilot (research-assisted)  
 > **Date:** 2026-04-13  
 > **Scope:** Session lifecycle alerts, Windows taskbar flash, OS toast notifications, in-app visual indicators  
-> **Related:** [Multi-Window Architecture](./multi-window-architecture.md)
+> **Related:** [Multi-Window Architecture](multi-window-architecture.md)
 
 ---
 

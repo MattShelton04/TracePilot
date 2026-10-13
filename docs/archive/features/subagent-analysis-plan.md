@@ -146,5 +146,5 @@ invalid/reset snapshots, mixed-version aggregation, cache partitions and
 partial distributions. Live validation uses the actual Tauri Rust backend and
 WebView2 through Playwright CDP, with animation waits before screenshots.
 
-Related: [1.0.83 alignment evidence](../reports/versions/2026-09-12-v1.0.83-alignment.md),
+Related: [1.0.83 alignment evidence](../../reports/versions/2026-09-12-v1.0.83-alignment.md),
 [existing Context design](context-window-analyzer-plan.md).

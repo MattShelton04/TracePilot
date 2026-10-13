@@ -39,5 +39,5 @@ The endpoint is not a same-user security boundary. The random path and short lif
 ## References
 
 - `crates/tracepilot-orchestrator/src/context_capture/listener.rs`
-- `docs/features/exact-context-capture-plan.md`
+- `docs/archive/features/exact-context-capture-plan.md`
 - `docs/exact-context-capture.md`

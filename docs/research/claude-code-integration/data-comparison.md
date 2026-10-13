@@ -121,7 +121,7 @@ These are requirements for `ClaudeCodeProvider`. Each one is backed by a measure
 
 ## 3. Corrections to the earlier study
 
-| Earlier claim ([feasibility §3](../codex-claude-code-session-support-feasibility.md)) | Now | Impact |
+| Earlier claim ([feasibility §3](../../archive/research/codex-claude-code-session-support-feasibility.md)) | Now | Impact |
 | --- | --- | --- |
 | About 35 attachment types | 29 | None |
 | Usage repeats per block; de-dup by `message.id` (about 2×) | Confirmed: 2.15–2.56×. **Take the last record** | Parser rule 3 |
