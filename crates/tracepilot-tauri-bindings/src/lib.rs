@@ -19,6 +19,7 @@ pub mod config;
 pub mod error;
 pub mod events;
 mod helpers;
+#[macro_use]
 pub mod ipc_command_names;
 mod providers;
 mod services;
@@ -36,6 +37,13 @@ use tauri::Manager;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use tracepilot_orchestrator::bridge::{CopilotHomeReader, CopilotSdkEnabledReader};
 use types::{EventCache, TurnCache};
+
+/// Expand the `with_ipc_commands!` list into `tauri::generate_handler![]`.
+macro_rules! ipc_invoke_handler {
+    ($($module:ident { $($name:ident),* $(,)? })*) => {
+        tauri::generate_handler![$($(commands::$module::$name,)*)*]
+    };
+}
 
 /// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
@@ -188,286 +196,113 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            // Session commands (13)
-            commands::session::list_sessions,
-            commands::session::get_session_detail,
-            commands::session::get_session_incidents,
-            commands::session::get_session_turns,
-            commands::session::get_session_turn_activity,
-            commands::session::get_session_context_timeline,
-            commands::session::check_session_freshness,
-            commands::session::get_session_events,
-            commands::session::get_session_todos,
-            commands::session::get_session_checkpoints,
-            commands::session::get_session_plan,
-            commands::session::get_session_file_history,
-            commands::session::get_session_file_version,
-            commands::session::get_shutdown_metrics,
-            commands::session::get_session_prompt_cache,
-            commands::session::get_tool_result,
-            commands::session::get_prompt_image,
-            commands::session::resume_session_in_terminal,
-            commands::session::context_capture_preflight,
-            commands::session::context_capture_start,
-            commands::session::context_capture_cancel,
-            commands::session::context_capture_list,
-            commands::session::context_capture_get,
-            commands::session::context_capture_delete,
-            commands::session::context_capture_delete_all,
-            commands::session::context_capture_storage_stats,
-            commands::session::context_benchmark_preflight,
-            commands::session::context_benchmark_start,
-            commands::session::context_benchmark_list,
-            commands::session::context_benchmark_get,
-            commands::session::context_benchmark_delete,
-            // File browser commands (5)
-            commands::file_browser::session_list_files,
-            commands::file_browser::session_read_file,
-            commands::file_browser::session_read_image_preview,
-            commands::file_browser::session_read_sqlite,
-            commands::file_browser::session_search_files,
-            // Search commands (12)
-            commands::search::search_sessions,
-            commands::search::search_content,
-            commands::search::get_search_facets,
-            commands::search::get_search_stats,
-            commands::search::get_search_repositories,
-            commands::search::get_search_tool_names,
-            commands::search::rebuild_search_index,
-            commands::search::reindex_sessions,
-            commands::search::reindex_sessions_full,
-            commands::search::fts_integrity_check,
-            commands::search::fts_optimize,
-            commands::search::fts_health,
-            commands::search::get_result_context,
-            // Analytics commands (3)
-            commands::analytics::get_analytics,
-            commands::analytics::get_tool_analysis,
-            commands::analytics::get_code_impact,
-            // Config commands (25)
-            commands::config_cmds::check_config_exists,
-            commands::config_cmds::get_config,
-            commands::config_cmds::save_config,
-            commands::config_cmds::update_config,
-            commands::config_cmds::validate_session_dir,
-            commands::config_sources::validate_claude_config_dir,
-            commands::claude_settings::get_claude_cleanup_period,
-            commands::claude_settings::raise_claude_cleanup_period,
-            commands::source_diagnostics::get_source_format_diagnostics,
-            commands::config_cmds::factory_reset,
-            commands::config_cmds::get_agent_definitions,
-            commands::config_cmds::save_agent_definition,
-            commands::config_cmds::get_copilot_config,
-            commands::config_cmds::save_copilot_config,
-            commands::config_cmds::create_config_backup,
-            commands::config_cmds::list_config_backups,
-            commands::config_cmds::restore_config_backup,
-            commands::config_cmds::delete_config_backup,
-            commands::config_cmds::preview_backup_restore,
-            commands::config_cmds::diff_config_files,
-            commands::config_cmds::discover_copilot_versions,
-            commands::config_cmds::get_active_copilot_version,
-            commands::config_cmds::get_migration_diffs,
-            commands::config_cmds::migrate_agent_definition,
-            commands::config_cmds::list_session_templates,
-            commands::config_cmds::save_session_template,
-            commands::config_cmds::delete_session_template,
-            commands::config_cmds::restore_default_templates,
-            commands::config_cmds::increment_template_usage,
-            // State commands (6)
-            commands::state::get_db_size,
-            commands::state::get_session_count,
-            commands::state::get_session_liveness,
-            commands::state::get_install_type,
-            commands::state::check_for_updates,
-            commands::state::get_git_info,
-            // Orchestration commands (22)
-            commands::orchestration::check_system_deps,
-            commands::orchestration::list_worktrees,
-            commands::orchestration::create_worktree,
-            commands::orchestration::remove_worktree,
-            commands::orchestration::prune_worktrees,
-            commands::orchestration::list_branches,
-            commands::orchestration::get_worktree_disk_usage,
-            commands::orchestration::is_git_repo,
-            commands::orchestration::lock_worktree,
-            commands::orchestration::unlock_worktree,
-            commands::orchestration::get_worktree_details,
-            commands::orchestration::get_default_branch,
-            commands::orchestration::fetch_remote,
-            commands::orchestration::list_registered_repos,
-            commands::orchestration::add_registered_repo,
-            commands::orchestration::remove_registered_repo,
-            commands::orchestration::toggle_repo_favourite,
-            commands::orchestration::discover_repos_from_sessions,
-            commands::orchestration::launch_session,
-            commands::orchestration::get_available_models,
-            commands::orchestration::open_in_explorer,
-            commands::orchestration::open_in_terminal,
-            // Agents explorer commands
-            commands::agents::agents_list,
-            commands::agents::agents_get,
-            commands::agents::agents_preview,
-            commands::agents::agents_save,
-            commands::agents::agents_save_raw,
-            commands::agents::agents_create,
-            commands::agents::agents_delete,
-            commands::agents::agents_set_override,
-            commands::agents::agents_set_disabled,
-            commands::agents::agents_usage_summary,
-            commands::agents::agents_usage_detail,
-            // Logging commands (2)
-            commands::logging::get_log_path,
-            commands::logging::export_logs,
-            // Export / Import commands (6)
-            commands::export_import::export_sessions,
-            commands::export_import::preview_export,
-            commands::export_import::get_session_sections,
-            commands::export_import::preview_import,
-            commands::export_import::import_sessions,
-            commands::export_import::export_session_folder_zip,
-            // MCP commands (11)
-            commands::mcp::mcp_list_servers,
-            commands::mcp::mcp_get_server,
-            commands::mcp::mcp_add_server,
-            commands::mcp::mcp_update_server,
-            commands::mcp::mcp_remove_server,
-            commands::mcp::mcp_toggle_server,
-            commands::mcp::mcp_check_health,
-            commands::mcp::mcp_check_server_health,
-            commands::mcp::mcp_import_from_file,
-            commands::mcp::mcp_import_from_github,
-            commands::mcp::mcp_compute_diff,
-            // Skills commands
-            commands::skills::skills_list_all,
-            commands::skills::usage::skills_usage_summary,
-            commands::skills::usage::skills_usage_detail,
-            commands::skills::skills_get_skill,
-            commands::skills::skills_set_enabled,
-            commands::skills::skills_create,
-            commands::skills::skills_update,
-            commands::skills::skills_update_raw,
-            commands::skills::skills_delete,
-            commands::skills::skills_rename,
-            commands::skills::skills_duplicate,
-            commands::skills::skills_list_assets,
-            commands::skills::skills_add_asset,
-            commands::skills::skills_copy_asset_from,
-            commands::skills::skills_remove_asset,
-            commands::skills::skills_read_asset,
-            commands::skills::skills_import_local,
-            commands::skills::skills_import_file,
-            commands::skills::skills_import_github,
-            commands::skills::skills_gh_auth_status,
-            commands::skills::skills_discover_github,
-            commands::skills::skills_import_github_skill,
-            commands::skills::skills_discover_local,
-            commands::skills::skills_discover_repos,
-            // SDK bridge commands
-            commands::sdk::sdk_connect,
-            commands::sdk::sdk_disconnect,
-            commands::sdk::sdk_status,
-            commands::sdk::sdk_hydrate,
-            commands::sdk::sdk_get_session_state,
-            commands::sdk::sdk_list_session_states,
-            commands::sdk::sdk_cli_status,
-            commands::sdk::sdk_create_session,
-            commands::sdk::sdk_resume_session,
-            commands::sdk::sdk_send_message,
-            commands::sdk::sdk_abort_session,
-            commands::sdk::sdk_destroy_session,
-            commands::sdk::sdk_unlink_session,
-            commands::sdk::sdk_set_session_mode,
-            commands::sdk::sdk_set_session_model,
-            commands::sdk::sdk_list_sessions,
-            commands::sdk::sdk_get_quota,
-            commands::sdk::sdk_get_auth_status,
-            commands::sdk::sdk_list_models,
-            commands::sdk::sdk_get_foreground_session,
-            commands::sdk::sdk_set_foreground_session,
-            commands::sdk::sdk_detect_ui_server,
-            commands::sdk::sdk_launch_ui_server,
-            commands::sdk::sdk_stop_ui_server,
-            commands::sdk::sdk_bridge_metrics,
-            commands::sdk::sdk_live_hosts,
-            commands::sdk::sdk_attach_session,
-            // Window management commands (2)
-            commands::window::open_session_window,
-            commands::window::close_session_window,
-        ])
+        .invoke_handler(with_ipc_commands!(ipc_invoke_handler))
         .build()
 }
 
 #[cfg(test)]
 mod ipc_manifest_tests {
     use super::IPC_COMMAND_NAMES;
+    use std::collections::BTreeSet;
 
-    /// Extract every `commands::<module>::<name>,` invoked inside this file's
-    /// `tauri::generate_handler![]` block and assert the set matches the
-    /// single-source-of-truth constant. Any new command registered via
-    /// `generate_handler!` without a corresponding entry in
-    /// `ipc_command_names.rs` (or vice-versa) fails the build of this crate
-    /// loudly, with an actionable mismatch message.
-    ///
-    /// This is the Rust-side half of the IPC contract; the TS side is
-    /// enforced by `packages/client/src/__tests__/commandContract.test.ts`
-    /// via the emitted `packages/client/src/generated/ipc-commands.json`
-    /// manifest.
+    fn registered() -> BTreeSet<&'static str> {
+        IPC_COMMAND_NAMES.iter().copied().collect()
+    }
+
     #[test]
-    fn generate_handler_matches_manifest() {
-        let source = include_str!("lib.rs");
+    fn command_names_are_unique() {
+        assert_eq!(
+            registered().len(),
+            IPC_COMMAND_NAMES.len(),
+            "with_ipc_commands! lists a command twice"
+        );
+    }
 
-        let start_marker = "tauri::generate_handler![";
+    /// `specta_exports.rs` types a subset of commands; each must also be
+    /// registered, or the typed client would call a command Tauri rejects.
+    #[test]
+    fn specta_exports_are_registered() {
+        let source = include_str!("specta_exports.rs");
+        let start_marker = "collect_commands![";
         let start = source
             .find(start_marker)
-            .expect("could not locate generate_handler! block in lib.rs");
-        let after_start = start + start_marker.len();
-        let end_offset = source[after_start..]
-            .find("])")
-            .expect("could not locate end of generate_handler! block");
-        let block = &source[after_start..after_start + end_offset];
+            .expect("could not locate collect_commands! in specta_exports.rs")
+            + start_marker.len();
+        let end = start
+            + source[start..]
+                .find(']')
+                .expect("could not locate end of collect_commands!");
+        let registered = registered();
+        let entries: Vec<&str> = source[start..end]
+            .lines()
+            .map(|line| line.trim().trim_end_matches(','))
+            .filter(|entry| !entry.is_empty() && !entry.starts_with("//"))
+            .filter_map(|entry| entry.rsplit("::").next())
+            .collect();
+        assert!(
+            !entries.is_empty(),
+            "parsed no commands from collect_commands!"
+        );
+        let unregistered: Vec<&str> = entries
+            .into_iter()
+            .filter(|name| !registered.contains(name))
+            .collect();
+        assert!(
+            unregistered.is_empty(),
+            "specta_exports.rs exports commands missing from with_ipc_commands! \
+             (ipc_command_names.rs): {unregistered:?}"
+        );
+    }
 
-        let mut registered: Vec<String> = Vec::new();
-        for raw_line in block.lines() {
-            let line = raw_line.trim();
-            if line.is_empty() || line.starts_with("//") {
+    /// Every `tracepilot:allow-*` / `deny-*` permission in the desktop
+    /// capabilities must name a registered command. Windows may grant a subset.
+    #[test]
+    fn capabilities_reference_registered_commands() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/desktop/src-tauri/capabilities");
+        let registered = registered();
+        let mut checked = 0;
+        let mut unknown = Vec::new();
+        for entry in std::fs::read_dir(&dir).expect("read capabilities dir") {
+            let path = entry.expect("capabilities entry").path();
+            if path.extension().is_none_or(|ext| ext != "json") {
                 continue;
             }
-            let entry = line.trim_end_matches(',').trim();
-            if entry.is_empty() {
-                continue;
+            let json: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(&path).expect("read capability file"),
+            )
+            .expect("parse capability file");
+            let permissions = json["permissions"].as_array().expect("permissions array");
+            for permission in permissions {
+                let id = permission
+                    .as_str()
+                    .or_else(|| permission["identifier"].as_str())
+                    .expect("permission identifier");
+                let Some(rest) = id.strip_prefix("tracepilot:") else {
+                    continue;
+                };
+                checked += 1;
+                if rest == "default" {
+                    continue;
+                }
+                let command = rest
+                    .strip_prefix("allow-")
+                    .or_else(|| rest.strip_prefix("deny-"))
+                    .map(|kebab| kebab.replace('-', "_"));
+                if !command.is_some_and(|c| registered.contains(c.as_str())) {
+                    unknown.push(format!("{}: {id}", path.display()));
+                }
             }
-            let name = entry
-                .rsplit("::")
-                .next()
-                .expect("handler entry must contain `::`");
-            assert!(
-                !name.is_empty(),
-                "empty command name parsed from generate_handler entry: {raw_line:?}"
-            );
-            registered.push(name.to_string());
         }
-        registered.sort();
-        registered.dedup_by(|a, b| a == b);
-
-        let mut manifest: Vec<String> =
-            IPC_COMMAND_NAMES.iter().map(|s| (*s).to_string()).collect();
-        manifest.sort();
-
-        if registered != manifest {
-            let registered_set: std::collections::BTreeSet<_> = registered.iter().collect();
-            let manifest_set: std::collections::BTreeSet<_> = manifest.iter().collect();
-            let only_in_handler: Vec<_> = registered_set.difference(&manifest_set).collect();
-            let only_in_manifest: Vec<_> = manifest_set.difference(&registered_set).collect();
-            panic!(
-                "generate_handler![] and IPC_COMMAND_NAMES disagree. \
-                 Update `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs` \
-                 and/or the `generate_handler!` block in `lib.rs`, then run \
-                 `pnpm gen:bindings` to refresh `packages/client/src/generated/ipc-commands.json`.\n\
-                 Only in generate_handler!: {only_in_handler:?}\n\
-                 Only in IPC_COMMAND_NAMES:  {only_in_manifest:?}"
-            );
-        }
+        assert!(
+            checked > 0,
+            "no tracepilot permissions found in {}",
+            dir.display()
+        );
+        assert!(
+            unknown.is_empty(),
+            "capabilities grant commands missing from with_ipc_commands! \
+             (ipc_command_names.rs): {unknown:?}"
+        );
     }
 }
