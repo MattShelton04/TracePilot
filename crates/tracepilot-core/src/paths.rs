@@ -5,9 +5,12 @@
 
 use std::path::{Path, PathBuf};
 
+mod claude_temp;
 pub mod cli_install;
 mod isolation;
 mod tracepilot_root;
+
+pub use claude_temp::{CLAUDE_CODE_TMPDIR_ENV, default_claude_temp_dir_opt};
 
 pub use cli_install::{
     COPILOT_CLI_DIST_DIR_ENV, COPILOT_HOME_ENV, COPILOT_SKILLS_DIRS_ENV, DistRoot, DistSource,

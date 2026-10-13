@@ -149,6 +149,34 @@ describe("FileBrowserTree", () => {
     expect(wrapper.text()).not.toContain("file-0.txt");
   });
 
+  it("auto-collapses by a folder's direct children, not everything beneath it", () => {
+    // `build` holds 2 subfolders with 12 files each; `shots` holds 11 files.
+    const entries = [
+      ...["a", "b"].flatMap((sub) =>
+        Array.from({ length: 12 }, (_, index) => ({
+          path: `build/${sub}/obj-${index}.o`,
+          name: `obj-${index}.o`,
+          sizeBytes: 1,
+          isDirectory: false,
+        })),
+      ),
+      ...Array.from({ length: 11 }, (_, index) => ({
+        path: `shots/shot-${index}.png`,
+        name: `shot-${index}.png`,
+        sizeBytes: 1,
+        isDirectory: false,
+      })),
+    ];
+    const wrapper = mount(FileBrowserTree, {
+      props: { entries, autoCollapseThreshold: 10 },
+    });
+    // build/ stays open, showing its two subfolders; each of those collapses.
+    const folders = wrapper.findAll(".fb-tree__folder-name").map((name) => name.text());
+    expect(folders).toEqual(["build", "a", "b", "shots"]);
+    expect(wrapper.text()).not.toContain("obj-0.o");
+    expect(wrapper.text()).not.toContain("shot-0.png");
+  });
+
   it("highlights selected file", () => {
     const wrapper = mount(FileBrowserTree, {
       props: { entries: rootEntries, selectedPath: "workspace.yaml" },

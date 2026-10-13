@@ -103,7 +103,16 @@ directory and `<session>` is the session UUID. Code lives in
 | `sessions/<pid>.<hash>.key` | Claude Code | A per-process secret. | **Never opened.** Only `*.json` is read. | Never. |
 | `settings.json` | Claude Code | User settings. | Only the `cleanupPeriodDays` key, at most 1 MiB; a link is followed only to a local file. TracePilot writes only that key, and only to raise it: the file is edited as text so other keys and formatting stay, a file that isn't a JSON object is refused, and it is replaced through a temporary file in the same folder. | Reading: while the retention notice in Settings → Claude Code shows. Writing: only when the user clicks **Update settings.json** there. |
 | Everything else (`history.jsonl`, `stats-cache.json`, credentials, …) | Claude Code | Prompt history, aggregates, auth. | Never read. | Never. |
-| System temp folder (background task output) | Claude Code | Output of `run_in_background` tasks. | Never read; background outcomes come from transcript notifications. | Never. |
+| `<temp>/<project>/<session>/scratchpad/` | Claude Code | The agent's working files: scripts, screenshots, logs, reports, sometimes build folders. Claude Code clears them about a week after the session's last activity. | Listed and read like `tool-results/`: breadth-first, at most 2,000 entries (500 per folder, 8 levels), files read in capped previews. Must be a real directory (never a link) under the temp folder. | On demand: only in the Explorer tab's **Scratchpad** view. Never by indexing or export. |
+| The rest of the temp folder (`tasks/*.output`, `images/`, `bash-edit-diff/`, …) | Claude Code | Background task output, pasted images, internal working files. | Never read; background outcomes come from transcript notifications. | Never. |
+
+`<temp>` is Claude Code's temp folder: `claude` under `CLAUDE_CODE_TMPDIR` or the system
+temp folder on Windows, `claude-<uid>` under `CLAUDE_CODE_TMPDIR` or `/tmp` (macOS) or the
+system temp folder (Linux), and `<data root>/claude-tmp` under `TRACEPILOT_DATA_ROOT`
+isolation (`tracepilot_core::paths::default_claude_temp_dir_opt`). Only TracePilot's own
+environment is seen, so a `CLAUDE_CODE_TMPDIR` set in Claude Code's `settings.json` is not.
+Its contents are research-mapped in
+[the temp folder study](research/claude-code-integration/temp-folder.md).
 
 `node scripts/claude-census.mjs` reads only `projects/**/*.jsonl` and their `subagents/`,
 never `sessions/` ([script index](../scripts/README.md)).

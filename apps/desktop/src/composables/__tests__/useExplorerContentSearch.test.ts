@@ -41,7 +41,7 @@ describe("useExplorerContentSearch", () => {
     expect(search).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(search).toHaveBeenCalledTimes(1);
-    expect(search).toHaveBeenCalledWith("session-id", "needle");
+    expect(search).toHaveBeenCalledWith("session-id", "needle", "session");
     scope.stop();
   });
 

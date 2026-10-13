@@ -20,6 +20,7 @@ pub(crate) fn registry_for(config: &TracePilotConfig) -> ProviderRegistry {
             // a few Win32 calls a pid on Windows, `/proc` on Linux, and one
             // `ps` for every pid on macOS.
             ClaudeCodeProvider::new(root)
+                .with_temp_dir(tracepilot_core::paths::default_claude_temp_dir_opt())
                 .with_process_start(Arc::new(process_start_times))
                 .with_stale_pid_files(Arc::clone(&STALE_PID_FILES)),
         ));

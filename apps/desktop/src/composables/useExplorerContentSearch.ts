@@ -1,10 +1,20 @@
 import { sessionSearchFiles } from "@tracepilot/client";
-import { type SessionFileSearchResponse, toErrorMessage } from "@tracepilot/types";
+import {
+  type SessionFileArea,
+  type SessionFileSearchResponse,
+  toErrorMessage,
+} from "@tracepilot/types";
 import { onScopeDispose, ref, watch } from "vue";
 
 interface ExplorerContentSearchOptions {
   debounceMs?: number;
-  search?: (sessionId: string, query: string) => Promise<SessionFileSearchResponse>;
+  search?: (
+    sessionId: string,
+    query: string,
+    area: SessionFileArea,
+  ) => Promise<SessionFileSearchResponse>;
+  /** The file area to search, the session's own files by default. */
+  getArea?: () => SessionFileArea;
 }
 
 function sameResponse(
@@ -45,6 +55,7 @@ export function useExplorerContentSearch(
   const contentSearchError = ref<string | null>(null);
   const debounceMs = options.debounceMs ?? 300;
   const search = options.search ?? sessionSearchFiles;
+  const getArea = options.getArea ?? (() => "session");
   let requestSequence = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -66,7 +77,7 @@ export function useExplorerContentSearch(
     if (!runOptions.background || !contentSearch.value) contentSearchLoading.value = true;
     contentSearchError.value = null;
     try {
-      const result = await search(sessionId, query);
+      const result = await search(sessionId, query, getArea());
       if (sequence !== requestSequence) return;
       if (!sameResponse(contentSearch.value, result)) contentSearch.value = result;
     } catch (error) {
@@ -78,7 +89,7 @@ export function useExplorerContentSearch(
     }
   }
 
-  watch([searchQuery, searchMode], () => {
+  watch([searchQuery, searchMode, getArea], () => {
     requestSequence += 1;
     if (timer) clearTimeout(timer);
     if (searchMode.value !== "content" || searchQuery.value.trim().length < 2) {

@@ -1,16 +1,18 @@
 //! What the session file browser may show: one session directory
 //! (Copilot), or several sibling directories shown as top-level folders
-//! (Claude Code's `subagents/` and `tool-results/`).
+//! (Claude Code's `subagents/` and `tool-results/`). A session's scratchpad
+//! is a separate [`FileArea`], browsed as a single root of its own.
 
 use std::path::{Path, PathBuf};
 
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::ResolvedSession;
 
-use super::security::collect_entries;
-use super::types::{SessionFileEntry, SessionFileType};
+use super::types::{FileArea, SessionFileEntry, SessionFileType};
+use super::walk::{WalkRoot, collect_entries};
 use crate::config::TracePilotConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{explorer_roots, resolve_session};
+use crate::helpers::{explorer_roots, explorer_scratchpad, resolve_session};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum ExplorerScope {
@@ -21,11 +23,31 @@ pub(super) enum ExplorerScope {
     Named { base: PathBuf, names: Vec<String> },
 }
 
+/// A scope's entries, and whether the listing caps left any out.
+pub(super) struct ScopeListing {
+    pub entries: Vec<SessionFileEntry>,
+    pub truncated: bool,
+}
+
 impl ExplorerScope {
-    /// The scope of a session's browsable roots, which
-    /// [`explorer_roots`] has checked lie under the source's own root.
-    pub(super) fn for_session(config: &TracePilotConfig, id: &SessionId) -> CmdResult<Self> {
-        Self::from_roots(explorer_roots(&resolve_session(config, id)?)?)
+    /// The scope of one of a session's file areas, whose roots
+    /// [`explorer_roots`] and [`explorer_scratchpad`] have checked lie under
+    /// the source's own bases.
+    pub(super) fn for_session(
+        config: &TracePilotConfig,
+        id: &SessionId,
+        area: FileArea,
+    ) -> CmdResult<Self> {
+        Self::for_area(&resolve_session(config, id)?, area)
+    }
+
+    pub(super) fn for_area(session: &ResolvedSession, area: FileArea) -> CmdResult<Self> {
+        match area {
+            FileArea::Session => Self::from_roots(explorer_roots(session)?),
+            FileArea::Scratchpad => explorer_scratchpad(session)?
+                .map(Self::Single)
+                .ok_or_else(|| BindingsError::Validation("This session has no scratchpad".into())),
+        }
     }
 
     pub(super) fn from_roots(mut roots: Vec<PathBuf>) -> CmdResult<Self> {
@@ -89,9 +111,9 @@ impl ExplorerScope {
 
     /// Every browsable entry, with paths relative to the tree's root. A
     /// missing named directory is skipped; a missing single root is an error.
-    pub(super) fn list(&self, session_id: &str) -> CmdResult<Vec<SessionFileEntry>> {
+    pub(super) fn list(&self, session_id: &str) -> CmdResult<ScopeListing> {
         let mut entries = Vec::new();
-        match self {
+        let walk_roots = match self {
             Self::Single(root) => {
                 // Canonicalize before walking so subdirectories are checked
                 // against an authoritative prefix (TOCTOU mitigation).
@@ -104,28 +126,41 @@ impl ExplorerScope {
                         BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
                     }
                 })?;
-                collect_entries(&canonical, &canonical, 0, &mut entries)?;
+                vec![WalkRoot {
+                    dir: canonical,
+                    prefix: String::new(),
+                    depth: 0,
+                }]
             }
             Self::Named { base, names } => {
                 let Ok(canonical_base) = base.canonicalize() else {
-                    return Ok(entries);
-                };
-                for name in names {
-                    let Some(dir) = named_dir(&canonical_base, name) else {
-                        continue;
-                    };
-                    entries.push(SessionFileEntry {
-                        path: name.clone(),
-                        name: name.clone(),
-                        size_bytes: 0,
-                        is_directory: true,
-                        file_type: SessionFileType::Binary, // unused for dirs
+                    return Ok(ScopeListing {
+                        entries,
+                        truncated: false,
                     });
-                    collect_entries(&canonical_base, &dir, 1, &mut entries)?;
-                }
+                };
+                names
+                    .iter()
+                    .filter_map(|name| {
+                        let dir = named_dir(&canonical_base, name)?;
+                        entries.push(SessionFileEntry {
+                            path: name.clone(),
+                            name: name.clone(),
+                            size_bytes: 0,
+                            is_directory: true,
+                            file_type: SessionFileType::Binary, // unused for dirs
+                        });
+                        Some(WalkRoot {
+                            dir,
+                            prefix: name.clone(),
+                            depth: 1,
+                        })
+                    })
+                    .collect()
             }
-        }
-        Ok(entries)
+        };
+        let truncated = collect_entries(walk_roots, &mut entries);
+        Ok(ScopeListing { entries, truncated })
     }
 }
 
@@ -187,6 +222,7 @@ mod tests {
         let mut paths: Vec<_> = scope
             .list("id")
             .unwrap()
+            .entries
             .into_iter()
             .map(|e| e.path)
             .collect();
@@ -221,6 +257,7 @@ mod tests {
             named(&temp.path().join("gone"))
                 .list("id")
                 .unwrap()
+                .entries
                 .is_empty()
         );
         let single = ExplorerScope::Single(temp.path().join("gone"));

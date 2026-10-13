@@ -49,11 +49,17 @@ pub(in crate::provider) const CAPABILITIES: SourceCapabilities = SourceCapabilit
 /// The session directories the Explorer may browse, beside the transcript.
 const EXPLORER_DIRS: &[&str] = &["subagents", "tool-results"];
 
+/// The session's working folder in Claude Code's temp folder, which Claude
+/// Code clears about a week after the session's last activity.
+const SCRATCHPAD_DIR: &str = "scratchpad";
+
 /// Sessions under one Claude Code config directory.
 pub struct ClaudeCodeProvider {
     config_dir: PathBuf,
     /// `<config_dir>/projects`, the root every transcript lives under.
     projects_dir: PathBuf,
+    /// Claude Code's temp folder, holding `<project>/<session>/scratchpad/`.
+    temp_dir: Option<PathBuf>,
     process_start: Option<ProcessStart>,
     stale_pid_files: Arc<StalePidFiles>,
 }
@@ -91,6 +97,7 @@ impl ClaudeCodeProvider {
         Self {
             projects_dir: config_dir.join("projects"),
             config_dir,
+            temp_dir: None,
             process_start: None,
             stale_pid_files: Arc::default(),
         }
@@ -109,6 +116,13 @@ impl ClaudeCodeProvider {
     /// provider (the app builds a provider per command).
     pub fn with_stale_pid_files(mut self, stale: Arc<StalePidFiles>) -> Self {
         self.stale_pid_files = stale;
+        self
+    }
+
+    /// Browse each session's scratchpad under Claude Code's temp folder
+    /// (`paths::default_claude_temp_dir_opt`).
+    pub fn with_temp_dir(mut self, temp_dir: Option<PathBuf>) -> Self {
+        self.temp_dir = temp_dir;
         self
     }
 
@@ -348,6 +362,25 @@ impl SessionProvider for ClaudeCodeProvider {
     fn file_roots(&self, session: &SessionLocator) -> Result<Vec<PathBuf>> {
         let dir = session.primary_path.with_extension("");
         Ok(EXPLORER_DIRS.iter().map(|name| dir.join(name)).collect())
+    }
+
+    fn file_root_bases(&self) -> Vec<PathBuf> {
+        std::iter::once(self.projects_dir.clone())
+            .chain(self.temp_dir.clone())
+            .collect()
+    }
+
+    /// `<temp>/<project>/<uuid>/scratchpad/`, for a session this provider
+    /// owns. Nothing is read.
+    fn scratchpad_root(&self, session: &SessionLocator) -> Option<PathBuf> {
+        let temp_dir = self.temp_dir.as_ref()?;
+        let project = session.primary_path.parent()?.file_name()?;
+        self.owns(session).then(|| {
+            temp_dir
+                .join(project)
+                .join(session.id.as_str())
+                .join(SCRATCHPAD_DIR)
+        })
     }
 
     fn plan(&self, session: &SessionLocator) -> Result<Option<PlanArtifact>> {

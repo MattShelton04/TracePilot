@@ -37,6 +37,8 @@ export function generateSessionFixtures(root) {
   // The isolated default for the Claude Code folder; indexed only after
   // Settings → Experimental → Claude Code Sessions is turned on.
   const claudeRoot = join(root, "claude");
+  // Claude Code's temp folder under isolation (`paths::default_claude_temp_dir_opt`).
+  const claudeTempRoot = join(root, "claude-tmp");
   const claudeSessions = buildClaudeCodeSessions();
   const copilotFiles = sessions.flatMap((session) => {
     const directory = join(sessionRoot, session.id);
@@ -51,9 +53,13 @@ export function generateSessionFixtures(root) {
       },
     ];
   });
-  const claudeFiles = claudeSessions.flatMap((session) =>
-    session.files.map((file) => ({ path: join(claudeRoot, file.path), content: file.content })),
-  );
+  const claudeFiles = claudeSessions.flatMap((session) => [
+    ...session.files.map((file) => ({ path: join(claudeRoot, file.path), content: file.content })),
+    ...(session.tempFiles ?? []).map((file) => ({
+      path: join(claudeTempRoot, file.path),
+      content: file.content,
+    })),
+  ]);
   const files = [...copilotFiles, ...claudeFiles];
   const manifest = {
     owner,
