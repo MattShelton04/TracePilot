@@ -29,6 +29,7 @@
     "tracepilot:allow-check-session-freshness",
     "tracepilot:allow-get-session-liveness",
     "tracepilot:allow-get-tool-result",
+    "tracepilot:allow-get-prompt-image",
     "tracepilot:allow-check-config-exists",
     "tracepilot:allow-get-config",
     "tracepilot:allow-close-session-window",

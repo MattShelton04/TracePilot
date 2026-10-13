@@ -13,6 +13,7 @@ mod provider;
 mod scenarios;
 mod summary;
 mod tools;
+mod user_prompts;
 
 use std::collections::HashSet;
 

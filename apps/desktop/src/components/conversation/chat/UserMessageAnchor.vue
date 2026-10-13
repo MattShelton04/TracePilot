@@ -4,6 +4,7 @@ import { User } from "lucide-vue-next";
 import { computed } from "vue";
 import { splitPastedContent } from "@/utils/pastedContent";
 import PastedContentBlock from "./PastedContentBlock.vue";
+import PromptImages from "./PromptImages.vue";
 
 const props = defineProps<{
   content: string;
@@ -11,6 +12,9 @@ const props = defineProps<{
   timestamp?: string | null;
   eventIndex?: number | null;
   renderMarkdown: boolean;
+  /** The prompt's attachments; images among them show under the text. */
+  attachments?: unknown[] | null;
+  sessionId?: string | null;
 }>();
 
 const parts = computed(() => splitPastedContent(props.content));
@@ -38,6 +42,12 @@ const parts = computed(() => splitPastedContent(props.content));
         />
         <MarkdownContent v-else :content="part.text" :render="renderMarkdown" />
       </template>
+      <PromptImages
+        v-if="sessionId && eventIndex != null && attachments?.length"
+        :session-id="sessionId"
+        :event-index="eventIndex"
+        :attachments="attachments"
+      />
     </div>
   </div>
 </template>
