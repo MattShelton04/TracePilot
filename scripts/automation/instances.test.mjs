@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -20,6 +21,8 @@ test("Windows launcher keeps agents and real data isolated", {
   const fixture = launcherFixture();
   const { root, statePath, testEnv, run, instanceState, claimIds } = fixture;
   const alive = isAlive;
+  // The launcher resolves the long path; tmpdir() can be an 8.3 short path on CI runners.
+  const longRoot = realpathSync.native(root);
   t.after(() => fixture.cleanup());
 
   await t.test("agent environments must use a named or isolated instance", async () => {
@@ -76,9 +79,10 @@ test("Windows launcher keeps agents and real data isolated", {
     };
     await assert.rejects(
       run("start", "desktop", ["-Instance", "real", "-RealData"], env),
-      /Missing .*apps.desktop/,
+      // PowerShell wraps error records at the console width, so join the lines first.
+      (error) => /Missing .*apps.desktop/.test(String(error.message).replace(/\r?\n/g, "")),
     );
-    const data = join(root, ".tracepilot/instances/real/data");
+    const data = join(longRoot, ".tracepilot/instances/real/data");
     assert.equal(
       readFileSync(join(data, "copilot/session-state/real-1/events.jsonl"), "utf8"),
       "{}\n",
@@ -106,7 +110,7 @@ test("Windows launcher keeps agents and real data isolated", {
     copyFileSync(process.execPath, webviewExe);
     const idle = join(bin, "idle.js");
     writeFileSync(idle, "setInterval(() => {}, 1000);");
-    const profile = join(root, ".tracepilot/instances/stray/data/webview-profile");
+    const profile = join(longRoot, ".tracepilot/instances/stray/data/webview-profile");
     const pidFile = join(bin, "desktop-pids.json");
     const desktopScript = join(bin, "desktop.js");
     writeFileSync(
