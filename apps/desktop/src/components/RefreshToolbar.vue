@@ -144,7 +144,8 @@ onUnmounted(() => {
 .auto-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 2px 4px;
   cursor: pointer;
   user-select: none;
 }
@@ -158,9 +159,9 @@ onUnmounted(() => {
   width: 14px;
   height: 14px;
   margin: 0;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--text-tertiary);
   border-radius: 3px;
-  background: var(--canvas-default);
+  background: var(--canvas-overlay);
   cursor: pointer;
   transition:
     background var(--transition-fast),
@@ -178,7 +179,7 @@ onUnmounted(() => {
 }
 
 .auto-toggle:hover input[type="checkbox"]:not(:checked) {
-  border-color: var(--border-emphasis);
+  border-color: var(--text-secondary);
 }
 
 .auto-toggle input[type="checkbox"]:checked {
@@ -192,6 +193,7 @@ onUnmounted(() => {
 
 .auto-toggle-label {
   font-size: 0.6875rem;
+  line-height: 14px;
   color: var(--text-secondary);
 }
 
