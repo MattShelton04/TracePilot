@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { type SearchContentType, type SessionSource, sourceLabel } from "@tracepilot/types";
 import type { ContentTypeStyle } from "@tracepilot/ui";
+import { computed } from "vue";
+import { normalizeDateValue } from "@/utils/dateValidation";
 
-defineProps<{
+const props = defineProps<{
   activeContentTypeChips: { type: SearchContentType; mode: "include" | "exclude" }[];
   repository: string | null;
   toolName: string | null;
   sessionId: string | null;
   source?: SessionSource | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
   sessionDisplayName: string | null;
   activeFilterCount: number;
   contentTypeConfig: Record<string, ContentTypeStyle>;
@@ -19,12 +23,36 @@ const emit = defineEmits<{
   "clear-tool-name": [];
   "clear-source": [];
   "clear-session-id": [];
+  "clear-date-range": [];
   "clear-all": [];
 }>();
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatFilterDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    // A bare YYYY-MM-DD parses as UTC midnight; show that calendar day as written.
+    timeZone: DATE_ONLY.test(value) ? "UTC" : undefined,
+  });
+}
+
+const dateRangeLabel = computed(() => {
+  const from = normalizeDateValue(props.dateFrom ?? null);
+  const to = normalizeDateValue(props.dateTo ?? null);
+  if (from && to) return `${formatFilterDate(from)} – ${formatFilterDate(to)}`;
+  if (from) return `Since ${formatFilterDate(from)}`;
+  if (to) return `Until ${formatFilterDate(to)}`;
+  return null;
+});
 </script>
 
 <template>
-  <div v-if="activeContentTypeChips.length > 0 || repository || toolName || sessionId || source" class="active-filters-bar">
+  <div v-if="activeContentTypeChips.length > 0 || repository || toolName || sessionId || source || dateRangeLabel" class="active-filters-bar">
     <span class="active-filters-label">Active filters:</span>
     <div class="active-filter-chips">
       <span
@@ -52,6 +80,10 @@ const emit = defineEmits<{
       <span v-if="source" class="filter-chip filter-chip-neutral" data-testid="search-source-chip">
         Source: {{ sourceLabel(source) }}
         <button class="filter-chip-remove" @click="$emit('clear-source')" aria-label="Remove filter">×</button>
+      </span>
+      <span v-if="dateRangeLabel" class="filter-chip filter-chip-neutral" data-testid="search-date-chip">
+        Date: {{ dateRangeLabel }}
+        <button class="filter-chip-remove" @click="$emit('clear-date-range')" aria-label="Remove filter">×</button>
       </span>
       <span v-if="sessionId" class="filter-chip filter-chip-include">
         Session: {{ sessionDisplayName }}

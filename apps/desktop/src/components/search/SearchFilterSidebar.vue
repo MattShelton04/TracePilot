@@ -4,6 +4,7 @@ import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from "@tracepilot/ui";
 import { computed, ref, useId, watch } from "vue";
 import { useSearchStore } from "@/stores/search";
 import { useSessionsStore } from "@/stores/sessions";
+import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { searchToolOptionLabel } from "@/utils/toolDisplayName";
 
 const props = defineProps<{ collapsed: boolean }>();
@@ -97,10 +98,20 @@ function getFacetCount(ct: string): number | null {
 }
 
 // ── Date presets ─────────────────────────────────────────────
-const activeDatePreset = defineModel<string>("activeDatePreset", { default: "all" });
+// The store's dates (synced with the URL) are the filter, so the highlight is
+// derived from them: anything that clears or restores them (Clear all, Escape,
+// the date chip, history Back) keeps it true. A preset stays highlighted only
+// while the dates it set are still in place; other dates highlight none.
+const pickedDatePreset = ref<{ key: string; from: string | null; to: string | null } | null>(null);
+const activeDatePreset = computed(() => {
+  if (!hasMeaningfulDateValue(store.dateFrom) && !hasMeaningfulDateValue(store.dateTo)) {
+    return "all";
+  }
+  const picked = pickedDatePreset.value;
+  return picked?.from === store.dateFrom && picked.to === store.dateTo ? picked.key : null;
+});
 
 function setDatePreset(preset: string) {
-  activeDatePreset.value = preset;
   const now = new Date();
   switch (preset) {
     case "today": {
@@ -126,6 +137,7 @@ function setDatePreset(preset: string) {
     default:
       store.setDateRange(null, null);
   }
+  pickedDatePreset.value = { key: preset, from: store.dateFrom, to: store.dateTo };
 }
 </script>
 
