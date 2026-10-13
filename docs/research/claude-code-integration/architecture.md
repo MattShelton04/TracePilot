@@ -263,9 +263,9 @@ The reshape has to happen in Rust:
   then invalidate.
 - **Setup wizard** stays Copilot-first (decision D1) but does not require Copilot CLI: a
   missing session folder at the default Copilot home (`ValidateSessionDirResult.missing`)
-  lets setup continue, and a missing custom path is still rejected as a likely typo. Moving
-  TracePilot's data root out of `<COPILOT_HOME>/tracepilot` for Claude-only installs belongs
-  with a future positioning change.
+  lets setup continue, and a missing custom path is still rejected as a likely typo. New
+  installs keep TracePilot's data in `~/.tracepilot`, outside the Copilot home; existing
+  installs stay in `<COPILOT_HOME>/tracepilot` ([on-disk paths](../../on-disk-paths.md#tracepilot-root)).
 
 ### 3.6 Liveness and live refresh
 

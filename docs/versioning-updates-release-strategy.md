@@ -66,7 +66,7 @@ workflow, or update detection code. Those statements are historical and do
 not describe the current checkout.
 
 **Separate versioning concerns** (distinct from the app version — do not conflate):
-- `config.version: 1` in `~/.copilot/tracepilot/config.toml` — the *config schema* version in `TracePilotConfig`, for config file migration
+- `config.version` in `config.toml` (`~/.tracepilot/`, or `~/.copilot/tracepilot/` for older installs) — the *config schema* version in `TracePilotConfig`, for config file migration
 - `schema_version` SQLite table — tracks DB migration level (currently at migration 4, managed by `run_migrations()` in `tracepilot-indexer`)
 - `CURRENT_ANALYTICS_VERSION = 2` in the indexer — triggers analytics recomputation when bumped
 
