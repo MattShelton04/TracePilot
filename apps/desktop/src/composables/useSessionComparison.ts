@@ -38,6 +38,7 @@ import { getChartColors } from "@/utils/designTokens";
 import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 import { modelLabels } from "@/utils/modelLabels";
 import { DURATION_HINTS } from "@/utils/sessionDurations";
+import { sessionCostEstimate } from "@/utils/sourceCost";
 
 /**
  * State + derivations for `SessionComparisonView`.
@@ -166,23 +167,28 @@ function timelineBlocks(turns: ConversationTurn[]): number[] {
 
 /**
  * A session's cost in its own billing unit: AI Credits for a source billed
- * in them, otherwise the provider's USD figure.
+ * in them, otherwise the provider's USD figure. When that figure could not
+ * be priced, `atLeast` keeps the last snapshot's cost, as Overview shows it.
  */
 export function sessionCost(
   data: SessionData,
   pricing: Parameters<typeof shutdownAiCreditUsage>[1],
-): { unit: "aic" | "usd"; value: number | null } {
+): { unit: "aic" | "usd"; value: number | null; atLeast: number | null } {
   const source = data.detail?.source;
   if (allowsAiCreditEstimate(source, data.metrics)) {
-    return { unit: "aic", value: shutdownAiCreditUsage(data.metrics, pricing).credits };
+    const credits = shutdownAiCreditUsage(data.metrics, pricing).credits;
+    return { unit: "aic", value: credits, atLeast: null };
   }
   if (data.metrics?.costUnit === "usd") {
-    return { unit: "usd", value: data.metrics.costAmount ?? null };
+    return { unit: "usd", value: data.metrics.costAmount ?? null, atLeast: null };
   }
   // A source billed in AI Credits keeps its observed credits only.
-  return sourceCapabilities(source).hasAic
-    ? { unit: "aic", value: shutdownAiCreditUsage(data.metrics, pricing, true).credits }
-    : { unit: "usd", value: null };
+  if (sourceCapabilities(source).hasAic) {
+    const credits = shutdownAiCreditUsage(data.metrics, pricing, true).credits;
+    return { unit: "aic", value: credits, atLeast: null };
+  }
+  const atLeast = source ? sessionCostEstimate(source, data.metrics).snapshotAmount : null;
+  return { unit: "usd", value: null, atLeast };
 }
 
 export function sessionLabel(detail: SessionDetail | null): string {
@@ -271,15 +277,18 @@ export function useSessionComparison() {
     const turnsA = dataA.turns.length;
     const turnsB = dataB.turns.length;
 
-    let divA = 1;
-    let divB = 1;
+    // An unknown span gives no per-minute rates.
+    let divA: number | null = 1;
+    let divB: number | null = 1;
     if (normMode.value === "per-turn") {
       divA = Math.max(turnsA, 1);
       divB = Math.max(turnsB, 1);
     } else if (normMode.value === "per-minute") {
-      divA = Math.max(durA / 60000, 0.01);
-      divB = Math.max(durB / 60000, 0.01);
+      divA = durA == null ? null : Math.max(durA / 60000, 0.01);
+      divB = durB == null ? null : Math.max(durB / 60000, 0.01);
     }
+    const per = (v: number | null, div: number | null) =>
+      v == null || div == null ? null : v / div;
 
     const tokA = totalTokens(dataA.metrics);
     const tokB = totalTokens(dataB.metrics);
@@ -320,12 +329,19 @@ export function useSessionComparison() {
 
     /** Cost in USD, AI Credits at $0.01 each, so any pair compares directly. */
     function costRow(): MetricRow {
-      const usd = (cost: typeof costA, div: number) =>
-        cost.value == null
-          ? null
-          : (cost.unit === "aic" ? cost.value * AI_CREDIT_USD : cost.value) / div;
+      const usd = (cost: typeof costA, div: number | null) =>
+        per(
+          cost.value != null && cost.unit === "aic" ? cost.value * AI_CREDIT_USD : cost.value,
+          div,
+        );
+      // A lower bound is shown but never compared.
+      const shown = (cost: typeof costA, div: number | null, value: string) => {
+        const bound = cost.value == null ? per(cost.atLeast, div) : null;
+        return bound == null ? value : `≥ ${formatCost(bound)}`;
+      };
       const label = costA.unit === "usd" && costB.unit === "usd" ? "Estimated Cost" : "Cost";
-      return row(`${label}${suffix}`, usd(costA, divA), usd(costB, divB), formatCost, false);
+      const r = row(`${label}${suffix}`, usd(costA, divA), usd(costB, divB), formatCost, false);
+      return { ...r, valueA: shown(costA, divA, r.valueA), valueB: shown(costB, divB, r.valueB) };
     }
 
     const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));
@@ -333,22 +349,16 @@ export function useSessionComparison() {
 
     return [
       {
-        ...row("Session Span", durA, durB, (v) => formatDuration(v) || "0s", false),
+        ...row("Session Span", durA, durB, formatDuration, false),
         hint: DURATION_HINTS.sessionSpan,
       },
       row("Turns", turnsA, turnsB, String, false),
-      row(
-        `Total Tokens${suffix}`,
-        tokA == null ? null : tokA / divA,
-        tokB == null ? null : tokB / divB,
-        fmtN,
-        false,
-      ),
+      row(`Total Tokens${suffix}`, per(tokA, divA), per(tokB, divB), fmtN, false),
       costRow(),
-      row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
+      row(`Tool Calls${suffix}`, per(tcA, divA), per(tcB, divB), fmtInt, false),
       row("Success Rate", srA, srB, formatRate, true),
       row("Files Modified", fmA, fmB, String, false),
-      row(`Lines Changed${suffix}`, lcA / divA, lcB / divB, fmtInt, false),
+      row(`Lines Changed${suffix}`, per(lcA, divA), per(lcB, divB), fmtInt, false),
     ];
   });
 
