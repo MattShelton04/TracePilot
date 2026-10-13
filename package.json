@@ -52,6 +52,7 @@
     "check:changed": "node scripts/check-changed.mjs",
     "worktree:new": "node scripts/worktree/new.mjs",
     "worktree:clean": "node scripts/worktree/clean.mjs",
+    "changelog:collect": "node scripts/release/collect-changelog.mjs",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean",
     "hooks:install": "lefthook install"
