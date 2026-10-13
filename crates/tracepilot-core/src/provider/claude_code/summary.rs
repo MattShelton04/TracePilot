@@ -223,12 +223,20 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         })
         .map(super::pricing::estimate)
     };
-    let Edits { files, lines } = edits(parsed);
-    // Claude Code writes its own line totals into `cost-state` on exit. Until
-    // then (a running session), count the edit results' patches, which is how
-    // Claude Code counts them.
+    let Edits {
+        files,
+        lines,
+        tail_lines,
+    } = edits(parsed);
+    // Claude Code writes its own line totals into `cost-state` on exit. Edits
+    // it has not covered yet (a running session, or a resumed one that has
+    // not exited or was killed) are counted from their results' patches, which
+    // is how Claude Code counts them, on top of the last snapshot like tokens.
     let (lines_added, lines_removed) = match snapshot {
-        Some(s) => (s.total_lines_added, s.total_lines_removed),
+        Some(s) => (
+            s.total_lines_added.map(|n| n + tail_lines.0),
+            s.total_lines_removed.map(|n| n + tail_lines.1),
+        ),
         None => lines.unzip(),
     };
     let code_changes = (snapshot.is_some() || !files.is_empty()).then(|| CodeChanges {
@@ -236,15 +244,21 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         lines_removed,
         files_modified: (!files.is_empty()).then(|| files.into_iter().collect()),
     });
-    // Without a snapshot, estimate durations from transcript timestamps.
+    // API time the snapshot does not cover (all of it without one) is
+    // estimated per call from transcript timestamps. Wall-clock and tool time
+    // stay the snapshot's: a resumed run's start and exit are not recorded.
+    let tail_api_duration = tail
+        .iter()
+        .filter_map(|call| call.api_duration_ms())
+        .reduce(|total, ms| total + ms);
     let (api_duration, duration) = match snapshot {
-        Some(s) => (s.total_api_duration_ms, s.total_duration_ms),
+        Some(s) => (
+            s.total_api_duration_ms
+                .map(|ms| ms + tail_api_duration.unwrap_or(0)),
+            s.total_duration_ms,
+        ),
         None => (
-            parsed
-                .calls
-                .iter()
-                .filter_map(|call| call.api_duration_ms())
-                .reduce(|total, ms| total + ms),
+            tail_api_duration,
             summary
                 .created_at
                 .zip(summary.updated_at)
@@ -284,12 +298,21 @@ struct Edits {
     /// Lines added and removed by the edit results that carry a patch, `None`
     /// when none does.
     lines: Option<(u64, u64)>,
+    /// The part of `lines` from edits made by tail calls
+    /// ([`ClaudeParse::tail_calls`]), which the last snapshot does not cover.
+    tail_lines: (u64, u64),
 }
 
 fn edits(parsed: &ClaudeParse) -> Edits {
+    let tail: HashSet<&str> = parsed
+        .tail_calls()
+        .map(|call| call.message_id.as_str())
+        .collect();
     let mut files = BTreeSet::new();
     let mut lines: Option<(u64, u64)> = None;
-    let mut edits = HashSet::new();
+    let mut tail_lines = (0, 0);
+    // Each edit `tool_use`, and whether the call that made it is in the tail.
+    let mut edits = HashMap::new();
     let mut seen = HashSet::new();
     for (event, position) in parsed.events.iter().zip(&parsed.positions) {
         let (Some(native), Some(position)) = (&event.raw.native, position) else {
@@ -320,7 +343,8 @@ fn edits(parsed: &ClaudeParse) -> Edits {
                     )
                     && let Some(id) = block["id"].as_str().filter(|id| !id.is_empty())
                 {
-                    edits.insert((owner, id));
+                    let in_tail = Rec(data).message_id().is_some_and(|m| tail.contains(m));
+                    edits.insert((owner, id), in_tail);
                 }
             }
         } else if native.record_type == "user" {
@@ -331,9 +355,9 @@ fn edits(parsed: &ClaudeParse) -> Edits {
                 continue;
             };
             if result["is_error"] != true
-                && result["tool_use_id"]
+                && let Some(&in_tail) = result["tool_use_id"]
                     .as_str()
-                    .is_some_and(|id| edits.contains(&(owner, id)))
+                    .and_then(|id| edits.get(&(owner, id)))
                 && let Some(path) = nonempty(&data["toolUseResult"]["filePath"])
             {
                 files.insert(path);
@@ -341,11 +365,19 @@ fn edits(parsed: &ClaudeParse) -> Edits {
                     let total = lines.get_or_insert((0, 0));
                     total.0 += added;
                     total.1 += removed;
+                    if in_tail {
+                        tail_lines.0 += added;
+                        tail_lines.1 += removed;
+                    }
                 }
             }
         }
     }
-    Edits { files, lines }
+    Edits {
+        files,
+        lines,
+        tail_lines,
+    }
 }
 
 /// Lines an edit result added and removed: its `structuredPatch` hunks, or
