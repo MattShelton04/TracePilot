@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TodoItem } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
+import { computed } from "vue";
 import { useTodoDependencyGraphContext } from "@/composables/useTodoDependencyGraph";
 import { STATUS_ICON, STATUS_LABEL } from "./constants";
 
@@ -10,6 +11,16 @@ const ctx = useTodoDependencyGraphContext();
 
 const NODE_W = 170;
 const NODE_H = 54;
+const TITLE_CHARS = 18;
+const DESC_CHARS = 28;
+
+/** Native hover tooltip with the full text, only when the node cuts it short. */
+const fullText = computed(() => {
+  const { title } = props.todo;
+  const description = props.todo.description ?? "";
+  if (title.length <= TITLE_CHARS && description.length <= DESC_CHARS) return null;
+  return description ? `${title}\n${description}` : title;
+});
 
 function activate(event: MouseEvent | KeyboardEvent) {
   if (event instanceof KeyboardEvent && event.repeat) return;
@@ -34,6 +45,7 @@ function activate(event: MouseEvent | KeyboardEvent) {
     @mouseenter="ctx.onNodeEnter(props.todo.id)"
     @mouseleave="ctx.onNodeLeave()"
   >
+    <title v-if="fullText">{{ fullText }}</title>
     <rect
       :class="['node-rect', props.todo.status]"
       :x="ctx.layout.value[props.todo.id]?.x ?? 0"
@@ -52,11 +64,11 @@ function activate(event: MouseEvent | KeyboardEvent) {
       class="node-title"
       :x="(ctx.layout.value[props.todo.id]?.x ?? 0) + 26"
       :y="(ctx.layout.value[props.todo.id]?.y ?? 0) + 20"
-    >{{ truncateText(props.todo.title, 18) }}</text>
+    >{{ truncateText(props.todo.title, TITLE_CHARS) }}</text>
     <text
       class="node-desc"
       :x="(ctx.layout.value[props.todo.id]?.x ?? 0) + 10"
       :y="(ctx.layout.value[props.todo.id]?.y ?? 0) + 38"
-    >{{ truncateText(props.todo.description ?? "", 28) }}</text>
+    >{{ truncateText(props.todo.description ?? "", DESC_CHARS) }}</text>
   </g>
 </template>

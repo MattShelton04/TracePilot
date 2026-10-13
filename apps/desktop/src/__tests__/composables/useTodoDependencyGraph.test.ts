@@ -27,6 +27,14 @@ function mountHost(todos: TodoItem[], deps: TodoDep[]) {
   return { wrapper, getCtx: () => ctx };
 }
 
+/** A detached element reporting a fixed client size, standing in for the graph viewport. */
+function viewport(width: number, height: number): HTMLElement {
+  const el = document.createElement("div");
+  Object.defineProperty(el, "clientWidth", { value: width });
+  Object.defineProperty(el, "clientHeight", { value: height });
+  return el;
+}
+
 describe("useTodoDependencyGraph", () => {
   it("derives filteredTodos from activeStatuses and toggling respects 'at least one' invariant", () => {
     const { getCtx } = mountHost([t("a", "done"), t("b", "in_progress"), t("c", "blocked")], []);
@@ -95,5 +103,33 @@ describe("useTodoDependencyGraph", () => {
     expect(ctx.edges.value).toEqual([{ from: "b", to: "c" }]);
     expect(ctx.layout.value.a).toBeUndefined();
     expect(ctx.layout.value.b).toBeDefined();
+  });
+
+  it("fit-to-view never magnifies a small graph past 100%, and centres it", () => {
+    const { getCtx } = mountHost([t("a", "in_progress"), t("b", "done")], []);
+    const ctx = getCtx();
+    ctx.viewportRef.value = viewport(1100, 440);
+    ctx.fitToView();
+    expect(ctx.zoomLevel.value).toBe(1);
+    expect(ctx.zoomPercent.value).toBe(100);
+    const vb = ctx.viewBox.value;
+    expect(ctx.panX.value).toBe((1100 - vb.width) / 2);
+    expect(ctx.panY.value).toBe((440 - vb.height) / 2);
+
+    // Manual zoom may still go past 100%.
+    ctx.zoomIn();
+    expect(ctx.zoomLevel.value).toBeCloseTo(1.2);
+  });
+
+  it("fit-to-view still shrinks a graph larger than the viewport", () => {
+    const todos = Array.from({ length: 12 }, (_, i) => t(`n${i}`, "pending"));
+    const deps = todos.slice(1).map((todo, i) => ({ todoId: todo.id, dependsOn: todos[i].id }));
+    const { getCtx } = mountHost(todos, deps);
+    const ctx = getCtx();
+    ctx.viewportRef.value = viewport(600, 300);
+    ctx.fitToView();
+    const vb = ctx.viewBox.value;
+    expect(ctx.zoomLevel.value).toBeLessThan(1);
+    expect(ctx.zoomLevel.value).toBeCloseTo(Math.min(600 / vb.width, 300 / vb.height) * 0.9);
   });
 });
