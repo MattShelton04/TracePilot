@@ -22,7 +22,7 @@ Never comment on or push to a PR from an outside contributor or a bot unless the
 
 ## 1. Set up
 
-- **A PR:** `git worktree add .agent/worktrees/review-<n> origin/main`, then inside it run `gh pr checkout <n>`. If that branch is already checked out in another worktree, use `git worktree add --detach .agent/worktrees/review-<n> origin/<headRefName>` instead, and later push with `git push origin HEAD:<headRefName>`.
+- **A PR:** `git worktree add .agent/worktrees/review-<n> origin/main`, then inside it run `gh pr checkout <n>` and `pnpm install --frozen-lockfile --prefer-offline`. If that branch is already checked out in another worktree, use `git worktree add --detach .agent/worktrees/review-<n> origin/<headRefName>` instead, and later push with `git push origin HEAD:<headRefName>`.
 - **A branch in a finished worker's worktree** (an orchestration run): review it in place. You may run experiments there as long as `git status --porcelain` is empty when you finish.
 - **Any other local branch in someone's worktree:** review it there, read-only, unless the mode is `fix`.
 
@@ -64,4 +64,4 @@ If you can't show it with a reproduction, a failing test, or a concrete code pat
 
 **Disclosure.** If you find a serious, exploitable vulnerability, say only "security concern reported privately" in any public text, and give the details in your reply.
 
-Clean up: stop any app you started, and remove your review worktree once it has nothing unpushed.
+Clean up: stop any app you started, and remove your review worktree once it has nothing unpushed (`git worktree remove`, then `pnpm worktree:clean`).

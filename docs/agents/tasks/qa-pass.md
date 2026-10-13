@@ -2,7 +2,7 @@
 
 Use the app like a tester on synthetic data, then fix the most valuable cluster of related problems you find.
 
-**Size:** larger. **When:** occasionally, for example before a release. **Protocol:** read [protocol.md](../protocol.md) sections Core, UI, Running the app, and Ship.
+**Size:** larger. **When:** occasionally, for example before a release, and on a large redesign's branch before it merges (Focus: the redesigned surface). **Protocol:** read [protocol.md](../protocol.md) sections Core, UI, Running the app, and Ship.
 <!-- protocol: core ui app ship -->
 
 ## Launch
