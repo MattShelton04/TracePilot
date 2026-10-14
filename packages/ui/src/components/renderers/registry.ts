@@ -129,6 +129,11 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     hideArgsWithRichResult: true,
     autoExpandArgs: true,
   },
+  // Claude Code keeps its native name; the plan is Markdown in `args.plan`.
+  ExitPlanMode: {
+    label: "Exit Plan Mode (Plan)",
+    resultComponent: defineAsyncComponent(() => import("./ExitPlanModeRenderer.vue")),
+  },
 };
 
 /** Get the renderer entry for a tool, or undefined if none registered. */
