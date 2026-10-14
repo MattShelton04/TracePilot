@@ -46,15 +46,19 @@ describe("useSessionDetailStore", () => {
       expect(mocks.getSessionIncidents).not.toHaveBeenCalled();
     });
 
-    it("does not refresh events (events manage their own pagination)", async () => {
+    it("signals the Events tab to reload its page instead of fetching events itself", async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
-      await store.loadEvents();
+      await store.refreshAll();
+      expect(store.eventsRefreshVersion).toBe(0); // no events loaded yet
 
+      await store.loadEvents();
       mocks.getSessionEvents.mockClear();
       await store.refreshAll();
+      await store.refreshIfSourceChanged();
 
       expect(mocks.getSessionEvents).not.toHaveBeenCalled();
+      expect(store.eventsRefreshVersion).toBe(2);
     });
 
     it("sets error ref when a section refresh fails", async () => {
