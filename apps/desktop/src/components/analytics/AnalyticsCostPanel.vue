@@ -192,7 +192,9 @@ const runningFoot = computed(() => {
 
 /** The chart's own sources, which can include sessions resumed after the range. */
 const unitNote = computed(() =>
-  daily.value.series.some((series) => series.key === "copilot") ? "USD · AI Credits at $0.01" : "USD",
+  daily.value.series.some((series) => series.key === "copilot")
+    ? "USD · AI Credits at $0.01"
+    : "USD",
 );
 
 function openModels() {

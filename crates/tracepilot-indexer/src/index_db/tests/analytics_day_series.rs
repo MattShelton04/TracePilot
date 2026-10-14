@@ -341,7 +341,10 @@ fn session_with_runs_and_lifetime_metrics_counts_each_run_once() {
     insert_run(&db, "both", "2026-03-08T10:00:00Z", 700);
     insert_model_metrics(&db, "both", "gpt-5.4", 960);
     db.conn
-        .execute("UPDATE sessions SET total_tokens = 1200 WHERE id = 'both'", [])
+        .execute(
+            "UPDATE sessions SET total_tokens = 1200 WHERE id = 'both'",
+            [],
+        )
         .unwrap();
     let gpt = |date: &str, input| {
         (
