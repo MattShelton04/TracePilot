@@ -431,11 +431,13 @@ const readout = computed(() => {
               :style="{ height: `max(2px, ${pct(totals[i])}%)` }"
               data-reveal="grow-y"
             >
+              <!-- Shares of the column, so the factors sum to 1: flex items
+                   whose factors sum below 1 leave the rest of the stack empty. -->
               <i
                 v-for="(series, j) in props.series"
                 v-show="row.values[j] > 0"
                 :key="series.key"
-                :style="{ flexGrow: row.values[j], background: series.color }"
+                :style="{ flexGrow: row.values[j] / totals[i], background: series.color }"
               />
             </div>
             <div v-else class="day-chart__zero" :class="{ 'day-chart__stack--narrow': narrow }" />
