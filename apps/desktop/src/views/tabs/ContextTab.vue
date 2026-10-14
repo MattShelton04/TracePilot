@@ -32,6 +32,7 @@ import { useConversationNavigation } from "@/composables/useConversationNavigati
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionSource } from "@/composables/useSessionSource";
+import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatUsd, sourceTokenUsd } from "@/utils/sourceCost";
@@ -57,7 +58,15 @@ const showContextCapture = computed(
     capabilities.value.canResume &&
     (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
 );
-const contextView = ref<"timeline" | "snapshots">("timeline");
+// A remembered "snapshots" shows the timeline where capture isn't offered,
+// and stays remembered for sessions that offer it.
+const tabViews = useSessionTabViews();
+const contextView = computed({
+  get: () => (showContextCapture.value ? tabViews.value.context : "timeline"),
+  set: (view) => {
+    tabViews.value.context = view;
+  },
+});
 const contextViews = [
   { value: "timeline", label: "Context timeline" },
   { value: "snapshots", label: "Request snapshots" },

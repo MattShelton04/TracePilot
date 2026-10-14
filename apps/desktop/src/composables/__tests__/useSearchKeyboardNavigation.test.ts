@@ -165,6 +165,83 @@ describe("useSearchKeyboardNavigation", () => {
     });
   });
 
+  describe("Ctrl/Cmd+Enter", () => {
+    function withTarget(event: KeyboardEvent, target: EventTarget) {
+      Object.defineProperty(event, "target", { value: target });
+      return event;
+    }
+
+    it.each([
+      ["Ctrl", { ctrlKey: true }],
+      ["Cmd", { metaKey: true }],
+    ])("%s+Enter opens the highlighted result instead of expanding it", (_, mods) => {
+      const onOpen = vi.fn();
+      const opts = createOptions({ onOpen });
+      const result = useSearchKeyboardNavigation(opts);
+
+      result.handleKeydown(fireKey("ArrowDown"));
+      result.handleKeydown(fireKey("ArrowDown"));
+      const event = fireKey("Enter", mods);
+      result.handleKeydown(event);
+
+      expect(onOpen).toHaveBeenCalledWith(2);
+      expect(opts.onToggleExpand).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it("keeps plain Enter as expand", () => {
+      const onOpen = vi.fn();
+      const opts = createOptions({ onOpen });
+      const result = useSearchKeyboardNavigation(opts);
+
+      result.handleKeydown(fireKey("ArrowDown"));
+      result.handleKeydown(fireKey("Enter"));
+
+      expect(opts.onToggleExpand).toHaveBeenCalledWith(1);
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when no result is highlighted", () => {
+      const onOpen = vi.fn();
+      const result = useSearchKeyboardNavigation(createOptions({ onOpen }));
+
+      const event = fireKey("Enter", { ctrlKey: true });
+      result.handleKeydown(event);
+
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("never fires while typing in the search input", () => {
+      const onOpen = vi.fn();
+      const opts = createOptions({ onOpen });
+      const result = useSearchKeyboardNavigation(opts);
+      const input = opts.searchInputRef.value as HTMLInputElement;
+
+      result.handleKeydown(fireKey("ArrowDown"));
+      const event = withTarget(fireKey("Enter", { ctrlKey: true }), input);
+      result.handleKeydown(event);
+
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(opts.onToggleExpand).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("never fires from another editable field", async () => {
+      const { shouldIgnoreGlobalShortcut } = await import("@/utils/keyboardShortcuts");
+      const onOpen = vi.fn();
+      const result = useSearchKeyboardNavigation(createOptions({ onOpen }));
+
+      result.handleKeydown(fireKey("ArrowDown"));
+      vi.mocked(shouldIgnoreGlobalShortcut).mockReturnValueOnce(true);
+      result.handleKeydown(
+        withTarget(fireKey("Enter", { ctrlKey: true }), document.createElement("textarea")),
+      );
+
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Escape key", () => {
     it("resets focus and does not clear when a result is focused", () => {
       const opts = createOptions();

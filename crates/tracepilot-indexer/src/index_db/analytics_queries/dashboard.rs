@@ -25,17 +25,21 @@ pub(super) fn query_analytics(
 
     // Aggregate session-level stats.
     //
-    // NOTE: These sums (`total_tokens`, `total_cost`, `total_premium_requests`) are
-    // session-lifetime values stored on the `sessions` row.  For a cross-day session that
-    // was last active on the final day of the filter window, its full lifetime total is
-    // included here even though the per-day charts (which use `session_segments`) are
-    // correctly clamped to the requested window.  For sessions that do not cross the
-    // window boundary the numbers are consistent.
+    // Sessions are selected and counted by their last-active day. Their usage
+    // (tokens, cost, premium requests, AI Credits) counts only inside the
+    // range: each session's lifetime total minus its segments that ended on a
+    // day outside it, so these totals match the day charts below. Without a
+    // date filter they are the lifetime totals. Turns, tool calls, incidents
+    // and the per-turn and per-second averages stay whole-session values;
+    // per-model usage below follows the same rule.
+    // See `helpers::range_usage`.
+    let (usage_join, agg_values) =
+        out_of_range_join(&where_clause, &bind_values, from_date, to_date, true);
     let agg_sql = format!(
-        "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
+        "SELECT COUNT(*), COALESCE(SUM({IN_RANGE_TOKENS}), 0), COALESCE(SUM({IN_RANGE_COST}), 0.0),
                     COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),
                     COUNT(CASE WHEN turn_count > 0 THEN 1 END),
-                    COALESCE(SUM(total_premium_requests), 0.0),
+                    COALESCE(SUM({IN_RANGE_PREMIUM}), 0.0),
                     COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_api_duration_ms END), 0),
                     COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN
                         (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)
@@ -44,12 +48,12 @@ pub(super) fn query_analytics(
                     COALESCE(SUM(rate_limit_count), 0),
                     COALESCE(SUM(compaction_count), 0),
                     COALESCE(SUM(truncation_count), 0),
-                    COALESCE(SUM(total_nano_aiu), 0),
-                    COUNT(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 END)
-             FROM sessions s{}",
-        where_clause
+                    COALESCE(SUM({IN_RANGE_NANO_AIU}), 0),
+                    COUNT(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 END),
+                    COALESCE(SUM(s.total_tokens), 0)
+             FROM sessions s{usage_join}{where_clause}"
     );
-    let refs = to_refs(&bind_values);
+    let refs = to_refs(&agg_values);
     #[allow(clippy::type_complexity)]
     let (
         total_sessions,
@@ -67,6 +71,7 @@ pub(super) fn query_analytics(
         total_truncations,
         total_nano_aiu,
         sessions_with_observed_ai_credits,
+        lifetime_tokens,
     ): (
         u32,
         i64,
@@ -83,6 +88,7 @@ pub(super) fn query_analytics(
         i64,
         i64,
         u32,
+        i64,
     ) = conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
         Ok((
             row.get(0)?,
@@ -100,6 +106,7 @@ pub(super) fn query_analytics(
             row.get(12)?,
             row.get(13)?,
             row.get(14)?,
+            row.get(15)?,
         ))
     })?;
 
@@ -170,41 +177,42 @@ pub(super) fn query_analytics(
     let model_usage_by_day =
         query_model_usage_by_day(conn, &where_clause, &bind_values, from_date, to_date)?;
 
+    // Per-model usage follows the headline rule, so the token composition,
+    // model shares and the AI Credit estimate cover the same usage.
+    let (models_cte, models_values) =
+        in_range_models_cte(&where_clause, &bind_values, from_date, to_date);
     let mdist_sql = format!(
-        "SELECT m.model_name,
-                    SUM(m.input_tokens + m.output_tokens),
-                    SUM(m.input_tokens),
-                    SUM(m.output_tokens),
-                    SUM(m.cache_read_tokens),
-                    SUM(m.cache_write_tokens),
-                    SUM(m.cost),
-                    SUM(m.request_count),
-                    SUM(COALESCE(m.reasoning_tokens, 0)),
-                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),
-                    SUM(COALESCE(m.total_nano_aiu, 0)),
-                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END),
-                    s.source,
-                    SUM(m.cost_usd),
-                    COUNT(m.cost_usd) > 0 AND COUNT(m.cost_usd) < COUNT(*)
-             FROM session_model_metrics m
-             JOIN sessions s ON s.id = m.session_id{}
-             GROUP BY m.model_name, s.source ORDER BY 2 DESC",
-        where_clause
+        "{models_cte}
+         SELECT model_name,
+                    SUM(input_tokens + output_tokens),
+                    SUM(input_tokens),
+                    SUM(output_tokens),
+                    SUM(cache_read_tokens),
+                    SUM(cache_write_tokens),
+                    SUM(cost),
+                    SUM(request_count),
+                    SUM(COALESCE(reasoning_tokens, 0)),
+                    MAX(CASE WHEN reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(COALESCE(total_nano_aiu, 0)),
+                    MAX(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN input_tokens ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN output_tokens ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN cache_read_tokens ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN cache_write_tokens ELSE 0 END),
+                    source,
+                    SUM(cost_usd),
+                    COUNT(cost_usd) > 0 AND COUNT(cost_usd) < COUNT(*)
+             FROM mr
+             GROUP BY model_name, source ORDER BY 2 DESC"
     );
-    let refs = to_refs(&bind_values);
+    let refs = to_refs(&models_values);
     let model_distribution = query_model_distribution(conn, &mdist_sql, &refs)?;
 
     let cache_sql = format!(
-        "SELECT COALESCE(SUM(m.cache_read_tokens), 0), COALESCE(SUM(m.input_tokens), 0)
-             FROM session_model_metrics m
-             JOIN sessions s ON s.id = m.session_id{}",
-        where_clause
+        "{models_cte}
+         SELECT COALESCE(SUM(cache_read_tokens), 0), COALESCE(SUM(input_tokens), 0) FROM mr"
     );
-    let refs = to_refs(&bind_values);
+    let refs = to_refs(&models_values);
     let (total_cache_read_tokens, total_input_tokens): (i64, i64) =
         conn.query_row(&cache_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((row.get(0)?, row.get(1)?))
@@ -241,8 +249,9 @@ pub(super) fn query_analytics(
     } else {
         0.0
     };
+    // Whole-session tokens over whole-session turns.
     let avg_tokens_per_turn = if total_turns > 0 {
-        total_tokens as f64 / total_turns as f64
+        lifetime_tokens as f64 / total_turns as f64
     } else {
         0.0
     };
@@ -314,6 +323,8 @@ pub(super) fn query_analytics(
             conn,
             &where_clause,
             &bind_values,
+            from_date,
+            to_date,
         )?,
         cost_usd_by_day: super::source_cost::query_cost_usd_by_day(
             conn,

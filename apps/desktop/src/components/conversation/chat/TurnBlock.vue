@@ -9,6 +9,7 @@ import {
   type useToggleSet,
 } from "@tracepilot/ui";
 import { Bot } from "lucide-vue-next";
+import MessageCopyButton from "@/components/conversation/chat/MessageCopyButton.vue";
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
 import type { ToolSegment } from "@/components/conversation/chatViewUtils";
@@ -109,11 +110,12 @@ function toggleToolDetail(tc: TurnToolCall) {
     <div
       v-for="(msg, mIdx) in renderData.messages"
       :key="`m-${turn.turnIndex}-${mIdx}`"
-      class="cv-agent-bubble"
+      class="cv-agent-bubble cv-msg-copy-host"
     >
       <div class="cv-agent-bubble-header">
         <span class="cv-agent-avatar" aria-hidden="true"><Bot :size="16" /></span>
         <span class="cv-agent-name">{{ mainAgentLabel }}</span>
+        <MessageCopyButton :text="msg.content" label="Copy reply" />
         <span v-if="turn.timestamp" class="cv-agent-time">
           {{ formatTime(turn.timestamp) }}
         </span>
@@ -245,8 +247,17 @@ function toggleToolDetail(tc: TurnToolCall) {
   font-weight: 600;
 }
 
-.cv-agent-time {
+/* The copy button takes the free space, so the time stays put when "Copied" widens it. */
+.cv-agent-bubble-header .cv-msg-copy {
   margin-left: auto;
+}
+
+/* Room for the focus ring. */
+.cv-msg-copy + .cv-agent-time {
+  margin-left: 4px;
+}
+
+.cv-agent-time {
   font-size: 11px;
   color: var(--text-placeholder);
   font-weight: 400;

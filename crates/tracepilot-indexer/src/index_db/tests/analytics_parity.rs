@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 use tracepilot_core::analytics::{
-    compute_analytics, compute_tool_analysis, load_full_sessions_filtered,
+    compute_analytics, compute_analytics_in_range, compute_tool_analysis,
+    load_full_sessions_filtered,
 };
 use tracepilot_core::ids::SessionId;
 
@@ -232,7 +233,7 @@ fn activity_and_segment_charts_use_the_end_day_and_respect_the_date_filter() {
         let indexed = db
             .query_analytics(from, to, Some("org/repo"), true, None)
             .unwrap();
-        let fallback = compute_analytics(&inputs);
+        let fallback = compute_analytics_in_range(&inputs, from, to);
         let indexed = serde_json::to_value(indexed).unwrap();
         let fallback = serde_json::to_value(fallback).unwrap();
         for field in [
@@ -248,8 +249,24 @@ fn activity_and_segment_charts_use_the_end_day_and_respect_the_date_filter() {
             from.unwrap_or("2026-03-11")
         );
         assert_eq!(indexed["costByDay"][0]["cost"], 2.0);
-        assert_eq!(indexed["totalCost"], fallback["totalCost"]);
-        assert_eq!(indexed["totalCost"], 1.0);
+        for field in [
+            "totalTokens",
+            "totalCost",
+            "totalPremiumRequests",
+            "totalNanoAiu",
+            "costBySource",
+        ] {
+            assert_eq!(indexed[field], fallback[field], "{field}: from={from:?}");
+        }
+        // Each run is 0.5 cost and 2 premium requests; a range starting on
+        // 03-12 holds only the second, like the day charts.
+        let runs = if from.is_some() { 1.0 } else { 2.0 };
+        assert_eq!(indexed["totalCost"], 0.5 * runs);
+        assert_eq!(indexed["totalPremiumRequests"], 2.0 * runs);
+        assert_eq!(
+            indexed["totalTokens"],
+            if from.is_some() { 200 } else { 300 }
+        );
     }
 }
 
@@ -286,7 +303,8 @@ fn undated_shutdowns_keep_lifetime_totals_without_daily_chart_points() {
         let indexed =
             serde_json::to_value(db.query_analytics(from, None, None, false, None).unwrap())
                 .unwrap();
-        let fallback = serde_json::to_value(compute_analytics(&inputs)).unwrap();
+        let fallback =
+            serde_json::to_value(compute_analytics_in_range(&inputs, from, None)).unwrap();
         for field in [
             "activityPerDay",
             "tokenUsageByDay",
@@ -300,6 +318,7 @@ fn undated_shutdowns_keep_lifetime_totals_without_daily_chart_points() {
         assert_eq!(indexed["totalTokens"], 120);
         assert_eq!(indexed["totalCost"], fallback["totalCost"]);
         assert_eq!(indexed["totalCost"], 0.5);
+        assert_eq!(indexed["costBySource"], fallback["costBySource"]);
     }
 }
 

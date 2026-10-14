@@ -1,8 +1,9 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { EmptyState, ErrorAlert } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { reactive } from "vue";
+import { resetSessionTabViews, useSessionTabViews } from "@/composables/useSessionTabViews";
 import MetricsTab from "../MetricsTab.vue";
 
 const store = reactive({
@@ -20,6 +21,11 @@ const store = reactive({
   loadPromptCache: vi.fn(),
 });
 vi.mock("@/composables/useSessionDetailContext", () => ({ useSessionDetailContext: () => store }));
+
+beforeEach(() => {
+  localStorage.clear();
+  resetSessionTabViews();
+});
 
 it("retries a failed activity refresh even when turns were previously loaded", async () => {
   setupPinia();
@@ -95,4 +101,22 @@ it("presents a Claude Code session in USD without AI Credit columns", async () =
   wrapper.unmount();
   store.detail = null;
   store.sessionId = "retry-session";
+});
+
+it("reopens on a remembered By agent view and loads the turns it needs", () => {
+  setupPinia();
+  store.sessionId = "retry-session";
+  store.loaded = new Set(["metrics"]);
+  store.shutdownMetrics = {};
+  store.turnsError = null as unknown as string;
+  store.loadTurns.mockReset();
+  useSessionTabViews().value.metrics = "agent";
+  const wrapper = mount(MetricsTab, {
+    global: { stubs: { SubagentPanel: true, MetricsSessionActivity: true } },
+  });
+  const byAgent = wrapper.findAll("button").find((button) => button.text() === "By agent");
+  expect(byAgent?.attributes("aria-pressed")).toBe("true");
+  expect(store.loadTurns).toHaveBeenCalledTimes(1);
+  expect(wrapper.text()).toContain("Loading agent activity");
+  wrapper.unmount();
 });

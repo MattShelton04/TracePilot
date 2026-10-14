@@ -37,24 +37,39 @@ pub(super) struct ModelMetricsTotals {
     pub cost: f64,
 }
 
+impl ModelMetricsTotals {
+    /// Whole-session totals across a session's models.
+    pub(super) fn of(model_metrics: &HashMap<String, ModelMetricDetail>) -> Self {
+        let mut totals = Self {
+            tokens: 0,
+            output_tokens: 0,
+            cost: 0.0,
+        };
+        for detail in model_metrics.values() {
+            if let Some(usage) = &detail.usage {
+                let output = usage.output_tokens.unwrap_or(0);
+                totals.tokens += usage.input_tokens.unwrap_or(0) + output;
+                totals.output_tokens += output;
+            }
+            if let Some(requests) = &detail.requests {
+                totals.cost += requests.cost.unwrap_or(0.0);
+            }
+        }
+        totals
+    }
+}
+
 impl ModelDistributionAccumulator {
     pub(super) fn record_model_metrics(
         &mut self,
         model_metrics: &HashMap<String, ModelMetricDetail>,
-    ) -> ModelMetricsTotals {
-        let mut tokens = 0;
-        let mut output_tokens = 0;
-        let mut cost = 0.0;
-
+    ) {
         for (model_name, detail) in model_metrics {
             if let Some(ref usage) = detail.usage {
                 let input_t = usage.input_tokens.unwrap_or(0);
                 let output_t = usage.output_tokens.unwrap_or(0);
                 let cache_read = usage.cache_read_tokens.unwrap_or(0);
                 let cache_write = usage.cache_write_tokens.unwrap_or(0);
-                let session_model_tokens = input_t + output_t;
-                tokens += session_model_tokens;
-                output_tokens += output_t;
                 self.total_cache_read_tokens += cache_read;
                 self.total_input_tokens += input_t;
 
@@ -85,18 +100,11 @@ impl ModelDistributionAccumulator {
 
             if let Some(ref requests) = detail.requests {
                 let request_cost = requests.cost.unwrap_or(0.0);
-                cost += request_cost;
                 let req_count = requests.count.unwrap_or(0);
                 let entry = self.entry(model_name);
                 entry.premium_cost += request_cost;
                 entry.request_count += req_count;
             }
-        }
-
-        ModelMetricsTotals {
-            tokens,
-            output_tokens,
-            cost,
         }
     }
 

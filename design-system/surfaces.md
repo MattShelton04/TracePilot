@@ -91,7 +91,7 @@ routed view and session tabs or pop-out windows.
 - The palette is for jumping; `/search` is for full results and filters.
 - The URL is the source of truth for the query and filters
   (`composables/useSearchUrlSync.ts`), so searches can be linked and restored.
-- Results support j/k and Enter (`useSearchKeyboardNavigation`).
+- Results support j/k and Enter to expand; Ctrl/Cmd+Enter opens the highlighted result (`useSearchKeyboardNavigation`).
 - Gaps: gradients in `styles/features/session-search.css` and the palette
   results; hover lift on browse presets.
 

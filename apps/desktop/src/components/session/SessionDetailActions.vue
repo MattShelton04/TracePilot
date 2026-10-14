@@ -11,7 +11,7 @@ import {
   type SessionSource,
   type SourceCapabilities,
 } from "@tracepilot/types";
-import { useClipboard } from "@tracepilot/ui";
+import { toErrorMessage, useClipboard, useToast } from "@tracepilot/ui";
 import {
   AlertTriangle,
   Check,
@@ -51,6 +51,7 @@ const emit = defineEmits<{ refresh: [] }>();
 const prefs = usePreferencesStore();
 const { isViewer } = useWindowRole();
 const { copy, copied } = useClipboard();
+const toast = useToast();
 
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
@@ -62,6 +63,7 @@ async function openSessionFolder() {
     await openInExplorer(path);
   } catch (e) {
     logError("[sessionDetail] Failed to open folder:", e);
+    toast.error(`Couldn't open the session folder: ${toErrorMessage(e)}`);
   }
 }
 
@@ -99,6 +101,7 @@ async function resumeInTerminal() {
     await resumeSessionInTerminal(props.resolvedSessionId, copilotCli);
   } catch (e) {
     logError("[sessionDetail] Failed to open terminal:", e);
+    toast.error(`Couldn't resume the session in a terminal: ${toErrorMessage(e)}`);
   }
 }
 

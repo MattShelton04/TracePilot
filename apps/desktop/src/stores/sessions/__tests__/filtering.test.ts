@@ -70,7 +70,7 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
       matchesSessionFilters(
         sample[0],
         {
-          searchTerm: null,
+          searchTerms: [],
           repository: null,
           hideEmptySessions: false,
         },
@@ -84,7 +84,7 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
       matchesSessionFilters(
         sample[1],
         {
-          searchTerm: null,
+          searchTerms: [],
           repository: null,
           hideEmptySessions: true,
         },
@@ -93,9 +93,9 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
     ).toBe(false);
   });
 
-  it("searchTerm matches case-insensitively across summary/repo/branch/id", () => {
+  it("a search term matches case-insensitively across summary/repo/branch/id", () => {
     const p = {
-      searchTerm: "search",
+      searchTerms: ["search"],
       repository: null,
       hideEmptySessions: false,
     };
@@ -103,7 +103,7 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
     expect(matchesSessionFilters(sample[1], p, cache)).toBe(false);
 
     const idMatch = {
-      searchTerm: "ccc",
+      searchTerms: ["ccc"],
       repository: null,
       hideEmptySessions: false,
     };
@@ -115,7 +115,7 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
       matchesSessionFilters(
         s({ id: "missing", summary: "anything" }),
         {
-          searchTerm: "anything",
+          searchTerms: ["anything"],
           repository: null,
           hideEmptySessions: false,
         },
@@ -129,7 +129,7 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
       matchesSessionFilters(
         sample[0],
         {
-          searchTerm: null,
+          searchTerms: [],
           repository: "Org/Repo-One",
           hideEmptySessions: false,
         },
@@ -140,7 +140,7 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
       matchesSessionFilters(
         sample[2],
         {
-          searchTerm: null,
+          searchTerms: [],
           repository: "Org/Repo-One",
           hideEmptySessions: false,
         },
@@ -178,7 +178,7 @@ describe("stores/sessions/filtering – filterAndSortSessions integration", () =
     const out = filterAndSortSessions(
       sample,
       {
-        searchTerm: null,
+        searchTerms: [],
         repository: null,
         hideEmptySessions: true,
       },
@@ -198,7 +198,7 @@ describe("stores/sessions/filtering – uniqueRepositories", () => {
 
 describe("stores/sessions/filtering – source", () => {
   const mixed = [s({ id: "cop-1" }), s({ id: "cc-1", source: "claudeCode" })];
-  const base = { searchTerm: null, repository: null, hideEmptySessions: false };
+  const base = { searchTerms: [], repository: null, hideEmptySessions: false };
   const cache = buildSearchFieldCache(mixed);
 
   it("treats sessions without a source as Copilot", () => {
@@ -246,7 +246,7 @@ describe("stores/sessions/filtering – working directory identity", () => {
   it("search matches the cwd and current model for every source", () => {
     const hits = (term: string) =>
       all
-        .filter((x) => matchesSessionFilters(x, { ...base, searchTerm: term }, cache))
+        .filter((x) => matchesSessionFilters(x, { ...base, searchTerms: [term] }, cache))
         .map((x) => x.id);
     expect(hits("synthetic\\orchard")).toEqual(["cc-cwd"]);
     expect(hits("/home/dev")).toEqual(["cop-repo"]);
@@ -257,7 +257,7 @@ describe("stores/sessions/filtering – working directory identity", () => {
   it("search matches a Claude Code model by the name its card shows", () => {
     const hits = (term: string) =>
       all
-        .filter((x) => matchesSessionFilters(x, { ...base, searchTerm: term }, cache))
+        .filter((x) => matchesSessionFilters(x, { ...base, searchTerms: [term] }, cache))
         .map((x) => x.id);
     expect(hits("claude-opus-4.6")).toEqual(["cc-cwd"]);
   });
@@ -270,7 +270,7 @@ describe("stores/sessions/filtering – working directory identity", () => {
 
   it("filters by a project key, and a repository key still matches exactly", () => {
     const pick = (repository: string) =>
-      filterAndSortSessions(all, { ...base, searchTerm: null, repository }, cache, "updated").map(
+      filterAndSortSessions(all, { ...base, searchTerms: [], repository }, cache, "updated").map(
         (x) => x.id,
       );
     expect(pick(`${PROJECT_FILTER_PREFIX}Orchard`)).toEqual(["cc-cwd", "cc-cwd-2"]);

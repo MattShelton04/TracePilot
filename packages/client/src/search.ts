@@ -84,7 +84,10 @@ export async function getSearchToolNames(): Promise<SearchToolName[]> {
   return invoke<SearchToolName[]>("get_search_tool_names");
 }
 
-/** Run FTS integrity check. Returns a status message. */
+/**
+ * Run the FTS integrity check, comparing the index with its content table.
+ * Resolves to "ok", or to a message starting "Integrity check failed".
+ */
 export async function ftsIntegrityCheck(): Promise<string> {
   return invoke<string>("fts_integrity_check");
 }

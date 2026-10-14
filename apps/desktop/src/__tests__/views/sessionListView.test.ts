@@ -17,7 +17,10 @@ const preferences = reactive({
   sessionCacheSize: 20,
 });
 
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: routerPush }) }));
+vi.mock("vue-router", () => ({
+  useRouter: () => ({ push: routerPush }),
+  onBeforeRouteLeave: vi.fn(),
+}));
 vi.mock("@/stores/preferences", () => ({ usePreferencesStore: () => preferences }));
 vi.mock("@/stores/sessionDetail", () => ({
   useSessionDetailStore: () => ({ setCacheSize: vi.fn(), prefetchSession: vi.fn() }),
@@ -198,5 +201,166 @@ describe("Session list repository filter", () => {
       "Folder session",
     ]);
     wrapper.unmount();
+  });
+});
+
+describe("Session list freshness while it stays open", () => {
+  const T0 = new Date("2026-10-14T09:00:00Z").getTime();
+  let store: ReturnType<typeof useSessionsStore>;
+  let wrapper: ReturnType<typeof mount> | undefined;
+
+  function renderWithCards() {
+    return mount(SessionListView, {
+      attachTo: document.body,
+      global: { stubs: { ErrorBoundary: { template: "<slot />" } } },
+    });
+  }
+
+  function setHidden(hidden: boolean) {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(T0);
+    setupPinia();
+    vi.clearAllMocks();
+    setHidden(false);
+    preferences.hideEmptySessions = true;
+    store = useSessionsStore();
+    store.sessions = [{ ...session, isRunning: true, updatedAt: new Date(T0).toISOString() }];
+    vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = undefined;
+    vi.useRealTimers();
+    setHidden(false);
+  });
+
+  it("drops a stale Active badge when the user returns to the window, without reindexing", async () => {
+    // The backend recomputes running state on every list call; the session
+    // has since ended in its terminal.
+    const refresh = vi.spyOn(store, "refreshSessions").mockImplementation(async () => {
+      store.sessions = [{ ...store.sessions[0], isRunning: false }];
+    });
+    wrapper = renderWithCards();
+    await flushPromises();
+    expect(wrapper.find(".active-badge").exists()).toBe(true);
+    const ensureCalls = vi.mocked(store.ensureIndex).mock.calls.length;
+
+    // Returning right after the list loaded does not refetch it.
+    window.dispatchEvent(new Event("focus"));
+    expect(refresh).not.toHaveBeenCalled();
+
+    vi.setSystemTime(T0 + 31_000);
+    window.dispatchEvent(new Event("focus"));
+    await flushPromises();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(store.ensureIndex).toHaveBeenCalledTimes(ensureCalls);
+    expect(wrapper.find(".active-badge").exists()).toBe(false);
+
+    // Focus and visibility both fire on return; the pair refreshes once.
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(T0 + 62_000);
+    setHidden(true);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    setHidden(false);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(refresh).toHaveBeenCalledTimes(2);
+
+    wrapper.unmount();
+    wrapper = undefined;
+    vi.setSystemTime(T0 + 120_000);
+    window.dispatchEvent(new Event("focus"));
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not refetch on focus while the list is loading or indexing", async () => {
+    const refresh = vi.spyOn(store, "refreshSessions").mockResolvedValue(undefined);
+    wrapper = renderWithCards();
+    await flushPromises();
+
+    vi.setSystemTime(T0 + 31_000);
+    store.indexing = true;
+    window.dispatchEvent(new Event("focus"));
+    store.indexing = false;
+    store.loading = true;
+    window.dispatchEvent(new Event("focus"));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("keeps relative update times current while the list stays open", async () => {
+    vi.spyOn(store, "refreshSessions").mockResolvedValue(undefined);
+    wrapper = renderWithCards();
+    await flushPromises();
+    expect(wrapper.get(".card-time-new").text()).toBe("just now");
+
+    vi.advanceTimersByTime(5 * 60_000);
+    await flushPromises();
+    expect(wrapper.get(".card-time-new").text()).toBe("5m ago");
+  });
+});
+
+describe("Session list count while filtered", () => {
+  let store: ReturnType<typeof useSessionsStore>;
+  let wrapper: ReturnType<typeof render> | undefined;
+
+  beforeEach(() => {
+    setupPinia();
+    preferences.hideEmptySessions = true;
+    store = useSessionsStore();
+    vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
+    store.sessions = [
+      session,
+      { ...session, id: "second", summary: "Export polish" },
+      { ...session, id: "third", summary: "Export retries", repository: "audit/other" },
+      // Hidden by "Hide empty sessions", so it never counts towards the total.
+      { ...session, id: "empty", summary: "Export draft", turnCount: 0 },
+    ];
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = undefined;
+  });
+
+  const count = () => wrapper?.get('[data-testid="session-count"]').text();
+  const clear = () => wrapper?.find('[data-testid="session-clear-filters"]');
+
+  it("shows only the total, with no Clear action, when nothing narrows the list", async () => {
+    wrapper = render();
+    await flushPromises();
+
+    expect(count()).toBe("3 sessions");
+    expect(clear()?.exists()).toBe(false);
+  });
+
+  it("says how many of the total match a search, and Clear brings the full list back", async () => {
+    wrapper = render();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="session-search"] input').setValue("export");
+    expect(count()).toBe("2 of 3 sessions");
+
+    await wrapper.get('select[aria-label="All Repos"]').setValue("audit/other");
+    expect(count()).toBe("1 of 3 sessions");
+
+    await clear()?.trigger("click");
+    await flushPromises();
+    expect(store.searchQuery).toBe("");
+    expect(store.filterRepo).toBeNull();
+    expect(count()).toBe("3 sessions");
+    expect(clear()?.exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="session-card"]')).toHaveLength(3);
+    // Focus lands in the search box rather than on the removed button.
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="session-search"] input').element,
+    );
   });
 });

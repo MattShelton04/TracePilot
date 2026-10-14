@@ -128,6 +128,29 @@ describe("useSessionsStore", () => {
     expect(store.filteredSessions[0].summary).toBe("OAuth Login");
   });
 
+  it("matches every word of a multi-word search, in any order and across fields", async () => {
+    mockListSessions.mockResolvedValue([
+      { ...MOCK_SESSION, id: "1", summary: "Fix login bug", repository: "org/web" },
+      { ...MOCK_SESSION, id: "2", summary: "Add export button", repository: "org/tracepilot" },
+      { ...MOCK_SESSION, id: "3", summary: "Login page styling", repository: "org/web" },
+    ]);
+    const store = useSessionsStore();
+    await store.fetchSessions();
+
+    store.searchQuery = "login fix";
+    expect(store.filteredSessions.map((s) => s.id)).toEqual(["1"]);
+
+    // "tracepilot" is only in the repository, "export" only in the summary.
+    store.searchQuery = "  Tracepilot   EXPORT ";
+    expect(store.filteredSessions.map((s) => s.id)).toEqual(["2"]);
+
+    store.searchQuery = "login checkout";
+    expect(store.filteredSessions).toHaveLength(0);
+
+    store.searchQuery = "   ";
+    expect(store.filteredSessions).toHaveLength(3);
+  });
+
   it("filters sessions by repo", async () => {
     mockListSessions.mockResolvedValue([
       { ...MOCK_SESSION, id: "1", repository: "org/web" },

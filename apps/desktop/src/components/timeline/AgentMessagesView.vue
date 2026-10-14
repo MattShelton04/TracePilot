@@ -31,6 +31,7 @@ import {
   PACK_THRESHOLD,
 } from "@/components/timeline/messages/commsVisuals";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import "@/styles/features/agent-messages.css";
 
 type Diagram = "sequence" | "lanes" | "graph";
@@ -47,7 +48,13 @@ const scale = computed(() => (timeline.value ? buildTimeScale(timeline.value) : 
 
 /** Large teams pack agents that never overlap into shared columns and lanes. */
 const canPack = computed(() => (timeline.value?.agents.length ?? 0) > PACK_THRESHOLD);
-const packPreferred = ref(true);
+const tabViews = useSessionTabViews();
+const packPreferred = computed({
+  get: () => tabViews.value.messagesPacked,
+  set: (value) => {
+    tabViews.value.messagesPacked = value;
+  },
+});
 const packed = computed(() => canPack.value && packPreferred.value);
 
 const filter = reactive<CommsFilter>({ ...DEFAULT_COMMS_FILTER });
@@ -56,7 +63,12 @@ const events = computed(() =>
 );
 const selectedId = ref<string | null>(null);
 
-const diagram = ref<Diagram>("sequence");
+const diagram = computed<Diagram>({
+  get: () => tabViews.value.messagesDiagram,
+  set: (value) => {
+    tabViews.value.messagesDiagram = value;
+  },
+});
 const diagramOptions = [
   { value: "sequence", label: "Sequence" },
   { value: "lanes", label: "Lanes" },

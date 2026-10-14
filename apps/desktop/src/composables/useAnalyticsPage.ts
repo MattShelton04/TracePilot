@@ -48,16 +48,30 @@ export function useAnalyticsPage(method: AnalyticsFetchMethod, options: Analytic
     void store.prefetchNearby([DATASET[method], ...(options.alsoPrefetch?.() ?? [])]);
   }
 
+  // A remembered repository or source is checked against the session list
+  // once it is in. Until then the first load waits, so it neither fetches a
+  // stale filter nor loads twice when that filter is dropped.
+  let waitingForRepos = false;
+  let disposed = false;
+
   onMounted(() => {
     void store.watchIndexUpdates();
-    store.fetchAvailableRepos();
-    void load();
+    const repos = store.fetchAvailableRepos();
+    if (store.selectedRepo === null && store.selectedSource === null) {
+      void load();
+      return;
+    }
+    waitingForRepos = true;
+    void repos.then(() => {
+      waitingForRepos = false;
+      if (!disposed) void load();
+    });
   });
 
   watch(
     [() => store.selectedRepo, () => store.selectedSource, () => store.dateRange],
     () => {
-      void load();
+      if (!waitingForRepos) void load();
     },
     { deep: true },
   );
@@ -71,6 +85,7 @@ export function useAnalyticsPage(method: AnalyticsFetchMethod, options: Analytic
   );
 
   onScopeDispose(() => {
+    disposed = true;
     latest += 1;
     store.cancelPrefetch();
   });

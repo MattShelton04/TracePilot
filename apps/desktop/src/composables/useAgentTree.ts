@@ -8,6 +8,7 @@ import {
 import { computed, type InjectionKey, inject, nextTick, provide, ref, watch } from "vue";
 import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
+import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
 import {
   type AgentNode,
@@ -47,7 +48,13 @@ export function useAgentTree() {
   } = useTimelineToolState();
 
   const selectedNodeId = ref<string | null>(null);
-  const viewMode = ref<"paginated" | "unified">("paginated");
+  const tabViews = useSessionTabViews();
+  const viewMode = computed({
+    get: () => tabViews.value.agentTree,
+    set: (mode) => {
+      tabViews.value.agentTree = mode;
+    },
+  });
   const rootRef = ref<HTMLElement | null>(null);
   const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
