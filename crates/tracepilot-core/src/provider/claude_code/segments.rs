@@ -50,10 +50,23 @@ pub(super) fn run_segments(parsed: &ClaudeParse) -> Vec<MetricsSegment> {
         Some(inside.fold((first, first), |(lo, hi), at| (lo.min(at), hi.max(at))))
     };
 
+    let last = parsed.cost_snapshots.last();
     let mut runs = Vec::new();
+    // A run that ended without writing `cost-state`, before the snapshots'.
+    let covers_from = last.map_or(1, |s| s.covers_from);
+    let unsnapshotted: Vec<_> = parsed
+        .calls
+        .iter()
+        .filter(|c| c.snapshot_anchor.is_some_and(|a| a < covers_from))
+        .collect();
+    let mut start = 0;
+    if !unsnapshotted.is_empty() {
+        runs.push(tail_run(&unsnapshotted, last, span(0, Some(covers_from))));
+        start = covers_from - 1;
+    }
     let mut previous: Option<&CostSnapshot> = None;
     for snapshot in &parsed.cost_snapshots {
-        let after = previous.map_or(0, |p| p.line);
+        let after = previous.map_or(start, |p| p.line.max(start));
         let calls: Vec<_> = parsed
             .calls
             .iter()
@@ -70,13 +83,20 @@ pub(super) fn run_segments(parsed: &ClaudeParse) -> Vec<MetricsSegment> {
         ));
         previous = Some(snapshot);
     }
-    let tail: Vec<_> = if parsed.cost_snapshots.is_empty() {
-        parsed.calls.iter().collect()
-    } else {
-        parsed.tail_calls().collect()
+    let tail: Vec<_> = match last {
+        None => parsed.calls.iter().collect(),
+        Some(last) => parsed
+            .calls
+            .iter()
+            .filter(|c| c.snapshot_anchor.is_some_and(|a| a > last.line))
+            .collect(),
     };
     if !tail.is_empty() {
-        runs.push(tail_run(&tail, span(previous.map_or(0, |p| p.line), None)));
+        runs.push(tail_run(
+            &tail,
+            last,
+            span(previous.map_or(0, |p| p.line), None),
+        ));
     }
 
     let mut segments: Vec<MetricsSegment> = Vec::new();
@@ -117,23 +137,23 @@ pub(super) fn run_segments(parsed: &ClaudeParse) -> Vec<MetricsSegment> {
     segments
 }
 
-/// The last snapshot's cost per model plus the priced tail. A model is left
-/// out when its snapshot has no cost or any of its tail calls is unpriced.
+/// The last snapshot's cost per model plus the priced calls it does not
+/// cover. A model is left out when its snapshot has no cost or any of its
+/// uncovered calls is unpriced.
 pub(super) fn model_costs(parsed: &ClaudeParse) -> HashMap<String, f64> {
     let mut costs: HashMap<String, Option<f64>> = HashMap::new();
-    let tail: Vec<_> = match parsed.cost_snapshots.last() {
+    let last = parsed.cost_snapshots.last();
+    let tail: Vec<_> = match last {
         Some(snapshot) => {
             for (model, usage) in &snapshot.model_usage {
                 costs.insert(model.clone(), usage.cost_usd);
             }
-            parsed.tail_calls().collect()
+            parsed.uncovered_calls().collect()
         }
         None => parsed.calls.iter().collect(),
     };
     for call in tail {
-        let entry = costs
-            .entry(call.model.clone().unwrap_or_default())
-            .or_insert(Some(0.0));
+        let entry = costs.entry(model_key(last, call)).or_insert(Some(0.0));
         *entry = entry.and_then(|total| super::pricing::estimate_native(call).map(|c| total + c));
     }
     costs
@@ -148,7 +168,7 @@ fn snapshot_run(
     calls: &[&ClaudeCallUsage],
     span: Option<(DateTime<Utc>, DateTime<Utc>)>,
 ) -> Run {
-    let counts = request_counts(calls);
+    let counts = request_counts(Some(snapshot), calls);
     let mut model_metrics = HashMap::new();
     for (model, usage) in &snapshot.model_usage {
         let earlier = previous.and_then(|p| p.model_usage.get(model));
@@ -194,12 +214,17 @@ fn snapshot_run(
     }
 }
 
-fn tail_run(calls: &[&ClaudeCallUsage], span: Option<(DateTime<Utc>, DateTime<Utc>)>) -> Run {
-    let counts = request_counts(calls);
+/// Calls no snapshot covers, under the model names of `snapshot`, the last.
+fn tail_run(
+    calls: &[&ClaudeCallUsage],
+    snapshot: Option<&CostSnapshot>,
+    span: Option<(DateTime<Utc>, DateTime<Utc>)>,
+) -> Run {
+    let counts = request_counts(snapshot, calls);
     let mut usage: HashMap<String, UsageMetrics> = HashMap::new();
     for call in calls {
         let total = usage
-            .entry(call.model.clone().unwrap_or_default())
+            .entry(model_key(snapshot, call))
             .or_insert_with(|| UsageMetrics {
                 input_tokens: Some(0),
                 output_tokens: Some(0),
@@ -274,14 +299,21 @@ fn merge(run: &mut Run, earlier: Run) {
     }
 }
 
-fn request_counts(calls: &[&ClaudeCallUsage]) -> HashMap<String, u64> {
+fn request_counts(
+    snapshot: Option<&CostSnapshot>,
+    calls: &[&ClaudeCallUsage],
+) -> HashMap<String, u64> {
     let mut counts = HashMap::new();
     for call in calls {
-        *counts
-            .entry(call.model.clone().unwrap_or_default())
-            .or_default() += 1;
+        *counts.entry(model_key(snapshot, call)).or_default() += 1;
     }
     counts
+}
+
+/// A call's model under the name `snapshot` gives it ([`CostSnapshot::model_key`]).
+fn model_key(snapshot: Option<&CostSnapshot>, call: &ClaudeCallUsage) -> String {
+    let model = call.model.as_deref().unwrap_or_default();
+    snapshot.map_or_else(|| model.to_string(), |s| s.model_key(model))
 }
 
 /// Inclusive input, matching `summary::metrics`.

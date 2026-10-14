@@ -129,7 +129,11 @@ export interface MetricsCoverage {
   partial: boolean;
   snapshotLine: number | null;
   recordedCalls: number;
+  /** Recorded calls the snapshot does not cover, priced on top of it. */
   tailCalls: number;
+  /** Of `tailCalls`, those whose final usage was never written (most subagent
+   * calls): their output is undercounted, so the cost is a lower bound. */
+  unfinishedTailCalls?: number;
   snapshotCost?: { amount: number; unit: CostUnit; basis: CostBasis };
 }
 

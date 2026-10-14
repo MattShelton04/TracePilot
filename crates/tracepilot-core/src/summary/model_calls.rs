@@ -72,6 +72,7 @@ pub fn metrics_from_model_calls(events: &[TypedEvent]) -> Option<SessionMetrics>
             snapshot_line: None,
             recorded_calls: calls,
             tail_calls: calls,
+            unfinished_tail_calls: 0,
             snapshot_cost: None,
         }),
         ..SessionMetrics::default()

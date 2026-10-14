@@ -4,9 +4,9 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 
-use super::ClaudeParse;
 use super::prompts::without_paste_tags;
 use super::records::{Blocks, Rec, block_type};
+use super::{ClaudeCallUsage, ClaudeParse};
 use crate::ids::SessionId;
 use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::{CodeChanges, ModelMetricDetail, RequestMetrics, UsageMetrics};
@@ -169,12 +169,15 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
             models.insert(model.clone(), model_detail);
         }
     }
+    // Calls join their model's row under the snapshot's name for it.
+    let key = |call: &ClaudeCallUsage| {
+        let model = call.model.as_deref().unwrap_or_default();
+        snapshot.map_or_else(|| model.to_string(), |s| s.model_key(model))
+    };
     // Snapshots have no request counts. Preserve the observed counts separately
     // from their cumulative token totals; side models have no recorded count.
     for call in &parsed.calls {
-        let model = models
-            .entry(call.model.clone().unwrap_or_default())
-            .or_insert_with(detail);
+        let model = models.entry(key(call)).or_insert_with(detail);
         let requests = model.requests.get_or_insert(RequestMetrics {
             count: Some(0),
             cost: None,
@@ -182,13 +185,13 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         requests.count = Some(requests.count.unwrap_or(0) + 1);
     }
     let tail: Vec<_> = if snapshot.is_some() {
-        parsed.tail_calls().collect()
+        parsed.uncovered_calls().collect()
     } else {
         parsed.calls.iter().collect()
     };
     for call in &tail {
         if let Some(usage) = models
-            .get_mut(&call.model.clone().unwrap_or_default())
+            .get_mut(&key(call))
             .and_then(|model| model.usage.as_mut())
         {
             usage.input_tokens = Some(usage.input_tokens.unwrap_or(0) + call.inclusive_input());
@@ -229,9 +232,9 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         tail_lines,
     } = edits(parsed);
     // Claude Code writes its own line totals into `cost-state` on exit. Edits
-    // it has not covered yet (a running session, or a resumed one that has
-    // not exited or was killed) are counted from their results' patches, which
-    // is how Claude Code counts them, on top of the last snapshot like tokens.
+    // it has not covered (a running session, or a run that has not exited or
+    // was killed) are counted from their results' patches, which is how
+    // Claude Code counts them, on top of the last snapshot like tokens.
     let (lines_added, lines_removed) = match snapshot {
         Some(s) => (
             s.total_lines_added.map(|n| n + tail_lines.0),
@@ -285,6 +288,7 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
             snapshot_line: snapshot.map(|s| s.line),
             recorded_calls: parsed.calls.len(),
             tail_calls: tail.len(),
+            unfinished_tail_calls: tail.iter().filter(|c| c.stop_reason.is_none()).count(),
             snapshot_cost,
         }),
         model_costs: super::segments::model_costs(parsed),
@@ -298,14 +302,14 @@ struct Edits {
     /// Lines added and removed by the edit results that carry a patch, `None`
     /// when none does.
     lines: Option<(u64, u64)>,
-    /// The part of `lines` from edits made by tail calls
-    /// ([`ClaudeParse::tail_calls`]), which the last snapshot does not cover.
+    /// The part of `lines` from edits made by calls the last snapshot does
+    /// not cover ([`ClaudeParse::uncovered_calls`]).
     tail_lines: (u64, u64),
 }
 
 fn edits(parsed: &ClaudeParse) -> Edits {
     let tail: HashSet<&str> = parsed
-        .tail_calls()
+        .uncovered_calls()
         .map(|call| call.message_id.as_str())
         .collect();
     let mut files = BTreeSet::new();
