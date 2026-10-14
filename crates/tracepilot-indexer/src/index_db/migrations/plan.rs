@@ -5,6 +5,9 @@
 //! `index_db_plan_is_strictly_monotonic` test fails on duplicates. If yours
 //! clashes after merging main, renumber yours to the next free version: never
 //! renumber one already on main, because installed databases have applied it.
+//!
+//! Document new tables and columns in `docs/database/schema.md`; the
+//! `schema_doc_matches_migrations` test fails until you do.
 
 use super::columns::ensure_search_columns;
 use super::sql::{
