@@ -63,6 +63,13 @@ const tokens = computed(() => {
   };
 });
 
+/**
+ * Tokens and cost are summed over whole sessions (the index's lifetime totals),
+ * while the day charts below count only the usage inside the range.
+ */
+const WHOLE_SESSIONS =
+  "Whole-session totals: each session active in the range counts in full, including usage from before the range started. Daily charts count only usage inside the range.";
+
 interface CostKpi {
   label: string;
   value: string;
@@ -100,7 +107,7 @@ const cost = computed<CostKpi>(() => {
           ? "No compatible pricing"
           : `${formatNumberFull(data.sessionsWithObservedAiCredits ?? 0)} of ${formatNumberFull(copilot.sessions)} observed`,
       partial: credits.isPartial,
-      tooltip: `${aiCreditBasis(credits)}${credits.credits == null ? "" : ` ${formatAiCredits(credits.credits)} at $0.01 each.`}`,
+      tooltip: `${aiCreditBasis(credits)}${credits.credits == null ? "" : ` ${formatAiCredits(credits.credits)} at $0.01 each.`} ${WHOLE_SESSIONS}`,
       meter: [],
     };
   }
@@ -114,7 +121,7 @@ const cost = computed<CostKpi>(() => {
       value: rows[0].usdEquivalent == null ? "—" : formatCost(rows[0].usdEquivalent),
       note: `API-equivalent · ${priced}`,
       partial: rows[0].partial,
-      tooltip: `API-equivalent USD from ${sourceLabel(rows[0].source)} usage.${rows[0].partial ? " Partial: some sessions could not be priced." : ""}`,
+      tooltip: `API-equivalent USD from ${sourceLabel(rows[0].source)} usage.${rows[0].partial ? " Partial: some sessions could not be priced." : ""} ${WHOLE_SESSIONS}`,
       meter: [],
     };
   }
@@ -129,7 +136,7 @@ const cost = computed<CostKpi>(() => {
       )
       .join(" · "),
     partial: total.partial,
-    tooltip: `${costBreakdown(rows)}. AI Credits count at $0.01 each.${total.partial ? " Partial: some usage could not be priced." : ""}`,
+    tooltip: `${costBreakdown(rows)}. AI Credits count at $0.01 each.${total.partial ? " Partial: some usage could not be priced." : ""} ${WHOLE_SESSIONS}`,
     meter:
       total.usd && total.usd > 0
         ? rows
@@ -179,7 +186,7 @@ const pace = computed(() => {
       </template>
     </KPI>
 
-    <KPI label="Tokens" :value="formatNumber(data.totalTokens)">
+    <KPI label="Tokens" :value="formatNumber(data.totalTokens)" :description="has ? WHOLE_SESSIONS : undefined">
       <template #icon><Zap :size="13" /></template>
       <template #footer>
         <div v-if="tokens.meter.length" class="ad-meter" aria-hidden="true">
