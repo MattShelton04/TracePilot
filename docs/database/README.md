@@ -159,11 +159,6 @@ it is fixed.
    and the run fails with `cannot commit - no transaction is active`, which hides
    the original error. Fix: stop the batch when `conn.is_autocommit()`, as
    `upsert_search_snapshots` already does.
-4. **`with_transaction` has no guard against panics.** A panic in the closure
-   leaves the connection inside a transaction. Today this can't cause harm,
-   because its only caller (`reindex_sources`) owns the connection and drops it
-   on error, which rolls back. The doc comment claims more than the code does.
-   Switching to `unchecked_transaction()` would make it hold for future callers.
 
 `idx_session_incidents_type` has no reader: incidents are only read by
 `session_id`.
