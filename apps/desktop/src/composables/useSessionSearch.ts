@@ -2,6 +2,7 @@ import type { IndexingProgressPayload, SearchContentType, SearchResult } from "@
 import { CONTENT_TYPE_CONFIG, usePolling, useToast } from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { useSearchKeyboardNavigation } from "@/composables/useSearchKeyboardNavigation";
 import { useSearchPagination } from "@/composables/useSearchPagination";
@@ -20,6 +21,7 @@ export interface UseSessionSearchOptions {
 export function useSessionSearch(options: UseSessionSearchOptions) {
   const store = useSearchStore();
   const sessionsStore = useSessionsStore();
+  const router = useRouter();
   const { searchInputRef } = options;
 
   // Sync search state ↔ URL query params
@@ -82,6 +84,13 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     hasQuery: computed(() => store.hasQuery),
     onClearAll: () => store.clearAll(),
     onToggleExpand: toggleExpand,
+    // Same deep link as the result's "View in session" link.
+    onOpen: (id) => {
+      const result = store.results.find((r) => r.id === id);
+      if (result) {
+        void router.push(sessionLink(result.sessionId, result.turnNumber, result.eventIndex));
+      }
+    },
   });
 
   // Map result.id → flat index for keyboard nav in grouped view
