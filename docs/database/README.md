@@ -163,11 +163,6 @@ it is fixed.
    still reported `ok` and `fts_health.in_sync` was true; the `rank=1` form
    reported corruption. Fix: use `VALUES('integrity-check', 1)` and describe
    `fts_health` as a row-count check.
-4. **`with_transaction` has no guard against panics.** A panic in the closure
-   leaves the connection inside a transaction. Today this can't cause harm,
-   because its only caller (`reindex_sources`) owns the connection and drops it
-   on error, which rolls back. The doc comment claims more than the code does.
-   Switching to `unchecked_transaction()` would make it hold for future callers.
 
 `idx_session_incidents_type` has no reader: incidents are only read by
 `session_id`.

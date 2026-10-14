@@ -4,7 +4,7 @@
 use super::IndexDb;
 use super::migrations::run_migrations;
 use crate::{Result, error::IndexerError};
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction, TransactionBehavior};
 use std::path::Path;
 
 /// Page cache (negative = KiB) and in-memory temp storage for the writer.
@@ -66,21 +66,34 @@ impl IndexDb {
 
     /// Run `f` inside a `BEGIN DEFERRED` transaction.
     ///
-    /// Commits if `f` returns `Ok`; rolls back if `f` returns `Err`. A failure
-    /// during rollback is logged via `tracing::error!` and the original error
-    /// from `f` is propagated.
+    /// - `f` returns `Ok`: the transaction is committed and the value returned.
+    ///   If `COMMIT` fails, its error is returned and the transaction is rolled
+    ///   back.
+    /// - `f` returns `Err`: the transaction is rolled back and `f`'s error is
+    ///   returned. A failed `ROLLBACK` is logged via `tracing::error!`.
+    /// - `f` panics: the transaction is rolled back while unwinding and the
+    ///   panic continues, so a caller that catches it gets the connection back
+    ///   in autocommit mode.
     ///
-    /// Replaces the prior `begin_transaction` / `commit_transaction` pair which
-    /// could leak an open transaction on early returns or panics.
+    /// The rollbacks after a failed `COMMIT` and during a panic are best effort:
+    /// their own errors are discarded. Neither runs if the transaction has
+    /// already ended, for example because SQLite rolled it back after
+    /// `SQLITE_FULL`.
+    ///
+    /// The transaction must be the outermost one: if the connection is already
+    /// inside a transaction, `BEGIN` fails, `f` doesn't run, and the outer
+    /// transaction is left untouched.
     pub fn with_transaction<R>(&self, f: impl FnOnce(&IndexDb) -> Result<R>) -> Result<R> {
-        self.conn.execute_batch("BEGIN DEFERRED")?;
+        // This is `unchecked_transaction()` with the behavior pinned. Dropping
+        // the guard (a failed commit or a panic in `f`) rolls back.
+        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Deferred)?;
         match f(self) {
             Ok(value) => {
-                self.conn.execute_batch("COMMIT")?;
+                transaction.commit()?;
                 Ok(value)
             }
             Err(err) => {
-                if let Err(rb) = self.conn.execute_batch("ROLLBACK") {
+                if let Err(rb) = transaction.rollback() {
                     tracing::error!(
                         error = %rb,
                         "Failed to roll back transaction after closure error"
