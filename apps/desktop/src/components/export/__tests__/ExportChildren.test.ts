@@ -72,7 +72,8 @@ vi.mock("vue-router", () => ({
 // ── Stub out the UI package for lightweight mounting ────────────
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
-  const { useAsyncGuard } = await importOriginal<typeof import("@tracepilot/ui")>();
+  const { useAsyncGuard, usePersistedRef } =
+    await importOriginal<typeof import("@tracepilot/ui")>();
   const passthrough = (name: string) =>
     defineComponent({
       name,
@@ -101,6 +102,7 @@ vi.mock("@tracepilot/ui", async (importOriginal) => {
     formatBytes: (n: number) => `${n}B`,
     projectLabelFromCwd: (cwd: string | null) => cwd?.split(/[\\/]/).pop() || null,
     useAsyncGuard,
+    usePersistedRef,
     useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
   };
 });
@@ -117,6 +119,7 @@ import ExportTab from "../ExportTab.vue";
 import ImportTab from "../ImportTab.vue";
 
 beforeEach(() => {
+  localStorage.clear();
   setupPinia();
   defaultImportFlow.step.value = "select";
   defaultImportFlow.error.value = null;

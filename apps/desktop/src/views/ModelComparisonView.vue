@@ -51,8 +51,8 @@ const { revealing } = useFirstReveal({
           <!-- Runs ended in the range, but no session was last active in it. -->
           <div v-else-if="ctx.modelRows.length === 0">
             <p class="chart-placeholder">
-              No session was last active in this range, so there are no per-model totals. The timeline
-              shows the runs that ended in it.
+              No session ended in this range, so there are no per-model totals. The timeline shows runs
+              from sessions resumed after it.
             </p>
             <ModelMixTimeline />
           </div>

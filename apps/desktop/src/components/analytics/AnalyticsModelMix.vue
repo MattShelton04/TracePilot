@@ -110,8 +110,8 @@ function openModels() {
       </div>
     </template>
     <p v-else-if="dailyUsage" class="ad-empty">
-      <b>No session last active here</b>
-      Models are totalled over sessions last active in this range. Runs that ended in it show in Activity.
+      <b>No session ended in this range</b>
+      Model totals cover sessions that ended in this range. Runs from sessions resumed after it show in Activity.
     </p>
     <p v-else class="ad-empty">
       <b>No model usage</b>

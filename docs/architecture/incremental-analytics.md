@@ -124,23 +124,40 @@ Analytics extraction version 17 refreshes previously indexed sessions with these
 rules. It changes derived rows, not the database schema or source event files.
 The normal path continues to aggregate those rows with SQL.
 
-Date filters select sessions by their last-active date for the headline
-totals, which remain lifetime values of those sessions. Segment-based daily
-charts select segments instead: each counts on the day it ended when that day is
-in the requested range, whenever its session was last active. A run that ended
-in the range therefore still shows when its session was resumed after it,
-though that session adds nothing to the headline totals. This keeps activity,
-token and cost charts on the same day for sessions spanning midnight. Sessions
-without segments place their lifetime model usage on their last-active day. The
-legacy daily cost series counts premium requests; the headline `total_cost`
-retains model-reported cost. Undated shutdowns contribute to lifetime totals
-without producing daily chart points.
-
-The indexer's `analytics_parity` tests compare these semantics with the disk
-fallback for sessions last active in the range; `analytics_day_series` covers
-runs from sessions resumed after it. The disk fallback (used when the index
-can't be opened or its query fails) still selects sessions by last-active date
-before clamping their segments, so it leaves those runs out.
+Date filters select sessions by their last-active date, and the session count
+counts those sessions. Usage counts only inside the range. Segment-based daily
+charts use the day each segment ended and include every segment that ended
+within the range, whatever its session's last-active date, which keeps
+activity, token and cost charts on the same day for sessions spanning midnight.
+Headline usage (tokens, the legacy `total_cost`, premium requests and AI
+Credits), each source's tokens and USD in `costBySource`, and per-model usage
+in `modelDistribution` and `cacheStats` take each selected session's lifetime
+total minus its segments that ended on a day outside the range, so they add up
+to the daily charts, with one exception: a session resumed after the range is
+not selected, so its runs that ended in the range count in the daily charts
+only. The AI Credit estimate, token composition and model shares are built from
+those model rows. A model left with no usage in the range has no row. Usage the
+segments don't account for stays with the session, on its last-active day
+inside the range: a session with no segments, an undated shutdown, or usage
+recorded after the last segment. The daily model chart places a session without
+segments on its last-active day too. Without a date filter nothing is
+subtracted, so All Time shows the lifetime totals exactly. A USD figure is
+unknown (the source reads as partly priced) when the session is unpriced or a
+run outside the range is, since that run's share can't be removed. Segments
+carry no per-model USD, so a model's USD in `modelDistribution` is unknown for
+a session where that model also ran outside the range. Turns, tool calls,
+incidents, prompt-cache windows, API duration statistics and the per-turn and
+per-second averages remain whole-session values. The legacy daily cost series
+counts premium requests; the headline `total_cost` retains model-reported cost.
+The rule is in `index_db/helpers/range_usage.rs`, and
+`compute_analytics_in_range` applies it to the disk fallback. Differential
+fixtures in the indexer's `analytics_parity`, `range_totals` and
+`range_models` tests cover these semantics against the disk fallback, and
+`segment_totals` checks that Copilot and Claude Code segments add up to their
+session totals. `analytics_day_series` covers runs from sessions resumed after
+the range. The disk fallback (used when the index can't be opened or its query
+fails) only loads sessions last active in the range, so its daily charts leave
+those runs out.
 
 ### Claude Code runs and USD cost
 

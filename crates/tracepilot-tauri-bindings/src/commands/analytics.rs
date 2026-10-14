@@ -51,7 +51,9 @@ pub async fn get_analytics(
                 repo,
                 hide,
             )?;
-            Ok(tracepilot_core::analytics::compute_analytics(&inputs))
+            Ok(tracepilot_core::analytics::compute_analytics_in_range(
+                &inputs, from, to,
+            ))
         },
     )
     .await

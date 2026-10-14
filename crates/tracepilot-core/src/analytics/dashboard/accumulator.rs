@@ -2,9 +2,12 @@ use super::super::types::{
     AnalyticsData, ProductivityMetrics, PromptCacheAnalytics, SessionAnalyticsInput,
     SourceCostEntry,
 };
+use super::super::utils::segment_end_date;
 use super::daily::DailySeriesAccumulator;
 use super::durations::compute_duration_stats;
-use super::models::ModelDistributionAccumulator;
+use super::models::{ModelDistributionAccumulator, ModelMetricsTotals};
+use super::range::{DateRange, OutsideUsage};
+use crate::models::event_types::SessionSegment;
 use crate::provider::SessionSource;
 
 pub(super) struct AnalyticsAccumulator {
@@ -46,17 +49,33 @@ impl AnalyticsAccumulator {
         }
     }
 
-    pub(super) fn record_session(&mut self, input: &SessionAnalyticsInput) {
+    pub(super) fn record_session(&mut self, input: &SessionAnalyticsInput, range: DateRange<'_>) {
         let summary = &input.summary;
 
         let date_key = summary.date_key();
 
         if let Some(ref metrics) = summary.shutdown_metrics {
+            // Segments that ended on a day outside the range leave the
+            // headline usage; undated ones stay with the session.
+            let mut outside = OutsideUsage::default();
+            let charted: Vec<&SessionSegment> = metrics
+                .session_segments
+                .iter()
+                .flatten()
+                .filter(|segment| match segment_end_date(segment) {
+                    Some(day) if !range.contains(day) => {
+                        outside.add(segment);
+                        false
+                    }
+                    _ => true,
+                })
+                .collect();
+
             if let Some(pr) = metrics.total_premium_requests {
-                self.total_premium_requests += pr;
+                self.total_premium_requests += (pr - outside.premium_requests).max(0.0);
             }
             if let Some(total_nano_aiu) = metrics.total_nano_aiu {
-                self.total_nano_aiu += total_nano_aiu;
+                self.total_nano_aiu += total_nano_aiu.saturating_sub(outside.nano_aiu);
                 self.sessions_with_observed_ai_credits += 1;
             }
 
@@ -66,15 +85,17 @@ impl AnalyticsAccumulator {
                 self.total_api_duration_ms += session_api_duration_ms;
             }
 
-            let model_totals = self
-                .model_distribution
-                .record_model_metrics(&metrics.model_metrics);
-            self.total_tokens += model_totals.tokens;
+            // Model rows and cache statistics count only in-range usage.
+            self.model_distribution
+                .record_model_metrics(&outside.in_range_models(&metrics.model_metrics));
+            let model_totals = ModelMetricsTotals::of(&metrics.model_metrics);
+            self.total_tokens += model_totals.tokens.saturating_sub(outside.tokens);
+            // Whole-session tokens, divided by whole-session turns.
             self.total_tokens_from_turns += model_totals.tokens;
-            self.total_cost += model_totals.cost;
+            self.total_cost += (model_totals.cost - outside.cost).max(0.0);
 
-            if let Some(ref segments) = metrics.session_segments {
-                self.daily.record_segments(segments);
+            if metrics.session_segments.is_some() {
+                self.daily.record_segments(charted);
             } else if let Some(ref date) = date_key {
                 self.daily.record_fallback(date, &metrics.model_metrics);
             }

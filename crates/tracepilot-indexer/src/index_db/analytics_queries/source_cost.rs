@@ -12,20 +12,25 @@ use super::super::helpers::*;
 use super::day_bucket::{DayBucketSpec, query_day_bucketed};
 
 /// One entry per source with sessions in the filter, in `SessionSource::ALL`
-/// order.
+/// order. Sessions are counted by their last-active day; tokens and USD count
+/// only usage inside the range, like the dashboard's headline totals (see
+/// `helpers::range_usage`).
 pub(super) fn query_cost_by_source(
     conn: &Connection,
     where_clause: &str,
     bind_values: &[String],
+    from_date: Option<&str>,
+    to_date: Option<&str>,
 ) -> Result<Vec<SourceCostEntry>> {
+    let (usage_join, values) =
+        out_of_range_join(where_clause, bind_values, from_date, to_date, false);
     let sql = format!(
-        "SELECT s.source, COUNT(*), COALESCE(SUM(s.total_tokens), 0),
-                SUM(s.cost_usd), COUNT(s.cost_usd)
-         FROM sessions s{}
-         GROUP BY s.source",
-        where_clause
+        "SELECT s.source, COUNT(*), COALESCE(SUM({IN_RANGE_TOKENS}), 0),
+                SUM({IN_RANGE_COST_USD}), COUNT({IN_RANGE_COST_USD})
+         FROM sessions s{usage_join}{where_clause}
+         GROUP BY s.source"
     );
-    let refs = to_refs(bind_values);
+    let refs = to_refs(&values);
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
         Ok((

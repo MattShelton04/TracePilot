@@ -321,8 +321,9 @@ fn repository_source_and_empty_filters_still_apply() {
 #[test]
 fn session_with_runs_and_lifetime_metrics_counts_each_run_once() {
     // The usual shape: per-run segments plus the session's lifetime model
-    // rollup. The model-day series reads the runs only; the rollup feeds the
-    // model distribution, for sessions last active in the range.
+    // rollup. The model-day series reads the runs only; the rollup, less the
+    // runs outside the range, feeds the model distribution for sessions last
+    // active in the range.
     let tmp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
     insert_session(
@@ -339,6 +340,9 @@ fn session_with_runs_and_lifetime_metrics_counts_each_run_once() {
     insert_run(&db, "both", "2026-03-02T10:00:00Z", 500);
     insert_run(&db, "both", "2026-03-08T10:00:00Z", 700);
     insert_model_metrics(&db, "both", "gpt-5.4", 960);
+    db.conn
+        .execute("UPDATE sessions SET total_tokens = 1200 WHERE id = 'both'", [])
+        .unwrap();
     let gpt = |date: &str, input| {
         (
             date.to_string(),
@@ -357,10 +361,19 @@ fn session_with_runs_and_lifetime_metrics_counts_each_run_once() {
     assert_eq!(whole.model_distribution.len(), 1);
     assert_eq!(whole.model_distribution[0].input_tokens, 960);
 
-    // Resumed after the range: its run in the range only, and no lifetime
-    // totals, since the session was not last active in it.
+    // Last active in the range with an earlier run outside it: the day series
+    // and the headline model row agree on the in-range run.
+    let late = query(&db, "2026-03-07", "2026-03-09", None, false, None);
+    assert_eq!(model_days(&late), vec![gpt("2026-03-08", 560)]);
+    assert_eq!(late.model_distribution[0].input_tokens, 560);
+    assert_eq!(late.total_tokens, 700);
+
+    // Resumed after the range: its run in the range shows in the day series
+    // only; the headline totals leave the session out, since it was not last
+    // active in the range.
     let early = query(&db, "2026-03-01", "2026-03-03", None, false, None);
     assert_eq!(model_days(&early), vec![gpt("2026-03-02", 400)]);
     assert!(early.model_distribution.is_empty());
     assert_eq!(early.total_sessions, 0);
+    assert_eq!(early.total_tokens, 0);
 }

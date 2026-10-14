@@ -68,6 +68,10 @@ export function createIndexingSlice(deps: IndexingSliceDeps) {
         }),
         await safeListen<SearchIndexingProgress>(IPC_EVENTS.SEARCH_INDEXING_PROGRESS, (event) => {
           searchIndexingProgress.value = event.payload;
+          // The store is created lazily, so a pass that started before it
+          // listened (or before Search was opened) is first seen here. A pass's
+          // last event has current === total and is followed by FINISHED.
+          if (event.payload.current < event.payload.total) searchIndexing.value = true;
         }),
         await safeListen(IPC_EVENTS.SEARCH_INDEXING_FINISHED, () => {
           searchIndexing.value = false;

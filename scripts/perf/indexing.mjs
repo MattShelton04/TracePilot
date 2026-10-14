@@ -211,7 +211,7 @@ try {
         2 * (manifest.totals.turnCount + manifest.totals.toolCallCount),
       );
     }
-    await invoke("fts_integrity_check");
+    assert.equal(await invoke("fts_integrity_check"), "ok");
     const sample = {
       iteration,
       sessionIndexMs: indexed - started,

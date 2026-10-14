@@ -3,6 +3,7 @@ import type { ContextTimeline, ContextTimelineResponse, TurnToolCall } from "@tr
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
+import { resetSessionTabViews } from "@/composables/useSessionTabViews";
 import ContextTab from "@/views/tabs/ContextTab.vue";
 
 const loadTimeline = vi.fn();
@@ -200,6 +201,8 @@ describe("ContextTab", () => {
     loadFullResult.mockReset();
     navigateToConversation.mockReset();
     contextCaptureEnabled = false;
+    localStorage.clear();
+    resetSessionTabViews();
   });
 
   it("switches between the timeline and the in-page request snapshots workspace", async () => {
@@ -215,6 +218,30 @@ describe("ContextTab", () => {
       ?.trigger("click");
     expect(wrapper.find(".capture-panel-stub").exists()).toBe(true);
     expect(wrapper.find(".context-tab__stats").exists()).toBe(false);
+  });
+
+  it("reopens on remembered request snapshots only where capture is offered", async () => {
+    contextCaptureEnabled = true;
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const first = mountTab();
+    await flushPromises();
+    await first
+      .findAll(".context-tab__view-nav button")
+      .find((button) => button.text().includes("Request snapshots"))
+      ?.trigger("click");
+    first.unmount();
+
+    const reopened = mountTab();
+    await flushPromises();
+    expect(reopened.find(".capture-panel-stub").exists()).toBe(true);
+    reopened.unmount();
+
+    contextCaptureEnabled = false;
+    const withoutCapture = mountTab();
+    await flushPromises();
+    expect(withoutCapture.find(".capture-panel-stub").exists()).toBe(false);
+    expect(withoutCapture.find(".context-tab__stats").exists()).toBe(true);
+    withoutCapture.unmount();
   });
 
   it("does not show an empty message when expensive tool calls exist and prefetches details", async () => {

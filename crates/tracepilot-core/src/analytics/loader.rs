@@ -16,7 +16,6 @@ use crate::session::discovery::{DiscoveredSession, discover_sessions};
 use crate::summary::{load_session_summary, load_session_summary_with_events};
 
 use super::types::SessionAnalyticsInput;
-use super::utils::segment_end_date;
 
 /// Load session summaries only (no turn reconstruction).
 ///
@@ -110,11 +109,12 @@ pub fn load_session_summaries_filtered(
 
 /// Load full sessions with optional date range and repository filtering.
 ///
-/// Sessions are selected by their last-active date. Their lifetime totals are
-/// left intact, but `session_segments` are clamped to the requested window;
-/// see [`clamp_segments_to_date_range`]. The per-day charts then match the
-/// indexed query except for runs of sessions last active after the range,
-/// which the indexed query still counts on the day each run ended.
+/// Sessions are selected by their last-active date and keep all their
+/// segments. Pass the same range to
+/// [`compute_analytics_in_range`](super::compute_analytics_in_range), which
+/// leaves out the segments that ended outside it, as the indexed query does.
+/// Unlike the indexed query, the per-day charts here only see sessions last
+/// active in the range, so runs of a session resumed after it are left out.
 pub fn load_full_sessions_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,
@@ -125,38 +125,7 @@ pub fn load_full_sessions_filtered(
     let inputs = load_full_sessions(sessions_dir)?;
     let filtered = filter_by_date_range(inputs, from_date, to_date);
     let filtered = filter_by_repo(filtered, repo);
-    let mut filtered = filter_empty(filtered, hide_empty);
-    clamp_segments_to_date_range(&mut filtered, from_date, to_date);
-    Ok(filtered)
-}
-
-/// Drop segments that ended outside the date range (inclusive).
-///
-/// Session totals remain lifetime values, as in the SQL query; only the
-/// segment-based daily charts are limited to the requested window. Callers
-/// reading segments from filtered inputs therefore see the clamped list.
-fn clamp_segments_to_date_range(
-    inputs: &mut [SessionAnalyticsInput],
-    from_date: Option<&str>,
-    to_date: Option<&str>,
-) {
-    if from_date.is_none() && to_date.is_none() {
-        return;
-    }
-    for input in inputs {
-        if let Some(segments) = input
-            .summary
-            .shutdown_metrics
-            .as_mut()
-            .and_then(|metrics| metrics.session_segments.as_mut())
-        {
-            segments.retain(|segment| {
-                segment_end_date(segment).is_some_and(|date| {
-                    from_date.is_none_or(|from| date >= from) && to_date.is_none_or(|to| date <= to)
-                })
-            });
-        }
-    }
+    Ok(filter_empty(filtered, hide_empty))
 }
 
 /// Filter inputs by date range (YYYY-MM-DD strings, inclusive).

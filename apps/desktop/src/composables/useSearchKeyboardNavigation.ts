@@ -13,6 +13,8 @@ export interface UseSearchKeyboardNavigationOptions {
   onClearAll: () => void;
   /** Called when Enter is pressed on a focused result. */
   onToggleExpand: (id: number) => void;
+  /** Called when Ctrl/Cmd+Enter is pressed on a focused result. */
+  onOpen?: (id: number) => void;
 }
 
 /**
@@ -23,12 +25,13 @@ export interface UseSearchKeyboardNavigationOptions {
  * - ↓ / j: Move focus down through results
  * - ↑ / k: Move focus up through results
  * - Enter: Toggle expand on focused result
+ * - Ctrl/Cmd+Enter: Open the focused result (never from the search input)
  * - Escape: Unfocus result → focus search input, or clear search
  *
  * Registers a global keydown listener on mount and removes it on unmount.
  */
 export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigationOptions) {
-  const { searchInputRef, results, hasQuery, onClearAll, onToggleExpand } = options;
+  const { searchInputRef, results, hasQuery, onClearAll, onToggleExpand, onOpen } = options;
 
   /** Index of the currently focused result (-1 = none). */
   const focusedResultIndex = ref(-1);
@@ -52,12 +55,14 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
     }
 
     const isSearchInput = e.target === searchInputRef.value;
+    const withModifier = e.ctrlKey || e.metaKey;
 
     // From search input: allow arrow keys to navigate into results,
     // and Enter/Esc when a result is already focused
     if (isSearchInput) {
       const isArrow = e.key === "ArrowDown" || e.key === "ArrowUp";
-      const isEnterOnFocused = e.key === "Enter" && focusedResultIndex.value >= 0;
+      // Ctrl/Cmd+Enter while typing belongs to the input, not to the results.
+      const isEnterOnFocused = e.key === "Enter" && !withModifier && focusedResultIndex.value >= 0;
       const isEscOnFocused = e.key === "Escape" && focusedResultIndex.value >= 0;
       if (!isArrow && !isEnterOnFocused && !isEscOnFocused) return;
     }
@@ -90,13 +95,19 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
         if (isSearchInput && focusedResultIndex.value >= 0) searchInputRef.value?.blur();
         scrollToFocusedResult();
         break;
-      case "Enter":
-        if (focusedResultIndex.value >= 0) {
+      case "Enter": {
+        const result = results.value[focusedResultIndex.value];
+        if (!result) break;
+        if (withModifier) {
+          if (!onOpen) break;
           e.preventDefault();
-          const result = results.value[focusedResultIndex.value];
-          if (result) onToggleExpand(result.id);
+          onOpen(result.id);
+        } else {
+          e.preventDefault();
+          onToggleExpand(result.id);
         }
         break;
+      }
       case "Escape":
         if (focusedResultIndex.value >= 0) {
           e.preventDefault();

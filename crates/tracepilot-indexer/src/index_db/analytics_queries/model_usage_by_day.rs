@@ -45,7 +45,7 @@ pub(super) struct DayFilters<'a> {
     pub runs: (&'a str, &'a [String]),
     /// The full session filter, including the last-activity date guard. A
     /// session without runs has no end day of its own, so it is bucketed on
-    /// and bounded by its last-activity day, like the lifetime KPIs.
+    /// and bounded by its last-activity day, like the headline totals.
     pub sessions: (&'a str, &'a [String]),
     pub from_date: Option<&'a str>,
     pub to_date: Option<&'a str>,

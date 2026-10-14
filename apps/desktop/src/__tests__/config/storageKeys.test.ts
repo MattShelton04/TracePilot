@@ -18,6 +18,10 @@ describe("storage key registry", () => {
     }
   });
 
+  it("keeps session tab view choices under the dash-form key", () => {
+    expect(STORAGE_KEYS.sessionTabViews).toBe("tracepilot-session-tab-views");
+  });
+
   it("STORAGE_KEYS is frozen", () => {
     expect(Object.isFrozen(STORAGE_KEYS)).toBe(true);
   });
@@ -33,5 +37,10 @@ describe("storage key registry", () => {
     runStorageKeyMigrations();
     expect(localStorage.getItem(STORAGE_KEYS.theme)).toBe("dark");
     expect(localStorage.getItem(STORAGE_KEYS.lastSession)).toBe("session-1");
+  });
+
+  it("keeps the analytics filter and export option keys stable", () => {
+    expect(STORAGE_KEYS.analyticsFilters).toBe("tracepilot-analytics-filters");
+    expect(STORAGE_KEYS.exportOptions).toBe("tracepilot-export-options");
   });
 });

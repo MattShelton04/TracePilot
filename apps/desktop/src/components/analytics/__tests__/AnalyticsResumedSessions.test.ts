@@ -1,9 +1,9 @@
 /**
- * Per-day series count runs by the day each ended, while the lifetime totals
- * (`totalSessions`, `costBySource`, `modelDistribution`) count sessions last
- * active in the range. A session resumed after the range therefore has runs
- * in the day series but nothing in the totals; the per-day charts must still
- * draw them.
+ * Per-day series count every run that ended in the range, while the headline
+ * totals (`totalSessions`, `costBySource`, `modelDistribution`) count only
+ * sessions last active in it (their in-range usage). A session resumed after
+ * the range therefore has runs in the day series but nothing in the totals;
+ * the per-day charts must still draw them.
  */
 import { setupPinia } from "@tracepilot/test-utils";
 import type { AnalyticsData } from "@tracepilot/types";
@@ -116,7 +116,7 @@ describe("per-day charts with runs from resumed sessions", () => {
 
     views.value.costView = "sources";
     const sources = mount(AnalyticsCostPanel, { props });
-    expect(sources.text()).toContain("No session last active here");
+    expect(sources.text()).toContain("No session ended in this range");
     expect(sources.text()).not.toContain("Nothing was used");
 
     views.value.costView = "running";
@@ -136,13 +136,13 @@ describe("per-day charts with runs from resumed sessions", () => {
 
   it("explains empty model and token mixes instead of saying nothing ran", () => {
     const mix = mount(AnalyticsModelMix, { props: { models: [], dailyUsage: true } });
-    expect(mix.text()).toContain("No session last active here");
+    expect(mix.text()).toContain("No session ended in this range");
     expect(mix.text()).not.toContain("No model calls were recorded");
     const { composition } = buildDashboardSummary(resumedOnly, unpriced);
     const tokens = mount(AnalyticsTokenMix, {
       props: { composition, models: [], dailyUsage: true },
     });
-    expect(tokens.text()).toContain("No session last active here");
+    expect(tokens.text()).toContain("No session ended in this range");
     expect(tokens.text()).not.toContain("No model usage in this range");
   });
 });

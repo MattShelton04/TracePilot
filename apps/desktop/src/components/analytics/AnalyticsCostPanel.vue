@@ -190,8 +190,9 @@ const runningFoot = computed(() => {
   };
 });
 
+/** The chart's own sources, which can include sessions resumed after the range. */
 const unitNote = computed(() =>
-  props.summary.sources.includes("copilot") ? "USD · AI Credits at $0.01" : "USD",
+  daily.value.series.some((series) => series.key === "copilot") ? "USD · AI Credits at $0.01" : "USD",
 );
 
 function openModels() {
@@ -202,14 +203,14 @@ function openModels() {
 <template>
   <OverviewPanel title="Cost" :flush="view === 'sources' && has" data-testid="analytics-cost">
     <template #aside>
-      <span v-if="view === 'running' && has">running total · {{ unitNote }}</span>
+      <span v-if="view === 'running' && runningFoot">running total · {{ unitNote }}</span>
       <SegmentedControl v-model="view" class="ad-seg" :options="VIEWS" aria-label="Cost view" />
     </template>
 
     <p v-if="!has && (view === 'sources' || !dailyUsage)" class="ad-empty">
       <template v-if="dailyUsage">
-        <b>No session last active here</b>
-        By source counts sessions last active in this range. Runs that ended in it show in Running total.
+        <b>No session ended in this range</b>
+        By source covers sessions that ended in this range. Runs from sessions resumed after it show in Running total.
       </template>
       <template v-else>
         <b>No cost</b>

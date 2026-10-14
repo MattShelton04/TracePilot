@@ -111,11 +111,13 @@ const weekStart = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DA
  * filled in so gaps in activity stay visible. Spend spreads each model's
  * total cost over its days in proportion to tokens.
  *
- * The day rows count runs by the day they ended, while each model row totals
- * the sessions last active in the range, so the two cover different runs and
- * a model's spend here can be above or below its cost on the rest of the
- * page. A model with no row (it ran only in sessions resumed after the range)
- * counts its tokens under Others and adds no spend, since nothing prices it.
+ * With a date filter, each model row counts the in-range usage of sessions
+ * that ended (were last active) in the range. The day rows also count runs
+ * from sessions resumed after the range, and not usage that no run accounts
+ * for, so a model's spend here can be above or below its cost on the rest of
+ * the page. A model with no row (it ran in the range only in sessions resumed
+ * after it) counts its tokens under Others and adds no spend, since nothing
+ * prices it.
  */
 export function buildMixSeries(
   usage: readonly ModelUsageDay[],

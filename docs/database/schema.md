@@ -120,7 +120,9 @@ One row per accounting run: a Copilot `session.shutdown` (a resumed session has
 several) or a provider run. Per-day token, activity, premium-request, USD and
 model charts attribute usage to the day the run ended, and the date range
 selects runs by that day alone: a run that ended in the range counts even when
-its session was resumed after it.
+its session was resumed after it. With a date filter, headline totals take the
+sessions last active in the range and subtract their runs that ended outside it
+(see [incremental analytics](../architecture/incremental-analytics.md)).
 Primary key: `(session_id, end_timestamp)`.
 
 | Column | Type | Meaning |
@@ -134,7 +136,7 @@ Primary key: `(session_id, end_timestamp)`.
 | `total_api_duration_ms` | INTEGER | Model API time in the run. **Not read.** |
 | `current_model` | TEXT | The run's model. **Not read**: per-model attribution uses the JSON. |
 | `model_metrics_json` | TEXT | Per-model usage and billing for the run (a serialized `ModelMetricDetail` map), decoded for the per-day model chart. |
-| `total_nano_aiu` | INTEGER | AI Credits observed for the run as a whole. Per-model billing in the JSON is optional, so this may be the only run-level figure. **Not read.** |
+| `total_nano_aiu` | INTEGER | AI Credits observed for the run as a whole. Per-model billing in the JSON is optional, so this may be the only run-level figure. Subtracted from headline AI Credits when the run ended outside the date range. |
 | `cost_usd` | REAL | Provider USD for the run. NULL = no figure. |
 
 Indexes: `idx_session_segments_end_ts` supports raw `end_timestamp` ranges. The
