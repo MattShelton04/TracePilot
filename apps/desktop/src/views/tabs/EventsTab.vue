@@ -14,9 +14,13 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 const store = useSessionDetailContext();
 const filterType = ref<string | null>(null);
 const pageSize = 50;
+// The page and filter the shown rows belong to; they move only after a load succeeds.
 const currentPage = ref(0);
+const shownFilter = ref<string | null>(null);
 const pageLoading = ref(false);
 let loadSeq = 0;
+// The last page asked for, which is what Retry asks for again.
+let requestedPage = 0;
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -24,7 +28,9 @@ useSessionTabLoader(
   {
     onClear() {
       filterType.value = null;
+      shownFilter.value = null;
       currentPage.value = 0;
+      requestedPage = 0;
     },
   },
 );
@@ -35,18 +41,30 @@ const eventTypes = computed(() => {
   return store.events.allEventTypes ?? [];
 });
 
-// When filter changes, reset to page 0 and reload with filter
-watch(filterType, async () => {
+// Events are unknown, not absent, until a page has loaded: while loading, or
+// when the first load fails, there is no count and no "none found".
+const eventsKnown = computed(() => store.events != null && store.loaded.has("events"));
+const eventsPending = computed(() => !eventsKnown.value && !store.eventsError);
+
+async function fetchPage(page: number) {
   const seq = ++loadSeq;
-  currentPage.value = 0;
+  const id = store.sessionId;
+  const filter = filterType.value;
+  requestedPage = page;
   pageLoading.value = true;
   try {
-    await store.loadEvents(0, pageSize, filterType.value ?? undefined);
-    if (seq !== loadSeq) return;
+    await store.loadEvents(page * pageSize, pageSize, filter ?? undefined);
+    // loadEvents reports failure through eventsError rather than throwing.
+    if (seq !== loadSeq || store.sessionId !== id || store.eventsError) return;
+    currentPage.value = page;
+    shownFilter.value = filter;
   } finally {
     if (seq === loadSeq) pageLoading.value = false;
   }
-});
+}
+
+// When filter changes, reload from page 0 with filter
+watch(filterType, () => fetchPage(0));
 
 const totalCount = computed(() => store.events?.totalCount ?? 0);
 const hasMore = computed(() => store.events?.hasMore ?? false);
@@ -82,21 +100,13 @@ const tableRows = computed(() =>
   })),
 );
 
-async function loadPage(page: number) {
+function loadPage(page: number) {
   if (pageLoading.value) return;
-  const seq = ++loadSeq;
-  pageLoading.value = true;
-  try {
-    currentPage.value = page;
-    await store.loadEvents(page * pageSize, pageSize, filterType.value ?? undefined);
-    if (seq !== loadSeq) return;
-  } finally {
-    if (seq === loadSeq) pageLoading.value = false;
-  }
+  void fetchPage(page);
 }
 
 function retryLoadEvents() {
-  store.loadEvents(currentPage.value * pageSize, pageSize, filterType.value ?? undefined);
+  void fetchPage(requestedPage);
 }
 </script>
 
@@ -119,8 +129,8 @@ function retryLoadEvents() {
         :options="eventTypes"
         placeholder="All event types"
       />
-      <span class="text-xs text-[var(--text-secondary)]">
-        <template v-if="filterType">
+      <span v-if="eventsKnown" class="text-xs text-[var(--text-secondary)]">
+        <template v-if="shownFilter">
           {{ totalCount }} matching event{{ totalCount !== 1 ? 's' : '' }}
         </template>
         <template v-else>
@@ -129,8 +139,17 @@ function retryLoadEvents() {
       </span>
     </div>
 
+    <p v-if="eventsPending" role="status" class="text-sm text-[var(--text-tertiary)]">
+      Loading events…
+    </p>
+
     <!-- Events table -->
-    <DataTable :columns="eventColumns" :rows="tableRows" empty-message="No events found.">
+    <DataTable
+      v-else-if="eventsKnown"
+      :columns="eventColumns"
+      :rows="tableRows"
+      empty-message="No events found."
+    >
       <template #cell-rowNum="{ value }">
         <span class="text-xs text-[var(--text-tertiary)]">{{ value }}</span>
       </template>
@@ -148,7 +167,7 @@ function retryLoadEvents() {
     </DataTable>
 
     <!-- Pagination -->
-    <div v-if="totalCount > pageSize" class="flex items-center justify-between mt-4">
+    <div v-if="eventsKnown && totalCount > pageSize" class="flex items-center justify-between mt-4">
       <ActionButton :disabled="currentPage === 0 || pageLoading" size="sm" @click="loadPage(currentPage - 1)">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
         Previous

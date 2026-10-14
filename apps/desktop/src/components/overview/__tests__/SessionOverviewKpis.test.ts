@@ -62,3 +62,40 @@ describe("SessionOverviewKpis metrics status", () => {
     expect(kpi("Duration")?.text()).toContain("8.4s waiting on the model");
   });
 });
+
+describe("SessionOverviewKpis code changes", () => {
+  it("doesn't claim zero files changed when only line counts were recorded", () => {
+    const { kpi } = mountKpis({
+      checkpoints: null,
+      metricsStatus: "ready",
+      codeChanges: { linesAdded: 4, linesRemoved: 1, filesModified: [] },
+    });
+    const text = kpi("Code changes")?.text();
+    expect(text).toContain("+4");
+    expect(text).toContain("No file list recorded");
+    expect(text).not.toContain("0 files changed");
+  });
+
+  it("leaves the file count to the outcome tile when file snapshots stand in for the list", () => {
+    const { kpi } = mountKpis({
+      checkpoints: null,
+      metricsStatus: "ready",
+      fileSnapshots: 2,
+      codeChanges: { linesAdded: 4, linesRemoved: 1 },
+    });
+    const text = kpi("Code changes")?.text();
+    expect(text).toContain("+4");
+    expect(text).not.toContain("files changed");
+    expect(text).not.toContain("No file list recorded");
+  });
+
+  it("counts the recorded file list beside the line counts", () => {
+    const { kpi } = mountKpis({
+      checkpoints: null,
+      metricsStatus: "ready",
+      codeChanges: { linesAdded: 4, linesRemoved: 1, filesModified: ["src/a.ts", "src/b.ts"] },
+    });
+    expect(kpi("Code changes")?.text()).toContain("2 files changed");
+    expect(kpi("Code changes")?.text()).not.toContain("No file list recorded");
+  });
+});
