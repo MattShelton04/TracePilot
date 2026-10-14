@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { exportSessionFolderZip, exportSessions, getSessionSections } from "@tracepilot/client";
-import { type SectionId, type SessionSectionsInfo, sourceCapabilities } from "@tracepilot/types";
+import {
+  resolveSessionSource,
+  type SectionId,
+  type SessionSectionsInfo,
+  sourceCapabilities,
+} from "@tracepilot/types";
 import { formatBytes, useAsyncGuard, useToast } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
@@ -56,6 +61,21 @@ function sectionAvailable(sectionId: SectionId): boolean {
 }
 
 const exportSections = computed(() => sectionsArray.value.filter(sectionAvailable));
+
+// Raw Zip copies Copilot's session folder as laid out on disk; the backend
+// refuses it for other sources, so it isn't offered for them. A zip selection
+// carried over from a Copilot session falls back to JSON.
+const zipAvailable = computed(
+  () => resolveSessionSource(selectedSession.value?.source) === "copilot",
+);
+
+watch(
+  zipAvailable,
+  (available) => {
+    if (!available && format.value === "zip") format.value = "json";
+  },
+  { immediate: true },
+);
 
 const {
   preview,
@@ -246,7 +266,7 @@ onUnmounted(() => sectionsGuard.invalidate());
         @select="selectSession"
       />
 
-      <ExportFormatSelector v-model="format" />
+      <ExportFormatSelector v-model="format" :zip-available="zipAvailable" />
 
       <ExportSectionsPanel
         v-if="!isZip"

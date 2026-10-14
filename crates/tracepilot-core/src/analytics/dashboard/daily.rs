@@ -22,9 +22,12 @@ pub(super) struct DailySeries {
 }
 
 impl DailySeriesAccumulator {
-    pub(super) fn record_segments(&mut self, segments: &[SessionSegment]) {
+    pub(super) fn record_segments<'a>(
+        &mut self,
+        segments: impl IntoIterator<Item = &'a SessionSegment>,
+    ) {
         for seg in segments {
-            // Undated shutdowns still contribute to lifetime totals, but cannot
+            // Undated shutdowns still count in the headline totals, but cannot
             // be placed on a daily chart. Match SQLite's date(NULL) filtering.
             let Some(end_date) = segment_end_date(seg).map(str::to_string) else {
                 continue;
@@ -176,12 +179,12 @@ impl From<DayModelUsageTotals> for DayModelUsage {
     }
 }
 
-struct DetailTotals {
-    tokens: u64,
-    cost: f64,
+pub(super) struct DetailTotals {
+    pub(super) tokens: u64,
+    pub(super) cost: f64,
 }
 
-fn tokens_and_cost(detail: &ModelMetricDetail) -> DetailTotals {
+pub(super) fn tokens_and_cost(detail: &ModelMetricDetail) -> DetailTotals {
     let tokens = detail
         .usage
         .as_ref()
