@@ -24,16 +24,26 @@ pub(super) fn map_search_result(row: &rusqlite::Row<'_>) -> rusqlite::Result<Sea
     })
 }
 
+/// FTS5 boolean operators. FTS5 only treats these exact uppercase spellings
+/// as operators, so the lowercase words stay ordinary search terms.
+const OPERATORS: [&str; 3] = ["AND", "OR", "NOT"];
+
 /// Sanitize a user query for safe FTS5 MATCH usage.
 ///
 /// FTS5 has a specific query syntax. Raw user input can cause parse errors.
 /// This function handles:
 /// - Balanced quotes (phrase search), including mixed phrases + terms
 /// - Prefix queries (word*)
-/// - Boolean operators (AND, OR, NOT)
-/// - Stripping problematic characters (parentheses, colons, carets)
-/// - Leading NOT protection
+/// - Boolean operators: like FTS5, only the uppercase spellings `AND`, `OR`
+///   and `NOT` are operators; `and`, `or` and `not` are ordinary words
+/// - Stripping problematic characters (parentheses, colons, carets) and the
+///   `NEAR` keyword (words such as "nearby" are kept)
+/// - A NOT with no term before it: FTS5 can't search for "everything except
+///   X", so the NOT and the term it negates are both dropped rather than
+///   searching for X instead (`a AND NOT b` becomes `a NOT b`)
 /// - Adjacent operator prevention
+///
+/// Returns an empty string when nothing searchable is left.
 pub fn sanitize_fts_query(query: &str) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -85,9 +95,9 @@ pub fn sanitize_fts_query(query: &str) -> String {
                     }
                 }
             } else {
-                // Valid quoted phrase
+                // Valid quoted phrase, kept when it has something to match
                 let inner = &phrase[1..phrase.len() - 1];
-                if !inner.trim().is_empty() {
+                if inner.chars().any(char::is_alphanumeric) {
                     tokens.push(phrase);
                 }
             }
@@ -108,65 +118,64 @@ pub fn sanitize_fts_query(query: &str) -> String {
         return String::new();
     }
 
-    // Process tokens: handle operators, strip NEAR, validate
-    let operators = ["AND", "OR", "NOT"];
     let mut result_tokens: Vec<String> = Vec::new();
-    let mut last_was_operator = true; // treat start as "operator" to prevent leading NOT
+    let mut last_was_operator = true; // the start counts as an operator: no leading operators
+    // Set by a NOT with no term before it; the next term is the one it negates.
+    let mut skip_negated = false;
 
     for token in &tokens {
-        // Quoted phrases pass through directly
-        if token.starts_with('"') && token.ends_with('"') {
-            result_tokens.push(token.clone());
-            last_was_operator = false;
-            continue;
-        }
-
-        let upper = token.to_uppercase();
-
-        // Handle boolean operators
-        if operators.contains(&upper.as_str()) {
-            // Skip if: leading position, adjacent to another operator, or would be trailing
-            if last_was_operator {
+        if OPERATORS.contains(&token.as_str()) {
+            skip_negated = false;
+            if token == "NOT" && last_was_operator {
+                if result_tokens.last().is_some_and(|t| t == "AND") {
+                    // `a AND NOT b` is written `a NOT b` in FTS5.
+                    result_tokens.pop();
+                    result_tokens.push(token.clone());
+                } else {
+                    skip_negated = true;
+                }
                 continue;
             }
-            result_tokens.push(upper);
-            last_was_operator = true;
-            continue;
-        }
-
-        // Strip NEAR() — too complex for user input
-        if upper.starts_with("NEAR") {
-            continue;
-        }
-
-        // Regular term — strip any remaining quotes and normalize wildcards
-        let clean = token.replace('"', "");
-        // Only allow a single trailing * on terms with at least one alphanumeric char
-        let normalized = if clean.contains('*') {
-            let base: String = clean.chars().filter(|c| *c != '*').collect();
-            if base.chars().any(|c| c.is_alphanumeric()) {
-                format!("{}*", base)
-            } else {
-                continue; // bare * or ** with no real content
+            // Skip if leading or adjacent to another operator.
+            if !last_was_operator {
+                result_tokens.push(token.clone());
+                last_was_operator = true;
             }
-        } else {
-            clean
-        };
-        if !normalized.is_empty() {
-            result_tokens.push(normalized);
-            last_was_operator = false;
+            continue;
         }
-    }
 
-    if result_tokens.is_empty() {
-        return String::new();
+        // Strip the NEAR keyword — NEAR groups are too complex for user input.
+        if token == "NEAR" {
+            continue;
+        }
+
+        let term = if token.starts_with('"') && token.ends_with('"') {
+            // Quoted phrases pass through directly.
+            token.clone()
+        } else {
+            // A term needs a letter or digit; a single trailing * makes it a prefix.
+            let base: String = token.chars().filter(|c| *c != '*' && *c != '"').collect();
+            if !base.chars().any(char::is_alphanumeric) {
+                continue;
+            }
+            if token.contains('*') {
+                format!("{base}*")
+            } else {
+                base
+            }
+        };
+        if skip_negated {
+            skip_negated = false;
+            continue;
+        }
+        result_tokens.push(term);
+        last_was_operator = false;
     }
 
     // Ensure we don't end with an operator
     while result_tokens
         .last()
-        .map(|t| operators.contains(&t.as_str()))
-        .unwrap_or(false)
+        .is_some_and(|t| OPERATORS.contains(&t.as_str()))
     {
         result_tokens.pop();
     }
@@ -242,9 +251,18 @@ mod tests {
     }
 
     #[test]
-    fn test_sanitize_leading_not() {
-        // Leading NOT is invalid in FTS5 — strip it
-        assert_eq!(sanitize_fts_query("NOT error"), "error");
+    fn test_sanitize_leading_not_drops_the_negated_term() {
+        // FTS5 can't express "everything except error"; searching for
+        // "error" instead would return exactly what the user excluded.
+        assert_eq!(sanitize_fts_query("NOT error"), "");
+        assert_eq!(sanitize_fts_query("NOT error timeout"), "timeout");
+        assert_eq!(sanitize_fts_query("NOT \"rate limit\" retry"), "retry");
+        assert_eq!(sanitize_fts_query("foo OR NOT bar"), "foo");
+    }
+
+    #[test]
+    fn test_sanitize_and_not_becomes_not() {
+        assert_eq!(sanitize_fts_query("auth AND NOT jwt"), "auth NOT jwt");
     }
 
     #[test]
@@ -306,6 +324,14 @@ mod tests {
     }
 
     #[test]
+    fn test_sanitize_keeps_words_starting_with_near() {
+        assert_eq!(sanitize_fts_query("nearby"), "nearby");
+        assert_eq!(sanitize_fts_query("nearest nearly"), "nearest nearly");
+        assert_eq!(sanitize_fts_query("near miss"), "near miss");
+        assert_eq!(sanitize_fts_query("NEARBY"), "NEARBY");
+    }
+
+    #[test]
     fn test_sanitize_unclosed_quote() {
         // Unclosed quote should be treated as plain words
         let result = sanitize_fts_query("\"unclosed phrase");
@@ -320,15 +346,28 @@ mod tests {
     }
 
     #[test]
-    fn test_sanitize_case_insensitive_operators() {
-        assert_eq!(sanitize_fts_query("foo and bar"), "foo AND bar");
-        assert_eq!(sanitize_fts_query("foo or bar"), "foo OR bar");
-        assert_eq!(sanitize_fts_query("foo not bar"), "foo NOT bar");
+    fn test_sanitize_lowercase_operator_words_are_terms() {
+        // FTS5 only reads the uppercase spellings as operators, so lowercase
+        // ones stay words: "command not found" must not exclude "found".
+        // (This replaces an older test that upper-cased them into operators.)
+        assert_eq!(sanitize_fts_query("foo and bar"), "foo and bar");
+        assert_eq!(sanitize_fts_query("foo or bar"), "foo or bar");
+        assert_eq!(sanitize_fts_query("foo not bar"), "foo not bar");
+        assert_eq!(sanitize_fts_query("not"), "not");
+        assert_eq!(sanitize_fts_query("Not found"), "Not found");
     }
 
     #[test]
     fn test_sanitize_only_operators() {
         assert_eq!(sanitize_fts_query("AND OR NOT"), "");
+        assert_eq!(sanitize_fts_query("NOT"), "");
+    }
+
+    #[test]
+    fn test_sanitize_nothing_searchable() {
+        for query in ["*", "((", "!!!", "_", "\"*\"", "\"!!\"", "NEAR"] {
+            assert_eq!(sanitize_fts_query(query), "", "{query:?}");
+        }
     }
 
     #[test]

@@ -8,6 +8,36 @@ use super::{SearchFacets, SearchFilters, SearchResult};
 use crate::Result;
 use crate::index_db::IndexDb;
 
+/// How a query reads once sanitized for FTS5.
+enum QueryMatch {
+    /// No query: browse every row the filters allow.
+    Browse,
+    /// An FTS5 MATCH expression.
+    Fts(String),
+    /// Text with no searchable terms (`*`, `!!!`, a bare `NOT`). It matches
+    /// nothing rather than falling back to browsing the whole index.
+    Nothing,
+}
+
+impl QueryMatch {
+    fn of(query: Option<&str>) -> Self {
+        match query.filter(|q| !q.trim().is_empty()) {
+            None => Self::Browse,
+            Some(q) => match sanitize_fts_query(q) {
+                s if s.is_empty() => Self::Nothing,
+                s => Self::Fts(s),
+            },
+        }
+    }
+
+    fn fts(&self) -> Option<&str> {
+        match self {
+            Self::Fts(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
 enum FacetDimension {
     ContentType,
     Repository,
@@ -17,14 +47,18 @@ enum FacetDimension {
 impl IndexDb {
     // ── Unified query methods ───────────────────────────────────────
 
-    /// Query content with optional FTS. When `query` is `Some` and non-empty
-    /// after sanitization, uses FTS MATCH; otherwise falls back to browse mode.
+    /// Query content with optional FTS. A blank or absent `query` browses; a
+    /// query uses FTS MATCH, and one with no searchable terms matches nothing.
     pub fn query_content(
         &self,
         query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<Vec<SearchResult>> {
-        let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
+        let query = QueryMatch::of(query);
+        if matches!(query, QueryMatch::Nothing) {
+            return Ok(Vec::new());
+        }
+        let sanitized = query.fts();
         let is_fts = sanitized.is_some();
 
         let snippet_col = if is_fts {
@@ -45,7 +79,7 @@ impl IndexDb {
         let offset = filters.offset.unwrap_or(0);
 
         let (sql, params) = SearchQueryBuilder::new(&base_select, is_fts)
-            .with_optional_fts_match(sanitized.as_deref())
+            .with_optional_fts_match(sanitized)
             .with_filters(filters)
             .with_sort(filters.sort_by.as_deref())
             .with_pagination(limit, offset)
@@ -66,11 +100,15 @@ impl IndexDb {
 
     /// Count matching rows with optional FTS.
     pub fn query_count(&self, query: Option<&str>, filters: &SearchFilters) -> Result<i64> {
-        let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
+        let query = QueryMatch::of(query);
+        if matches!(query, QueryMatch::Nothing) {
+            return Ok(0);
+        }
+        let sanitized = query.fts();
         let is_fts = sanitized.is_some();
 
         let (sql, params) = SearchQueryBuilder::content_aggregate("SELECT COUNT(*)", is_fts)
-            .with_optional_fts_match(sanitized.as_deref())
+            .with_optional_fts_match(sanitized)
             .with_filters(filters)
             .build();
 
@@ -85,14 +123,24 @@ impl IndexDb {
     /// Get facet counts with optional FTS.
     /// Each facet dimension excludes its own filter for proper faceted navigation.
     pub fn facets(&self, query: Option<&str>, filters: &SearchFilters) -> Result<SearchFacets> {
-        let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
+        let query = QueryMatch::of(query);
+        if matches!(query, QueryMatch::Nothing) {
+            return Ok(SearchFacets {
+                by_content_type: Vec::new(),
+                by_repository: Vec::new(),
+                by_tool_name: Vec::new(),
+                total_matches: 0,
+                session_count: 0,
+            });
+        }
+        let sanitized = query.fts();
 
         let by_content_type = {
             let excl = SearchFilters {
                 content_types: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(FacetDimension::ContentType, sanitized.as_deref(), &excl)?
+            self.facet_dimension(FacetDimension::ContentType, sanitized, &excl)?
         };
 
         let by_repository = {
@@ -100,7 +148,7 @@ impl IndexDb {
                 repositories: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(FacetDimension::Repository, sanitized.as_deref(), &excl)?
+            self.facet_dimension(FacetDimension::Repository, sanitized, &excl)?
         };
 
         let by_tool_name = {
@@ -108,11 +156,11 @@ impl IndexDb {
                 tool_names: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(FacetDimension::ToolName, sanitized.as_deref(), &excl)?
+            self.facet_dimension(FacetDimension::ToolName, sanitized, &excl)?
         };
 
         // Total matches and distinct sessions
-        let (total_matches, session_count) = self.totals_query(sanitized.as_deref(), filters)?;
+        let (total_matches, session_count) = self.totals_query(sanitized, filters)?;
 
         Ok(SearchFacets {
             by_content_type,

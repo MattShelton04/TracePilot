@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import SearchSyntaxHelpModal from "../../../components/search/SearchSyntaxHelpModal.vue";
 import SessionSearchHero from "../../../components/search/SessionSearchHero.vue";
 import SessionSearchIndexingBanner from "../../../components/search/SessionSearchIndexingBanner.vue";
 import SessionSearchPagination from "../../../components/search/SessionSearchPagination.vue";
@@ -49,6 +50,40 @@ describe("SessionSearchHero", () => {
     const wrapper = mount(SessionSearchHero, { props: { ...props, showSource: true } });
     await wrapper.find('[data-source="claudeCode"]').trigger("click");
     expect(wrapper.emitted("update:source")?.[0]).toEqual(["claudeCode"]);
+  });
+
+  it("explains a leading NOT instead of silently searching the inverse", async () => {
+    const props = {
+      query: "NOT jwt",
+      filtersOpen: true,
+      activeFilterCount: 0,
+      sortBy: "relevance",
+      isBrowseMode: false,
+    };
+    const plain = mount(SessionSearchHero, { props });
+    expect(plain.find('[data-testid="search-not-hint"]').exists()).toBe(false);
+
+    const wrapper = mount(SessionSearchHero, { props: { ...props, startsWithNot: true } });
+    const hint = wrapper.get('[data-testid="search-not-hint"]');
+    expect(hint.attributes("role")).toBe("status");
+    expect(hint.text()).toContain("needs a term before it, like error NOT timeout");
+    // Non-blocking: the input stays editable.
+    await wrapper.find("input").setValue("error NOT jwt");
+    expect(wrapper.emitted("update:query")?.[0]).toEqual(["error NOT jwt"]);
+  });
+});
+
+describe("SearchSyntaxHelpModal", () => {
+  it("documents NOT between two terms and no unsupported NEAR syntax", () => {
+    const wrapper = mount(SearchSyntaxHelpModal, {
+      props: { visible: true },
+      attachTo: document.body,
+    });
+    const examples = [...document.querySelectorAll(".syntax-row code")].map((c) => c.textContent);
+    expect(examples).toContain("term1 NOT term2");
+    expect(examples).not.toContain("NOT term");
+    expect(document.body.textContent).not.toContain("NEAR");
+    wrapper.unmount();
   });
 });
 
@@ -126,6 +161,26 @@ describe("SessionSearchResultsHeader", () => {
       },
     });
     expect(wrapper.text()).toContain("No results found");
+  });
+
+  it("shows no result count when the query has no searchable terms", () => {
+    const wrapper = mount(SessionSearchResultsHeader, {
+      props: {
+        hasResults: true,
+        isBrowseMode: false,
+        totalCount: 309,
+        groupedCount: 7,
+        latencyMs: 3,
+        resultViewMode: "flat",
+        totalPages: 7,
+        page: 1,
+        noSearchableTerms: true,
+      },
+    });
+    expect(wrapper.text()).toContain("No searchable terms");
+    expect(wrapper.text()).not.toContain("309");
+    expect(wrapper.text()).not.toContain("page 1 of 7");
+    expect(wrapper.find('[aria-label="Copy all results"]').exists()).toBe(false);
   });
 });
 

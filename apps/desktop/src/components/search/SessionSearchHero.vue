@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SessionSource } from "@tracepilot/types";
+import { Info } from "lucide-vue-next";
 import { ref } from "vue";
 import SourceSwitch from "@/components/sources/SourceSwitch.vue";
 
@@ -15,6 +16,8 @@ defineProps<{
   /** Sources to offer; the switch shows only when `showSource` is set. */
   sources?: readonly SessionSource[];
   showSource?: boolean;
+  /** The query opens with NOT, which FTS can't search on its own. */
+  startsWithNot?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -52,6 +55,13 @@ defineExpose({ inputRef, focusFilterToggle });
       />
       <kbd class="search-hero-kbd">Ctrl+K</kbd>
     </div>
+    <p v-if="startsWithNot" class="search-query-hint" role="status" data-testid="search-not-hint">
+      <Info :size="14" aria-hidden="true" />
+      <span>
+        <code>NOT</code> needs a term before it, like <code>error NOT timeout</code>.
+        A leading <code>NOT</code> and the term after it are left out of the search.
+      </span>
+    </p>
     <div class="search-hints">
       <span class="search-hint"><code>"phrase"</code> exact match</span>
       <span class="search-hint"><code>prefix*</code> prefix search</span>
@@ -104,3 +114,25 @@ defineExpose({ inputRef, focusFilterToggle });
     </div>
   </div>
 </template>
+
+<style scoped>
+.search-query-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--attention-fg);
+}
+.search-query-hint svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.search-query-hint code {
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  background: var(--attention-subtle);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+</style>
