@@ -23,7 +23,7 @@ mod test_helpers;
 
 pub use agents::*;
 pub use code_impact::compute_code_impact;
-pub use dashboard::compute_analytics;
+pub use dashboard::{compute_analytics, compute_analytics_in_range};
 pub use loader::{
     load_full_sessions, load_full_sessions_filtered, load_session_summaries,
     load_session_summaries_filtered,
