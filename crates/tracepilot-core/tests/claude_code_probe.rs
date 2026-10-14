@@ -30,7 +30,7 @@ use serde_json::Value;
 use tracepilot_core::models::ConversationTurn;
 use tracepilot_core::parsing::events::{RawEvent, events_to_jsonl, parse_typed_events};
 use tracepilot_core::provider::claude_code::{
-    ClaudeParse, CostModelUsage, TokenTotals, parse_claude_session, sum_calls_by_model,
+    ClaudeParse, CostModelUsage, TokenTotals, parse_claude_session,
 };
 use tracepilot_core::reconstruct_turns;
 
@@ -328,7 +328,7 @@ impl Report {
                 .entry(call.model.clone().unwrap_or_default())
                 .or_default() += 1;
         }
-        let tail = parsed.tail_calls().count();
+        let tail = parsed.uncovered_calls().count();
         self.tail_calls += tail;
         self.with_tail += usize::from(tail > 0);
         if parsed.cost_snapshots.len() > 1 {
@@ -343,12 +343,7 @@ impl Report {
             .events
             .iter()
             .any(|e| e.raw.event_type == "session.compaction_complete");
-        let covered = sum_calls_by_model(
-            parsed
-                .calls
-                .iter()
-                .filter(|c| c.snapshot_anchor.is_some_and(|a| a < snapshot.line)),
-        );
+        let covered = covered_sums(parsed);
         let mut models: Vec<&String> = snapshot.model_usage.keys().chain(covered.keys()).collect();
         models.sort();
         models.dedup();
@@ -390,7 +385,7 @@ impl Report {
                      orphans {}, abandoned calls {}, subagent calls {}, away summaries {away}, distinct titles {titles}",
                     detail.join(", "),
                     parsed.cost_snapshots.len(),
-                    parsed.tail_calls().count(),
+                    parsed.uncovered_calls().count(),
                     d.orphan_subagents,
                     parsed.calls.iter().filter(|c| c.abandoned).count(),
                     parsed.calls.iter().filter(|c| c.agent_id.is_some()).count(),
@@ -584,6 +579,19 @@ fn side_call_correlates(parsed: &ClaudeParse) -> (usize, usize) {
         .filter_map(|n| n.data["aiTitle"].as_str())
         .collect();
     (away, titles.len())
+}
+
+/// The last snapshot's covered calls, summed under its model names.
+fn covered_sums(parsed: &ClaudeParse) -> BTreeMap<String, TokenTotals> {
+    let mut sums: BTreeMap<String, TokenTotals> = BTreeMap::new();
+    let Some(snapshot) = parsed.cost_snapshots.last() else {
+        return sums;
+    };
+    for call in parsed.covered_calls() {
+        let model = snapshot.model_key(call.model.as_deref().unwrap_or_default());
+        sums.entry(model).or_default().add(call);
+    }
+    sums
 }
 
 fn category_pairs(tr: &TokenTotals, snap: &CostModelUsage) -> [(u64, u64); 4] {

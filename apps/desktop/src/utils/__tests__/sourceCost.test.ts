@@ -32,13 +32,33 @@ describe("sessionCostEstimate", () => {
       { snapshotLine: 9, recordedCalls: 2, tailCalls: 1, snapshotCost },
     );
     expect(cost).toMatchObject({ basisLabel: "TracePilot estimate", partial: true });
-    expect(cost.coverage).toBe("Last cost snapshot plus 1 later call at API rates.");
+    expect(cost.coverage).toBe("Last cost snapshot plus 1 call it does not cover, at API rates.");
+  });
+
+  it("marks a total with unfinished calls as a lower bound", () => {
+    const cost = claude(
+      { costAmount: 24.8, costUnit: "usd", costBasis: "tracepilotEstimate" },
+      { recordedCalls: 570, tailCalls: 570, unfinishedTailCalls: 430 },
+    );
+    expect(cost.lowerBound).toBe(true);
+    expect(cost.coverage).toBe(
+      "570 recorded calls at API rates; no cost snapshot. 430 calls (mostly subagents') have no final token count, so this is a lower bound.",
+    );
+    expect(formatSessionCost(cost)).toBe("≥ $24.80");
+    const covered = claude(
+      { costAmount: 0.42, costUnit: "usd", costBasis: "providerEstimate" },
+      { snapshotLine: 9, recordedCalls: 2, unfinishedTailCalls: 0, snapshotCost },
+    );
+    expect(covered.lowerBound).toBe(false);
+    expect(formatSessionCost(covered)).toBe("$0.42");
   });
 
   it("keeps the snapshot as a lower bound when the tail cannot be priced", () => {
     const cost = claude({}, { snapshotLine: 9, recordedCalls: 3, tailCalls: 2, snapshotCost });
     expect(cost).toMatchObject({ amount: null, snapshotAmount: 0.42, basisLabel: "Unavailable" });
-    expect(cost.coverage).toBe("2 calls after the last cost snapshot could not be priced.");
+    expect(cost.coverage).toBe(
+      "2 calls the last cost snapshot does not cover could not be priced.",
+    );
     expect(formatSessionCost(cost)).toBe("≥ $0.42");
   });
 

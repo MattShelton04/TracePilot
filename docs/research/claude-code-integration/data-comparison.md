@@ -83,8 +83,23 @@ These are requirements for `ClaudeCodeProvider`. Each one is backed by a measure
    - **Snapshots are cumulative across resumes.** In all 5 resumed sessions, the later
      snapshot equals the earlier one plus the calls written between them, exactly to the
      token. Each exit writes an identical pair.
-   - A snapshot covers the records before its file position. Current total = last snapshot +
-     de-duplicated calls after it (the tail).
+   - A snapshot covers the records before its file position that were written since its
+     `startTime`. A resume restores the last snapshot, `startTime` included, so a chain of
+     snapshots starts when its first run started. A run that ends without writing one (a
+     closed desktop app) is in no later snapshot. In one real session the original run made
+     every call and never wrote `cost-state`; a later resume made none and wrote zero totals
+     whose `startTime` is after every call. A resume that makes no call either repeats the
+     previous totals, which therefore keep the first snapshot's position.
+   - Current total = last snapshot + the de-duplicated calls it does not cover: those after
+     it (the tail) and those before its first covered record.
+   - **Subagent calls rarely have final usage.** Their records carry the usage from the start
+     of the response (`stop_reason: null`, `output_tokens` 1–20), and only about 15% are
+     rewritten with the final counts; main-file calls always are. Background-agent
+     notifications report the last context size, not cumulative usage. So subagent output is
+     only in `cost-state`, and a total priced from transcripts is a lower bound when it
+     includes such calls (10–47% low on real subagent-heavy sessions).
+   - `modelUsage` names a 1M-context selection `claude-opus-5-5[1m]`, while its calls record
+     `claude-opus-5-5`. Calls join the snapshot's name for their model.
    - A session never yet exited has no `cost-state`, and a resumed one that is still running
      has a non-empty tail. In both cases, add or fall back to the de-duplicated transcript sum
      and label the total partial.

@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use tracepilot_core::provider::claude_code::{ClaudeParse, sum_calls_by_model};
+use tracepilot_core::provider::claude_code::ClaudeParse;
 
 #[derive(Default)]
 pub struct Hypotheses {
@@ -17,12 +17,8 @@ impl Hypotheses {
         let Some(snapshot) = parsed.cost_snapshots.last() else {
             return;
         };
-        let covered: Vec<_> = parsed
-            .calls
-            .iter()
-            .filter(|c| c.snapshot_anchor.is_some_and(|a| a < snapshot.line))
-            .collect();
-        let sums = sum_calls_by_model(covered.iter().copied());
+        let covered: Vec<_> = parsed.covered_calls().collect();
+        let sums = super::covered_sums(parsed);
         let mut seen = BTreeSet::new();
         let mut titles = BTreeSet::new();
         let mut away = 0;
@@ -30,7 +26,8 @@ impl Hypotheses {
         let mut notes = BTreeMap::new();
         for (e, p) in parsed.events.iter().zip(&parsed.positions) {
             let Some(p) = p else { continue };
-            if p.file_agent_id.is_some() || p.line >= snapshot.line {
+            if p.file_agent_id.is_some() || !(snapshot.covers_from..snapshot.line).contains(&p.line)
+            {
                 continue;
             }
             if e.raw.event_type == "session.compaction_complete" {

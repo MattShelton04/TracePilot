@@ -339,7 +339,14 @@ pub struct MetricsCoverage {
     pub partial: bool,
     pub snapshot_line: Option<usize>,
     pub recorded_calls: usize,
+    /// Recorded calls the snapshot does not cover, priced on top of it.
     pub tail_calls: usize,
+    /// Of `tail_calls`, those whose final usage was never written. Claude Code
+    /// writes most subagent calls with the counts from the start of the
+    /// response only, so their output is undercounted and a cost that prices
+    /// them is a lower bound.
+    #[serde(default)]
+    pub unfinished_tail_calls: usize,
     /// Cost of the covered snapshot, retained separately when the current
     /// total cannot be priced (C11). Never treated as the cost of the tail.
     #[serde(default, skip_serializing_if = "Option::is_none")]
