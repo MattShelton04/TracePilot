@@ -103,9 +103,12 @@ All child tables use `ON DELETE CASCADE` — deleting a session row automaticall
 3. Indexing prepares a bounded batch outside SQLite: parse workspace metadata
    and events, reconstruct turns once, and compute per-session analytics.
 4. Each successful snapshot replaces its session row and child rows together
-   in a savepoint. The batch shares a surrounding transaction: a session whose
-   write fails keeps its previous rows, but a failure that ends the transaction
-   (disk full, an I/O error) fails the whole batch and commits none of it.
+   in a savepoint. The batch shares a surrounding transaction, and a session
+   whose write fails keeps its previous rows. Some failures can make SQLite roll
+   back the whole transaction (a full disk or an I/O error may; a
+   `RAISE(ROLLBACK)` trigger does). Then none of the batch is committed and the
+   run stops with that error: later batches and sources aren't indexed, and
+   pruning is skipped.
 5. Analytics queries aggregate the stored rows. Tauri commands retain the
    disk-scan fallback when the index is unavailable.
 6. Background search indexing independently parses source snapshots and replaces
