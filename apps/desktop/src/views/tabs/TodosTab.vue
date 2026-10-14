@@ -11,6 +11,7 @@ import {
 import { computed, ref } from "vue";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { buildTodoRelations, buildTodoStatusStats } from "@/utils/todoStats";
 
 const store = useSessionDetailContext();
@@ -51,7 +52,13 @@ const blockedCount = computed(() => todoStats.value.blocked);
 const pendingCount = computed(() => todoStats.value.pending);
 const progressPercent = computed(() => todoStats.value.progressPercent);
 
-const viewMode = ref<"list" | "graph">("graph");
+const tabViews = useSessionTabViews();
+const viewMode = computed({
+  get: () => tabViews.value.todos,
+  set: (mode) => {
+    tabViews.value.todos = mode;
+  },
+});
 const showEmptyState = computed(
   () => hasLoadedTodos.value && !store.todosError && todos.value.length === 0,
 );

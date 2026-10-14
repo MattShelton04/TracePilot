@@ -8,7 +8,7 @@ import {
   PageHeader,
 } from "@tracepilot/ui";
 import { BarChart3 } from "lucide-vue-next";
-import { computed, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import AgentMessagesView from "@/components/timeline/AgentMessagesView.vue";
 import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
@@ -17,6 +17,7 @@ import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
 import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionModelName } from "@/composables/useSessionModelName";
+import { type SessionTabViews, useSessionTabViews } from "@/composables/useSessionTabViews";
 import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
@@ -43,10 +44,22 @@ const turnsPending = computed(
 );
 
 // ── View mode toggle ─────────────────────────────────────────
-const activeView = ref("agent-tree");
+const tabViews = useSessionTabViews();
 
 // Messages needs at least one subagent to have anything to show.
 const hasSubagents = computed(() => (directory.value?.entries.length ?? 0) > 1);
+
+// A remembered "messages" falls back to the agent tree on sessions without
+// subagents, without forgetting the choice for the next session that has them.
+const activeView = computed<SessionTabViews["timeline"]>({
+  get: () => {
+    const view = tabViews.value.timeline;
+    return view === "messages" && !hasSubagents.value ? "agent-tree" : view;
+  },
+  set: (view) => {
+    tabViews.value.timeline = view;
+  },
+});
 
 const viewModes = computed(() => [
   { value: "swimlanes", label: "Swimlanes" },
@@ -54,10 +67,6 @@ const viewModes = computed(() => [
   { value: "agent-tree", label: "Agent Tree" },
   ...(hasSubagents.value ? [{ value: "messages", label: "Messages" }] : []),
 ]);
-
-watch(hasSubagents, (has) => {
-  if (!has && activeView.value === "messages") activeView.value = "agent-tree";
-});
 </script>
 
 <template>

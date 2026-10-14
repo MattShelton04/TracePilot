@@ -2,6 +2,7 @@
 import { formatNumberFull } from "@tracepilot/types";
 import { Banner, formatBytes } from "@tracepilot/ui";
 import { computed, ref, useId } from "vue";
+import { useRoute } from "vue-router";
 import {
   SearchActiveFilters,
   SearchBrowsePresets,
@@ -14,8 +15,10 @@ import {
   SessionSearchPagination,
   SessionSearchResultsHeader,
 } from "@/components/search";
+import { useScrollRestore } from "@/composables/useScrollRestore";
 import { useSessionSearch } from "@/composables/useSessionSearch";
 import "@/styles/features/session-search.css";
+import { isMacPlatform } from "@/utils/platform";
 
 const heroRef = ref<InstanceType<typeof SessionSearchHero> | null>(null);
 const filtersId = useId();
@@ -51,6 +54,18 @@ const {
   handleClearFilters,
   sessionLink,
 } = useSessionSearch({ searchInputRef });
+
+const openShortcutLabel = isMacPlatform() ? "⌘Enter" : "Ctrl+Enter";
+
+// The URL holds the query, filters and page, so returning to the same URL
+// (back from a result) lands on the same scroll position in the results.
+const route = useRoute();
+const resultsScrollRef = ref<HTMLElement | null>(null);
+useScrollRestore({
+  key: () => `search:${route.fullPath}`,
+  el: resultsScrollRef,
+  ready: () => !store.loading,
+});
 </script>
 
 <template>
@@ -181,7 +196,7 @@ const {
           <SearchBrowsePresets v-else />
         </div>
 
-        <div v-else class="search-main-scroll">
+        <div v-else ref="resultsScrollRef" class="search-main-scroll">
 
           <SessionSearchResultsHeader
             :has-results="store.hasResults"
@@ -262,6 +277,7 @@ const {
     <div v-if="store.hasResults" class="keyboard-hints">
       <kbd>↑↓</kbd> navigate
       <kbd>Enter</kbd> expand
+      <kbd>{{ openShortcutLabel }}</kbd> open
       <kbd>Esc</kbd> back to search
     </div>
 
