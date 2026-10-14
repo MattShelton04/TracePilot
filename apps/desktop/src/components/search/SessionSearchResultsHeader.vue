@@ -11,6 +11,8 @@ defineProps<{
   resultViewMode: "flat" | "grouped";
   totalPages: number;
   page: number;
+  /** The query has nothing to search for, so there is no result count. */
+  noSearchableTerms?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -22,7 +24,10 @@ const emit = defineEmits<{
 
 <template>
   <div class="results-summary">
-    <span v-if="hasResults" class="results-summary-text">
+    <span v-if="noSearchableTerms" class="results-summary-text">
+      No searchable terms
+    </span>
+    <span v-else-if="hasResults" class="results-summary-text">
       {{ isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ formatNumberFull(totalCount) }}</strong>
       result{{ totalCount !== 1 ? 's' : '' }}
       <span v-if="resultViewMode === 'grouped' && groupedCount !== null"> across <strong>{{ groupedCount }}</strong> session{{ groupedCount !== 1 ? 's' : '' }}</span>
@@ -46,7 +51,7 @@ const emit = defineEmits<{
         </svg>
       </button>
       <button
-        v-if="hasResults"
+        v-if="hasResults && !noSearchableTerms"
         class="view-mode-btn"
         title="Copy all results"
         aria-label="Copy all results"

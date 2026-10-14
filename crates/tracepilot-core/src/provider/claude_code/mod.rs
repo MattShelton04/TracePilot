@@ -73,25 +73,39 @@ pub struct ClaudeParse {
     /// One entry per `message.id` (last record wins), in first-seen order.
     pub calls: Vec<ClaudeCallUsage>,
     /// Every distinct `cost-state` snapshot in the main file, in file order.
-    /// Snapshots are cumulative across resumes; the last one plus the tail
-    /// ([`ClaudeParse::tail_calls`]) is the current total.
+    /// Snapshots are cumulative across resumes; the last one plus the calls
+    /// it does not cover ([`ClaudeParse::uncovered_calls`]) is the current
+    /// total.
     pub cost_snapshots: Vec<CostSnapshot>,
     pub diagnostics: ClaudeDiagnostics,
 }
 
 impl ClaudeParse {
     /// Calls the last snapshot does not cover: those anchored after it in the
-    /// main file. All calls when there is no snapshot. Calls of orphan
-    /// subagents have no anchor and are excluded; see `orphan_subagents`.
-    pub fn tail_calls(&self) -> impl Iterator<Item = &ClaudeCallUsage> {
-        let covered = self.cost_snapshots.last().map(|s| s.line);
+    /// main file (the tail), and those anchored before the first record it
+    /// covers ([`CostSnapshot::covers_from`]). All calls when there is no
+    /// snapshot. Calls of orphan subagents have no anchor and are excluded;
+    /// see `orphan_subagents`.
+    pub fn uncovered_calls(&self) -> impl Iterator<Item = &ClaudeCallUsage> {
+        let covered = self.cost_snapshots.last().map(|s| s.covers_from..s.line);
         self.calls
             .iter()
-            .filter(move |call| match (covered, call.snapshot_anchor) {
-                (Some(line), Some(anchor)) => anchor > line,
+            .filter(move |call| match (&covered, call.snapshot_anchor) {
+                (Some(lines), Some(anchor)) => !lines.contains(&anchor),
                 (None, Some(_)) => true,
                 (_, None) => false,
             })
+    }
+
+    /// Calls the last snapshot covers. None without a snapshot.
+    pub fn covered_calls(&self) -> impl Iterator<Item = &ClaudeCallUsage> {
+        let covered = self.cost_snapshots.last().map(|s| s.covers_from..s.line);
+        self.calls.iter().filter(move |call| {
+            covered
+                .as_ref()
+                .zip(call.snapshot_anchor)
+                .is_some_and(|(lines, anchor)| lines.contains(&anchor))
+        })
     }
 }
 

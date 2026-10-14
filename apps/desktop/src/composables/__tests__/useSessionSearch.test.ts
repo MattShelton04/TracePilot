@@ -84,6 +84,7 @@ const storeState = {
   fetchStats: vi.fn(),
   fetchFilterOptions: vi.fn(),
   fetchFacets: vi.fn(),
+  fetchFacetsForCurrentQuery: vi.fn(),
   fetchHealth: vi.fn().mockResolvedValue(undefined),
   setViewMounted: vi.fn(),
   clearAll: vi.fn(),
@@ -137,6 +138,15 @@ beforeEach(() => {
 });
 
 describe("useSessionSearch", () => {
+  it("fetches facets for the restored query on mount, not for the whole index", () => {
+    storeState.fetchFacets.mockClear();
+    storeState.fetchFacetsForCurrentQuery.mockClear();
+    const { wrapper } = runComposable();
+    expect(storeState.fetchFacetsForCurrentQuery).toHaveBeenCalledTimes(1);
+    expect(storeState.fetchFacets).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("activeFilterCount reflects active store filters", async () => {
     storeState.contentTypes.push("user_message");
     storeState.repository = "acme/app";

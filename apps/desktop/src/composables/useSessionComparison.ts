@@ -235,7 +235,14 @@ export function useSessionComparison() {
     }
   });
 
-  const sessionOptions = computed<SessionListItem[]>(() => sessionsStore.sessions);
+  // The sessions the list shows: with "Hide empty sessions" on, sessions
+  // without turns are left out, unless one is already chosen on either side.
+  const sessionOptions = computed<SessionListItem[]>(() => {
+    if (!prefs.hideEmptySessions) return sessionsStore.sessions;
+    return sessionsStore.sessions.filter(
+      (s) => (s.turnCount ?? 0) > 0 || s.id === selectedA.value || s.id === selectedB.value,
+    );
+  });
 
   const canCompare = computed(
     () =>

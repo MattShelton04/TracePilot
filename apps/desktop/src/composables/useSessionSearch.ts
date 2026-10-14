@@ -222,8 +222,9 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
 
     store.fetchStats();
     store.fetchFilterOptions();
-    // Fetch initial facets (browse mode gets filter-scoped counts)
-    store.fetchFacets();
+    // Facets for the query and filters restored from the URL, so returning to
+    // a search keeps counts for that search rather than for the whole index.
+    store.fetchFacetsForCurrentQuery();
     // Defer initial health check — it drives a non-blocking indicator,
     // so it shouldn't delay search readiness.
     setTimeout(() => store.fetchHealth(), 0);

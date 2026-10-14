@@ -30,8 +30,8 @@ useOverlayFocus({ active: () => props.visible, panel: panelRef, onEscape: () => 
               <div class="syntax-row"><code>prefix*</code><span>Match words starting with prefix</span></div>
               <div class="syntax-row"><code>term1 AND term2</code><span>Both terms must appear</span></div>
               <div class="syntax-row"><code>term1 OR term2</code><span>Either term may appear</span></div>
-              <div class="syntax-row"><code>NOT term</code><span>Exclude results containing term</span></div>
-              <div class="syntax-row"><code>NEAR(a b, 5)</code><span>Terms within 5 tokens of each other</span></div>
+              <div class="syntax-row"><code>term1 NOT term2</code><span>Match term1, excluding results that also contain term2</span></div>
+              <div class="syntax-row"><code>and / or / not</code><span>Lowercase words are searched as ordinary words</span></div>
             </section>
             <section class="syntax-section">
               <h4>Qualifier Filters</h4>

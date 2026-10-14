@@ -12,6 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::NativePosition;
 use super::records::{Rec, WireUsage};
 use crate::parsing::events::RawEvent;
 
@@ -105,12 +106,20 @@ pub fn sum_calls_by_model<'a>(
 }
 
 /// One distinct `cost-state` record. Totals are cumulative across resumes and
-/// cover the records before `line`, subagents and side models included.
+/// cover the records from `covers_from` to `line`, subagents and side models
+/// included.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostSnapshot {
     /// 1-based main-file line of the first record of an identical run.
     pub line: usize,
+    /// 1-based main-file line of the first record written since `start_time`.
+    /// A resume restores the last snapshot, `start_time` included, so the
+    /// totals start there. Records before it were written by a run that ended
+    /// without writing `cost-state` (a closed desktop app), and no snapshot
+    /// holds their usage. `line` when the snapshot's runs wrote no record
+    /// before it; 1 without a start time.
+    pub covers_from: usize,
     pub total_cost_usd: Option<f64>,
     pub total_api_duration_ms: Option<u64>,
     pub total_api_duration_without_retries_ms: Option<u64>,
@@ -158,6 +167,8 @@ impl CostSnapshot {
         let wire = WireCostState::deserialize(record).ok()?;
         Some(Self {
             line,
+            // Set once the main file's record times are known.
+            covers_from: 1,
             total_cost_usd: wire.total_cost_usd,
             total_api_duration_ms: wire.total_api_duration,
             total_api_duration_without_retries_ms: wire.total_api_duration_without_retries,
@@ -170,10 +181,58 @@ impl CostSnapshot {
         })
     }
 
+    /// The key a call's `model` has in `model_usage`. Claude Code names a
+    /// 1M-context selection `claude-opus-5-5[1m]` there, while its calls
+    /// record the API id `claude-opus-5-5`. A model listed as is, or without
+    /// exactly one bracketed variant, keeps its own id.
+    pub fn model_key(&self, model: &str) -> String {
+        if self.model_usage.contains_key(model) {
+            return model.to_string();
+        }
+        let mut variants = self.model_usage.keys().filter(|key| {
+            key.strip_prefix(model)
+                .is_some_and(|rest| rest.starts_with('[') && rest.ends_with(']'))
+        });
+        match (variants.next(), variants.next()) {
+            (Some(key), None) => key.clone(),
+            _ => model.to_string(),
+        }
+    }
+
     /// Same token totals and cost as `other`. Durations are ignored: the two
     /// records Claude Code writes at one exit can differ in wall time only.
     pub(super) fn same_totals(&self, other: &Self) -> bool {
         self.model_usage == other.model_usage && self.total_cost_usd == other.total_cost_usd
+    }
+}
+
+/// Set each snapshot's [`CostSnapshot::covers_from`] from the times of the
+/// main-file records, aligned with their `positions`.
+pub(super) fn set_coverage_starts(
+    snapshots: &mut [CostSnapshot],
+    events: &[RawEvent],
+    positions: &[Option<NativePosition>],
+) {
+    for snapshot in snapshots {
+        let Some(start) = snapshot
+            .start_time
+            .and_then(|ms| i64::try_from(ms).ok())
+            .and_then(DateTime::from_timestamp_millis)
+        else {
+            continue;
+        };
+        snapshot.covers_from = events
+            .iter()
+            .zip(positions)
+            .filter_map(|(event, position)| {
+                let position = position.as_ref()?;
+                let since = position.file_agent_id.is_none()
+                    && position.line < snapshot.line
+                    && event.timestamp? >= start;
+                since.then_some(position.line)
+            })
+            .min()
+            .unwrap_or(snapshot.line);
     }
 }
 

@@ -38,7 +38,7 @@ pub fn snapshot_and_tail(tail: bool) -> SessionFiles {
     t.tool_result("before", json!("Done."), json!({"agentId":"before"}), false);
     let snapshot = json!({"type":"cost-state", "totalCostUSD": 1.25,
     "totalAPIDuration":1000, "totalAPIDurationWithoutRetries":900,
-    "totalToolDuration":800, "totalDuration":2000, "startTime":1790000000000_u64,
+    "totalToolDuration":800, "totalDuration":2000, "startTime":1789898400000_u64,
     "totalLinesAdded":12, "totalLinesRemoved":3,
     "modelUsage":{
         OPUS: {"inputTokens":4,"cacheReadInputTokens":40,

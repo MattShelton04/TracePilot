@@ -35,6 +35,9 @@ vi.mock("@/composables/useLiveSessionBadges", () => ({
   useLiveSessionBadges: () => ({ liveBadge: () => null }),
 }));
 vi.mock("@/utils/sessionPrefetch", () => ({ prefetchRecentSessions: vi.fn() }));
+// The list warms the Analytics cache in the background; left real, its mock
+// IPC logs after the file finishes and Vitest fails the run on teardown.
+vi.mock("@/stores/analytics", () => ({ useAnalyticsStore: () => ({ warm: vi.fn() }) }));
 vi.mock("@tracepilot/ui", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tracepilot/ui")>()),
   useAutoRefresh: () => ({ refreshing: ref(false), refresh: vi.fn() }),

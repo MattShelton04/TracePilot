@@ -3,6 +3,7 @@ import { toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { type ParsedQualifiers, parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
+import { describeSearchText } from "./queryTerms";
 
 export type SortMode = "relevance" | "newest" | "oldest";
 
@@ -113,6 +114,17 @@ export function createQuerySlice() {
   const hasQuery = computed(() => query.value.trim().length > 0);
   const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
+  /** The typed text without its qualifiers, and what it will search for. */
+  const searchTextTerms = computed(() => {
+    const text = parseQualifiers(query.value).cleanQuery.trim();
+    return { text, ...describeSearchText(text) };
+  });
+  /** Text was typed, but nothing in it is searchable (`*`, `!!!`, a bare `NOT`). */
+  const hasNoSearchableTerms = computed(
+    () => searchTextTerms.value.text !== "" && !searchTextTerms.value.hasTerms,
+  );
+  /** The text opens with `NOT`, which needs a term before it. */
+  const startsWithNot = computed(() => searchTextTerms.value.startsWithNot);
   /** The source searched: the query's `source:` qualifier, else the switch's. */
   const effectiveSource = computed(() => parseQualifiers(query.value).source ?? source.value);
   const hasActiveFilters = computed(() => {
@@ -271,6 +283,8 @@ export function createQuerySlice() {
     isBrowseMode,
     totalPages,
     hasActiveFilters,
+    hasNoSearchableTerms,
+    startsWithNot,
     effectiveSource,
     groupedResults,
     resultSessionCount,

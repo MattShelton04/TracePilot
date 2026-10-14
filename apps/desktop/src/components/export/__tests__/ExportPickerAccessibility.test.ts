@@ -47,7 +47,7 @@ describe("Export session picker accessibility", () => {
     await input.trigger("keydown", { key: "Enter" });
 
     expect(wrapper.emitted("select")).toEqual([["second-session"]]);
-    expect(wrapper.find(".session-dropdown").exists()).toBe(false);
+    expect(wrapper.find(".session-picker__list").exists()).toBe(false);
     expect(document.activeElement).toBe(input.element);
   });
 
@@ -105,8 +105,8 @@ describe("Export session picker accessibility", () => {
     const input = wrapper.get<HTMLInputElement>("input");
     input.element.focus();
     await input.setValue("second-repository");
-    await wrapper.get(".session-dropdown").trigger("mouseleave");
-    expect(wrapper.find(".session-dropdown").exists()).toBe(true);
+    await wrapper.get(".session-picker__list").trigger("mouseleave");
+    expect(wrapper.find(".session-picker__list").exists()).toBe(true);
 
     const option = wrapper.get('[role="option"]');
     await option.trigger("mousedown");
@@ -132,6 +132,39 @@ describe("Export session picker accessibility", () => {
     expect(input.attributes("aria-activedescendant")).toBeUndefined();
     await input.trigger("keydown", { key: "Enter" });
     expect(wrapper.emitted("select")).toBeUndefined();
+  });
+
+  it("finds a session by the folder its label shows and by words in any order", async () => {
+    const folderOnly: SessionListItem = {
+      id: "folder-only",
+      summary: "Fix login bug",
+      source: "claudeCode",
+      repository: null,
+      cwd: "C:\\synthetic\\harbor",
+      isRunning: false,
+    };
+    const wrapper = mount(ExportSessionPicker, {
+      attachTo: document.body,
+      props: {
+        sessions: [...sessions, folderOnly],
+        selectedSessionId: "",
+        selectedSession: undefined,
+        sectionsInfo: null,
+      },
+    });
+    const input = wrapper.get<HTMLInputElement>("input");
+    input.element.focus();
+    const optionNames = () =>
+      wrapper.findAll('[role="option"]').map((option) => option.attributes("title"));
+
+    await input.setValue("harbor");
+    expect(optionNames()).toEqual([expect.stringContaining("Fix login bug — harbor")]);
+
+    await input.setValue("login fix");
+    expect(optionNames()).toEqual([expect.stringContaining("Fix login bug")]);
+
+    await input.setValue("audit second");
+    expect(optionNames()).toEqual([expect.stringContaining("audit/second-repository")]);
   });
 
   it("keeps the active option visible by scrolling only the result list", async () => {

@@ -339,6 +339,18 @@ impl Transcript {
         )
     }
 
+    /// A `cost-state` snapshot whose totals start at `seconds` after the base
+    /// time, as `startTime` records: when the run that began them started.
+    pub fn cost_state_since(&mut self, seconds: u64, models: &[(&str, Usage, f64)]) {
+        self.cost_state(models);
+        if let Some(line) = self.lines.pop() {
+            let mut record: Value = serde_json::from_slice(&line).expect("fixture JSON parses");
+            // 2026-09-20T10:00:00Z, the base of record timestamps.
+            record["startTime"] = json!(1_789_898_400_000 + seconds * 1000);
+            self.push(&record);
+        }
+    }
+
     /// A `cost-state` snapshot: `(model, usage, costUSD)` per model.
     pub fn cost_state(&mut self, models: &[(&str, Usage, f64)]) {
         let mut usage = Map::new();
