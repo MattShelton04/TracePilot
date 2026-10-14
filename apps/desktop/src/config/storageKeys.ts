@@ -56,6 +56,8 @@ export const STORAGE_KEYS = Object.freeze({
   skillsUsageRange: "tracepilot-skills-usage-range",
   /** Chart and view choices on the Analytics dashboard (metric, bars or lines). */
   analyticsDashboardViews: "tracepilot-analytics-dashboard-views",
+  /** View choices inside the session detail tabs (chat or compact, graph or list…). */
+  sessionTabViews: "tracepilot-session-tab-views",
 } as const);
 
 /** Narrowed union of valid `localStorage` keys used by the desktop app. */
