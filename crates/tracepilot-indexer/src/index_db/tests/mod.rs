@@ -12,6 +12,7 @@ mod common;
 mod format_diagnostics;
 mod maintenance;
 mod prompt_cache;
+mod schema_doc;
 mod search_batches;
 mod search_content;
 mod search_sources;

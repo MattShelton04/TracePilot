@@ -31,6 +31,7 @@ be stale, so check the current code before following them.
 
 | Document | Description |
 |----------|-------------|
+| [Session Index Database](database/README.md) | `index.db` design rationale, storage profile, known issues, and the [table/column reference](database/schema.md). |
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
 | [Design System](../design-system/MASTER.md) | Design rules, tokens, components and surface notes for the desktop app. |
 | [Adding Tool Renderers](design/adding-tool-renderers.md) | Guide for adding new tool-specific renderers. |
