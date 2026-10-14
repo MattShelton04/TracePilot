@@ -187,4 +187,48 @@ describe("formatArgsSummary", () => {
     expect(formatArgsSummary({ method: "GET" }, "github-mcp-server-1")).toBe("GET");
     expect(formatArgsSummary({ method: "POST" }, "github-mcp-server-2")).toBe("POST");
   });
+
+  it("names the files in an apply_patch envelope, string or object", () => {
+    const one = "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** End Patch";
+    expect(formatArgsSummary(one, "apply_patch")).toBe("src/a.ts");
+    const many =
+      "*** Begin Patch\r\n*** Update File: src/a.ts\r\n*** Move to: src/b.ts\r\n" +
+      "*** Add File: src/c.ts\r\n+new\r\n*** Delete File: src/d.ts\r\n*** End Patch";
+    expect(formatArgsSummary(many, "apply_patch")).toBe("src/a.ts +2 files");
+    expect(formatArgsSummary({ patch: one }, "apply_patch")).toBe("src/a.ts");
+    expect(
+      formatArgsSummary({ input: "*** Add File: x.md\n*** Delete File: y.md" }, "apply_patch"),
+    ).toBe("x.md +1 file");
+    expect(formatArgsSummary("not a patch", "apply_patch")).toBe("");
+    expect(formatArgsSummary({ patch: 3 }, "apply_patch")).toBe("");
+    expect(formatArgsSummary(null, "apply_patch")).toBe("");
+  });
+
+  it("summarises ask_user from message before question", () => {
+    expect(formatArgsSummary({ message: "Ship it?", question: "old" }, "ask_user")).toBe(
+      "Ship it?",
+    );
+    expect(formatArgsSummary({ question: "Which flag?" }, "ask_user")).toBe("Which flag?");
+    expect(formatArgsSummary({ message: "", question: "Fallback?" }, "ask_user")).toBe("Fallback?");
+    expect(formatArgsSummary({ message: `a\n${"b".repeat(120)}` }, "ask_user")).toBe(
+      `a ${"b".repeat(98)}…`,
+    );
+    expect(formatArgsSummary({ requestedSchema: {} }, "ask_user")).toBe("");
+  });
+
+  it("summarises skill with its name", () => {
+    expect(formatArgsSummary({ skill: "synthetic-review" }, "skill")).toBe("synthetic-review");
+    expect(formatArgsSummary({}, "skill")).toBe("");
+  });
+
+  it("summarises ExitPlanMode with the plan's first heading or line", () => {
+    expect(
+      formatArgsSummary({ plan: "Intro text\n\n## Retry the upload\n\n1. Wrap" }, "ExitPlanMode"),
+    ).toBe("Retry the upload");
+    expect(formatArgsSummary({ plan: "\n  Just do it.\nThen test." }, "ExitPlanMode")).toBe(
+      "Just do it.",
+    );
+    expect(formatArgsSummary({ plan: "" }, "ExitPlanMode")).toBe("");
+    expect(formatArgsSummary({}, "ExitPlanMode")).toBe("");
+  });
 });

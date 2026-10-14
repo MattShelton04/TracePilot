@@ -30,6 +30,7 @@ const TOOL_ICONS: Record<string, LucideName> = {
   web_fetch: "globe",
   sql: "database",
   skill: "zap",
+  ExitPlanMode: "clipboard-list",
 };
 
 export function toolIcon(toolName: string): LucideName {
@@ -68,8 +69,42 @@ export function categoryColor(category: string): string {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS.other;
 }
 
+function truncateSummary(text: string, max = 100): string {
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max)}…` : line;
+}
+
+const PATCH_FILE_LINE = /^\*\*\* (?:Update|Add|Delete) File: (.+)$/gm;
+
+/** Files named by an apply_patch envelope: "a.ts", or "a.ts +2 files". */
+function patchSummary(args: unknown): string {
+  const record = getToolArgs({ arguments: args });
+  const patch =
+    typeof args === "string"
+      ? args
+      : typeof record.patch === "string"
+        ? record.patch
+        : typeof record.input === "string"
+          ? record.input
+          : "";
+  const paths = [...patch.matchAll(PATCH_FILE_LINE)].map((match) => match[1].trim());
+  if (paths.length === 0) return "";
+  const others = paths.length - 1;
+  return others > 0 ? `${paths[0]} +${others} file${others === 1 ? "" : "s"}` : paths[0];
+}
+
+/** The plan's first Markdown heading, or its first non-empty line. */
+function planSummary(plan: string): string {
+  const lines = plan.split(/\r?\n/).map((line) => line.trim());
+  const heading = lines.find((line) => /^#{1,6}\s+\S/.test(line));
+  const first = heading?.replace(/^#{1,6}\s+/, "") ?? lines.find(Boolean) ?? "";
+  return truncateSummary(first);
+}
+
 /** Extract a useful one-line summary from tool call arguments. */
 export function formatArgsSummary(args: unknown, toolName: string): string {
+  // apply_patch arguments are usually the raw patch string, not an object.
+  if (toolName === "apply_patch") return patchSummary(args);
   if (!args || typeof args !== "object") return "";
   const a = getToolArgs({ arguments: args });
 
@@ -119,10 +154,13 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
     const fact = String(a.fact);
     return fact.length > 100 ? `${fact.slice(0, 100)}…` : fact;
   }
-  if (toolName === "ask_user" && a.question) {
-    const q = String(a.question);
-    return q.length > 100 ? `${q.slice(0, 100)}…` : q;
+  if (toolName === "ask_user") {
+    // Claude Code and schema forms carry `message`; older Copilot calls `question`.
+    const prompt = typeof a.message === "string" && a.message ? a.message : a.question;
+    if (typeof prompt === "string" && prompt) return truncateSummary(prompt);
   }
+  if (toolName === "skill" && typeof a.skill === "string") return a.skill;
+  if (toolName === "ExitPlanMode" && typeof a.plan === "string") return planSummary(a.plan);
   if (toolName === "web_search" && a.query) return String(a.query);
   if (toolName === "web_fetch" && a.url) return String(a.url);
   if (toolName.startsWith("github-mcp-server") && a.method) return String(a.method);
