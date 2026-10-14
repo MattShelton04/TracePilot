@@ -27,6 +27,7 @@ import {
   cumulativeRows,
   type DayRow,
   formatShare,
+  hasDailyUsage,
   SOURCE_COLORS,
 } from "@/utils/analyticsDashboard";
 import {
@@ -58,6 +59,8 @@ const view = computed({
 });
 
 const has = computed(() => props.summary.costRows.some((row) => row.sessions > 0));
+/** Runs can end in the range even when no session was last active in it. */
+const dailyUsage = computed(() => hasDailyUsage(props.data));
 const entry = (source: string) => props.data.costBySource?.find((e) => e.source === source);
 const activeDays = computed(() => props.data.activityPerDay.filter((p) => p.count > 0).length);
 
@@ -187,8 +190,11 @@ const runningFoot = computed(() => {
   };
 });
 
+/** The chart's own sources, which can include sessions resumed after the range. */
 const unitNote = computed(() =>
-  props.summary.sources.includes("copilot") ? "USD · AI Credits at $0.01" : "USD",
+  daily.value.series.some((series) => series.key === "copilot")
+    ? "USD · AI Credits at $0.01"
+    : "USD",
 );
 
 function openModels() {
@@ -199,13 +205,19 @@ function openModels() {
 <template>
   <OverviewPanel title="Cost" :flush="view === 'sources' && has" data-testid="analytics-cost">
     <template #aside>
-      <span v-if="view === 'running' && has">running total · {{ unitNote }}</span>
+      <span v-if="view === 'running' && runningFoot">running total · {{ unitNote }}</span>
       <SegmentedControl v-model="view" class="ad-seg" :options="VIEWS" aria-label="Cost view" />
     </template>
 
-    <p v-if="!has" class="ad-empty">
-      <b>No cost</b>
-      Nothing was used in {{ rangeText }}.
+    <p v-if="!has && (view === 'sources' || !dailyUsage)" class="ad-empty">
+      <template v-if="dailyUsage">
+        <b>No session ended in this range</b>
+        By source covers sessions that ended in this range. Runs from sessions resumed after it show in Running total.
+      </template>
+      <template v-else>
+        <b>No cost</b>
+        Nothing was used in {{ rangeText }}.
+      </template>
     </p>
 
     <div v-else-if="view === 'sources'" class="cost-cards">

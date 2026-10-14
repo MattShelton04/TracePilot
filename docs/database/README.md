@@ -140,17 +140,8 @@ saves almost nothing.
 
 ## Known issues
 
-These issues were reproduced against `main` with throwaway tests through the
-public `IndexDb` and `reindex_all` APIs, in October 2026. Remove each entry when
-it is fixed.
-
-1. **Per-day charts drop runs from sessions resumed after the selected range.**
-   `build_date_repo_filter` keeps a session only if its *last activity* falls in
-   the range. The segment filter is added afterwards. Take a session with a run
-   that ended on March 2 and a last update on March 8: for March 1–3, the token,
-   activity, model and USD per-day series are all empty. Fix: give the per-day
-   series their own filter on `m.end_timestamp`, and keep the lifetime-KPI
-   filter as it is. This is a query-only change and needs no reindex.
+The issues the October 2026 audit reproduced are fixed. List new ones here,
+with how they were reproduced, and remove each entry when it is fixed.
 
 `idx_session_incidents_type` has no reader: incidents are only read by
 `session_id`.

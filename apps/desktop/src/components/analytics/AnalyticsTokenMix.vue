@@ -11,7 +11,12 @@ import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import { COMPOSITION, type ModelRow, type TokenComposition } from "@/utils/analyticsSummary";
 
-const props = defineProps<{ composition: TokenComposition; models: ModelRow[] }>();
+const props = defineProps<{
+  composition: TokenComposition;
+  models: ModelRow[];
+  /** The per-day series have runs in the range, though the totals may be empty. */
+  dailyUsage?: boolean;
+}>();
 
 const parts = computed(() =>
   COMPOSITION.filter((part) => props.composition[part.key] > 0).map((part) => ({
@@ -83,6 +88,10 @@ const rows = computed(() =>
         </div>
       </div>
     </template>
+    <p v-else-if="dailyUsage" class="ad-empty">
+      <b>No session ended in this range</b>
+      Token totals cover sessions that ended in this range. Runs from sessions resumed after it show in Activity.
+    </p>
     <p v-else class="ad-empty">
       <b>No tokens</b>
       No model usage in this range.

@@ -6,7 +6,7 @@ use tracepilot_core::provider::SessionSource;
 
 use super::super::helpers::*;
 use super::day_bucket::{DayBucketSpec, query_day_bucketed};
-use super::model_usage_by_day::query_model_usage_by_day;
+use super::model_usage_by_day::{DayFilters, query_model_usage_by_day};
 
 /// FROM/JOIN fragment shared by all three day-bucketed dashboard charts.
 const SEGMENTS_JOIN_SESSIONS: &str = "session_segments m JOIN sessions s ON s.id = m.session_id";
@@ -23,16 +23,26 @@ pub(super) fn query_analytics(
         build_date_repo_filter(from_date, to_date, repo, hide_empty);
     append_source_filter(&mut where_clause, &mut bind_values, source);
 
+    // Per-run series select runs by the day each one ended, so they skip the
+    // session last-activity guard: a run that ended in the range counts even
+    // when its session was resumed later. The range itself is applied to
+    // `m.end_timestamp` by `query_day_bucketed` / `append_segment_date_filter`.
+    let (mut run_where, mut run_values) = build_date_repo_filter(None, None, repo, hide_empty);
+    append_source_filter(&mut run_where, &mut run_values, source);
+
     // Aggregate session-level stats.
     //
     // Sessions are selected and counted by their last-active day. Their usage
     // (tokens, cost, premium requests, AI Credits) counts only inside the
     // range: each session's lifetime total minus its segments that ended on a
-    // day outside it, so these totals match the day charts below. Without a
-    // date filter they are the lifetime totals. Turns, tool calls, incidents
-    // and the per-turn and per-second averages stay whole-session values;
-    // per-model usage below follows the same rule.
+    // day outside it. Without a date filter they are the lifetime totals.
+    // Turns, tool calls, incidents and the per-turn and per-second averages
+    // stay whole-session values; per-model usage below follows the same rule.
     // See `helpers::range_usage`.
+    //
+    // The day charts count the same in-range runs plus runs of sessions last
+    // active after the range (see `run_where` above), which these totals
+    // leave out because the session is not selected.
     let (usage_join, agg_values) =
         out_of_range_join(&where_clause, &bind_values, from_date, to_date, true);
     let agg_sql = format!(
@@ -110,9 +120,7 @@ pub(super) fn query_analytics(
         ))
     })?;
 
-    // Tokens by day — clamp segment end_timestamp to the requested window to
-    // prevent segments from sessions that *overlap* the range from leaking
-    // data points outside the filter window.
+    // Tokens by day — runs whose end_timestamp falls in the requested window.
     let token_usage_by_day = query_day_bucketed(
         conn,
         DayBucketSpec {
@@ -120,8 +128,8 @@ pub(super) fn query_analytics(
             aggregate_expr: "COALESCE(SUM(m.total_tokens), 0)",
             bucket_column: "m.end_timestamp",
         },
-        &where_clause,
-        &bind_values,
+        &run_where,
+        &run_values,
         from_date,
         to_date,
         |row| {
@@ -143,8 +151,8 @@ pub(super) fn query_analytics(
             aggregate_expr: "COUNT(*)",
             bucket_column: "m.end_timestamp",
         },
-        &where_clause,
-        &bind_values,
+        &run_where,
+        &run_values,
         from_date,
         to_date,
         |row| {
@@ -155,7 +163,7 @@ pub(super) fn query_analytics(
         },
     )?;
 
-    // Cost by day — clamp segment end_timestamp to the requested window.
+    // Premium requests by day — runs whose end_timestamp falls in the window.
     let cost_by_day = query_day_bucketed(
         conn,
         DayBucketSpec {
@@ -163,8 +171,8 @@ pub(super) fn query_analytics(
             aggregate_expr: "COALESCE(SUM(m.total_premium_requests), 0.0)",
             bucket_column: "m.end_timestamp",
         },
-        &where_clause,
-        &bind_values,
+        &run_where,
+        &run_values,
         from_date,
         to_date,
         |row| {
@@ -174,8 +182,15 @@ pub(super) fn query_analytics(
             })
         },
     )?;
-    let model_usage_by_day =
-        query_model_usage_by_day(conn, &where_clause, &bind_values, from_date, to_date)?;
+    let model_usage_by_day = query_model_usage_by_day(
+        conn,
+        DayFilters {
+            runs: (&run_where, &run_values),
+            sessions: (&where_clause, &bind_values),
+            from_date,
+            to_date,
+        },
+    )?;
 
     // Per-model usage follows the headline rule, so the token composition,
     // model shares and the AI Credit estimate cover the same usage.
@@ -328,8 +343,8 @@ pub(super) fn query_analytics(
         )?,
         cost_usd_by_day: super::source_cost::query_cost_usd_by_day(
             conn,
-            &where_clause,
-            &bind_values,
+            &run_where,
+            &run_values,
             from_date,
             to_date,
         )?,

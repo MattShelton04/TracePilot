@@ -6,10 +6,14 @@
 //! ```text
 //! SELECT date(<bucket_column>) AS d, <aggregate>
 //!   FROM <source>
-//!   <session-level WHERE> AND date(<bucket_column>) BETWEEN ? AND ?
-//!     AND d IS NOT NULL
+//!   <repo/source/hide-empty WHERE> AND date(<bucket_column>) >= ?
+//!     AND date(<bucket_column>) <= ? AND d IS NOT NULL
 //!   GROUP BY d ORDER BY d
 //! ```
+//!
+//! The base WHERE has no session last-activity date guard: the range applies
+//! to the bucket column only, so a run that ended in the range counts even if
+//! its session was resumed after it.
 //!
 //! They differ only in the source FROM/JOIN and the aggregate expression.
 //! [`query_day_bucketed`] owns the boilerplate (date bucket projection,
@@ -28,9 +32,9 @@ use crate::index_db::helpers::append_segment_date_filter;
 /// Description of a single day-bucketed query shape.
 ///
 /// All fields are static SQL fragments composed by the caller from
-/// hard-coded strings — never from user input. User-supplied date and repo
-/// filters flow through `base_where` / `base_values` / `from_date` /
-/// `to_date` and are bound as `?` placeholders.
+/// hard-coded strings — never from user input. User-supplied repo and source
+/// filters flow through `base_where` / `base_values`, the range through
+/// `from_date` / `to_date`, and all are bound as `?` placeholders.
 pub(super) struct DayBucketSpec<'a> {
     /// FROM-clause body (without the leading `FROM`), e.g.
     /// `"session_segments m JOIN sessions s ON s.id = m.session_id"`.
