@@ -16,13 +16,25 @@ const mocks = vi.hoisted(() => ({
   openInExplorer: vi.fn(),
   resumeSessionInTerminal: vi.fn(),
   copy: vi.fn(),
+  toastError: vi.fn(),
+  logError: vi.fn(),
 }));
 
 vi.mock("@tracepilot/ui", async (original) => {
   const module = await original<typeof import("@tracepilot/ui")>();
   const { ref } = await import("vue");
-  return { ...module, useClipboard: () => ({ copy: mocks.copy, copied: ref(false) }) };
+  const toast = module.useToast();
+  return {
+    ...module,
+    useClipboard: () => ({ copy: mocks.copy, copied: ref(false) }),
+    useToast: () => ({ ...toast, error: mocks.toastError }),
+  };
 });
+
+vi.mock("@/utils/logger", async (original) => ({
+  ...(await original<typeof import("@/utils/logger")>()),
+  logError: mocks.logError,
+}));
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
@@ -132,6 +144,40 @@ describe("SessionDetailActions", () => {
     const store = wrapper.props("store");
     await wrapper.setProps({ store: { ...store, detail: { ...store.detail!, folder: null } } });
     expect(openFolder()).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("tells the user when the folder can't be opened, and still logs it", async () => {
+    const failure = new Error("The system cannot find the path specified.");
+    mocks.openInExplorer.mockRejectedValueOnce(failure);
+    const wrapper = mountForSource(pinia, "claudeCode");
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "Open Folder")!
+      .trigger("click");
+    await flushPromises();
+    expect(mocks.toastError).toHaveBeenCalledExactlyOnceWith(
+      "Couldn't open the session folder: The system cannot find the path specified.",
+    );
+    expect(mocks.logError).toHaveBeenCalledWith("[sessionDetail] Failed to open folder:", failure);
+    wrapper.unmount();
+  });
+
+  it("tells the user when the terminal can't be opened, and still logs it", async () => {
+    const failure = new Error("No terminal emulator found");
+    mocks.resumeSessionInTerminal.mockRejectedValueOnce(failure);
+    const wrapper = mountForSource(pinia, "claudeCode");
+    await flushPromises();
+    await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
+    await flushPromises();
+    expect(mocks.toastError).toHaveBeenCalledExactlyOnceWith(
+      "Couldn't resume the session in a terminal: No terminal emulator found",
+    );
+    expect(mocks.logError).toHaveBeenCalledWith(
+      "[sessionDetail] Failed to open terminal:",
+      failure,
+    );
     wrapper.unmount();
   });
 });

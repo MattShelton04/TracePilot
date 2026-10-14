@@ -2,7 +2,8 @@
 import { formatTime, MarkdownContent } from "@tracepilot/ui";
 import { User } from "lucide-vue-next";
 import { computed } from "vue";
-import { splitPastedContent } from "@/utils/pastedContent";
+import { promptPreviewText, splitPastedContent } from "@/utils/pastedContent";
+import MessageCopyButton from "./MessageCopyButton.vue";
 import PastedContentBlock from "./PastedContentBlock.vue";
 import PromptImages from "./PromptImages.vue";
 
@@ -18,17 +19,20 @@ const props = defineProps<{
 }>();
 
 const parts = computed(() => splitPastedContent(props.content));
+/** The prompt as typed and pasted, without Claude Code's paste wrapper tags. */
+const copyText = computed(() => promptPreviewText(props.content));
 </script>
 
 <template>
   <div
-    class="cv-user-anchor"
+    class="cv-user-anchor cv-msg-copy-host"
     :data-event-idx="eventIndex != null ? eventIndex : undefined"
   >
     <div class="cv-user-header">
       <span class="cv-user-avatar" aria-hidden="true"><User :size="16" /></span>
       <span class="cv-user-name">User</span>
       <span class="cv-user-turn">T{{ turnIndex }}</span>
+      <MessageCopyButton :text="copyText" label="Copy prompt" />
       <span v-if="timestamp" class="cv-user-time">
         {{ formatTime(timestamp) }}
       </span>
@@ -85,8 +89,17 @@ const parts = computed(() => splitPastedContent(props.content));
   color: var(--text-placeholder);
 }
 
-.cv-user-time {
+/* The copy button takes the free space, so the time stays put when "Copied" widens it. */
+.cv-user-header .cv-msg-copy {
   margin-left: auto;
+}
+
+/* Room for the focus ring. */
+.cv-msg-copy + .cv-user-time {
+  margin-left: 4px;
+}
+
+.cv-user-time {
   font-size: 11px;
   color: var(--text-placeholder);
 }
