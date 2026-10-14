@@ -104,6 +104,10 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
     // Enabling or disabling a source, or any reindex, changes what the index holds.
     void loadIndexStats();
   },
+  // Search passes (including Rebuild below) grow or shrink the same database.
+  onSearchIndexingFinished: () => {
+    void loadIndexStats();
+  },
 });
 
 /** The newest read of the index size and session count wins. */
@@ -306,6 +310,8 @@ async function rebuildSearchIndex() {
     }
   } finally {
     searchRebuilding.value = false;
+    // Reread whether or not its finished event reaches this view; the guard keeps the newest.
+    void loadIndexStats();
   }
 }
 

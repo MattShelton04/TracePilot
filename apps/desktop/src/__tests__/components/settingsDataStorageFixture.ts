@@ -27,7 +27,7 @@ const mocks: {
   resetAnalytics: Mock;
   toast: { error: Mock; success: Mock };
   /** The callbacks the component passed to `useIndexingEvents`. */
-  indexing: { onFinished?: () => void };
+  indexing: { onFinished?: () => void; onSearchIndexingFinished?: () => void };
 } = vi.hoisted(() => ({
   checkConfigExists: vi.fn(),
   browseForDirectory: vi.fn(),
@@ -82,8 +82,12 @@ vi.mock("@/composables/useBrowseDirectory", () => ({
 }));
 
 vi.mock("@/composables/useIndexingEvents", () => ({
-  useIndexingEvents: (callbacks: { onFinished: () => void }) => {
+  useIndexingEvents: (callbacks: {
+    onFinished: () => void;
+    onSearchIndexingFinished?: () => void;
+  }) => {
     mocks.indexing.onFinished = callbacks.onFinished;
+    mocks.indexing.onSearchIndexingFinished = callbacks.onSearchIndexingFinished;
     return { setup: vi.fn().mockResolvedValue(undefined) };
   },
 }));
@@ -106,7 +110,7 @@ vi.mock("@tracepilot/ui", async (importOriginal) => {
         '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     },
     SectionPanel: { template: "<section><slot /></section>" },
-    formatBytes: () => "1 KB",
+    formatBytes: (bytes: number) => `${bytes} B`,
     toErrorMessage: (error: unknown) => (error instanceof Error ? error.message : String(error)),
     useConfirmDialog: () => ({ confirm: mocks.confirm }),
     useToast: () => mocks.toast,
