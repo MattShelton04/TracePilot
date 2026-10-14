@@ -409,3 +409,40 @@ fn test_search_stats_propagates_errors() {
         _ => panic!("Expected Database error variant"),
     }
 }
+
+#[test]
+fn fts_integrity_check_reports_index_diverging_from_content() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
+    db.conn
+        .execute_batch(
+            "INSERT INTO sessions(id, path, search_indexed_at) VALUES ('s1', 'synthetic', '2026-01-01');
+             INSERT INTO search_content(session_id, content_type, content)
+                 VALUES ('s1', 'user_message', 'original words');",
+        )
+        .unwrap();
+    assert_eq!(db.fts_integrity_check().unwrap(), "ok");
+
+    // Without the update trigger, the index keeps the old text.
+    db.conn
+        .execute_batch(
+            "DROP TRIGGER search_content_au;
+             UPDATE search_content SET content = 'replacement text';",
+        )
+        .unwrap();
+    let stale_hits: i64 = db
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM search_fts WHERE search_fts MATCH 'original'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stale_hits, 1, "the index still matches the old text");
+    // Row counts still agree, so only the content comparison can see this.
+    assert!(db.fts_health().unwrap().in_sync);
+
+    let result = db.fts_integrity_check().unwrap();
+    assert_ne!(result, "ok", "a divergent index must fail the check");
+    assert!(result.starts_with("Integrity check failed"), "{result}");
+}

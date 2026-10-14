@@ -93,6 +93,7 @@ export interface FtsHealthInfo {
   indexedSessions: number;
   totalSessions: number;
   pendingSessions: number;
+  /** Row counts match and nothing is pending. Not a content comparison. */
   inSync: boolean;
   contentTypes: [string, number][];
   dbSizeBytes: number;

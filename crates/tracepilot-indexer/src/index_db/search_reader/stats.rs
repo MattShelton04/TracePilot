@@ -157,11 +157,15 @@ impl IndexDb {
         Ok("FTS index optimized and WAL checkpointed".to_string())
     }
 
-    /// Run FTS5 integrity check.
+    /// Run the FTS5 integrity check, including the comparison of the index
+    /// against `search_content` (`rank = 1`). Returns `"ok"`, or a message
+    /// starting `Integrity check failed` when the index is corrupt or
+    /// disagrees with the content table. It reads every row, so its cost
+    /// grows with the index; keep it off hot paths.
     pub fn fts_integrity_check(&self) -> Result<String> {
         match self
             .conn
-            .execute_batch("INSERT INTO search_fts(search_fts) VALUES('integrity-check')")
+            .execute_batch("INSERT INTO search_fts(search_fts, rank) VALUES('integrity-check', 1)")
         {
             Ok(()) => Ok("ok".to_string()),
             Err(e) => Ok(format!("Integrity check failed: {}", e)),
@@ -169,6 +173,11 @@ impl IndexDb {
     }
 
     /// Get detailed FTS health information.
+    ///
+    /// `in_sync` is a cheap row-count check: the index and `search_content`
+    /// have the same number of rows and no session is waiting for search
+    /// indexing. It can't see an index whose rows hold stale text; use
+    /// [`Self::fts_integrity_check`] for that.
     pub fn fts_health(&self) -> Result<FtsHealthInfo> {
         let total_content_rows: i64 =
             self.conn
