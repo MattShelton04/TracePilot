@@ -463,7 +463,9 @@ fn disabling_while_a_batch_is_open_leaves_no_rows_behind() {
     // the write lock: the purge waits for that batch, which sees the bumped
     // generation before committing and rolls back.
     let purge = std::sync::Mutex::new(None);
+    let mut last_events = None;
     reindex_all_scoped(&scope, &fixture.db_path, |progress| {
+        last_events = Some(progress.running_events);
         let claude_batch = progress
             .source
             .as_ref()
@@ -484,6 +486,16 @@ fn disabling_while_a_batch_is_open_leaves_no_rows_behind() {
     .unwrap();
     let purged = purge.into_inner().unwrap().expect("disabled mid-batch");
     assert_eq!(purged.join().unwrap(), 2, "the committed rows were purged");
+    // The rolled-back Claude batch is not counted in the final totals.
+    let conn = rusqlite::Connection::open(&fixture.db_path).unwrap();
+    let copilot_events: u64 = conn
+        .query_row(
+            "SELECT SUM(event_count) FROM sessions WHERE source = 'copilot'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(last_events, Some(copilot_events));
     // The search pass that follows holds the same stale scope.
     reindex_search_content_scoped(&scope, &fixture.db_path, |_| {}, || false).unwrap();
 

@@ -222,8 +222,13 @@ fn prune(db: &index_db::IndexDb, scope: &IndexScope, pass: &SourcePass) {
 /// are prepared (see [`pipeline`]), so memory is independent of the total
 /// number of sessions. SQLite transactions are bounded by the same batch.
 ///
+/// A session whose write fails keeps its previous rows while the rest of its
+/// batch commits, unless the failure ended the whole transaction: then none
+/// of the batch is committed and the pass fails with that error.
+///
 /// Fails with [`IndexerError::StaleSource`], after rolling back the current
-/// batch, when the source's configuration changes.
+/// batch, when the source's configuration changes. Progress totals drop the
+/// sessions of a batch that was rolled back.
 fn index_batches(
     db: &index_db::IndexDb,
     scope: &IndexScope,
@@ -240,7 +245,8 @@ fn index_batches(
     };
     let mut indexed = 0;
     let outcome = pipeline::prepare_and_write(sessions, &prepare, &is_stale, |batch, prepared| {
-        indexed += db.with_transaction(|db| {
+        let checkpoint = tracker.checkpoint();
+        let result = db.with_transaction(|db| {
             let mut written = 0;
             for (session, result) in batch.iter().zip(prepared) {
                 let info = match result.and_then(|data| db.write_prepared_session(&data)) {
@@ -250,6 +256,13 @@ fn index_batches(
                         Some(info)
                     }
                     Err(error) => {
+                        // SQLITE_FULL/IOERR and RAISE(ROLLBACK) can end the
+                        // batch transaction too. Never let later sessions'
+                        // savepoints commit alone.
+                        if db.conn.is_autocommit() {
+                            tracing::error!(session_id = %session.id, error = %error, "Session write ended the batch transaction; batch rolled back");
+                            return Err(error);
+                        }
                         tracing::warn!(session_id = %session.id, error = %error, "Session snapshot not indexed; retaining previous data");
                         None
                     }
@@ -263,7 +276,15 @@ fn index_batches(
                 return Err(stale_source(source));
             }
             Ok(written)
-        })?;
+        });
+        match result {
+            Ok(written) => indexed += written,
+            Err(error) => {
+                // None of the batch was committed; stop counting it.
+                tracker.restore(checkpoint);
+                return Err(error);
+            }
+        }
         Ok(Flow::Continue)
     })?;
     match outcome {

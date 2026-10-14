@@ -70,6 +70,15 @@ pub(crate) struct ProgressTracker {
     pub(crate) throttle: Duration,
 }
 
+/// The counters of a [`ProgressTracker`] before a write batch.
+pub(crate) struct ProgressCheckpoint {
+    current: usize,
+    source: Option<SourceProgress>,
+    running_tokens: u64,
+    running_events: u64,
+    seen_repos: std::collections::HashSet<String>,
+}
+
 impl ProgressTracker {
     /// Create a new tracker for indexing `total` sessions.
     pub(crate) fn new(total: usize) -> Self {
@@ -97,6 +106,27 @@ impl ProgressTracker {
                 self.seen_repos.insert(repo.clone());
             }
         }
+    }
+
+    /// Save the counters before a batch whose writes may be rolled back.
+    pub(crate) fn checkpoint(&self) -> ProgressCheckpoint {
+        ProgressCheckpoint {
+            current: self.current,
+            source: self.source,
+            running_tokens: self.running_tokens,
+            running_events: self.running_events,
+            seen_repos: self.seen_repos.clone(),
+        }
+    }
+
+    /// Return to `checkpoint` when the batch counted since then was rolled
+    /// back, so later events count only committed sessions.
+    pub(crate) fn restore(&mut self, checkpoint: ProgressCheckpoint) {
+        self.current = checkpoint.current;
+        self.source = checkpoint.source;
+        self.running_tokens = checkpoint.running_tokens;
+        self.running_events = checkpoint.running_events;
+        self.seen_repos = checkpoint.seen_repos;
     }
 
     /// Increment the current session counter.
