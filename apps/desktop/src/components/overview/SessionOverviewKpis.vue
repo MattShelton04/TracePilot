@@ -129,8 +129,14 @@ const hasLineCounts = computed(
           <span v-if="diffBlocks.length" class="diff-blocks" aria-hidden="true">
             <i v-for="(kind, i) in diffBlocks" :key="i" :class="`diff-blocks__${kind}`" />
           </span>
-          <template v-if="hasLineCounts"><b>{{ formatNumberFull(changedFiles) }}</b> file{{ changedFiles === 1 ? "" : "s" }} changed</template>
-          <template v-else>No line counts recorded</template>
+          <template v-if="hasLineCounts && changedFiles"><b>{{ formatNumberFull(changedFiles) }}</b> file{{ changedFiles === 1 ? "" : "s" }} changed</template>
+          <!--
+            Line counts without a file list: the file count is unknown, not zero.
+            With file snapshots the outcome tile counts the backed-up files
+            instead, so say nothing here rather than contradict it.
+          -->
+          <template v-else-if="hasLineCounts && !fileSnapshots">No file list recorded</template>
+          <template v-else-if="!hasLineCounts">No line counts recorded</template>
         </span>
       </template>
     </KPI>

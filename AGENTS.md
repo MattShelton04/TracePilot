@@ -27,7 +27,8 @@ Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rul
 
 - **Validate** with `pnpm check:changed`; it runs the
   [protocol's table](docs/agents/protocol.md#verify-proportionately) rows that match
-  your diff. Run `just ci` only in the cases the protocol names.
+  your diff. Don't run `just ci` before pushing; the PR's CI is the full gate.
+  Run it locally only when you aren't confident a change will pass, as the protocol describes.
 - **Finish** (unless told otherwise) by committing, pushing, opening the PR,
   reporting its link, and stopping. Workers don't watch CI; an orchestrator waits with
   `gh pr checks <n> --watch --fail-fast`. Never sleep-then-check.

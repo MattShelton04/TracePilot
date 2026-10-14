@@ -104,7 +104,7 @@ Only **blockers and majors** hold up a workstream, and review.md defines those s
 ## 6. Integrate
 
 1. Rebase each approved branch onto `origin/main`, then check every pair for conflicts with `git merge-tree --write-tree <a> <b>`. If two branches conflict, ship the more valuable one and draft the other as "rebase after #X", or drop it.
-2. **Full gate only when needed:** if a workstream changed IPC, build or dependency configuration, or a shared package API (the protocol's rule), or two branches change the same package. Then merge all approved branches in a throwaway worktree (`pnpm worktree:new validation`) and run `just ci` once, in the background. If it fails, find the responsible branch by running the failing check on each suspect. Never push the throwaway branch. Otherwise skip this step: CI runs everything on each PR.
+2. **The PR's CI is the full gate.** You don't need to run `just ci` locally before shipping, even when a workstream changed IPC, build or dependency configuration, or a shared package API (the protocol's rule), or two branches change the same package. With the targeted checks green and reasonable confidence, ship and watch `gh pr checks`; route any failure to the responsible branch. Only when you lack that confidence, merge all approved branches in a throwaway worktree (`pnpm worktree:new validation`) and run `just ci` once, in the background. If it fails, find the responsible branch by running the failing check on each suspect. Never push the throwaway branch.
 3. Re-run a branch's targeted checks only if the rebase brought in changes to the code they cover.
 
 ## 7. Ship and clean up

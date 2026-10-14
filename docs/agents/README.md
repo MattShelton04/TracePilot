@@ -34,7 +34,7 @@ You can leave out Preset and Focus, and the agent will choose using evidence. It
 | [orchestrate](tasks/orchestrate.md) | – | You want several PRs from one hands-off run. | Weekly batch |
 | [review](tasks/review.md) | modes `report`, `comment`, `fix` | You want a second opinion on a PR, ideally from a different model. | After each agent PR |
 
-Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsystem`, `tooling`, `dead-code`, and the workflow-hardening, performance, qa-pass, cli-compat and trust-boundary cards) explore and verify more. Every card runs the checks that match its change, and runs the full gate only for IPC, build, dependency or shared-package API changes.
+Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsystem`, `tooling`, `dead-code`, and the workflow-hardening, performance, qa-pass, cli-compat and trust-boundary cards) explore and verify more. Every card runs the checks that match its change and leaves the full gate to the PR's CI.
 
 ## Playbooks
 
@@ -50,7 +50,7 @@ Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsys
    2. Plans workstreams that don't touch the same files.
    3. Runs workers in isolated worktrees under `.agent/worktrees/`, each with a named app instance (`-Instance`) that has its own ports and synthetic data.
    4. Reviews every diff itself, and adds one fresh reviewer only for risky changes (concurrency, deletion, trust boundaries, migrations, IPC, widely shared code). Only demonstrated failures block a workstream.
-   5. Runs the full gate on the merged work only when a workstream needs it; otherwise CI covers it.
+   5. Lets the PR's CI run the full gate, and runs it locally on the merged work only when it isn't confident the PRs will pass.
    6. Opens one PR per workstream, each with a **Review** section and, for user-facing changes, a `changelog.d/` fragment.
 3. Afterwards, you:
    - Read the final report.
@@ -84,7 +84,7 @@ Run `Read docs/agents/tasks/review.md and follow it. Target: #N.` It reports in 
 ## Keeping runs proportionate
 
 - **Every card can end in a no-change outcome.** Discovery is bounded (about 15–25% of the effort), and spare capacity goes to verification rather than extra scope.
-- **Checks match the change.** Work runs the checks for the paths it changed. The full gate (about 15 minutes) runs only for IPC, build, dependency or shared-package API changes, because CI runs everything on the PR anyway.
+- **Checks match the change.** Work runs the checks for the paths it changed. The full gate (about 15 minutes) runs in the PR's CI, so agents push once their targeted checks pass. They run `just ci` locally only when they aren't confident a risky change (IPC, build, dependency or shared-package API) will pass.
 - **Each check runs once.** Whoever runs a check records the commit and result, and later steps reuse it unless the code changes. "Prove the test fails on the old code" is done once, for bug fixes and regression tests only.
 - **Review is proportional.** A fresh-context reviewer is used only for risky changes, and only a demonstrated failure blocks. Speculative concerns and cleanups go in the PR as follow-ups.
 - **Prefer what users hit.** A reproduced problem in an everyday workflow beats a hardened edge case. `Workstreams` is a ceiling, not a quota.
