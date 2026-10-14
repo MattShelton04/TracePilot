@@ -10,8 +10,11 @@ import { projectLabelFromCwd } from "@tracepilot/ui";
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export interface SessionFilterPredicates {
-  /** Lower-cased substring match across id/summary/repository/branch/cwd/model. */
-  searchTerm: string | null;
+  /**
+   * Lower-cased words from `parseSearchTerms`. Each must appear in at least
+   * one of id/summary/repository/branch/cwd/model; empty means no search.
+   */
+  searchTerms: readonly string[];
   /** A repository, or a `PROJECT_FILTER_PREFIX` key for a session with only a cwd. */
   repository: string | null;
   /** Only sessions from this source; `null` or absent means every source. */
@@ -53,6 +56,14 @@ export function sessionRepositoryKey(s: SessionListItem): string | null {
 }
 
 /**
+ * Split a session-list search query into lower-cased words, so that
+ * "login fix" finds "Fix login bug". A blank query yields no words.
+ */
+export function parseSearchTerms(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/**
  * Build a per-session lower-cased search field cache.
  *
  * Pre-computes the strings used by `matchesSessionFilters` so the typing
@@ -90,20 +101,9 @@ export function matchesSessionFilters(
 ): boolean {
   if (predicates.hideEmptySessions && (s.turnCount ?? 0) === 0) return false;
 
-  if (predicates.searchTerm) {
+  if (predicates.searchTerms.length > 0) {
     const fields = cache.get(s.id);
-    if (
-      !fields ||
-      !(
-        fields.summary.includes(predicates.searchTerm) ||
-        fields.repository.includes(predicates.searchTerm) ||
-        fields.branch.includes(predicates.searchTerm) ||
-        fields.cwd.includes(predicates.searchTerm) ||
-        fields.model.includes(predicates.searchTerm) ||
-        fields.modelName.includes(predicates.searchTerm) ||
-        fields.id.includes(predicates.searchTerm)
-      )
-    ) {
+    if (!fields || !predicates.searchTerms.every((term) => fieldsInclude(fields, term))) {
       return false;
     }
   }
@@ -112,6 +112,18 @@ export function matchesSessionFilters(
   if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
+}
+
+function fieldsInclude(fields: SessionSearchFields, term: string): boolean {
+  return (
+    fields.summary.includes(term) ||
+    fields.repository.includes(term) ||
+    fields.branch.includes(term) ||
+    fields.cwd.includes(term) ||
+    fields.model.includes(term) ||
+    fields.modelName.includes(term) ||
+    fields.id.includes(term)
+  );
 }
 
 /** In-place sort comparator for the session list. */

@@ -14,12 +14,13 @@ import {
   useAutoRefresh,
 } from "@tracepilot/ui";
 import { Search } from "lucide-vue-next";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import SourceSwitch from "@/components/sources/SourceSwitch.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { useLiveClock } from "@/composables/useLiveClock";
 import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
@@ -49,6 +50,41 @@ const { refreshing, refresh } = useAutoRefresh({
 });
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
+
+/** Least time between list refreshes triggered by returning to the window. */
+const RETURN_REFRESH_MIN_INTERVAL_MS = 30_000;
+
+// Cards format "5m ago" from Date.now() when they render, so re-render them
+// each minute (via a changing attribute) while the list stays open.
+const { now: clock } = useLiveClock(60_000);
+const clockTick = computed(() => clock.value.getTime());
+
+// Running state is recomputed on every list call, so refetching (without a
+// reindex) when the user comes back clears a badge for a session that ended
+// in its terminal. Tauri doesn't fire visibilitychange on an app switch, so
+// window focus covers that case.
+let listUpdatedAt = Date.now();
+watch(
+  () => store.sessions,
+  () => {
+    listUpdatedAt = Date.now();
+  },
+);
+
+function refreshOnReturn() {
+  if (document.hidden) return;
+  clock.value = new Date();
+  if (store.loading || store.indexing || refreshing.value) return;
+  if (Date.now() - listUpdatedAt < RETURN_REFRESH_MIN_INTERVAL_MS) return;
+  listUpdatedAt = Date.now();
+  void store.refreshSessions();
+}
+window.addEventListener("focus", refreshOnReturn);
+document.addEventListener("visibilitychange", refreshOnReturn);
+onBeforeUnmount(() => {
+  window.removeEventListener("focus", refreshOnReturn);
+  document.removeEventListener("visibilitychange", refreshOnReturn);
+});
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
   onStarted: () => {
@@ -316,6 +352,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           data-testid="session-card"
           :session="session"
           :live="liveBadge(session.id)"
+          :data-clock="clockTick"
           @select="openSession($event, session.id, session.summary || 'Untitled Session')"
         />
       </div>
