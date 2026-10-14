@@ -47,7 +47,13 @@ const { revealing } = useFirstReveal({
             </template>
           </EmptyState>
 
-          <div v-else ref="contentRoot" :class="{ 'chart-reveal': revealing }">
+          <div
+            v-else
+            ref="contentRoot"
+            :class="{ 'chart-reveal': revealing }"
+            :data-refreshing="ctx.refreshing"
+            :aria-busy="ctx.refreshing"
+          >
             <ModelStatsGrid />
             <ModelLeaderboard />
             <ModelCharts />

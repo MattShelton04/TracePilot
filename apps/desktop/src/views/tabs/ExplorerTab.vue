@@ -10,6 +10,7 @@ import type {
 import {
   FileBrowserTree,
   FileContentViewer,
+  formatBytes,
   normalizePath,
   pathDirname,
   toErrorMessage,
@@ -236,7 +237,7 @@ onBeforeUnmount(() => {
 type ExplorerContextEntry = FileEntry & { fileType?: SessionFileType };
 const contextMenuEntry = ref<ExplorerContextEntry | null>(null);
 const contextMenuPos = ref({ x: 0, y: 0 });
-const { success: toastSuccess, error: toastError } = useToast();
+const { success: toastSuccess, warning: toastWarning, error: toastError } = useToast();
 const { copy: copyToClipboard } = useClipboard();
 
 // The backend reports where this session's tree lives; providers keep session
@@ -283,6 +284,12 @@ async function onCopyPath() {
   }
 }
 
+/** The byte cap named by the footer `session_read_file` appends when it cuts a file short. */
+function truncatedReadCap(content: string): number | null {
+  const match = /\n\n\[\.\.\. file truncated — showing first (\d+) bytes \.\.\.\]$/.exec(content);
+  return match ? Number(match[1]) : null;
+}
+
 async function onCopyContents() {
   const entry = contextMenuEntry.value;
   const sessionId = store.sessionId;
@@ -292,9 +299,15 @@ async function onCopyContents() {
     return;
   }
   try {
-    const content = await sessionReadFile(sessionId, entry.path);
+    // Read from the area the entry was listed in, at the larger full-read cap.
+    const content = await sessionReadFile(sessionId, entry.path, true, listedArea.value);
     const success = await copyToClipboard(content);
-    if (success) {
+    const cappedAt = truncatedReadCap(content);
+    if (success && cappedAt != null) {
+      toastWarning(
+        `Copied only the first ${formatBytes(cappedAt)} of ${entry.name}; the file is too large to copy in full`,
+      );
+    } else if (success) {
       toastSuccess("Copied file contents to clipboard");
     } else {
       toastError("Failed to copy contents");
