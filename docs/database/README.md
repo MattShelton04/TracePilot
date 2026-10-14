@@ -140,23 +140,8 @@ saves almost nothing.
 
 ## Known issues
 
-These issues were reproduced against `main` with throwaway tests through the
-public `IndexDb` and `reindex_all` APIs, in October 2026. Remove each entry when
-it is fixed.
-
-2. **A metadata batch can partly commit after SQLite aborts its transaction.**
-   In `index_batches` (`indexing/reindex.rs`), the loop continues after a failed
-   session write. An error that ends the whole transaction (`SQLITE_FULL`,
-   `SQLITE_IOERR`, `RAISE(ROLLBACK)`) loses the earlier sessions in the batch.
-   Each later session's `SAVEPOINT` then starts and commits its own transaction,
-   and the run fails with `cannot commit - no transaction is active`, which hides
-   the original error. Fix: stop the batch when `conn.is_autocommit()`, as
-   `upsert_search_snapshots` already does.
-4. **`with_transaction` has no guard against panics.** A panic in the closure
-   leaves the connection inside a transaction. Today this can't cause harm,
-   because its only caller (`reindex_sources`) owns the connection and drops it
-   on error, which rolls back. The doc comment claims more than the code does.
-   Switching to `unchecked_transaction()` would make it hold for future callers.
+The issues the October 2026 audit reproduced are fixed. List new ones here,
+with how they were reproduced, and remove each entry when it is fixed.
 
 `idx_session_incidents_type` has no reader: incidents are only read by
 `session_id`.
