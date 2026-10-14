@@ -166,3 +166,126 @@ fn a_known_zero_cost_is_preserved_but_missing_usage_and_ttl_are_not_zero_costs()
     // This type's optional fields must stay optional on the wire.
     assert!(ModelCallData::default().input_tokens.is_none());
 }
+
+fn session_metrics(t: &Transcript) -> tracepilot_core::provider::SessionMetrics {
+    let files = write_session(t, &[]);
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider.discover(&|| false).unwrap().remove(0);
+    provider
+        .load_snapshot(&locator, true, &|| false)
+        .unwrap()
+        .metrics
+        .unwrap()
+}
+
+/// Opus 5.5 at 4 / 0.2 / 8 (1h writes) / 20 USD per million.
+fn opus_usd(u: Usage) -> f64 {
+    (u.input as f64 * 4.0
+        + u.cache_read as f64 * 0.2
+        + u.cache_write_1h as f64 * 8.0
+        + u.output as f64 * 20.0)
+        / 1e6
+}
+
+#[test]
+fn a_run_that_never_wrote_a_snapshot_is_priced_on_top_of_a_later_one() {
+    // A desktop run is closed without writing `cost-state`. A later resume
+    // makes no call and writes zero totals that start when it started.
+    let usage = Usage::new(10, 1000, 200, 50);
+    let mut t = Transcript::main();
+    t.prompt("Work.");
+    t.call("closed", OPUS, vec![text("Done.")], usage, "end_turn");
+    t.idle(3600);
+    t.cost_state_since(3600, &[]);
+    let m = session_metrics(&t);
+    let cost = m.cost.unwrap();
+    assert!((cost.amount - opus_usd(usage)).abs() < 1e-12);
+    assert_eq!(cost.basis, CostBasis::TracepilotEstimate);
+    assert_eq!(m.coverage.as_ref().unwrap().tail_calls, 1);
+    let tokens = m.model_metrics[OPUS].usage.as_ref().unwrap();
+    assert_eq!(tokens.output_tokens, Some(50));
+    assert!((m.model_costs[OPUS] - opus_usd(usage)).abs() < 1e-12);
+    let [segment] = m.segments.as_slice() else {
+        panic!("one run: {:?}", m.segments);
+    };
+    assert!(segment.partial);
+    assert!((segment.cost.unwrap().amount - opus_usd(usage)).abs() < 1e-12);
+}
+
+#[test]
+fn a_resumed_run_counts_its_own_calls_once_and_the_closed_run_once() {
+    let closed = Usage::new(10, 1000, 200, 50);
+    let resumed = Usage::new(20, 2000, 300, 70);
+    let mut t = Transcript::main();
+    t.prompt("Work.");
+    t.call("closed", OPUS, vec![text("Done.")], closed, "end_turn");
+    t.idle(3600);
+    t.prompt("Again.");
+    t.call("resumed", OPUS, vec![text("Done.")], resumed, "end_turn");
+    t.cost_state_since(3600, &[(OPUS, resumed, 0.5)]);
+    let m = session_metrics(&t);
+    assert!((m.cost.unwrap().amount - (0.5 + opus_usd(closed))).abs() < 1e-12);
+    let coverage = m.coverage.unwrap();
+    assert_eq!((coverage.recorded_calls, coverage.tail_calls), (2, 1));
+    let tokens = m.model_metrics[OPUS].usage.as_ref().unwrap();
+    assert_eq!(tokens.output_tokens, Some(120));
+    assert_eq!(m.segments.len(), 2);
+    assert!(m.segments[0].partial && !m.segments[1].partial);
+    assert!((m.segments[1].cost.unwrap().amount - 0.5).abs() < 1e-12);
+}
+
+#[test]
+fn a_snapshot_started_before_the_session_covers_every_call() {
+    let usage = Usage::new(10, 1000, 200, 50);
+    let mut t = Transcript::main();
+    t.prompt("Work.");
+    t.call("covered", OPUS, vec![text("Done.")], usage, "end_turn");
+    t.cost_state_since(0, &[(OPUS, usage, 0.42)]);
+    let m = session_metrics(&t);
+    assert_eq!(m.cost.unwrap().amount, 0.42);
+    assert_eq!(m.coverage.unwrap().tail_calls, 0);
+}
+
+#[test]
+fn calls_join_the_snapshots_1m_context_name_for_their_model() {
+    let opus_1m = format!("{OPUS}[1m]");
+    let usage = Usage::new(10, 1000, 200, 50);
+    let mut t = Transcript::main();
+    t.prompt("Work.");
+    t.call("covered", OPUS, vec![text("Done.")], usage, "end_turn");
+    t.cost_state(&[(&opus_1m, usage, 0.42)]);
+    t.prompt("More.");
+    t.call("tail", OPUS, vec![text("Done.")], usage, "end_turn");
+    let m = session_metrics(&t);
+    assert!(
+        !m.model_metrics.contains_key(OPUS),
+        "{:?}",
+        m.model_metrics.keys()
+    );
+    let row = &m.model_metrics[&opus_1m];
+    assert_eq!(row.requests.as_ref().unwrap().count, Some(2));
+    assert_eq!(row.usage.as_ref().unwrap().output_tokens, Some(100));
+    assert!((m.model_costs[&opus_1m] - (0.42 + opus_usd(usage))).abs() < 1e-12);
+    assert!(!m.model_costs.contains_key(OPUS));
+    for segment in &m.segments {
+        assert_eq!(
+            segment.model_metrics.keys().collect::<Vec<_>>(),
+            [&opus_1m],
+            "{segment:?}"
+        );
+    }
+}
+
+#[test]
+fn uncovered_calls_without_final_usage_mark_a_lower_bound() {
+    let usage = Usage::new(10, 1000, 200, 50);
+    let mut t = Transcript::main();
+    t.prompt("Work.");
+    t.call("finished", OPUS, vec![text("Done.")], usage, "end_turn");
+    t.call("streaming", OPUS, vec![text("Still")], usage, None);
+    let coverage = session_metrics(&t).coverage.unwrap();
+    assert_eq!(
+        (coverage.tail_calls, coverage.unfinished_tail_calls),
+        (2, 1)
+    );
+}

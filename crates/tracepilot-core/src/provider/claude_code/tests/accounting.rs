@@ -54,7 +54,7 @@ fn per_block_records_collapse_to_the_last_usage() {
         (18, 3500, 250, 150)
     );
     assert!(snapshot.model_usage.contains_key(HAIKU));
-    assert_eq!(parsed.tail_calls().count(), 0);
+    assert_eq!(parsed.uncovered_calls().count(), 0);
 }
 
 #[test]
@@ -117,16 +117,19 @@ fn resumed_and_ended_session_is_covered_by_its_last_snapshot() {
         last.model_usage[OPUS].output_tokens,
         transcript.output_tokens
     );
-    assert_eq!(parsed.tail_calls().count(), 0);
+    assert_eq!(parsed.uncovered_calls().count(), 0);
 }
 
 #[test]
 fn resumed_and_running_session_has_a_tail() {
     let parsed = parse(&fixtures::resumed(true));
-    let tail: Vec<_> = parsed.tail_calls().map(|c| c.message_id.as_str()).collect();
+    let tail: Vec<_> = parsed
+        .uncovered_calls()
+        .map(|c| c.message_id.as_str())
+        .collect();
     assert_eq!(tail, ["msg_e3"]);
     let last = &parsed.cost_snapshots.last().unwrap().model_usage[OPUS];
-    let tail_sum = sum_calls_by_model(parsed.tail_calls())[OPUS];
+    let tail_sum = sum_calls_by_model(parsed.uncovered_calls())[OPUS];
     // Current total = last snapshot + tail.
     assert_eq!(
         (

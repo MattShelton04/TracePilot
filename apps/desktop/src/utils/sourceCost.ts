@@ -25,6 +25,8 @@ export interface SessionCostEstimate {
   coverage: string;
   /** Recorded calls stand in for (part of) the provider's own total. */
   partial: boolean;
+  /** Some priced calls have no final token counts, so `amount` undercounts. */
+  lowerBound: boolean;
 }
 
 function plural(count: number, noun: string): string {
@@ -43,7 +45,9 @@ export function sessionCostEstimate(
   const hasSnapshot = coverage?.snapshotLine != null;
   const tail = coverage?.tailCalls ?? 0;
   const recorded = coverage?.recordedCalls ?? 0;
+  const unfinished = coverage?.unfinishedTailCalls ?? 0;
   const partial = coverage != null && (!hasSnapshot || tail > 0);
+  const lowerBound = amount != null && unfinished > 0;
 
   let text: string;
   if (!coverage) {
@@ -53,13 +57,16 @@ export function sessionCostEstimate(
   } else if (hasSnapshot) {
     text =
       amount == null
-        ? `${plural(tail, "call")} after the last cost snapshot could not be priced.`
-        : `Last cost snapshot plus ${plural(tail, "later call")} at API rates.`;
+        ? `${plural(tail, "call")} the last cost snapshot does not cover could not be priced.`
+        : `Last cost snapshot plus ${plural(tail, "call")} it does not cover, at API rates.`;
   } else {
     text =
       amount == null
         ? "No cost snapshot, and the recorded calls could not be priced."
         : `${plural(recorded, "recorded call")} at API rates; no cost snapshot.`;
+  }
+  if (lowerBound) {
+    text += ` ${plural(unfinished, "call")} (mostly subagents') ${unfinished === 1 ? "has" : "have"} no final token count, so this is a lower bound.`;
   }
   const label =
     basis == null
@@ -69,7 +76,15 @@ export function sessionCostEstimate(
         : basis === "billed"
           ? "Billed"
           : "Estimate";
-  return { amount, basis, snapshotAmount: snapshot, basisLabel: label, coverage: text, partial };
+  return {
+    amount,
+    basis,
+    snapshotAmount: snapshot,
+    basisLabel: label,
+    coverage: text,
+    partial,
+    lowerBound,
+  };
 }
 
 /** USD to the cent; a nonzero amount below half a cent never reads as $0.00. */
@@ -79,7 +94,7 @@ export function formatUsd(amount: number): string {
 
 /** The display value; an unpriced tail leaves at least the snapshot's cost. */
 export function formatSessionCost(cost: SessionCostEstimate): string {
-  if (cost.amount != null) return formatUsd(cost.amount);
+  if (cost.amount != null) return `${cost.lowerBound ? "≥ " : ""}${formatUsd(cost.amount)}`;
   return cost.snapshotAmount != null ? `≥ ${formatUsd(cost.snapshotAmount)}` : "—";
 }
 

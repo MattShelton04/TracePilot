@@ -153,7 +153,10 @@ fn a_resumed_agents_later_calls_are_not_covered_by_an_earlier_snapshot() {
 
     let parsed = parse(&fixtures::agent_resumed_after_session_resume());
     assert_eq!(parsed.cost_snapshots.len(), 1);
-    let mut tail: Vec<_> = parsed.tail_calls().map(|c| c.message_id.as_str()).collect();
+    let mut tail: Vec<_> = parsed
+        .uncovered_calls()
+        .map(|c| c.message_id.as_str())
+        .collect();
     tail.sort_unstable();
     assert_eq!(
         tail,
@@ -173,7 +176,7 @@ fn a_resumed_agents_later_calls_are_not_covered_by_an_earlier_snapshot() {
     assert_eq!(anchor("msg_R2"), anchor("msg_m4"), "anchored at its resume");
     assert_eq!(anchor("msg_R3"), anchor("msg_m6"));
     assert_eq!(
-        sum_calls_by_model(parsed.tail_calls())[OPUS],
+        sum_calls_by_model(parsed.uncovered_calls())[OPUS],
         TokenTotals {
             calls: 6,
             input_tokens: 11,
@@ -309,7 +312,10 @@ fn parallel_resumes_sharing_one_result_record_each_leave_the_snapshot() {
         ],
     );
     let parsed = parse(&files);
-    let mut tail: Vec<_> = parsed.tail_calls().map(|c| c.message_id.as_str()).collect();
+    let mut tail: Vec<_> = parsed
+        .uncovered_calls()
+        .map(|c| c.message_id.as_str())
+        .collect();
     tail.sort_unstable();
     assert_eq!(tail, ["msg_A2", "msg_B2", "msg_m4"]);
 }

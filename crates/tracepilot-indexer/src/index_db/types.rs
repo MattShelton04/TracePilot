@@ -52,6 +52,11 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v32: a `cost-state` snapshot covers only calls made since its `startTime`,
+/// so a run that ended without writing one (a closed desktop app) is priced
+/// on top of a later snapshot instead of vanishing into it; calls join their
+/// model's 1M-context row (`claude-opus-5-5[1m]`) in the snapshot.
+///
 /// v31: edits and API time after the last `cost-state` snapshot (a resumed
 /// run that has not written a new one) add to its line totals and API
 /// duration, as its tokens and cost already did.
@@ -104,7 +109,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 31;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 32;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

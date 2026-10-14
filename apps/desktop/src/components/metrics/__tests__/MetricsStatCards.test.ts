@@ -92,7 +92,7 @@ describe("MetricsStatCards source cost", () => {
     expect(cost.props("trend")).toBe("TracePilot estimate");
     const legend = wrapper.get('[data-testid="source-cost-legend"]').text();
     expect(legend).toContain("Partial");
-    expect(legend).toContain("Last cost snapshot plus 1 later call at API rates.");
+    expect(legend).toContain("Last cost snapshot plus 1 call it does not cover, at API rates.");
     expect(wrapper.text()).not.toMatch(/AI Credits|Premium|Legacy/);
   });
 
