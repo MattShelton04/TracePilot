@@ -2,8 +2,8 @@
 /**
  * What the range cost. "By source" gives each source a card in USD (Copilot's
  * AI Credits at $0.01 each, Claude Code's API-equivalent estimate) with how
- * much of it is observed or priced, over whole sessions; "Running total" draws
- * the spend accumulating inside the range. The choice is remembered between visits.
+ * much of it is observed or priced; "Running total" draws the spend accumulating
+ * across the range. The choice is remembered between visits.
  */
 import {
   type AnalyticsData,
@@ -56,16 +56,6 @@ const view = computed({
     views.value.costView = value as "sources" | "running";
   },
 });
-
-/**
- * The two views measure different things: the source cards sum whole sessions
- * (lifetime totals of each session active in the range), the running total
- * only the usage inside the range. Each says which it is.
- */
-const WHOLE_SESSIONS =
-  "Each session active in the range counts in full, including usage from before the range started.";
-const IN_RANGE =
-  "Only usage inside the range. By source counts whole sessions, so the two can differ.";
 
 const has = computed(() => props.summary.costRows.some((row) => row.sessions > 0));
 const entry = (source: string) => props.data.costBySource?.find((e) => e.source === source);
@@ -209,7 +199,6 @@ function openModels() {
 <template>
   <OverviewPanel title="Cost" :flush="view === 'sources' && has" data-testid="analytics-cost">
     <template #aside>
-      <span v-if="view === 'sources' && has" :title="WHOLE_SESSIONS">whole sessions</span>
       <span v-if="view === 'running' && has">running total · {{ unitNote }}</span>
       <SegmentedControl v-model="view" class="ad-seg" :options="VIEWS" aria-label="Cost view" />
     </template>
@@ -319,7 +308,7 @@ function openModels() {
         label="Running total of cost"
       />
       <div v-if="runningFoot" class="ad-foot">
-        <span :title="IN_RANGE">Total in range <b>{{ runningFoot.total }}</b></span>
+        <span>Total <b>{{ runningFoot.total }}</b></span>
         <span v-if="runningFoot.pace">Pace <b>{{ runningFoot.pace }}</b>/day</span>
         <span>Biggest day <b>{{ runningFoot.peak }}</b></span>
         <span v-if="summary.costTotal.partial" class="ad-partial">Some usage unpriced</span>

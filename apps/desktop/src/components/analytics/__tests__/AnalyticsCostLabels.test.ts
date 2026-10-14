@@ -106,19 +106,6 @@ describe("analytics cost labels", () => {
   });
 });
 
-describe("analytics headline totals", () => {
-  it("says tokens and cost cover whole sessions, not only the range", () => {
-    const data = withSources([copilotEntry, claudeEntry], { totalNanoAiu: 12_500_000_000 });
-    const summary = buildDashboardSummary(data, unpriced);
-    const wrapper = mount(AnalyticsKpis, { props: { data, summary, rows: [] } });
-    const kpis = wrapper.findAllComponents(KPI);
-    for (const kpi of [kpis[1], kpis[2]]) {
-      expect(kpi.props("description")).toContain("Whole-session totals");
-      expect(kpi.props("description")).toContain("Daily charts count only usage inside the range");
-    }
-  });
-});
-
 describe("analytics cost panel", () => {
   function panel(data: AnalyticsData) {
     const summary = buildDashboardSummary(data, unpriced);
@@ -180,27 +167,6 @@ describe("analytics cost panel", () => {
     expect(wrapper.find('[aria-label="Running total of cost"]').exists()).toBe(true);
     expect(wrapper.text()).toContain("USD · AI Credits at $0.01");
     // 30, 50 and 80 AIC at $0.01, plus $1.25 of Claude Code on the first day.
-    expect(wrapper.text()).toContain("Total in range $2.85");
-  });
-
-  // The source cards sum whole sessions; the running total only the range.
-  // The two can disagree, so each view says which it shows.
-  it("labels whole-session totals apart from the in-range running total", async () => {
-    const wrapper = panel(
-      withSources([copilotEntry, claudeEntry], {
-        totalNanoAiu: 12_500_000_000,
-        costUsdByDay: [{ date: "2025-01-01", cost: 1.25 }],
-      }),
-    );
-    const whole = wrapper.findAll("span").find((el) => el.text() === "whole sessions");
-    expect(whole?.attributes("title")).toMatch(/before the range started/);
-    await wrapper
-      .findAll('[role="radio"]')
-      .find((b) => b.text() === "Running total")
-      ?.trigger("click");
-    expect(wrapper.text()).not.toContain("whole sessions");
-    const foot = wrapper.findAll("span").find((el) => el.text().startsWith("Total in range"));
-    expect(foot?.attributes("title")).toMatch(/Only usage inside the range/);
-    expect(foot?.attributes("title")).toMatch(/By source counts whole sessions/);
+    expect(wrapper.text()).toContain("Total $2.85");
   });
 });
