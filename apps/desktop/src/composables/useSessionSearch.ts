@@ -42,6 +42,8 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     },
     onProgress: (p) => {
       indexingProgress.value = p;
+      // A pass that started before this view mounted is first seen here.
+      if (p.current < p.total) isIndexing.value = true;
     },
     onFinished: () => {
       indexingProgress.value = null;

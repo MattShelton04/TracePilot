@@ -153,6 +153,48 @@ describe("search/indexing slice", () => {
     }
   });
 
+  it("treats PROGRESS as a running pass when STARTED fired before the store listened", async () => {
+    // The store is created lazily, so a pass that started before Search was
+    // first opened is only seen through its PROGRESS and FINISHED events.
+    mockRebuildSearchIndex.mockResolvedValue(undefined);
+    const { indexing, listeners, dispose } = setup();
+    try {
+      await indexing.initEventListeners();
+      const progress = Array.from(listeners.keys()).find((k) => /progress/i.test(k));
+      const finished = Array.from(listeners.keys()).find((k) => /finished/i.test(k));
+
+      listeners.get(progress!)?.({ payload: { current: 3, total: 10 } });
+      expect(indexing.searchIndexing.value).toBe(true);
+      expect(indexing.searchIndexingProgress.value).toEqual({ current: 3, total: 10 });
+
+      // "Build Search Index" must not race the running pass into AlreadyIndexing.
+      await indexing.rebuild();
+      expect(mockRebuildSearchIndex).not.toHaveBeenCalled();
+
+      listeners.get(finished!)?.({ payload: { success: true } });
+      expect(indexing.searchIndexing.value).toBe(false);
+      expect(indexing.searchIndexingProgress.value).toBeNull();
+
+      // Once the pass has finished, a rebuild goes through again.
+      await indexing.rebuild();
+      expect(mockRebuildSearchIndex).toHaveBeenCalledTimes(1);
+    } finally {
+      dispose();
+    }
+  });
+
+  it("does not treat a pass's final PROGRESS (current === total) as a new pass", async () => {
+    const { indexing, listeners, dispose } = setup();
+    try {
+      await indexing.initEventListeners();
+      const progress = Array.from(listeners.keys()).find((k) => /progress/i.test(k));
+      listeners.get(progress!)?.({ payload: { current: 10, total: 10 } });
+      expect(indexing.searchIndexing.value).toBe(false);
+    } finally {
+      dispose();
+    }
+  });
+
   it("SEARCH_INDEXING_FINISHED is a no-op when view is unmounted", async () => {
     const { indexing, listeners, scheduleSearch, dispose } = setup({ viewMounted: false });
     try {

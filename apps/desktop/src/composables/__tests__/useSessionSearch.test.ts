@@ -9,8 +9,20 @@ vi.mock("vue-router", () => ({
   useRoute: () => ({ query: {}, path: "/search" }),
 }));
 
+// Captures the callbacks so tests can replay main-index events.
+const indexingCallbacks = vi.hoisted(() => ({
+  current: null as null | {
+    onStarted: () => void;
+    onProgress: (p: { current: number; total: number }) => void;
+    onFinished: () => void;
+  },
+}));
+
 vi.mock("@/composables/useIndexingEvents", () => ({
-  useIndexingEvents: () => ({ setup: vi.fn().mockResolvedValue(undefined) }),
+  useIndexingEvents: (callbacks: NonNullable<typeof indexingCallbacks.current>) => {
+    indexingCallbacks.current = callbacks;
+    return { setup: vi.fn().mockResolvedValue(undefined) };
+  },
 }));
 
 vi.mock("@/composables/useSearchUrlSync", () => ({
@@ -193,6 +205,29 @@ describe("useSessionSearch", () => {
     api.handleClearFilters();
     expect(storeState.clearFilters).toHaveBeenCalled();
     expect(api.filteredSessionNameOverride.value).toBeNull();
+    wrapper.unmount();
+  });
+
+  it("shows a main-index pass that started before Search was opened", () => {
+    // INDEXING_STARTED fired before this view mounted; only PROGRESS arrives.
+    const { api, wrapper } = runComposable();
+    const events = indexingCallbacks.current!;
+    expect(api.isIndexing.value).toBe(false);
+
+    events.onProgress({ current: 4, total: 12 });
+    expect(api.isIndexing.value).toBe(true);
+    expect(api.indexingProgress.value).toEqual({ current: 4, total: 12 });
+
+    events.onFinished();
+    expect(api.isIndexing.value).toBe(false);
+    expect(api.indexingProgress.value).toBeNull();
+    wrapper.unmount();
+  });
+
+  it("does not start the banner from a pass's final PROGRESS event", () => {
+    const { api, wrapper } = runComposable();
+    indexingCallbacks.current!.onProgress({ current: 12, total: 12 });
+    expect(api.isIndexing.value).toBe(false);
     wrapper.unmount();
   });
 });
