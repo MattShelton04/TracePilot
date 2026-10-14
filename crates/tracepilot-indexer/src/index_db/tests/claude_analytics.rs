@@ -291,3 +291,57 @@ fn claude_subagents_and_skills_fill_agent_and_skill_rows() {
     let skills: Vec<String> = rows(&db, "SELECT skill_name FROM session_skill_invocations");
     assert_eq!(skills, ["deploy"]);
 }
+
+/// Ten Bash calls (eight succeed, one fails, one never gets a result) and one
+/// Read call that never gets one either, as in a running or killed session.
+fn unfinished_session() -> SessionFiles {
+    let mut t = Transcript::main();
+    t.prompt("Run the checks.");
+    for i in 0..9 {
+        let id = format!("toolu_b{i}");
+        t.call(
+            &format!("msg_{i}"),
+            OPUS,
+            vec![tool_use(&id, "Bash", json!({"command": "just check"}))],
+            Usage::new(1, 0, 100, 5),
+            "tool_use",
+        );
+        t.tool_result(&id, json!("done"), json!({"stdout": "done"}), i == 8);
+    }
+    t.call(
+        "msg_last",
+        OPUS,
+        vec![
+            tool_use("toolu_b9", "Bash", json!({"command": "just check"})),
+            tool_use("toolu_r", "Read", json!({"file_path": NOTES})),
+        ],
+        Usage::new(1, 100, 0, 5),
+        "tool_use",
+    );
+    write_session(&t, &[])
+}
+
+#[test]
+fn native_tools_count_failures_as_the_canonical_tool_does() {
+    let db = index(&unfinished_session());
+    let analysis = db
+        .query_tool_analysis(None, None, None, false, None)
+        .unwrap();
+    let tool = |name: &str| analysis.tools.iter().find(|t| t.name == name).unwrap();
+
+    // Calls without a result are neither successes nor failures.
+    let shell = tool("shell");
+    assert_eq!((shell.call_count, shell.failure_count), (10, 1));
+    let bash = &shell.native_tools[0];
+    assert_eq!(bash.name, "Bash");
+    assert_eq!((bash.call_count, bash.failure_count), (10, 1));
+    assert_eq!(bash.success_rate, 8.0 / 9.0);
+
+    // No outcome at all: nothing failed, and the rate has nothing to rate.
+    let view = tool("view");
+    assert_eq!((view.call_count, view.failure_count), (1, 0));
+    let read = &view.native_tools[0];
+    assert_eq!(read.name, "Read");
+    assert_eq!((read.call_count, read.failure_count), (1, 0));
+    assert_eq!(read.success_rate, 0.0);
+}

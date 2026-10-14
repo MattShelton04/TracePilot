@@ -196,6 +196,7 @@ fn query_native_tools(
             name,
             source,
             call_count: count(calls),
+            failure_count: count(failure),
             success_rate: compute_success_rate(count(success), count(failure)),
             avg_duration_ms: safe_div(duration.max(0) as f64, count(with_duration)),
         });

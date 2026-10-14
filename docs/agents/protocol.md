@@ -47,7 +47,7 @@ A launch message may set any of these, overriding the card's defaults:
 ### Verify proportionately
 1. Before editing, run the focused tests for the area so you know what already fails.
 2. After the change, run `pnpm check:changed`. It runs the table rows matching your diff, plus Biome and the file-size check, one PASS/FAIL line each (`--dry-run` lists them).
-3. **Run the full gate** (`just ci`, about 15 minutes) **only** if you changed IPC types or commands, build or dependency configuration, or a shared package (`packages/*`) API that other workspaces consume. Otherwise CI runs everything on the PR.
+3. **Leave the full gate to the PR's CI.** You don't need to run `just ci` (about 15 minutes) before pushing; CI runs everything on the PR. Changes to IPC types or commands, build or dependency configuration, or a shared package (`packages/*`) API that other workspaces consume must pass that gate. Once `pnpm check:changed` passes and you're reasonably confident, push and let CI run it. Run `just ci` locally only when you aren't confident, for example after a broad build or dependency change, or to reproduce a CI failure.
 4. **For a bug fix or a new regression test,** show once that the test fails on the old code *for the behavioral reason*, not just a compile error, and passes on the new code. Keep the failing output.
 5. **Record what you ran:** the commit SHA, each command and its result. Later steps reuse those results unless the code they cover changes.
 6. Label failures that existed before your change as pre-existing. Pending CI is not passing CI.
