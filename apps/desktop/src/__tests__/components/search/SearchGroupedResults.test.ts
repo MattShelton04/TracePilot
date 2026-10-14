@@ -82,7 +82,7 @@ function mountResults(props: Record<string, unknown> = {}) {
         [2, 1],
       ]),
       focusedResultIndex: null,
-      hasMore: false,
+      paged: false,
       contentTypeConfig: CONTENT_TYPE_CONFIG,
       sessionLink: (sid: string, turn: number | null, evt: number | null) =>
         `/session/${sid}/turn/${turn ?? 0}/event/${evt ?? 0}`,
@@ -203,9 +203,9 @@ describe("SearchGroupedResults", () => {
     expect(expanded.text()).toContain("sess-abc");
   });
 
-  it('renders "+" suffix on count when hasMore is true', () => {
-    const wrapper = mountResults({ hasMore: true });
-    expect(wrapper.find(".session-group-count").text()).toContain("2+");
+  it("scopes the count to this page when the results span pages", () => {
+    const wrapper = mountResults({ paged: true });
+    expect(wrapper.find(".session-group-count").text()).toBe("2 matches on this page");
   });
 
   it("renders truncated session ID when no summary", () => {

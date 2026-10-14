@@ -25,6 +25,32 @@ describe("SettingsDataStorage paths and maintenance", () => {
     expect(mocks.getDbSize).toHaveBeenCalledTimes(2);
   });
 
+  it("rereads the database size after a search index rebuild", async () => {
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    const exposed = wrapper.vm as unknown as { databaseSize: string };
+    expect(exposed.databaseSize).toBe("1024 B");
+
+    // A rebuild emits only search-indexing events, never indexing-finished.
+    mocks.getDbSize.mockResolvedValue(4096);
+    await action(wrapper, "Rebuild", 1).trigger("click");
+    await flushPromises();
+    expect(mocks.rebuildSearchIndex).toHaveBeenCalledOnce();
+    expect(exposed.databaseSize).toBe("4096 B");
+    expect(wrapper.text()).toContain("4096 B");
+  });
+
+  it("rereads the database size when a search indexing pass finishes", async () => {
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    const exposed = wrapper.vm as unknown as { databaseSize: string };
+
+    mocks.getDbSize.mockResolvedValue(8192);
+    mocks.indexing.onSearchIndexingFinished?.();
+    await flushPromises();
+    expect(exposed.databaseSize).toBe("8192 B");
+  });
+
   it("keeps path controls locked until the initial config arrives", async () => {
     const pending = deferred<ReturnType<typeof config>>();
     mocks.getConfig.mockReturnValue(pending.promise);

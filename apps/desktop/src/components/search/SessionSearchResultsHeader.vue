@@ -5,7 +5,8 @@ defineProps<{
   hasResults: boolean;
   isBrowseMode: boolean;
   totalCount: number;
-  groupedCount: number;
+  /** Sessions behind every page of the results; null while unknown. */
+  groupedCount: number | null;
   latencyMs: number;
   resultViewMode: "flat" | "grouped";
   totalPages: number;
@@ -29,9 +30,9 @@ const emit = defineEmits<{
     <span v-else-if="hasResults" class="results-summary-text">
       {{ isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ formatNumberFull(totalCount) }}</strong>
       result{{ totalCount !== 1 ? 's' : '' }}
-      <span v-if="resultViewMode === 'grouped'"> across <strong>{{ groupedCount }}</strong> session{{ groupedCount !== 1 ? 's' : '' }}</span>
-      <span class="summary-speed">({{ formatDuration(latencyMs) }})</span>
-      <template v-if="resultViewMode === 'flat' && totalPages > 1">
+      <span v-if="resultViewMode === 'grouped' && groupedCount !== null"> across <strong>{{ groupedCount }}</strong> session{{ groupedCount !== 1 ? 's' : '' }}</span>
+      <span class="summary-speed"> ({{ formatDuration(latencyMs) }})</span>
+      <template v-if="totalPages > 1">
         — page {{ page }} of {{ totalPages }}
       </template>
     </span>

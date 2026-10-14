@@ -205,6 +205,107 @@ describe("Session list repository filter", () => {
     ]);
     wrapper.unmount();
   });
+
+  describe("with two sources", () => {
+    let store: ReturnType<typeof useSessionsStore>;
+    let wrapper: ReturnType<typeof render> | undefined;
+
+    beforeEach(() => {
+      store = useSessionsStore();
+      vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
+      store.sessions = [
+        { ...session, id: "cp-1", summary: "Copilot demo", source: "copilot" },
+        {
+          ...session,
+          id: "cp-2",
+          summary: "Copilot only",
+          repository: "audit/copilot-only",
+          source: "copilot",
+        },
+        {
+          ...session,
+          id: "cc-1",
+          summary: "Claude work",
+          repository: "audit/claude",
+          source: "claudeCode",
+        },
+        // Hidden by "Hide empty sessions", so its repository leads nowhere.
+        {
+          ...session,
+          id: "cc-empty",
+          summary: "Claude draft",
+          repository: "audit/hidden",
+          source: "claudeCode",
+          turnCount: 0,
+        },
+      ];
+    });
+
+    afterEach(() => {
+      wrapper?.unmount();
+      wrapper = undefined;
+    });
+
+    const repoOptions = () =>
+      wrapper
+        ?.get('select[aria-label="All Repos"]')
+        .findAll("option")
+        .map((o) => o.attributes("value"))
+        .filter(Boolean);
+    const cards = () => wrapper?.findAll('[data-testid="session-card"]').map((c) => c.text());
+    const pickSource = (label: string) =>
+      wrapper
+        ?.findAll('[data-testid="session-source-filter"] [role="radio"]')
+        .find((b) => b.text() === label)
+        ?.trigger("click");
+
+    it("offers only repositories that have visible sessions in the picked source", async () => {
+      wrapper = render();
+      await flushPromises();
+
+      expect(repoOptions()).toEqual(["audit/claude", "audit/copilot-only", "audit/demo"]);
+
+      await pickSource("Claude");
+      expect(repoOptions()).toEqual(["audit/claude"]);
+
+      preferences.hideEmptySessions = false;
+      await flushPromises();
+      expect(repoOptions()).toEqual(["audit/claude", "audit/hidden"]);
+    });
+
+    it("clears a repository the new source has no sessions in", async () => {
+      wrapper = render();
+      await flushPromises();
+      await wrapper.get('select[aria-label="All Repos"]').setValue("audit/copilot-only");
+      expect(cards()).toEqual(["Copilot only"]);
+
+      await pickSource("Claude");
+      expect(store.filterRepo).toBeNull();
+      expect(cards()).toEqual(["Claude work"]);
+      expect(wrapper.text()).not.toContain("No matching sessions");
+    });
+
+    it("keeps a repository the new source still has sessions in", async () => {
+      wrapper = render();
+      await flushPromises();
+      await pickSource("Claude");
+      await wrapper.get('select[aria-label="All Repos"]').setValue("audit/claude");
+
+      await pickSource("All");
+      expect(store.filterRepo).toBe("audit/claude");
+      expect(cards()).toEqual(["Claude work"]);
+    });
+
+    it("keeps the selected repository listed when no visible session has it", async () => {
+      store.filterRepo = "audit/hidden";
+      wrapper = render();
+      await flushPromises();
+
+      const select = wrapper.get<HTMLSelectElement>('select[aria-label="All Repos"]');
+      expect(repoOptions()).toContain("audit/hidden");
+      expect(select.element.value).toBe("audit/hidden");
+    });
+  });
 });
 
 describe("Session list freshness while it stays open", () => {

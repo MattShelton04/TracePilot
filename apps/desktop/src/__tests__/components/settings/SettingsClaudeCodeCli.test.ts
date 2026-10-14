@@ -33,6 +33,7 @@ describe("SettingsClaudeCodeCli", () => {
     // A command the backend would refuse is shown as an error and never saved.
     await input.setValue("claude; calc");
     expect(wrapper.get("[role='alert']").text()).toContain("Not saved");
+    expect(wrapper.get("[role='alert']").text()).toContain("Resume uses D:/tools/claude.exe");
     expect(input.attributes("aria-invalid")).toBe("true");
     expect(prefs.claudeCliCommand).toBe("D:/tools/claude.exe");
     await input.setValue("");

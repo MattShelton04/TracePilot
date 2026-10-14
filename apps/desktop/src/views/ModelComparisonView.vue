@@ -49,7 +49,11 @@ const { revealing } = useFirstReveal({
           </EmptyState>
 
           <!-- Runs ended in the range, but no session was last active in it. -->
-          <div v-else-if="ctx.modelRows.length === 0">
+          <div
+            v-else-if="ctx.modelRows.length === 0"
+            :data-refreshing="ctx.refreshing"
+            :aria-busy="ctx.refreshing"
+          >
             <p class="chart-placeholder">
               No session ended in this range, so there are no per-model totals. The timeline shows runs
               from sessions resumed after it.
@@ -57,7 +61,13 @@ const { revealing } = useFirstReveal({
             <ModelMixTimeline />
           </div>
 
-          <div v-else ref="contentRoot" :class="{ 'chart-reveal': revealing }">
+          <div
+            v-else
+            ref="contentRoot"
+            :class="{ 'chart-reveal': revealing }"
+            :data-refreshing="ctx.refreshing"
+            :aria-busy="ctx.refreshing"
+          >
             <ModelStatsGrid />
             <ModelLeaderboard />
             <ModelCharts />

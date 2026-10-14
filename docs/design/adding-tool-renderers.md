@@ -177,7 +177,7 @@ ignored agent/output directories.
 
 ## Current registry
 
-There are 20 registered tool names and six argument-renderer registrations.
+There are 21 registered tool names and six argument-renderer registrations.
 
 | Tool | Result component | Argument component |
 | --- | --- | --- |
@@ -196,6 +196,7 @@ There are 20 registered tool names and six argument-renderer registrations.
 | `write_agent` | WriteAgentRenderer | WriteAgentArgsRenderer |
 | `list_agents` | ListAgentsRenderer | — |
 | `apply_patch` | ApplyPatchRenderer | ApplyPatchArgsRenderer |
+| `ExitPlanMode` (Claude Code) | ExitPlanModeRenderer | — |
 
 `report_intent` reuses one component for its pending intent and returned
 acknowledgment. `task`, calls marked `isSubagent` (including named task aliases)

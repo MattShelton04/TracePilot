@@ -25,23 +25,26 @@
 /* Results kept on screen while newer ones load (analytics filter changes).
    A scrim dims them rather than panel opacity, for the reason given under
    the chart reveal below. It waits a beat so fast or cached loads never
-   flicker, and lifts as soon as the new results are drawn underneath. */
-[data-refreshing] {
+   flicker, and lifts as soon as the new results are drawn underneath.
+   Only a refreshing root is positioned: a positioned root paints after the
+   ambient background glow (App.vue's .app-bg), so it would hide the glow. */
+[data-refreshing="true"] {
   position: relative;
 }
-[data-refreshing]::after {
+[data-refreshing="true"]::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 1;
   background: var(--canvas-default);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-slow) var(--ease-out);
-}
-[data-refreshing="true"]::after {
   opacity: 0.45;
-  transition-delay: 150ms;
+  pointer-events: none;
+  animation: tp-refresh-scrim var(--duration-slow) var(--ease-out) 150ms backwards;
+}
+@keyframes tp-refresh-scrim {
+  from {
+    opacity: 0;
+  }
 }
 
 /* ============================

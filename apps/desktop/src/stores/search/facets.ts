@@ -47,15 +47,19 @@ export function createFacetsSlice(q: QuerySlice) {
   let facetsLastFetchedAt = 0;
   const FACETS_CACHE_TTL_MS = 2 * 60 * 1000;
 
-  async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
+  /** Resolves to the facets this call applied, or null if it applied none. */
+  async function fetchFacets(
+    forQuery?: string,
+    overrides?: FacetOverrides,
+  ): Promise<SearchFacetsResponse | null> {
     const token = facetGuard.start();
     try {
       const { dateFromUnix, dateToUnix, error: dateError } = q.parseDateRange();
       if (dateError) {
-        if (!facetGuard.isValid(token)) return;
+        if (!facetGuard.isValid(token)) return null;
         facets.value = null;
         logWarn("[search] Skipping search facets fetch due to invalid date filter:", dateError);
-        return;
+        return null;
       }
 
       const ct = overrides?.contentTypes ?? q.contentTypes.value;
@@ -77,7 +81,7 @@ export function createFacetsSlice(q: QuerySlice) {
         !dateFromUnix &&
         !dateToUnix;
       if (isUnfiltered && facets.value && Date.now() - facetsLastFetchedAt < FACETS_CACHE_TTL_MS) {
-        return;
+        return facets.value;
       }
 
       const result = await getSearchFacets(forQuery, {
@@ -91,14 +95,15 @@ export function createFacetsSlice(q: QuerySlice) {
         dateFromUnix,
         dateToUnix,
       });
-      if (!facetGuard.isValid(token)) return;
+      if (!facetGuard.isValid(token)) return null;
       facets.value = result;
       // Filtered facets replace the unfiltered ones, so they must not count as
       // a fresh unfiltered fetch when the filters are cleared again.
       facetsLastFetchedAt = isUnfiltered ? Date.now() : 0;
+      return result;
     } catch (e) {
-      if (!facetGuard.isValid(token)) return;
-      logWarn("[search] Failed to fetch search facets:", e);
+      if (facetGuard.isValid(token)) logWarn("[search] Failed to fetch search facets:", e);
+      return null;
     }
   }
 

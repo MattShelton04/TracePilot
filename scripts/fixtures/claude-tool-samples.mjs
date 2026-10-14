@@ -1,6 +1,8 @@
 /** Synthetic C4 renderer contracts. Native inputs/results drive the real provider. */
 const file = "C:/synthetic/gallery/src/ready.ts";
 const source = "export const ready = true;\n";
+const plan =
+  "# Flip the synthetic ready flag\n\n1. Set `ready` to `true` in `src/ready.ts`.\n2. Run `pnpm test`.\n\n| Step | Risk |\n| --- | --- |\n| Edit | Low |";
 const hunk = {
   oldStart: 1,
   oldLines: 1,
@@ -232,6 +234,8 @@ export const claudeToolSamples = [
     { answers: { "Which flag?": "Ready" } },
     JSON.stringify({ q1: "Ready" }),
     {
+      // The provider gives a single question's text as `message`.
+      message: "Which flag?",
       requestedSchema: {
         type: "object",
         properties: {
@@ -247,6 +251,16 @@ export const claudeToolSamples = [
       },
     },
     ".askuser-result",
+  ),
+  sample(
+    "exit-plan-mode",
+    "ExitPlanMode",
+    "ExitPlanMode",
+    { plan },
+    { plan, isAgent: false },
+    "User has approved your plan. You can now start coding.",
+    undefined,
+    ".plan-markdown",
   ),
   // Unverified public MCP shape; no server is contacted.
   sample(

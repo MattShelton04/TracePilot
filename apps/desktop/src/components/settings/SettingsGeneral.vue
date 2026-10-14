@@ -7,6 +7,7 @@ import {
   MIN_SESSION_CACHE_SIZE,
 } from "@tracepilot/types";
 import { ActionButton, BtnGroup, FormInput, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import { useCliCommandDraft } from "@/composables/useCliCommandDraft";
 import { type ThemeOption, usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 
@@ -21,6 +22,18 @@ const themeOptions = [
 function updateSessionCacheSize(value: unknown) {
   preferences.sessionCacheSize = clampSessionCacheSize(Number(value));
 }
+
+// Blank means `copilot`; a command Resume would refuse stays an unsaved draft.
+const {
+  draft: cliDraft,
+  invalid: cliInvalid,
+  update: updateCliCommand,
+} = useCliCommandDraft(
+  () => preferences.cliCommand,
+  (value) => {
+    preferences.cliCommand = value;
+  },
+);
 </script>
 
 <template>
@@ -90,20 +103,33 @@ function updateSessionCacheSize(value: unknown) {
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">CLI Command</div>
+          <label class="setting-label" for="settings-copilot-cli">CLI Command</label>
           <div class="setting-description">
             The command used to resume Copilot sessions (e.g., <code>copilot</code> or <code>gh copilot-cli</code>)
           </div>
+          <p v-if="cliInvalid" class="cli-command-error" role="alert">
+            Not saved: use only letters, digits, spaces and <code>- _ . / \ :</code>.
+            Resume uses <code>{{ preferences.cliCommand.trim() || DEFAULT_CLI_COMMAND }}</code>
+          </p>
         </div>
         <FormInput
-          :model-value="preferences.cliCommand"
-          @update:model-value="preferences.cliCommand = String($event)"
+          id="settings-copilot-cli"
+          :model-value="cliDraft"
+          @update:model-value="updateCliCommand"
           type="text"
           :placeholder="DEFAULT_CLI_COMMAND"
-          aria-label="CLI Command"
+          :aria-invalid="cliInvalid"
           class="input-medium"
         />
       </div>
     </SectionPanel>
   </div>
 </template>
+
+<style scoped>
+.cli-command-error {
+  margin: 4px 0 0;
+  color: var(--danger-fg);
+  font-size: 0.75rem;
+}
+</style>

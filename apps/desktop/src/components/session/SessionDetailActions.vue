@@ -96,8 +96,10 @@ async function resumeInTerminal() {
   }
   confirmingResume.value = false;
   try {
-    // The backend resumes other sources through their own configured CLI.
-    const copilotCli = props.source === "copilot" ? prefs.cliCommand : undefined;
+    // The backend resumes other sources through their own configured CLI, and
+    // Copilot through its default when the setting is blank.
+    const copilotCli =
+      props.source === "copilot" ? prefs.cliCommand.trim() || undefined : undefined;
     await resumeSessionInTerminal(props.resolvedSessionId, copilotCli);
   } catch (e) {
     logError("[sessionDetail] Failed to open terminal:", e);

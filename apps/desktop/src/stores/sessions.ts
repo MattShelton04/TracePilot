@@ -7,8 +7,10 @@ import { usePreferencesStore } from "./preferences";
 import {
   buildSearchFieldCache,
   filterAndSortSessions,
+  matchesSessionFilters,
   parseSearchTerms,
   repositoryFilterOptions,
+  sessionRepositoryKey,
   uniqueRepositories,
   uniqueSources,
 } from "./sessions/filtering";
@@ -63,9 +65,26 @@ export const useSessionsStore = defineStore("sessions", () => {
     );
   });
 
+  /** Sessions the list can show from `source` before a search or repository narrows it. */
+  function sessionsInSource(source: SessionSource | null): SessionListItem[] {
+    const prefs = usePreferencesStore();
+    const predicates = {
+      searchTerms: [],
+      repository: null,
+      source,
+      hideEmptySessions: prefs.hideEmptySessions,
+    };
+    return sessions.value.filter((s) =>
+      matchesSessionFilters(s, predicates, searchFieldCache.value),
+    );
+  }
+
   const repositories = computed(() => uniqueRepositories(sessions.value));
-  // The list's filter also groups repository-less sessions by their cwd.
-  const repositoryOptions = computed(() => repositoryFilterOptions(sessions.value));
+  // Only repositories with sessions to show; the list's filter also groups
+  // repository-less sessions by their cwd.
+  const repositoryOptions = computed(() =>
+    repositoryFilterOptions(sessionsInSource(filterSource.value), filterRepo.value),
+  );
   const sources = computed(() => uniqueSources(sessions.value));
 
   const emptySessionCount = computed(() => {
@@ -91,6 +110,15 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   function setSortBy(option: SortOption) {
     sortBy.value = option;
+  }
+
+  /** Pick a source, clearing a repository that has no sessions to show there. */
+  function setFilterSource(source: SessionSource | null) {
+    filterSource.value = source;
+    const repo = filterRepo.value;
+    if (repo && !sessionsInSource(source).some((s) => sessionRepositoryKey(s) === repo)) {
+      filterRepo.value = null;
+    }
   }
 
   // Passes and source purges (turning Claude Code on or off) change the
@@ -120,5 +148,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     ensureIndex: lifecycle.ensureIndex,
     watchIndexUpdates,
     setSortBy,
+    setFilterSource,
   };
 });
