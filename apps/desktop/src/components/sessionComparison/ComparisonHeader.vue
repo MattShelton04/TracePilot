@@ -126,4 +126,11 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
   min-width: 200px;
   max-width: 340px;
 }
+
+@media (max-width: 768px) {
+  .comp-picker {
+    width: 100%;
+    max-width: none;
+  }
+}
 </style>

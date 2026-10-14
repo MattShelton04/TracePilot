@@ -11,30 +11,6 @@
   margin-bottom: 24px;
 }
 
-.session-comparison-feature .comp-select {
-  flex: 0 1 340px;
-  min-width: 200px;
-  max-width: 340px;
-  padding: 10px 14px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  background: var(--canvas-overlay);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2371717a' stroke-width='1.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-}
-
-.session-comparison-feature .comp-select:focus {
-  outline: none;
-  border-color: var(--accent-emphasis);
-  box-shadow: 0 0 0 3px var(--accent-muted);
-}
-
 .session-comparison-feature .vs-label {
   font-size: 1rem;
   font-weight: 700;
@@ -523,10 +499,6 @@
 @media (max-width: 768px) {
   .session-comparison-feature .selector-row {
     flex-direction: column;
-  }
-  .session-comparison-feature .comp-select {
-    width: 100%;
-    max-width: none;
   }
   .session-comparison-feature .summary-pair,
   .session-comparison-feature .chart-grid-2 {

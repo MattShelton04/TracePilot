@@ -189,8 +189,19 @@ try {
       if (item.prepare === "open-plan") {
         await page.locator(".fb-tree__item").filter({ hasText: "plan.md" }).click();
       } else if (item.prepare === "compare-sessions") {
-        await page.getByLabel("Select Session A").selectOption("sess-search-polish");
-        await page.getByLabel("Select Session B").selectOption("sess-auth-refactor");
+        // Native selects before the searchable session pickers; both revisions run this.
+        for (const [side, id] of [
+          ["A", "sess-search-polish"],
+          ["B", "sess-auth-refactor"],
+        ]) {
+          const select = page.locator(`select[aria-label="Select Session ${side}"]`);
+          if (await select.count()) {
+            await select.selectOption(id);
+            continue;
+          }
+          await page.getByRole("combobox", { name: `Session ${side}`, exact: true }).click();
+          await page.locator(`[role="option"][id$="-${id}"]`).click();
+        }
         await page.getByRole("button", { name: "Compare", exact: true }).click();
       } else if (item.prepare === "sidebar-click") {
         // Open update surfaces from the sidebar, as a user would. Labels are
