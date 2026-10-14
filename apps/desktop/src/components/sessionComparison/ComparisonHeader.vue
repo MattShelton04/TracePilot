@@ -7,6 +7,7 @@ import {
 } from "@tracepilot/types";
 import { Badge, EmptyState, ErrorAlert, formatDuration, SkeletonLoader } from "@tracepilot/ui";
 import { computed } from "vue";
+import SessionPicker from "@/components/SessionPicker.vue";
 import {
   exitBadgeVariant,
   exitLabel,
@@ -41,37 +42,25 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
 
   <!-- Session Selector -->
   <div class="selector-row">
-    <select
-      v-model="comp.selectedA"
-      class="comp-select"
+    <SessionPicker
+      class="comp-picker"
+      :sessions="comp.sessionOptions"
+      :selected-id="comp.selectedA"
       :disabled="comp.loading"
-      aria-label="Select Session A"
-    >
-      <option value="" disabled>Select Session A…</option>
-      <option
-        v-for="s in comp.sessionOptions"
-        :key="s.id"
-        :value="s.id"
-      >
-        {{ s.summary || s.id }}{{ s.repository ? ` — ${s.repository}` : '' }}
-      </option>
-    </select>
+      label="Session A"
+      placeholder="Search for session A…"
+      @select="comp.selectedA = $event"
+    />
     <span class="vs-label">vs</span>
-    <select
-      v-model="comp.selectedB"
-      class="comp-select"
+    <SessionPicker
+      class="comp-picker"
+      :sessions="comp.sessionOptions"
+      :selected-id="comp.selectedB"
       :disabled="comp.loading"
-      aria-label="Select Session B"
-    >
-      <option value="" disabled>Select Session B…</option>
-      <option
-        v-for="s in comp.sessionOptions"
-        :key="s.id"
-        :value="s.id"
-      >
-        {{ s.summary || s.id }}{{ s.repository ? ` — ${s.repository}` : '' }}
-      </option>
-    </select>
+      label="Session B"
+      placeholder="Search for session B…"
+      @select="comp.selectedB = $event"
+    />
     <button
       class="compare-btn"
       type="button"
@@ -130,3 +119,11 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
     </div>
   </div>
 </template>
+
+<style scoped>
+.comp-picker {
+  flex: 0 1 340px;
+  min-width: 200px;
+  max-width: 340px;
+}
+</style>

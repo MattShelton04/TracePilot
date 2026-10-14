@@ -200,8 +200,8 @@ describe("ExportSessionPicker", () => {
       },
     });
     // Open dropdown by focusing the input
-    await wrapper.find(".session-search-input").trigger("focus");
-    await wrapper.find(".session-dropdown-item").trigger("click");
+    await wrapper.find(".session-picker__input").trigger("focus");
+    await wrapper.find(".session-picker__option").trigger("click");
     expect(wrapper.emitted("select")?.[0]).toEqual(["abc"]);
     void sessions;
     wrapper.unmount();
@@ -228,7 +228,7 @@ describe("ExportSessionPicker selected session", () => {
       cwd: "C:\\synthetic\\harbor",
       currentModel: "claude-opus-5-5",
     });
-    expect((wrapper.get(".session-search-input").element as HTMLInputElement).value).toBe(
+    expect((wrapper.get(".session-picker__input").element as HTMLInputElement).value).toBe(
       "Ship 2.4 — harbor",
     );
     const badges = wrapper.findAll(".session-info-badges .badge").map((b) => b.text());
@@ -238,7 +238,7 @@ describe("ExportSessionPicker selected session", () => {
 
   it("drops the placeholder badges when nothing identifies the project", () => {
     const wrapper = picker({ id: "x", summary: "Loose", repository: null, currentModel: null });
-    expect((wrapper.get(".session-search-input").element as HTMLInputElement).value).toBe("Loose");
+    expect((wrapper.get(".session-picker__input").element as HTMLInputElement).value).toBe("Loose");
     expect(wrapper.findAll(".session-info-badges .badge")).toHaveLength(0);
     wrapper.unmount();
   });
@@ -250,7 +250,7 @@ describe("ExportSessionPicker selected session", () => {
       repository: "org/repo",
       currentModel: "gpt-5",
     });
-    expect((wrapper.get(".session-search-input").element as HTMLInputElement).value).toBe(
+    expect((wrapper.get(".session-picker__input").element as HTMLInputElement).value).toBe(
       "Fix — org/repo",
     );
     expect(wrapper.findAll(".session-info-badges .badge").map((b) => b.text())).toEqual([

@@ -114,6 +114,49 @@ describe("ComparisonHeader", () => {
     expect(comp.runComparison).toHaveBeenCalled();
   });
 
+  it("searches each side's sessions by project and words, and tells same-named ones apart by date", async () => {
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+    const comp = makeCompStub({
+      sessionOptions: [
+        { id: "r1", summary: "Nightly run", repository: "org/app", updatedAt: hoursAgo(2) },
+        { id: "r2", summary: "Nightly run", repository: "org/app", updatedAt: hoursAgo(50) },
+        {
+          id: "cc",
+          summary: "Fix login bug",
+          source: "claudeCode",
+          repository: null,
+          cwd: "C:\\synthetic\\harbor",
+          updatedAt: hoursAgo(5),
+        },
+      ] as never,
+    });
+    const wrapper = mount(hostFor(ComparisonHeader, comp), { attachTo: document.body });
+    const pickerA = wrapper.get<HTMLInputElement>('[role="combobox"][aria-label="Session A"]');
+    const pickerB = wrapper.get<HTMLInputElement>('[role="combobox"][aria-label="Session B"]');
+
+    pickerA.element.focus();
+    await pickerA.setValue("nightly");
+    const metas = wrapper.findAll('[role="option"]').map((o) => o.text());
+    expect(metas).toEqual([expect.stringContaining("2h ago"), expect.stringContaining("2d ago")]);
+
+    await pickerA.setValue("harbor");
+    expect(wrapper.findAll('[role="option"]').map((o) => o.text())).toEqual([
+      expect.stringContaining("Fix login bug"),
+    ]);
+    await pickerA.trigger("keydown", { key: "ArrowDown" });
+    await pickerA.trigger("keydown", { key: "Enter" });
+    expect(comp.selectedA).toBe("cc");
+    expect(pickerA.element.value).toBe("Fix login bug — harbor");
+
+    pickerB.element.focus();
+    await pickerB.setValue("run nightly");
+    await pickerB.trigger("keydown", { key: "ArrowDown" });
+    await pickerB.trigger("keydown", { key: "ArrowDown" });
+    await pickerB.trigger("keydown", { key: "Enter" });
+    expect(comp.selectedB).toBe("r2");
+    wrapper.unmount();
+  });
+
   it("renders summary cards when compared=true", () => {
     const comp = makeCompStub({
       compared: true,

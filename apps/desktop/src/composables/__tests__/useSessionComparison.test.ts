@@ -11,7 +11,7 @@ import { defineComponent } from "vue";
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 const sessionsStoreMock = {
-  sessions: [] as Array<{ id: string; summary?: string; repository?: string }>,
+  sessions: [] as Array<{ id: string; summary?: string; repository?: string; turnCount?: number }>,
   fetchSessions: vi.fn(async () => {}),
 };
 vi.mock("@/stores/sessions", () => ({
@@ -19,6 +19,7 @@ vi.mock("@/stores/sessions", () => ({
 }));
 
 const prefsStoreMock = {
+  hideEmptySessions: true,
   computeWholesaleCost: false,
   costPerPremiumRequest: 0.04,
   computeUsageBasedCostBreakdown: (
@@ -90,6 +91,7 @@ describe("useSessionComparison", () => {
   beforeEach(() => {
     setupPinia();
     sessionsStoreMock.sessions = [];
+    prefsStoreMock.hideEmptySessions = true;
     sessionsStoreMock.fetchSessions = vi.fn(async () => {});
     clientMock.getSessionDetail = vi.fn(
       async (id: string) => ({ id, summary: id }) as SessionDetail,
@@ -106,6 +108,24 @@ describe("useSessionComparison", () => {
     expect(comp.canCompare).toBeFalsy();
     expect(comp.metricsRows).toEqual([]);
     expect(comp.tokenBars).toEqual([]);
+  });
+
+  it("offers only the sessions the list shows, keeping a chosen empty session", () => {
+    sessionsStoreMock.sessions = [
+      { id: "worked", summary: "Worked", turnCount: 3 },
+      { id: "empty", summary: "Empty", turnCount: 0 },
+      { id: "unknown", summary: "Never counted" },
+    ];
+    prefsStoreMock.hideEmptySessions = true;
+    const { comp } = mountHook();
+    expect(comp.sessionOptions.map((s) => s.id)).toEqual(["worked"]);
+
+    comp.selectedB = "empty";
+    expect(comp.sessionOptions.map((s) => s.id)).toEqual(["worked", "empty"]);
+
+    prefsStoreMock.hideEmptySessions = false;
+    const { comp: showAll } = mountHook();
+    expect(showAll.sessionOptions.map((s) => s.id)).toEqual(["worked", "empty", "unknown"]);
   });
 
   it("canCompare gates on two distinct non-empty selections and !loading", () => {
