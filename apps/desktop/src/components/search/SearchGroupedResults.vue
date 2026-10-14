@@ -13,7 +13,8 @@ defineProps<{
   expandedResults: Set<number>;
   resultIndexMap: Map<number, number>;
   focusedResultIndex: number | null;
-  hasMore: boolean;
+  /** The results span pages, so each group counts only this page's matches. */
+  paged: boolean;
   contentTypeConfig: Record<string, ContentTypeStyle>;
   sessionLink: (sessionId: string, turnNumber: number | null, eventIndex: number | null) => string;
 }>();
@@ -55,7 +56,7 @@ const groupId = useId();
           <span v-if="group.sessionBranch" class="badge badge-success badge-xxs">{{ group.sessionBranch }}</span>
         </div>
         <div class="session-group-actions">
-          <span class="session-group-count">{{ group.results.length }}{{ hasMore ? '+' : '' }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
+          <span class="session-group-count">{{ group.results.length }} match{{ group.results.length !== 1 ? 'es' : '' }}{{ paged ? ' on this page' : '' }}</span>
           <button
             type="button"
             class="session-group-filter-btn"

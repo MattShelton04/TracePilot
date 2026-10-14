@@ -168,10 +168,12 @@ export function uniqueRepositories(sessions: readonly SessionListItem[]): string
 
 /**
  * Repository-filter options: repositories first, then projects for sessions
- * that have only a working directory, each list sorted by label.
+ * that have only a working directory, each list sorted by label. `selected`
+ * stays listed even with no session behind it, so the select can show it.
  */
 export function repositoryFilterOptions(
   sessions: readonly SessionListItem[],
+  selected: string | null = null,
 ): RepositoryFilterOption[] {
   const repos = new Set<string>();
   const projects = new Map<string, Set<string>>();
@@ -189,6 +191,12 @@ export function repositoryFilterOptions(
     }
     paths.add(s.cwd.trim());
   }
+  if (selected?.startsWith(PROJECT_FILTER_PREFIX)) {
+    const label = selected.slice(PROJECT_FILTER_PREFIX.length);
+    if (!projects.has(label)) projects.set(label, new Set());
+  } else if (selected) {
+    repos.add(selected);
+  }
   const repoOptions = [...repos]
     .sort()
     .map((repo): RepositoryFilterOption => ({ value: repo, label: repo, group: "Repositories" }));
@@ -196,7 +204,7 @@ export function repositoryFilterOptions(
     (label): RepositoryFilterOption => ({
       value: `${PROJECT_FILTER_PREFIX}${label}`,
       label,
-      title: [...(projects.get(label) ?? [])].sort().join("\n"),
+      title: [...(projects.get(label) ?? [])].sort().join("\n") || undefined,
       group: "Folders",
     }),
   );

@@ -25,6 +25,8 @@ export interface SearchExecutor {
  */
 export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
   const { query: q, facets: f, guard, recordRecentSearch } = deps;
+  /** The search inputs `q.facetSessionCount` was counted for. */
+  let sessionCountKey: string | null = null;
 
   async function executeSearch() {
     const parsed = parseQualifiers(q.query.value);
@@ -76,12 +78,30 @@ export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
         }
 
         const facetQuery = merged.searchQuery || undefined;
-        f.fetchFacets(facetQuery, {
+        const facetFilters = {
           contentTypes: merged.contentTypes,
           repo: merged.repository,
           tool: merged.toolName,
           session: merged.sessionId,
           source: merged.source,
+        };
+        // The facets count the sessions behind every page. Another page of the
+        // same search keeps its count; anything else waits for its own facets.
+        const countKey = JSON.stringify([
+          facetQuery,
+          facetFilters,
+          q.excludeContentTypes.value,
+          dateFromUnix,
+          dateToUnix,
+          response.totalCount,
+        ]);
+        if (countKey !== sessionCountKey) q.facetSessionCount.value = null;
+        void f.fetchFacets(facetQuery, facetFilters).then((applied) => {
+          // Only facets for the results on screen, counting the same matches.
+          if (!applied || q.results.value !== response.results) return;
+          const agrees = applied.totalMatches === response.totalCount;
+          q.facetSessionCount.value = agrees ? applied.sessionCount : null;
+          sessionCountKey = agrees ? countKey : null;
         });
       },
     });
