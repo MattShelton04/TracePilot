@@ -249,7 +249,7 @@ export const RULES = [
 export const NOTES = [
   {
     match: (f) => RUST_CONFIG.test(f.path),
-    text: "Rust build or dependency configuration changed: the protocol asks for the full gate (`just ci`).",
+    text: "Rust build or dependency configuration changed: the PR's CI runs the full gate; run `just ci` locally only if you aren't confident it passes.",
   },
   {
     match: (f) => f.path.startsWith("crates/tracepilot-tauri-bindings/"),
@@ -257,7 +257,7 @@ export const NOTES = [
   },
   {
     match: (f) => /^packages\/(?:ui|client|types)\/src\//.test(f.path),
-    text: "Shared package changed: if its public API changed for other workspaces, the protocol asks for `just ci`.",
+    text: "Shared package changed: if its public API changed for other workspaces, the PR's CI runs the full gate; run `just ci` locally only if you aren't confident it passes.",
   },
   {
     match: (f) => f.path.startsWith("site/"),
