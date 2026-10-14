@@ -37,20 +37,32 @@ struct DayModelUsageTotals {
     unobserved_cache_write_tokens: u64,
 }
 
+/// The two `(where_clause, bind_values)` filters over the `sessions s` alias
+/// that the model-day series needs, plus the requested range.
+pub(super) struct DayFilters<'a> {
+    /// Repository, source and hide-empty filters without a session date
+    /// guard. Runs are bounded by `from_date`/`to_date` on `m.end_timestamp`.
+    pub runs: (&'a str, &'a [String]),
+    /// The full session filter, including the last-activity date guard. A
+    /// session without runs has no end day of its own, so it is bucketed on
+    /// and bounded by its last-activity day, like the lifetime KPIs.
+    pub sessions: (&'a str, &'a [String]),
+    pub from_date: Option<&'a str>,
+    pub to_date: Option<&'a str>,
+}
+
 pub(super) fn query_model_usage_by_day(
     conn: &Connection,
-    where_clause: &str,
-    bind_values: &[String],
-    from_date: Option<&str>,
-    to_date: Option<&str>,
+    filters: DayFilters<'_>,
 ) -> Result<Vec<DayModelUsage>> {
     let mut totals: BTreeMap<UsageKey, DayModelUsageTotals> = BTreeMap::new();
 
+    let (run_where, run_values) = filters.runs;
     let (segment_where, segment_values) = append_segment_date_filter(
-        where_clause,
-        bind_values,
-        from_date,
-        to_date,
+        run_where,
+        run_values,
+        filters.from_date,
+        filters.to_date,
         "m.end_timestamp",
     );
     let segment_sql = format!(
@@ -82,6 +94,8 @@ pub(super) fn query_model_usage_by_day(
         }
     }
 
+    // Sessions without runs: lifetime model usage on the last-activity day.
+    let (where_clause, bind_values) = filters.sessions;
     let fallback_sql = format!(
         "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,
                     m.model_name,

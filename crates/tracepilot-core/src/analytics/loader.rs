@@ -111,9 +111,10 @@ pub fn load_session_summaries_filtered(
 /// Load full sessions with optional date range and repository filtering.
 ///
 /// Sessions are selected by their last-active date. Their lifetime totals are
-/// left intact, but `session_segments` are clamped to the requested window so
-/// the per-day charts match the indexed query; see
-/// [`clamp_segments_to_date_range`].
+/// left intact, but `session_segments` are clamped to the requested window;
+/// see [`clamp_segments_to_date_range`]. The per-day charts then match the
+/// indexed query except for runs of sessions last active after the range,
+/// which the indexed query still counts on the day each run ended.
 pub fn load_full_sessions_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,

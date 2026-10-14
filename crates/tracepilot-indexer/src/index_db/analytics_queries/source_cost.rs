@@ -56,6 +56,9 @@ pub(super) fn query_cost_by_source(
 
 /// Provider USD per day from per-run segments, bucketed by the day each run
 /// ended like the other per-day charts. Days with no USD figure are absent.
+///
+/// `where_clause` must not carry the session last-activity date guard; the
+/// range applies to each run's `m.end_timestamp` (see `query_analytics`).
 pub(super) fn query_cost_usd_by_day(
     conn: &Connection,
     where_clause: &str,

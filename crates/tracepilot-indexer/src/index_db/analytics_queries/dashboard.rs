@@ -6,7 +6,7 @@ use tracepilot_core::provider::SessionSource;
 
 use super::super::helpers::*;
 use super::day_bucket::{DayBucketSpec, query_day_bucketed};
-use super::model_usage_by_day::query_model_usage_by_day;
+use super::model_usage_by_day::{DayFilters, query_model_usage_by_day};
 
 /// FROM/JOIN fragment shared by all three day-bucketed dashboard charts.
 const SEGMENTS_JOIN_SESSIONS: &str = "session_segments m JOIN sessions s ON s.id = m.session_id";
@@ -23,14 +23,23 @@ pub(super) fn query_analytics(
         build_date_repo_filter(from_date, to_date, repo, hide_empty);
     append_source_filter(&mut where_clause, &mut bind_values, source);
 
+    // Per-run series select runs by the day each one ended, so they skip the
+    // session last-activity guard: a run that ended in the range counts even
+    // when its session was resumed later. The range itself is applied to
+    // `m.end_timestamp` by `query_day_bucketed` / `append_segment_date_filter`.
+    let (mut run_where, mut run_values) = build_date_repo_filter(None, None, repo, hide_empty);
+    append_source_filter(&mut run_where, &mut run_values, source);
+
     // Aggregate session-level stats.
     //
     // NOTE: These sums (`total_tokens`, `total_cost`, `total_premium_requests`) are
-    // session-lifetime values stored on the `sessions` row.  For a cross-day session that
-    // was last active on the final day of the filter window, its full lifetime total is
-    // included here even though the per-day charts (which use `session_segments`) are
-    // correctly clamped to the requested window.  For sessions that do not cross the
-    // window boundary the numbers are consistent.
+    // session-lifetime values stored on the `sessions` row, for the sessions whose
+    // last activity falls in the range. The per-day charts (which use
+    // `session_segments`) count runs by the day they ended instead, so for a session
+    // that spans the range boundary the two disagree: a session last active in the
+    // range adds its whole lifetime total here, and a session resumed after the range
+    // adds nothing here but still shows its in-range runs in the charts. For sessions
+    // that do not cross the boundary the numbers are consistent.
     let agg_sql = format!(
         "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),
@@ -103,9 +112,7 @@ pub(super) fn query_analytics(
         ))
     })?;
 
-    // Tokens by day — clamp segment end_timestamp to the requested window to
-    // prevent segments from sessions that *overlap* the range from leaking
-    // data points outside the filter window.
+    // Tokens by day — runs whose end_timestamp falls in the requested window.
     let token_usage_by_day = query_day_bucketed(
         conn,
         DayBucketSpec {
@@ -113,8 +120,8 @@ pub(super) fn query_analytics(
             aggregate_expr: "COALESCE(SUM(m.total_tokens), 0)",
             bucket_column: "m.end_timestamp",
         },
-        &where_clause,
-        &bind_values,
+        &run_where,
+        &run_values,
         from_date,
         to_date,
         |row| {
@@ -136,8 +143,8 @@ pub(super) fn query_analytics(
             aggregate_expr: "COUNT(*)",
             bucket_column: "m.end_timestamp",
         },
-        &where_clause,
-        &bind_values,
+        &run_where,
+        &run_values,
         from_date,
         to_date,
         |row| {
@@ -148,7 +155,7 @@ pub(super) fn query_analytics(
         },
     )?;
 
-    // Cost by day — clamp segment end_timestamp to the requested window.
+    // Premium requests by day — runs whose end_timestamp falls in the window.
     let cost_by_day = query_day_bucketed(
         conn,
         DayBucketSpec {
@@ -156,8 +163,8 @@ pub(super) fn query_analytics(
             aggregate_expr: "COALESCE(SUM(m.total_premium_requests), 0.0)",
             bucket_column: "m.end_timestamp",
         },
-        &where_clause,
-        &bind_values,
+        &run_where,
+        &run_values,
         from_date,
         to_date,
         |row| {
@@ -167,8 +174,15 @@ pub(super) fn query_analytics(
             })
         },
     )?;
-    let model_usage_by_day =
-        query_model_usage_by_day(conn, &where_clause, &bind_values, from_date, to_date)?;
+    let model_usage_by_day = query_model_usage_by_day(
+        conn,
+        DayFilters {
+            runs: (&run_where, &run_values),
+            sessions: (&where_clause, &bind_values),
+            from_date,
+            to_date,
+        },
+    )?;
 
     let mdist_sql = format!(
         "SELECT m.model_name,
@@ -317,8 +331,8 @@ pub(super) fn query_analytics(
         )?,
         cost_usd_by_day: super::source_cost::query_cost_usd_by_day(
             conn,
-            &where_clause,
-            &bind_values,
+            &run_where,
+            &run_values,
             from_date,
             to_date,
         )?,
