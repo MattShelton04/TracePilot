@@ -98,6 +98,27 @@ describe("SessionDetailActions", () => {
     wrapper.unmount();
   });
 
+  it("lets the backend pick the default Copilot CLI when the setting is blank", async () => {
+    const prefs = usePreferencesStore(pinia);
+    // Config hydration must finish first, or it resets these preferences.
+    await prefs.whenReady;
+    await flushPromises();
+    prefs.cliCommand = "  ";
+    const wrapper = mountForSource(pinia, "copilot");
+    await flushPromises();
+
+    await wrapper.get('[title="Copy: copilot --resume session-1"]').trigger("click");
+    await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
+    // A blank command would fail the backend's "must not be empty" check.
+    expect(mocks.resumeSessionInTerminal).toHaveBeenCalledWith("session-1", undefined);
+
+    prefs.cliCommand = " gh copilot ";
+    await flushPromises();
+    await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
+    expect(mocks.resumeSessionInTerminal).toHaveBeenLastCalledWith("session-1", "gh copilot");
+    wrapper.unmount();
+  });
+
   it("resumes a Claude Code session through its own CLI command, not Copilot's", async () => {
     const prefs = usePreferencesStore(pinia);
     // Config hydration must finish first, or it resets these preferences.

@@ -1,31 +1,18 @@
 <script setup lang="ts">
 import { DEFAULT_CLAUDE_CLI_COMMAND } from "@tracepilot/types";
 import { FormInput } from "@tracepilot/ui";
-import { computed, ref, watch } from "vue";
+import { useCliCommandDraft } from "@/composables/useCliCommandDraft";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const preferences = usePreferencesStore();
 
-/**
- * The characters `validate_cli_command` accepts (Unicode letters and digits
- * are a subset of its rule), so autosave never sends a command the backend
- * refuses. Blank means `claude`.
- */
-const SAFE_COMMAND = /^[\p{L}\p{N}\-_./\\ :]*$/u;
-
-const draft = ref(preferences.claudeCliCommand);
-watch(
+// Blank means `claude`; a command the backend refuses stays an unsaved draft.
+const { draft, invalid, update } = useCliCommandDraft(
   () => preferences.claudeCliCommand,
   (value) => {
-    draft.value = value;
+    preferences.claudeCliCommand = value;
   },
 );
-const invalid = computed(() => !SAFE_COMMAND.test(draft.value));
-
-function update(value: unknown) {
-  draft.value = String(value);
-  if (!invalid.value) preferences.claudeCliCommand = draft.value;
-}
 </script>
 
 <template>
