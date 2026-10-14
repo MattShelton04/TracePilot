@@ -46,7 +46,8 @@ export async function runUiAction<T>(options: RunUiActionOptions<T>): Promise<T 
     if (onError) {
       onError(e);
     } else {
-      toastError(e instanceof Error ? e.message : "Action failed");
+      // IPC rejects with the serialized `{ code, message }`, not an Error.
+      toastError(toErrorMessage(e, "Action failed"));
     }
     return undefined;
   }

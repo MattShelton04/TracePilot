@@ -11,7 +11,9 @@ import type {
   SourceCapabilities,
 } from "@tracepilot/types";
 import { ALL_SECTION_IDS } from "@tracepilot/types";
+import { usePersistedRef } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 
 /**
  * UI-level format selection — superset of the backend `ExportFormat` that adds
@@ -151,30 +153,114 @@ export const FORMAT_DESCRIPTIONS: Record<ExportTabFormat, string> = {
   zip: "Raw zip of the session folder — all files exactly as stored on disk. No rendering or filtering.",
 };
 
+// ── Remembered Options ──────────────────────────────────────────
+
+/**
+ * The export choices kept across visits and restarts. Per-run choices (the
+ * session and the output path) are not kept.
+ */
+export interface ExportOptions {
+  format: ExportTabFormat;
+  sections: SectionId[];
+  activePreset: string | null;
+  contentDetail: ContentDetailOptions;
+  redaction: RedactionOptions;
+  customPresets: ExportPreset[];
+}
+
+export function defaultExportOptions(): ExportOptions {
+  return {
+    format: "json",
+    sections: [...ALL_SECTION_IDS],
+    activePreset: "full",
+    contentDetail: {
+      includeSubagentInternals: true,
+      includeToolDetails: true,
+      includeFullToolResults: false,
+    },
+    redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
+    customPresets: [],
+  };
+}
+
+const FORMATS: readonly ExportTabFormat[] = ["json", "markdown", "zip"];
+
+function readSections(value: unknown): SectionId[] | null {
+  if (!Array.isArray(value)) return null;
+  return ALL_SECTION_IDS.filter((id) => value.includes(id));
+}
+
+/** Copy each known boolean flag from `value`, keeping the default for the rest. */
+function readFlags<T extends object>(value: unknown, defaults: T): T {
+  const flags = { ...defaults };
+  if (value && typeof value === "object") {
+    for (const key of Object.keys(defaults) as (keyof T)[]) {
+      const flag = (value as Record<keyof T, unknown>)[key];
+      if (typeof flag === "boolean") flags[key] = flag as T[keyof T];
+    }
+  }
+  return flags;
+}
+
+function readCustomPreset(value: unknown): ExportPreset | null {
+  if (!value || typeof value !== "object") return null;
+  const { id, label, format, sections } = value as Record<string, unknown>;
+  const presetSections = readSections(sections);
+  if (typeof id !== "string" || !id.startsWith("custom-")) return null;
+  if (typeof label !== "string" || !label.trim() || !presetSections) return null;
+  if (format !== "json" && format !== "markdown") return null;
+  return customPreset(id, label, format, presetSections);
+}
+
+function customPreset(
+  id: string,
+  label: string,
+  format: ExportFormat,
+  sections: SectionId[],
+): ExportPreset {
+  return { id, label, icon: "⭐", description: `Custom preset: ${label}`, format, sections };
+}
+
+/** Keep each stored choice that is still valid; default the rest. */
+export function readExportOptions(raw: string): ExportOptions {
+  const stored = JSON.parse(raw) as Record<string, unknown> | null;
+  const options = defaultExportOptions();
+  options.format = FORMATS.find((f) => f === stored?.format) ?? options.format;
+  options.sections = readSections(stored?.sections) ?? options.sections;
+  options.contentDetail = readFlags(stored?.contentDetail, options.contentDetail);
+  options.redaction = readFlags(stored?.redaction, options.redaction);
+  const presets = Array.isArray(stored?.customPresets) ? stored.customPresets : [];
+  options.customPresets = presets
+    .map(readCustomPreset)
+    .filter((preset): preset is ExportPreset => preset !== null);
+  const known = [...EXPORT_PRESETS, ...options.customPresets].map((preset) => preset.id);
+  const active = stored?.activePreset;
+  options.activePreset =
+    active === null || (typeof active === "string" && known.includes(active)) ? active : null;
+  return options;
+}
+
 // ── Composable ──────────────────────────────────────────────────
 
 export function useExportConfig() {
+  const stored = usePersistedRef(STORAGE_KEYS.exportOptions, defaultExportOptions(), {
+    serializer: { read: readExportOptions, write: (value) => JSON.stringify(value) },
+  });
+  const initial = stored.value;
+
   const selectedSessionId = ref("");
-  const format = ref<ExportTabFormat>("json");
-  const enabledSections = ref(new Set<SectionId>([...ALL_SECTION_IDS]));
-  const activePreset = ref<string | null>("full");
+  const format = ref<ExportTabFormat>(initial.format);
+  const enabledSections = ref(new Set<SectionId>(initial.sections));
+  const activePreset = ref<string | null>(initial.activePreset);
 
   // Content detail options
-  const contentDetail = ref<ContentDetailOptions>({
-    includeSubagentInternals: true,
-    includeToolDetails: true,
-    includeFullToolResults: false,
-  });
+  const contentDetail = ref<ContentDetailOptions>(initial.contentDetail);
 
   // Privacy redaction options
-  const redaction = ref<RedactionOptions>({
-    anonymizePaths: false,
-    stripSecrets: false,
-    stripPii: false,
-  });
+  const redaction = ref<RedactionOptions>(initial.redaction);
 
-  // Custom user-saved presets (session-scoped)
-  const customPresets = ref<ExportPreset[]>([]);
+  // Custom user-saved presets
+  const customPresets = ref<ExportPreset[]>(initial.customPresets);
 
   /** All available presets: built-in + custom */
   const allPresets = computed<ExportPreset[]>(() => [...EXPORT_PRESETS, ...customPresets.value]);
@@ -228,14 +314,7 @@ export function useExportConfig() {
     const id = `custom-${Date.now()}`;
     customPresets.value = [
       ...customPresets.value,
-      {
-        id,
-        label: name,
-        icon: "⭐",
-        description: `Custom preset: ${name}`,
-        format: presetFormat,
-        sections: [...enabledSections.value],
-      },
+      customPreset(id, name, presetFormat, [...enabledSections.value]),
     ];
     activePreset.value = id;
   }
@@ -267,6 +346,19 @@ export function useExportConfig() {
   );
 
   const sectionsArray = computed<SectionId[]>(() => [...enabledSections.value]);
+
+  // Write every choice back. The refs start from the stored copy, so the
+  // format watcher above never sees a restore and keeps the active preset.
+  watch([format, sectionsArray, activePreset, contentDetail, redaction, customPresets], () => {
+    stored.value = {
+      format: format.value,
+      sections: sectionsArray.value,
+      activePreset: activePreset.value,
+      contentDetail: contentDetail.value,
+      redaction: redaction.value,
+      customPresets: customPresets.value,
+    };
+  });
 
   return {
     selectedSessionId,

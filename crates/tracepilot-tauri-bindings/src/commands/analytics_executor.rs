@@ -145,7 +145,7 @@ impl AnalyticsContext {
 ///     |session_dir, p| {
 ///         let (from, to, repo, hide, _) = p.as_refs();
 ///         let inputs = load_full_sessions_filtered(session_dir, from, to, repo, hide)?;
-///         Ok(compute_analytics(&inputs))
+///         Ok(compute_analytics_in_range(&inputs, from, to))
 ///     },
 /// ).await?;
 /// ```

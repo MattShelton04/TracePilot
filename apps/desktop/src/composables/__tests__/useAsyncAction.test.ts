@@ -43,10 +43,34 @@ describe("runUiAction", () => {
     expect(errorMock).toHaveBeenCalledWith("boom");
   });
 
-  it("falls back to a generic error message for non-Error throws", async () => {
+  it("surfaces the message of a structured IPC error", async () => {
+    // Tauri rejects with the serialized BindingsError, not an Error instance.
+    await runUiAction({
+      run: async () => {
+        throw {
+          code: "UNSUPPORTED",
+          message: "Folder export is not available for Claude Code sessions.",
+        };
+      },
+    });
+    expect(errorMock).toHaveBeenCalledWith(
+      "Folder export is not available for Claude Code sessions.",
+    );
+  });
+
+  it("surfaces a thrown string as the message", async () => {
     await runUiAction({
       run: async () => {
         throw "string-failure";
+      },
+    });
+    expect(errorMock).toHaveBeenCalledWith("string-failure");
+  });
+
+  it("falls back to a generic message when the error carries none", async () => {
+    await runUiAction({
+      run: async () => {
+        throw undefined;
       },
     });
     expect(errorMock).toHaveBeenCalledWith("Action failed");

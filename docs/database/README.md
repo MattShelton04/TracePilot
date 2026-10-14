@@ -74,7 +74,10 @@ keep each index in sync. Per-session search writes temporarily drop the
 statement, and restore the trigger in the same transaction. Bulk rebuilds drop
 all three triggers and run an FTS `rebuild`. FTS rowids are
 `search_content.id` (AUTOINCREMENT, never reused) and `sessions.rowid`; neither
-is a stable external identifier.
+is a stable external identifier. `fts_integrity_check` runs FTS5
+`integrity-check` with `rank = 1`, which also compares `search_fts` against
+`search_content` and reads every row. `fts_health.in_sync` only compares row
+counts and pending sessions, so it can't see an index that holds stale text.
 
 **Session IDs are native, not composite.** `sessions.id` is the provider's own
 session UUID, and `sessions.source` records which provider owns it. Writers
@@ -148,18 +151,6 @@ it is fixed.
    activity, model and USD per-day series are all empty. Fix: give the per-day
    series their own filter on `m.end_timestamp`, and keep the lifetime-KPI
    filter as it is. This is a query-only change and needs no reindex.
-3. **The FTS integrity check can't see index/content divergence.**
-   `fts_integrity_check` runs `integrity-check` without `rank=1`, so it never
-   compares the index against `search_content`. In the reproduction, search
-   returned a hit for text that was no longer in the content table. The check
-   still reported `ok` and `fts_health.in_sync` was true; the `rank=1` form
-   reported corruption. Fix: use `VALUES('integrity-check', 1)` and describe
-   `fts_health` as a row-count check.
-4. **`with_transaction` has no guard against panics.** A panic in the closure
-   leaves the connection inside a transaction. Today this can't cause harm,
-   because its only caller (`reindex_sources`) owns the connection and drops it
-   on error, which rolls back. The doc comment claims more than the code does.
-   Switching to `unchecked_transaction()` would make it hold for future callers.
 
 `idx_session_incidents_type` has no reader: incidents are only read by
 `session_id`.

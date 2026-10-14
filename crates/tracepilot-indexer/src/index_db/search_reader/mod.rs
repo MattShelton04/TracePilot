@@ -90,6 +90,7 @@ pub struct FtsHealthInfo {
     pub indexed_sessions: i64,
     pub total_sessions: i64,
     pub pending_sessions: i64,
+    /// Row counts match and nothing is pending. Not a content comparison.
     pub in_sync: bool,
     pub content_types: Vec<(String, i64)>,
     pub db_size_bytes: i64,

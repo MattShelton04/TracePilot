@@ -52,6 +52,19 @@ describe("UserMessageAnchor pasted text", () => {
     expect(block.get(".cv-pasted-toggle").attributes("aria-expanded")).toBe("true");
   });
 
+  it("copies the whole prompt as text, pasted blocks included but not their wrapper tags", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const wrapper = anchor(
+      'Fix **this**:\n\n<pasted_content id="4">\nalpha\nbeta\n</pasted_content id="4">',
+    );
+    const button = wrapper.get('.cv-user-header button[aria-label="Copy prompt"]');
+    await button.trigger("click");
+    await flushPromises();
+    expect(writeText).toHaveBeenCalledExactlyOnceWith("Fix **this**:\n\nalpha\nbeta");
+    expect(button.attributes("aria-label")).toBe("Copied");
+  });
+
   it("renders a prompt without pasted text as before", () => {
     const wrapper = anchor("/model claude-opus-5-5");
     expect(wrapper.find('[data-testid="pasted-content"]').exists()).toBe(false);

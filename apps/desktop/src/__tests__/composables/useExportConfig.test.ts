@@ -10,6 +10,7 @@ import {
 } from "../../composables/useExportConfig";
 
 beforeEach(() => {
+  localStorage.clear();
   vi.useFakeTimers();
 });
 

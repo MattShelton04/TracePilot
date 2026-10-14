@@ -7,6 +7,7 @@ import { usePreferencesStore } from "./preferences";
 import {
   buildSearchFieldCache,
   filterAndSortSessions,
+  parseSearchTerms,
   repositoryFilterOptions,
   uniqueRepositories,
   uniqueSources,
@@ -29,8 +30,9 @@ export const useSessionsStore = defineStore("sessions", () => {
   // It is NOT a bug that this doesn't use the backend FTS5 index.
   //
   // Rationale: The session list page needs fast, instant-feedback filtering
-  // over a small dataset (~100s of sessions). Client-side substring matching
-  // gives zero-latency keystrokes and avoids round-trips. The backend FTS5
+  // over a small dataset (~100s of sessions). Client-side word matching (each
+  // word of the query must appear in some field of the session) gives
+  // zero-latency keystrokes and avoids round-trips. The backend FTS5
   // search (in stores/search.ts → SessionSearchView) serves a different
   // purpose: deep full-text search across session *content* (turns, tool
   // results, etc.), which is a much larger dataset that requires indexing.
@@ -48,11 +50,10 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
-    const term = searchQuery.value ? searchQuery.value.toLowerCase() : null;
     return filterAndSortSessions(
       sessions.value,
       {
-        searchTerm: term,
+        searchTerms: parseSearchTerms(searchQuery.value),
         repository: filterRepo.value,
         source: filterSource.value,
         hideEmptySessions: prefs.hideEmptySessions,
