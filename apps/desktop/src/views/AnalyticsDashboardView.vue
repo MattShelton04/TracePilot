@@ -30,6 +30,7 @@ import {
   activityRows,
   dashboardDays,
   rangeText as describeRange,
+  hasDailyUsage,
 } from "@/utils/analyticsDashboard";
 import { buildDashboardSummary } from "@/utils/analyticsSummary";
 import "@/styles/features/analytics-dashboard.css";
@@ -86,6 +87,8 @@ const summary = computed(() =>
 );
 
 const days = computed(() => (data.value ? dashboardDays(data.value, store.dateRange) : []));
+/** Runs ended in the range, even if no session was last active in it. */
+const dailyUsage = computed(() => (data.value ? hasDailyUsage(data.value) : false));
 
 /** Runs and incidents per day, for the headline numbers. */
 const dayRows = computed(() =>
@@ -128,8 +131,12 @@ const billedInAic = computed(() =>
         <AnalyticsKpis :data="data" :summary="summary" :rows="dayRows" />
         <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" :range-text="rangeText" />
         <div class="ad-pair">
-          <AnalyticsModelMix :models="summary.models" />
-          <AnalyticsTokenMix :composition="summary.composition" :models="summary.models" />
+          <AnalyticsModelMix :models="summary.models" :daily-usage="dailyUsage" />
+          <AnalyticsTokenMix
+            :composition="summary.composition"
+            :models="summary.models"
+            :daily-usage="dailyUsage"
+          />
         </div>
         <AnalyticsCostPanel
           :data="data"

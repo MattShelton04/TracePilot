@@ -113,6 +113,8 @@ pub fn load_session_summaries_filtered(
 /// segments. Pass the same range to
 /// [`compute_analytics_in_range`](super::compute_analytics_in_range), which
 /// leaves out the segments that ended outside it, as the indexed query does.
+/// Unlike the indexed query, the per-day charts here only see sessions last
+/// active in the range, so runs of a session resumed after it are left out.
 pub fn load_full_sessions_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,

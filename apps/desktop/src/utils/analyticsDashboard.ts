@@ -12,6 +12,8 @@ import {
   type AnalyticsData,
   type ApiDurationStats,
   formatDuration,
+  resolveSessionSource,
+  SESSION_SOURCES,
   type SessionSource,
 } from "@tracepilot/types";
 import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
@@ -108,6 +110,33 @@ export function payloadSources(data: AnalyticsData): SessionSource[] {
   return data.costBySource.filter((entry) => entry.sessions > 0).map((entry) => entry.source);
 }
 
+/**
+ * Sources the per-day series have data for, in display order. The day series
+ * count runs by the day each ended, so a source whose sessions were resumed
+ * after the range has rows there but no `costBySource` entry; it is added
+ * here so its tokens and cost still draw. USD per day is Claude Code's.
+ */
+export function daySources(data: AnalyticsData): SessionSource[] {
+  const found = new Set(payloadSources(data));
+  for (const row of data.modelUsageByDay ?? []) found.add(resolveSessionSource(row.source));
+  if (data.costUsdByDay?.length) found.add("claudeCode");
+  return SESSION_SOURCES.filter((source) => found.has(source));
+}
+
+/**
+ * Whether any per-day series has data. They can when no session was last
+ * active in the range (so `totalSessions` and the per-source totals are 0):
+ * a session resumed after the range still has runs that ended in it.
+ */
+export function hasDailyUsage(data: AnalyticsData): boolean {
+  return (
+    data.activityPerDay.some((point) => point.count > 0) ||
+    data.tokenUsageByDay.some((point) => point.tokens > 0) ||
+    (data.modelUsageByDay?.length ?? 0) > 0 ||
+    (data.costUsdByDay?.length ?? 0) > 0
+  );
+}
+
 export const SOURCE_COLORS: Record<SessionSource, string> = {
   copilot: "var(--accent-fg)",
   claudeCode: "var(--claude-fg)",
@@ -129,7 +158,7 @@ export interface ActivityInput {
  */
 export function activityRows(input: ActivityInput): { series: DaySeries[]; rows: DayRow[] } {
   const { data, days, metric } = input;
-  const sources = payloadSources(data);
+  const sources = daySources(data);
   const index = new Map(days.map((day, i) => [day, i]));
   const blank = () => days.map(() => 0);
   let series: DaySeries[];

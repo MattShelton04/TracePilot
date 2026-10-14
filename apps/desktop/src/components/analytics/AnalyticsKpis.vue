@@ -170,7 +170,8 @@ const pace = computed(() => {
           />
         </div>
         <span class="ad-kpi-note">
-          <template v-if="has">
+          <!-- Runs count by the day they ended, so a session resumed after the range adds runs but no session. -->
+          <template v-if="has || runs > 0">
             <b>{{ formatNumberFull(runs) }}</b> runs · active <b>{{ activeDays }}</b> of {{ rows.length }}
             day{{ rows.length === 1 ? "" : "s" }}
           </template>

@@ -61,15 +61,14 @@ pub(in crate::index_db) fn append_source_filter(
 /// Append timestamp-range conditions for a specific column to an existing WHERE clause.
 ///
 /// Per-day aggregation queries join `session_segments` and group by segment
-/// timestamps (e.g. `m.end_timestamp`).  Without this extra filter the
-/// session-level date guard (`build_date_repo_filter`) only restricts *which
-/// sessions* appear, but a session updated on the last day of the range can
-/// have segments on days well outside the window — those segment dates then
-/// leak into the chart as spurious data points.
+/// timestamps (e.g. `m.end_timestamp`). They select runs by this filter
+/// alone, on top of a `build_date_repo_filter(None, None, ..)` clause: the
+/// session last-activity guard would drop runs from sessions resumed after
+/// the range, and without this filter a session's runs on days outside the
+/// window would leak into the chart.
 ///
 /// This function appends `AND date(<col>) >= ?` / `AND date(<col>) <= ?`
-/// conditions and the matching bind values so the segment timestamps are
-/// clamped to the same window as the session filter.
+/// conditions and the matching bind values.
 pub(in crate::index_db) fn append_segment_date_filter(
     clause: &str,
     values: &[String],

@@ -95,6 +95,9 @@ metadata, used for the quick search in the toolbar. Its rowid is `sessions.rowid
 ### `session_model_metrics`
 
 Lifetime usage per session and model, used for model distribution and comparison.
+For a session with no `session_segments` rows, the per-day model chart places
+this usage on the session's last-activity day, and the date range selects it by
+that day.
 Primary key: `(session_id, model_name)`.
 
 | Column | Type | Meaning |
@@ -115,9 +118,11 @@ Primary key: `(session_id, model_name)`.
 
 One row per accounting run: a Copilot `session.shutdown` (a resumed session has
 several) or a provider run. Per-day token, activity, premium-request, USD and
-model charts attribute usage to the day the run ended. With a date filter, headline
-totals subtract the runs that ended outside the range (see
-[incremental analytics](../architecture/incremental-analytics.md)).
+model charts attribute usage to the day the run ended, and the date range
+selects runs by that day alone: a run that ended in the range counts even when
+its session was resumed after it. With a date filter, headline totals take the
+sessions last active in the range and subtract their runs that ended outside it
+(see [incremental analytics](../architecture/incremental-analytics.md)).
 Primary key: `(session_id, end_timestamp)`.
 
 | Column | Type | Meaning |

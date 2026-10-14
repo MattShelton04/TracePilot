@@ -4,6 +4,7 @@
 mod agent_runs;
 mod agent_usage;
 mod analytics;
+mod analytics_day_series;
 mod analytics_parity;
 mod analytics_sources;
 mod claude_analytics;
