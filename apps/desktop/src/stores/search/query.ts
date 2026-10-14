@@ -102,6 +102,8 @@ export function createQuerySlice() {
   const totalCount = ref(0);
   const hasMore = ref(false);
   const latencyMs = ref(0);
+  /** Distinct sessions on every page, from this search's facets; null until known. */
+  const facetSessionCount = ref<number | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const resultViewMode = ref<"flat" | "grouped">("flat");
@@ -148,6 +150,12 @@ export function createQuerySlice() {
     return Array.from(map.values());
   });
 
+  /** Sessions behind every page; this page's groups only when it holds every result. */
+  const resultSessionCount = computed(() => {
+    if (facetSessionCount.value !== null) return facetSessionCount.value;
+    return page.value === 1 && !hasMore.value ? groupedResults.value.length : null;
+  });
+
   // ── Helpers ──────────────────────────────────────────────────
   function parseDateInputToUnix(
     value: string | null,
@@ -185,6 +193,7 @@ export function createQuerySlice() {
     totalCount.value = 0;
     hasMore.value = false;
     latencyMs.value = 0;
+    facetSessionCount.value = null;
   }
 
   function clearFilters() {
@@ -252,6 +261,7 @@ export function createQuerySlice() {
     totalCount,
     hasMore,
     latencyMs,
+    facetSessionCount,
     loading,
     error,
     resultViewMode,
@@ -263,6 +273,7 @@ export function createQuerySlice() {
     hasActiveFilters,
     effectiveSource,
     groupedResults,
+    resultSessionCount,
     // Helpers
     parseDateRange,
     clearSearchResults,

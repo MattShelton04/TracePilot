@@ -299,7 +299,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
             :model-value="store.filterSource"
             :sources="store.sources"
             data-testid="session-source-filter"
-            @update:model-value="store.filterSource = $event"
+            @update:model-value="store.setFilterSource($event)"
           />
           <select
             :value="store.sortBy"
