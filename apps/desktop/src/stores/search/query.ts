@@ -3,7 +3,10 @@ import { toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { type ParsedQualifiers, parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
+import { groupResultsBySession } from "./grouping";
 import { describeSearchText } from "./queryTerms";
+
+export type { SessionGroup } from "./grouping";
 
 export type SortMode = "relevance" | "newest" | "oldest";
 
@@ -56,15 +59,6 @@ export function mergeSearchInputs(
     source: parsed.source ?? state.source,
     sortBy: parsed.sort ?? effectiveSort,
   };
-}
-
-export interface SessionGroup {
-  sessionId: string;
-  sessionSummary: string | null;
-  sessionRepository: string | null;
-  sessionBranch: string | null;
-  sessionSource: SessionSource;
-  results: SearchResult[];
 }
 
 export interface ParsedDateRange {
@@ -141,26 +135,7 @@ export function createQuerySlice() {
   });
 
   // Session-grouped view: group flat results by sessionId
-  const groupedResults = computed<SessionGroup[]>(() => {
-    if (results.value.length === 0) return [];
-    const map = new Map<string, SessionGroup>();
-    for (const r of results.value) {
-      let group = map.get(r.sessionId);
-      if (!group) {
-        group = {
-          sessionId: r.sessionId,
-          sessionSummary: r.sessionSummary ?? null,
-          sessionRepository: r.sessionRepository ?? null,
-          sessionBranch: r.sessionBranch ?? null,
-          sessionSource: r.source,
-          results: [],
-        };
-        map.set(r.sessionId, group);
-      }
-      group.results.push(r);
-    }
-    return Array.from(map.values());
-  });
+  const groupedResults = computed(() => groupResultsBySession(results.value));
 
   /** Sessions behind every page; this page's groups only when it holds every result. */
   const resultSessionCount = computed(() => {
