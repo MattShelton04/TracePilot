@@ -15,7 +15,7 @@ pub(super) use model_distribution::query_model_distribution;
 pub(super) use queries::{execute_query_map, query_durations, to_refs};
 pub(super) use range_usage::{
     IN_RANGE_COST, IN_RANGE_COST_USD, IN_RANGE_NANO_AIU, IN_RANGE_PREMIUM, IN_RANGE_TOKENS,
-    out_of_range_join,
+    in_range_models_cte, out_of_range_join,
 };
 
 #[cfg(test)]

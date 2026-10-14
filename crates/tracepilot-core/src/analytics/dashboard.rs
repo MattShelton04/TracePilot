@@ -7,11 +7,13 @@ mod accumulator;
 mod daily;
 mod durations;
 mod models;
+mod range;
 
 #[cfg(test)]
 mod tests;
 
 use accumulator::AnalyticsAccumulator;
+use range::DateRange;
 
 use super::types::*;
 
@@ -29,9 +31,9 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
 /// `YYYY-MM-DD` days), as the indexed dashboard query computes it.
 ///
 /// Every session counts, but per-day charts use only the segments that ended
-/// inside the range, and headline usage (tokens, cost, premium requests, AI
-/// Credits) is each session's lifetime total minus the segments that ended
-/// outside it. Usage the segments do not account for, such as an undated
+/// inside the range, and usage (tokens, cost, premium requests, AI Credits,
+/// per-model usage and cache statistics) is each session's lifetime total
+/// minus the segments that ended outside it. Usage the segments do not account for, such as an undated
 /// shutdown, stays with the session.
 #[tracing::instrument(skip_all, fields(session_count = sessions.len()))]
 pub fn compute_analytics_in_range(
@@ -50,17 +52,4 @@ pub fn compute_analytics_in_range(
     }
 
     accumulator.into_analytics_data()
-}
-
-/// An inclusive range of `YYYY-MM-DD` days; `None` leaves that side open.
-#[derive(Clone, Copy)]
-struct DateRange<'a> {
-    from: Option<&'a str>,
-    to: Option<&'a str>,
-}
-
-impl DateRange<'_> {
-    fn contains(&self, day: &str) -> bool {
-        self.from.is_none_or(|from| day >= from) && self.to.is_none_or(|to| day <= to)
-    }
 }

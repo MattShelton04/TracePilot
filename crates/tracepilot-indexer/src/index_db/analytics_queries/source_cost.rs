@@ -22,7 +22,8 @@ pub(super) fn query_cost_by_source(
     from_date: Option<&str>,
     to_date: Option<&str>,
 ) -> Result<Vec<SourceCostEntry>> {
-    let (usage_join, values) = out_of_range_join(where_clause, bind_values, from_date, to_date);
+    let (usage_join, values) =
+        out_of_range_join(where_clause, bind_values, from_date, to_date, false);
     let sql = format!(
         "SELECT s.source, COUNT(*), COALESCE(SUM({IN_RANGE_TOKENS}), 0),
                 SUM({IN_RANGE_COST_USD}), COUNT({IN_RANGE_COST_USD})

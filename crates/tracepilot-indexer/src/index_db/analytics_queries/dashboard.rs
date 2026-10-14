@@ -30,10 +30,11 @@ pub(super) fn query_analytics(
     // range: each session's lifetime total minus its segments that ended on a
     // day outside it, so these totals match the day charts below. Without a
     // date filter they are the lifetime totals. Turns, tool calls, incidents
-    // and the per-turn and per-second averages stay whole-session values.
+    // and the per-turn and per-second averages stay whole-session values;
+    // per-model usage below follows the same rule.
     // See `helpers::range_usage`.
     let (usage_join, agg_values) =
-        out_of_range_join(&where_clause, &bind_values, from_date, to_date);
+        out_of_range_join(&where_clause, &bind_values, from_date, to_date, true);
     let agg_sql = format!(
         "SELECT COUNT(*), COALESCE(SUM({IN_RANGE_TOKENS}), 0), COALESCE(SUM({IN_RANGE_COST}), 0.0),
                     COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),
@@ -176,41 +177,42 @@ pub(super) fn query_analytics(
     let model_usage_by_day =
         query_model_usage_by_day(conn, &where_clause, &bind_values, from_date, to_date)?;
 
+    // Per-model usage follows the headline rule, so the token composition,
+    // model shares and the AI Credit estimate cover the same usage.
+    let (models_cte, models_values) =
+        in_range_models_cte(&where_clause, &bind_values, from_date, to_date);
     let mdist_sql = format!(
-        "SELECT m.model_name,
-                    SUM(m.input_tokens + m.output_tokens),
-                    SUM(m.input_tokens),
-                    SUM(m.output_tokens),
-                    SUM(m.cache_read_tokens),
-                    SUM(m.cache_write_tokens),
-                    SUM(m.cost),
-                    SUM(m.request_count),
-                    SUM(COALESCE(m.reasoning_tokens, 0)),
-                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),
-                    SUM(COALESCE(m.total_nano_aiu, 0)),
-                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END),
-                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END),
-                    s.source,
-                    SUM(m.cost_usd),
-                    COUNT(m.cost_usd) > 0 AND COUNT(m.cost_usd) < COUNT(*)
-             FROM session_model_metrics m
-             JOIN sessions s ON s.id = m.session_id{}
-             GROUP BY m.model_name, s.source ORDER BY 2 DESC",
-        where_clause
+        "{models_cte}
+         SELECT model_name,
+                    SUM(input_tokens + output_tokens),
+                    SUM(input_tokens),
+                    SUM(output_tokens),
+                    SUM(cache_read_tokens),
+                    SUM(cache_write_tokens),
+                    SUM(cost),
+                    SUM(request_count),
+                    SUM(COALESCE(reasoning_tokens, 0)),
+                    MAX(CASE WHEN reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(COALESCE(total_nano_aiu, 0)),
+                    MAX(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN input_tokens ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN output_tokens ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN cache_read_tokens ELSE 0 END),
+                    SUM(CASE WHEN total_nano_aiu IS NULL THEN cache_write_tokens ELSE 0 END),
+                    source,
+                    SUM(cost_usd),
+                    COUNT(cost_usd) > 0 AND COUNT(cost_usd) < COUNT(*)
+             FROM mr
+             GROUP BY model_name, source ORDER BY 2 DESC"
     );
-    let refs = to_refs(&bind_values);
+    let refs = to_refs(&models_values);
     let model_distribution = query_model_distribution(conn, &mdist_sql, &refs)?;
 
     let cache_sql = format!(
-        "SELECT COALESCE(SUM(m.cache_read_tokens), 0), COALESCE(SUM(m.input_tokens), 0)
-             FROM session_model_metrics m
-             JOIN sessions s ON s.id = m.session_id{}",
-        where_clause
+        "{models_cte}
+         SELECT COALESCE(SUM(cache_read_tokens), 0), COALESCE(SUM(input_tokens), 0) FROM mr"
     );
-    let refs = to_refs(&bind_values);
+    let refs = to_refs(&models_values);
     let (total_cache_read_tokens, total_input_tokens): (i64, i64) =
         conn.query_row(&cache_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((row.get(0)?, row.get(1)?))

@@ -12,6 +12,7 @@ mod common;
 mod format_diagnostics;
 mod maintenance;
 mod prompt_cache;
+mod range_models;
 mod range_totals;
 mod schema_doc;
 mod search_batches;

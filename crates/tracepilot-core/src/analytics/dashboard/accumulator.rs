@@ -3,34 +3,12 @@ use super::super::types::{
     SourceCostEntry,
 };
 use super::super::utils::segment_end_date;
-use super::DateRange;
-use super::daily::{DailySeriesAccumulator, tokens_and_cost};
+use super::daily::DailySeriesAccumulator;
 use super::durations::compute_duration_stats;
-use super::models::ModelDistributionAccumulator;
+use super::models::{ModelDistributionAccumulator, ModelMetricsTotals};
+use super::range::{DateRange, OutsideUsage};
 use crate::models::event_types::SessionSegment;
 use crate::provider::SessionSource;
-
-/// Usage from a session's segments that ended outside the date range,
-/// measured like the indexed `session_segments` columns.
-#[derive(Default)]
-struct OutsideUsage {
-    tokens: u64,
-    cost: f64,
-    premium_requests: f64,
-    nano_aiu: u64,
-}
-
-impl OutsideUsage {
-    fn add(&mut self, segment: &SessionSegment) {
-        for detail in segment.model_metrics.iter().flat_map(|mm| mm.values()) {
-            let totals = tokens_and_cost(detail);
-            self.tokens += totals.tokens;
-            self.cost += totals.cost;
-        }
-        self.premium_requests += segment.premium_requests;
-        self.nano_aiu += segment.total_nano_aiu.unwrap_or(0);
-    }
-}
 
 pub(super) struct AnalyticsAccumulator {
     total_sessions: u32,
@@ -107,9 +85,10 @@ impl AnalyticsAccumulator {
                 self.total_api_duration_ms += session_api_duration_ms;
             }
 
-            let model_totals = self
-                .model_distribution
-                .record_model_metrics(&metrics.model_metrics);
+            // Model rows and cache statistics count only in-range usage.
+            self.model_distribution
+                .record_model_metrics(&outside.in_range_models(&metrics.model_metrics));
+            let model_totals = ModelMetricsTotals::of(&metrics.model_metrics);
             self.total_tokens += model_totals.tokens.saturating_sub(outside.tokens);
             // Whole-session tokens, divided by whole-session turns.
             self.total_tokens_from_turns += model_totals.tokens;

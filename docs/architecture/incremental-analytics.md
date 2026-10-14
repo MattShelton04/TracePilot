@@ -129,21 +129,26 @@ counts those sessions. Usage counts only inside the range. Segment-based daily
 charts use the day each segment ended and include only segments within the
 range, which keeps activity, token and cost charts on the same day for sessions
 spanning midnight. Headline usage (tokens, the legacy `total_cost`, premium
-requests and AI Credits) and each source's tokens and USD in `costBySource` take
-each selected session's lifetime total minus its segments that ended on a day
-outside the range, so they add up to the daily charts. Usage the segments don't
+requests and AI Credits), each source's tokens and USD in `costBySource`, and
+per-model usage in `modelDistribution` and `cacheStats` take each selected
+session's lifetime total minus its segments that ended on a day outside the
+range, so they add up to the daily charts. The AI Credit estimate, token
+composition and model shares are built from those model rows. A model left
+with no usage in the range has no row. Usage the segments don't
 account for stays with the session, on its last-active day inside the range: a
 session with no segments, an undated shutdown, or usage recorded after the last
 segment. Without a date filter nothing is subtracted, so All Time shows the
 lifetime totals exactly. A USD figure is unknown (the source reads as partly
 priced) when the session is unpriced or a run outside the range is, since that
-run's share can't be removed. Turns, tool calls, incidents, model distribution,
-cache statistics and the per-turn and per-second averages remain whole-session
-values. The legacy daily cost series counts premium requests; the headline
+run's share can't be removed. Segments carry no per-model USD, so a model's
+USD in `modelDistribution` is unknown for a session where that model also ran
+outside the range. Turns, tool calls, incidents, prompt-cache windows, API
+duration statistics and the per-turn and per-second averages remain
+whole-session values. The legacy daily cost series counts premium requests; the headline
 `total_cost` retains model-reported cost. The rule is in
 `index_db/helpers/range_usage.rs`, and `compute_analytics_in_range` applies it
-to the disk fallback. Differential fixtures in the indexer's `analytics_parity`
-and `range_totals` tests cover these semantics against the disk fallback, and
+to the disk fallback. Differential fixtures in the indexer's `analytics_parity`,
+`range_totals` and `range_models` tests cover these semantics against the disk fallback, and
 `segment_totals` checks that Copilot and Claude Code segments add up to their
 session totals.
 

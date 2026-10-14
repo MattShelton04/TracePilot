@@ -97,8 +97,7 @@ fn a_session_straddling_the_range_start_counts_only_its_in_range_segments() {
         }
     }
 
-    // A range that holds none of the session's runs keeps the session but
-    // none of its usage.
+    // A range holding only the last run keeps the session and that run.
     let none = db
         .query_analytics(Some("2026-03-05"), Some("2026-03-05"), None, false, None)
         .unwrap();
