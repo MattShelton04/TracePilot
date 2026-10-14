@@ -75,10 +75,10 @@ impl IndexDb {
     ///   panic continues, so a caller that catches it gets the connection back
     ///   in autocommit mode.
     ///
-    /// The rollbacks after a failed `COMMIT` and during a panic are best effort:
-    /// their own errors are discarded. Neither runs if the transaction has
-    /// already ended, for example because SQLite rolled it back after
-    /// `SQLITE_FULL`.
+    /// No rollback is attempted if SQLite has already ended the transaction,
+    /// for example after `SQLITE_FULL` or `RAISE(ROLLBACK)`. The rollbacks after
+    /// a failed `COMMIT` and during a panic are best effort: their own errors
+    /// are discarded.
     ///
     /// The transaction must be the outermost one: if the connection is already
     /// inside a transaction, `BEGIN` fails, `f` doesn't run, and the outer
@@ -93,7 +93,9 @@ impl IndexDb {
                 Ok(value)
             }
             Err(err) => {
-                if let Err(rb) = transaction.rollback() {
+                // `finish` rolls back (the guard's drop behavior) unless SQLite
+                // already ended the transaction, which isn't a rollback failure.
+                if let Err(rb) = transaction.finish() {
                     tracing::error!(
                         error = %rb,
                         "Failed to roll back transaction after closure error"

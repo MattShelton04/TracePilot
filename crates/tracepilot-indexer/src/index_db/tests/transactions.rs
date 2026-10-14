@@ -85,14 +85,40 @@ fn panic_in_closure_rolls_back_and_leaves_connection_usable() {
 }
 
 #[test]
+fn err_after_sqlite_ended_the_transaction_returns_the_closure_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = open_with_scratch_table(&dir);
+    db.conn
+        .execute_batch(
+            "CREATE TRIGGER tx_probe_abort BEFORE INSERT ON tx_probe
+             WHEN NEW.value = 'abort'
+             BEGIN SELECT RAISE(ROLLBACK, 'synthetic abort'); END;",
+        )
+        .unwrap();
+
+    let result = db.with_transaction(|db| {
+        insert(db, "discarded")?;
+        insert(db, "abort")
+    });
+
+    let Err(IndexerError::Database(err)) = result else {
+        panic!("expected the trigger's error, got {result:?}");
+    };
+    assert!(err.to_string().contains("synthetic abort"), "{err}");
+    assert!(db.conn.is_autocommit());
+    db.with_transaction(|db| insert(db, "next"))
+        .expect("the next transaction starts cleanly");
+    assert_eq!(values(&db), ["next"]);
+}
+
+#[test]
 fn failed_commit_returns_its_error_and_rolls_back() {
     let dir = tempfile::tempdir().unwrap();
     let db = open_with_scratch_table(&dir);
     // A deferred foreign key is checked at COMMIT, so the commit itself fails.
     db.conn
         .execute_batch(
-            "PRAGMA foreign_keys = ON;
-             CREATE TABLE tx_parent (id INTEGER PRIMARY KEY);
+            "CREATE TABLE tx_parent (id INTEGER PRIMARY KEY);
              CREATE TABLE tx_child (
                  parent_id INTEGER REFERENCES tx_parent (id)
                      DEFERRABLE INITIALLY DEFERRED
