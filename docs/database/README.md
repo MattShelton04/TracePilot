@@ -148,14 +148,6 @@ it is fixed.
    activity, model and USD per-day series are all empty. Fix: give the per-day
    series their own filter on `m.end_timestamp`, and keep the lifetime-KPI
    filter as it is. This is a query-only change and needs no reindex.
-2. **A metadata batch can partly commit after SQLite aborts its transaction.**
-   In `index_batches` (`indexing/reindex.rs`), the loop continues after a failed
-   session write. An error that ends the whole transaction (`SQLITE_FULL`,
-   `SQLITE_IOERR`, `RAISE(ROLLBACK)`) loses the earlier sessions in the batch.
-   Each later session's `SAVEPOINT` then starts and commits its own transaction,
-   and the run fails with `cannot commit - no transaction is active`, which hides
-   the original error. Fix: stop the batch when `conn.is_autocommit()`, as
-   `upsert_search_snapshots` already does.
 3. **The FTS integrity check can't see index/content divergence.**
    `fts_integrity_check` runs `integrity-check` without `rank=1`, so it never
    compares the index against `search_content`. In the reproduction, search
