@@ -2,6 +2,7 @@ import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type { TodosResponse } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetSessionTabViews } from "@/composables/useSessionTabViews";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import TodosTab from "../../views/tabs/TodosTab.vue";
 
@@ -104,5 +105,45 @@ describe("TodosTab", () => {
     expect(wrapper.find(".error-alert").exists()).toBe(true);
     expect(wrapper.find(".empty-state").exists()).toBe(false);
     expect(wrapper.find(".loading-overlay").exists()).toBe(false);
+  });
+});
+
+describe("TodosTab view choice", () => {
+  beforeEach(() => {
+    setupPinia();
+    vi.clearAllMocks();
+    localStorage.clear();
+    resetSessionTabViews();
+  });
+
+  it("keeps the list view when the Todos tab is left and reopened", async () => {
+    mockGetSessionTodos.mockResolvedValue({
+      todos: [{ id: "a", title: "Write tests", status: "pending" }],
+      deps: [],
+    });
+    const store = useSessionDetailStore();
+    store.sessionId = "session-views";
+    const stubs = {
+      LoadingOverlay: LoadingOverlayStub,
+      EmptyState: EmptyStateStub,
+      ErrorAlert: ErrorAlertStub,
+      SectionPanel: { template: '<div class="section-panel"><slot /></div>' },
+      Badge: true,
+      StatusIcon: true,
+      TodoDependencyGraph: true,
+    };
+
+    const first = mount(TodosTab, { global: { stubs } });
+    await flushPromises();
+    expect(first.find("todo-dependency-graph-stub").exists()).toBe(true);
+    await first.findAll("button.toggle-btn")[0].trigger("click");
+    expect(first.find("todo-dependency-graph-stub").exists()).toBe(false);
+    first.unmount();
+
+    const reopened = mount(TodosTab, { global: { stubs } });
+    await flushPromises();
+    expect(reopened.find("todo-dependency-graph-stub").exists()).toBe(false);
+    expect(reopened.text()).toContain("Write tests");
+    reopened.unmount();
   });
 });

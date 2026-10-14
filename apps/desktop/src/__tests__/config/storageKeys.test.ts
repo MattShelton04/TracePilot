@@ -18,6 +18,10 @@ describe("storage key registry", () => {
     }
   });
 
+  it("keeps session tab view choices under the dash-form key", () => {
+    expect(STORAGE_KEYS.sessionTabViews).toBe("tracepilot-session-tab-views");
+  });
+
   it("STORAGE_KEYS is frozen", () => {
     expect(Object.isFrozen(STORAGE_KEYS)).toBe(true);
   });
