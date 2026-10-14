@@ -17,7 +17,10 @@ const preferences = reactive({
   sessionCacheSize: 20,
 });
 
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: routerPush }) }));
+vi.mock("vue-router", () => ({
+  useRouter: () => ({ push: routerPush }),
+  onBeforeRouteLeave: vi.fn(),
+}));
 vi.mock("@/stores/preferences", () => ({ usePreferencesStore: () => preferences }));
 vi.mock("@/stores/sessionDetail", () => ({
   useSessionDetailStore: () => ({ setCacheSize: vi.fn(), prefetchSession: vi.fn() }),
@@ -301,5 +304,63 @@ describe("Session list freshness while it stays open", () => {
     vi.advanceTimersByTime(5 * 60_000);
     await flushPromises();
     expect(wrapper.get(".card-time-new").text()).toBe("5m ago");
+  });
+});
+
+describe("Session list count while filtered", () => {
+  let store: ReturnType<typeof useSessionsStore>;
+  let wrapper: ReturnType<typeof render> | undefined;
+
+  beforeEach(() => {
+    setupPinia();
+    preferences.hideEmptySessions = true;
+    store = useSessionsStore();
+    vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
+    store.sessions = [
+      session,
+      { ...session, id: "second", summary: "Export polish" },
+      { ...session, id: "third", summary: "Export retries", repository: "audit/other" },
+      // Hidden by "Hide empty sessions", so it never counts towards the total.
+      { ...session, id: "empty", summary: "Export draft", turnCount: 0 },
+    ];
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = undefined;
+  });
+
+  const count = () => wrapper?.get('[data-testid="session-count"]').text();
+  const clear = () => wrapper?.find('[data-testid="session-clear-filters"]');
+
+  it("shows only the total, with no Clear action, when nothing narrows the list", async () => {
+    wrapper = render();
+    await flushPromises();
+
+    expect(count()).toBe("3 sessions");
+    expect(clear()?.exists()).toBe(false);
+  });
+
+  it("says how many of the total match a search, and Clear brings the full list back", async () => {
+    wrapper = render();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="session-search"] input').setValue("export");
+    expect(count()).toBe("2 of 3 sessions");
+
+    await wrapper.get('select[aria-label="All Repos"]').setValue("audit/other");
+    expect(count()).toBe("1 of 3 sessions");
+
+    await clear()?.trigger("click");
+    await flushPromises();
+    expect(store.searchQuery).toBe("");
+    expect(store.filterRepo).toBeNull();
+    expect(count()).toBe("3 sessions");
+    expect(clear()?.exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="session-card"]')).toHaveLength(3);
+    // Focus lands in the search box rather than on the removed button.
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="session-search"] input').element,
+    );
   });
 });

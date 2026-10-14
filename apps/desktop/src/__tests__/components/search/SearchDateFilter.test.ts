@@ -14,7 +14,8 @@ import {
 // events and polling are stubbed.
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useRoute: () => ({ query: {}, path: "/search" }),
+  useRoute: () => ({ query: {}, path: "/search", fullPath: "/search" }),
+  onBeforeRouteLeave: vi.fn(),
 }));
 vi.mock("@/composables/useSearchUrlSync", () => ({ useSearchUrlSync: () => undefined }));
 vi.mock("@/composables/useIndexingEvents", () => ({

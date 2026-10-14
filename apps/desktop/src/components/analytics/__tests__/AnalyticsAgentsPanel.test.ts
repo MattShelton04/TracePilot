@@ -39,6 +39,7 @@ const getStore = () => useAnalyticsStore();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   setupPinia();
   getStore().setTimeRange("custom", "2026-09-01");
   vi.mocked(agentsUsageSummary).mockResolvedValue(summary);

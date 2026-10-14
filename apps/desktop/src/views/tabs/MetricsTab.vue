@@ -19,6 +19,7 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { useSessionModelName } from "@/composables/useSessionModelName";
 import { useSessionSource } from "@/composables/useSessionSource";
+import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
@@ -26,7 +27,15 @@ import { sessionCostEstimate } from "@/utils/sourceCost";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
-const mode = ref("model");
+// Remembered across tabs and restarts; a remembered "agent" still loads turns
+// on mount through the loader below.
+const tabViews = useSessionTabViews();
+const mode = computed({
+  get: () => tabViews.value.metrics,
+  set: (value) => {
+    tabViews.value.metrics = value;
+  },
+});
 const metricsRoot = ref<HTMLElement | null>(null);
 const { panelTopPx } = useChatViewPanelOffset(metricsRoot);
 

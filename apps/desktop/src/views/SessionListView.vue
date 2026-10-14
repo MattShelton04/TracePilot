@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { IndexingProgressPayload } from "@tracepilot/types";
 import {
+  ActionButton,
   Badge,
   EmptyState,
   ErrorAlert,
@@ -24,6 +25,7 @@ import { useLiveClock } from "@/composables/useLiveClock";
 import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
+import { useScrollRestore } from "@/composables/useScrollRestore";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { type AnalyticsDatasetName, useAnalyticsStore } from "@/stores/analytics";
@@ -189,6 +191,33 @@ const hasSessionFilters = computed(
   () => !!store.searchQuery || !!store.filterRepo || !!store.filterSource,
 );
 
+/** "12 sessions", or "12 of 340 sessions" while a search or filter narrows the list. */
+const sessionCountLabel = computed(() => {
+  const shown = store.filteredSessions.length;
+  const total = store.visibleSessionCount;
+  const noun = (n: number) => `session${n === 1 ? "" : "s"}`;
+  return hasSessionFilters.value
+    ? `${shown} of ${total} ${noun(total)}`
+    : `${shown} ${noun(shown)}`;
+});
+
+// Coming back from a session lands where the user left the list, as long as
+// the filters and sort still match what they were looking at.
+useScrollRestore({
+  key: () =>
+    `sessions:${JSON.stringify([
+      store.searchQuery,
+      store.filterRepo,
+      store.filterSource,
+      store.sortBy,
+      prefs.hideEmptySessions,
+    ])}`,
+  el: pageRef,
+  ready: () => !store.loading && !store.indexing,
+  // Off-screen cards use placeholder heights, so line up the card instead.
+  anchorAttr: "data-session-id",
+});
+
 const emptyState = computed(() => {
   if (store.sessions.length === 0) {
     return {
@@ -282,8 +311,18 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           </select>
         </div>
         <div class="toolbar-actions">
-          <span class="session-count-label">
-            {{ store.filteredSessions.length }} session{{ store.filteredSessions.length !== 1 ? 's' : '' }}
+          <span class="session-count">
+            <span class="session-count-label" data-testid="session-count">{{ sessionCountLabel }}</span>
+            <ActionButton
+              v-if="hasSessionFilters"
+              size="sm"
+              variant="ghost"
+              aria-label="Clear search and filters"
+              data-testid="session-clear-filters"
+              @click="clearFilters"
+            >
+              Clear
+            </ActionButton>
           </span>
           <RefreshToolbar
             :refreshing="refreshing"
@@ -350,6 +389,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           v-for="session in store.filteredSessions"
           :key="session.id"
           data-testid="session-card"
+          :data-session-id="session.id"
           :session="session"
           :live="liveBadge(session.id)"
           :data-clock="clockTick"
@@ -428,6 +468,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
   gap: 16px;
   margin-inline-start: auto;
   max-width: 100%;
+}
+
+.session-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .session-count-label {

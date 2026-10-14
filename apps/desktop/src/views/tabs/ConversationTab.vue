@@ -33,6 +33,7 @@ import { usePromptCache } from "@/composables/usePromptCache";
 import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionSource } from "@/composables/useSessionSource";
+import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -75,7 +76,13 @@ watch(
 );
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
-const activeView = ref<ConversationViewMode>("chat");
+const tabViews = useSessionTabViews();
+const activeView = computed<ConversationViewMode>({
+  get: () => tabViews.value.conversation,
+  set: (mode) => {
+    tabViews.value.conversation = mode;
+  },
+});
 
 // Chat view ref for deep-link delegation
 const chatViewRef = ref<InstanceType<typeof ChatViewMode> | null>(null);

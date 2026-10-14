@@ -3,9 +3,11 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 
+const routerPush = vi.hoisted(() => vi.fn());
+
 // Mock heavy dependencies that the composable transitively touches.
 vi.mock("vue-router", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: vi.fn() }),
   useRoute: () => ({ query: {}, path: "/search" }),
 }));
 
@@ -47,7 +49,12 @@ const storeState = {
   sessionId: null as string | null,
   source: null as string | null,
   effectiveSource: null as string | null,
-  results: [] as { id: number }[],
+  results: [] as {
+    id: number;
+    sessionId?: string;
+    turnNumber?: number | null;
+    eventIndex?: number | null;
+  }[],
   groupedResults: [] as { sessionId: string; sessionSummary: string | null }[],
   resultViewMode: "flat" as "flat" | "grouped",
   contentTypes: [] as string[],
@@ -125,6 +132,8 @@ beforeEach(() => {
   storeState.dateTo = null;
   storeState.error = null;
   storeState.stats = null;
+  storeState.results = [];
+  routerPush.mockClear();
 });
 
 describe("useSessionSearch", () => {
@@ -193,6 +202,25 @@ describe("useSessionSearch", () => {
     expect(api.sessionLink("abc", null, null)).toBe("/session/abc/conversation");
     expect(api.sessionLink("abc", 3, null)).toBe("/session/abc/conversation?turn=3");
     expect(api.sessionLink("abc", 3, 7)).toBe("/session/abc/conversation?turn=3&event=7");
+    wrapper.unmount();
+  });
+
+  it("Ctrl+Enter opens the highlighted result at its deep link", () => {
+    storeState.results = [
+      { id: 1, sessionId: "first", turnNumber: 0, eventIndex: 2 },
+      { id: 2, sessionId: "second", turnNumber: 4, eventIndex: 9 },
+    ];
+    const { wrapper } = runComposable();
+    const key = (init: KeyboardEventInit) =>
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }),
+      );
+
+    key({ key: "ArrowDown" });
+    key({ key: "ArrowDown" });
+    key({ key: "Enter", ctrlKey: true });
+
+    expect(routerPush).toHaveBeenCalledWith("/session/second/conversation?turn=4&event=9");
     wrapper.unmount();
   });
 
