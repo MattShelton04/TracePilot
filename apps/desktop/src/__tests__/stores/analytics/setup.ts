@@ -105,6 +105,7 @@ export const FIXTURE_CODE_IMPACT: CodeImpactData = {
 };
 
 beforeEach(() => {
+  localStorage.clear();
   setupPinia();
   vi.clearAllMocks();
 });

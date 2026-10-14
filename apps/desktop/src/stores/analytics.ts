@@ -18,6 +18,7 @@ import {
 import { type CachedFetchResult, useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
+import { usePersistedAnalyticsFilters } from "@/composables/usePersistedAnalyticsFilters";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
 import {
   type AnalyticsDatasetName,
@@ -58,25 +59,21 @@ export interface AnalyticsFetchOptions {
 }
 
 export const useAnalyticsStore = defineStore("analytics", () => {
-  // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
-  const selectedRepo = ref<string | null>(null);
+  // Filters persist across restarts. The repository and source choices come
+  // from the sessions store, which avoids redundant listSessions() calls.
+  const { selectedRepo, selectedSource, selectedTimeRange, customFromDate, customToDate } =
+    usePersistedAnalyticsFilters();
   const availableRepos = computed(() => {
     const sessionsStore = useSessionsStore();
     return sessionsStore.repositories as string[];
   });
 
-  // Source filter: `null` covers every source. The choices come from the
-  // sessions store, like the repository list.
-  const selectedSource = ref<SessionSource | null>(null);
+  // Source filter: `null` covers every source.
   const availableSources = computed(() => useSessionsStore().sources);
   /** `"Claude Code "` while a source filter is set, for page subtitles. */
   const sourcePrefix = computed(() =>
     selectedSource.value ? `${sourceLabel(selectedSource.value)} ` : "",
   );
-
-  const selectedTimeRange = ref<AnalyticsTimeRange>("all");
-  const customFromDate = ref<string | undefined>(undefined);
-  const customToDate = ref<string | undefined>(undefined);
 
   const dateRange = computed<AnalyticsDateRange>(() =>
     selectedTimeRange.value === "custom"
@@ -203,6 +200,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     selectedSource.value = source;
   }
 
+  /** Drop cached results and return the filters (and their stored copy) to defaults. */
   function $reset() {
     analyticsFetcher.reset();
     toolAnalysisFetcher.reset();
