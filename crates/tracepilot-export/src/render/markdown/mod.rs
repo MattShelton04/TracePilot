@@ -5,6 +5,7 @@
 //! or feeding to AI for summarization.
 
 use chrono::{DateTime, Utc};
+use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{PortableSession, SessionArchive};
 use crate::error::{ExportError, Result};
@@ -105,4 +106,29 @@ fn render_session(session: &PortableSession, archive: &SessionArchive) -> String
 
 pub(super) fn format_dt(dt: &DateTime<Utc>) -> String {
     dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+}
+
+/// Writes `body` as a fenced code block whose fence is longer than any
+/// backtick run inside it, so a fence in the body (a tool result written in
+/// Markdown, a file preview) can't end the block early.
+pub(super) fn push_fenced(md: &mut String, info: &str, body: &str) {
+    let mut longest = 0;
+    let mut run = 0;
+    for c in body.chars() {
+        run = if c == '`' { run + 1 } else { 0 };
+        longest = longest.max(run);
+    }
+    let fence = "`".repeat(longest.max(2) + 1);
+    md.push_line(format_args!("{fence}{info}\n{body}\n{fence}\n"));
+}
+
+/// Text for one table cell: `|` is escaped and line breaks become spaces, so
+/// the value can't split its row or end the table.
+pub(super) fn cell(text: &str) -> String {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace('|', "\\|")
 }

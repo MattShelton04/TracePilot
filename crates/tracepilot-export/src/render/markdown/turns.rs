@@ -6,6 +6,8 @@ use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{ConversationTurn, SessionEventSeverity};
 
+use super::{cell, push_fenced};
+
 pub(super) fn write_conversation(md: &mut String, turns: &[ConversationTurn]) {
     md.push_line(format_args!("## Conversation\n"));
 
@@ -117,7 +119,10 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
 
             md.push_line(format_args!(
                 "| {} | {} | {} | {} |",
-                name, status, duration, summary
+                cell(&name),
+                status,
+                duration,
+                cell(&summary)
             ));
         }
         md.push('\n');
@@ -165,11 +170,11 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
 
                 if let Some(args) = &tool.arguments {
                     md.push_str("**Arguments:**\n\n");
-                    md.push_line(format_args!("```json\n{}\n```\n", args));
+                    push_fenced(md, "json", &args.to_string());
                 }
                 if let Some(result) = &tool.result_content {
                     md.push_str("**Result:**\n\n");
-                    md.push_line(format_args!("```\n{}\n```\n", result));
+                    push_fenced(md, "", result);
                 }
             }
         }

@@ -9,7 +9,7 @@ use crate::document::{
     RewindIndex, ShutdownMetrics, TodoExport,
 };
 
-use super::format_dt;
+use super::{cell, format_dt};
 
 pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
     md.push_line(format_args!("## Todos\n"));
@@ -75,10 +75,10 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
     md.push_line(format_args!("|--------|-------|"));
 
     if let Some(kind) = &metrics.shutdown_type {
-        md.push_line(format_args!("| Shutdown Type | {} |", kind));
+        md.push_line(format_args!("| Shutdown Type | {} |", cell(kind)));
     }
     if let Some(model) = &metrics.current_model {
-        md.push_line(format_args!("| Model | {} |", model));
+        md.push_line(format_args!("| Model | {} |", cell(model)));
     }
     if let Some(nano_aiu) = metrics.total_nano_aiu {
         md.push_line(format_args!(
@@ -160,7 +160,7 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
                 .as_ref()
                 .and_then(|u| u.cache_write_tokens)
                 .unwrap_or(0);
-            md.push_fmt(format_args!("| {} | {} |", model, reqs));
+            md.push_fmt(format_args!("| {} | {} |", cell(model), reqs));
             if show_aic {
                 let ai_credits = detail
                     .total_nano_aiu
@@ -252,7 +252,10 @@ pub(super) fn write_incidents(md: &mut String, incidents: &[IncidentExport]) {
             .unwrap_or_else(|| "—".to_string());
         md.push_line(format_args!(
             "| {} | {} | {} | {} |",
-            time, inc.event_type, inc.severity, inc.summary
+            time,
+            cell(&inc.event_type),
+            cell(&inc.severity),
+            cell(&inc.summary)
         ));
     }
     md.push('\n');
@@ -273,7 +276,7 @@ pub(super) fn write_events_summary(md: &mut String, events: &[RawEvent]) {
     md.push_line(format_args!("| Event Type | Count |"));
     md.push_line(format_args!("|------------|-------|"));
     for (event_type, count) in sorted {
-        md.push_line(format_args!("| `{}` | {} |", event_type, count));
+        md.push_line(format_args!("| `{}` | {} |", cell(event_type), count));
     }
     md.push('\n');
 }
@@ -318,10 +321,10 @@ pub(super) fn write_rewind_snapshots(md: &mut String, rewind: &RewindIndex) {
             "| {} | `{}` | {} | {} | {} | {} |",
             i + 1,
             tracepilot_core::utils::truncate_utf8(&snap.snapshot_id, 8),
-            ts,
+            cell(ts),
             files,
-            branch,
-            msg_truncated
+            cell(branch),
+            cell(msg_truncated)
         ));
     }
     md.push('\n');
@@ -340,7 +343,7 @@ pub(super) fn write_custom_tables(md: &mut String, tables: &[CustomTableExport])
         }
         md.push_fmt(format_args!("|"));
         for col in &table.columns {
-            md.push_fmt(format_args!(" {} |", col));
+            md.push_fmt(format_args!(" {} |", cell(col)));
         }
         md.push_line(format_args!(""));
         md.push_fmt(format_args!("|"));
@@ -358,7 +361,7 @@ pub(super) fn write_custom_tables(md: &mut String, tables: &[CustomTableExport])
                         other => other.to_string(),
                     })
                     .unwrap_or_default();
-                md.push_fmt(format_args!(" {} |", val));
+                md.push_fmt(format_args!(" {} |", cell(&val)));
             }
             md.push_line(format_args!(""));
         }

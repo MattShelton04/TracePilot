@@ -4,7 +4,7 @@ use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{PortableSession, PortableSessionMetadata, SessionArchive, SessionSource};
 
-use super::format_dt;
+use super::{cell, format_dt};
 
 pub(super) fn write_header(md: &mut String, session: &PortableSession, archive: &SessionArchive) {
     let title = session
@@ -33,23 +33,23 @@ pub(super) fn write_metadata(md: &mut String, meta: &PortableSessionMetadata) {
     md.push_line(format_args!("## Metadata\n"));
     md.push_line(format_args!("| Field | Value |"));
     md.push_line(format_args!("|-------|-------|"));
-    md.push_line(format_args!("| ID | `{}` |", meta.id));
+    md.push_line(format_args!("| ID | `{}` |", cell(&meta.id)));
     // Copilot is the default and stays unlabelled, as before other sources.
     if let Some(source) = source_label(meta.source) {
         md.push_line(format_args!("| Source | {} |", source));
     }
 
     if let Some(repo) = &meta.repository {
-        md.push_line(format_args!("| Repository | {} |", repo));
+        md.push_line(format_args!("| Repository | {} |", cell(repo)));
     }
     if let Some(branch) = &meta.branch {
-        md.push_line(format_args!("| Branch | {} |", branch));
+        md.push_line(format_args!("| Branch | {} |", cell(branch)));
     }
     if let Some(cwd) = &meta.cwd {
-        md.push_line(format_args!("| Working Directory | `{}` |", cwd));
+        md.push_line(format_args!("| Working Directory | `{}` |", cell(cwd)));
     }
     if let Some(host) = &meta.host_type {
-        md.push_line(format_args!("| Host Type | {} |", host));
+        md.push_line(format_args!("| Host Type | {} |", cell(host)));
     }
     if let Some(created) = &meta.created_at {
         md.push_line(format_args!("| Created | {} |", format_dt(created)));
