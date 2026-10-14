@@ -13,7 +13,8 @@ import type {
 import { useAsyncGuard } from "@tracepilot/ui";
 import { ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
-import type { QuerySlice } from "./query";
+import { parseQualifiers } from "@/utils/parseQualifiers";
+import { mergeSearchInputs, type QuerySlice } from "./query";
 
 export interface FacetOverrides {
   contentTypes?: string[];
@@ -101,6 +102,30 @@ export function createFacetsSlice(q: QuerySlice) {
     }
   }
 
+  /**
+   * Facets for the query and filters as they stand, with inline qualifiers
+   * merged the way a search merges them. Used when the view mounts, so
+   * results restored for a query keep facet counts for that same query.
+   */
+  function fetchFacetsForCurrentQuery() {
+    const merged = mergeSearchInputs(parseQualifiers(q.query.value), {
+      contentTypes: q.contentTypes.value,
+      repository: q.repository.value,
+      toolName: q.toolName.value,
+      sessionId: q.sessionId.value,
+      source: q.source.value,
+      sortBy: q.sortBy.value,
+      isBrowseMode: q.isBrowseMode.value,
+    });
+    return fetchFacets(merged.searchQuery || undefined, {
+      contentTypes: merged.contentTypes,
+      repo: merged.repository,
+      tool: merged.toolName,
+      session: merged.sessionId,
+      source: merged.source,
+    });
+  }
+
   /** Invalidate the facets cache so the next unfiltered fetch always runs (e.g. after reindex). */
   function invalidateFacetsCache() {
     facetsLastFetchedAt = 0;
@@ -142,6 +167,7 @@ export function createFacetsSlice(q: QuerySlice) {
     availableRepositories,
     availableToolNames,
     fetchFacets,
+    fetchFacetsForCurrentQuery,
     fetchStats,
     fetchFilterOptions,
     invalidateFacetsCache,

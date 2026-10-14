@@ -338,3 +338,141 @@ fn renders_todos_with_dep_list() {
     assert!(text.contains("**Dependencies:**"));
     assert!(text.contains("impl → setup"));
 }
+
+/// Each line of `md` paired with whether it sits inside a fenced code block,
+/// by CommonMark's backtick-fence rules, plus whether a fence is left open.
+fn fence_states(md: &str) -> (Vec<(&str, bool)>, bool) {
+    let mut open: Option<usize> = None;
+    let lines = md
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim_start_matches(' ');
+            let indented = line.len() - trimmed.len() > 3;
+            let run = trimmed.chars().take_while(|&c| c == '`').count();
+            let rest = &trimmed[run..];
+            match open {
+                Some(len) => {
+                    if !indented && run >= len && rest.trim().is_empty() {
+                        open = None;
+                    }
+                    (line, true)
+                }
+                None => {
+                    if !indented && run >= 3 && !rest.contains('`') {
+                        open = Some(run);
+                    }
+                    (line, open.is_some())
+                }
+            }
+        })
+        .collect();
+    (lines, open.is_some())
+}
+
+fn is_fenced(md: &str, needle: &str) -> bool {
+    let (lines, _) = fence_states(md);
+    lines
+        .iter()
+        .find(|(line, _)| *line == needle)
+        .unwrap_or_else(|| panic!("line {needle:?} not in export"))
+        .1
+}
+
+/// Cells in a table row: the pipes not escaped with a backslash, less one.
+fn cell_count(row: &str) -> usize {
+    let mut prev = ' ';
+    let pipes = row
+        .chars()
+        .filter(|&c| {
+            let delimiter = c == '|' && prev != '\\';
+            prev = c;
+            delimiter
+        })
+        .count();
+    pipes.saturating_sub(1)
+}
+
+/// Every table keeps its header's column count on every row, and no row
+/// spills onto a following non-table line.
+fn assert_tables_intact(md: &str) {
+    let mut header: Option<usize> = None;
+    for line in md.lines() {
+        if line.starts_with('|') {
+            let cells = cell_count(line);
+            let expected = *header.get_or_insert(cells);
+            assert_eq!(cells, expected, "row splits the table: {line:?}\n{md}");
+        } else {
+            if header.is_some() {
+                assert!(line.is_empty(), "table row spilled onto {line:?}\n{md}");
+            }
+            header = None;
+        }
+    }
+}
+
+#[test]
+fn tool_results_with_fences_stay_inside_their_block() {
+    let mut report = crate::test_helpers::simple_tool_call("task", Some(true), false);
+    report.result_content =
+        Some("Report:\n```ts\nconst done = true;\n```\n## Findings\n````\n- none".into());
+    let mut preview = crate::test_helpers::simple_tool_call("view", Some(true), false);
+    // A preview cut off right after an opening fence.
+    preview.result_content = Some("# README\n```\nfn main() {".into());
+    let mut args = crate::test_helpers::simple_tool_call("write", Some(true), false);
+    args.arguments = Some(serde_json::json!({"path": "a.md"}));
+    let mut session = minimal_session();
+    let mut turn = simple_turn(0, "Report", "Done", None);
+    turn.tool_calls = vec![report, preview, args];
+    session.conversation = Some(vec![turn]);
+    session.todos = Some(TodoExport {
+        items: vec![],
+        deps: vec![],
+    });
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+
+    // The tool's own markdown stays code...
+    assert!(is_fenced(text, "## Findings"), "{text}");
+    assert!(is_fenced(text, "fn main() {"), "{text}");
+    // ...and what follows each block is the export's markdown again.
+    assert!(!is_fenced(text, "#### 🔧 view"), "{text}");
+    assert!(!is_fenced(text, "#### 🔧 write"), "{text}");
+    assert!(!is_fenced(text, "## Todos"), "{text}");
+    assert!(!fence_states(text).1, "a fence is left open:\n{text}");
+    // Content without backticks keeps the plain three-backtick fence.
+    assert!(
+        text.contains("```json\n{\"path\":\"a.md\"}\n```\n"),
+        "{text}"
+    );
+}
+
+#[test]
+fn table_cells_escape_pipes_and_newlines() {
+    let mut session = minimal_session();
+    session.metadata.repository = Some("org/re|po".into());
+    session.metadata.branch = Some("feat\nfix".into());
+    let mut grep = crate::test_helpers::simple_tool_call("grep", Some(false), false);
+    grep.intention_summary = Some("Search a|b\r\nthen c".into());
+    let mut turn = simple_turn(0, "Find", "Found", None);
+    turn.tool_calls = vec![grep];
+    session.conversation = Some(vec![turn]);
+    session.incidents = Some(vec![IncidentExport {
+        event_type: "session.error".into(),
+        timestamp: None,
+        severity: "error".into(),
+        summary: "Command failed | exit 1\n  at line 2".into(),
+    }]);
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+
+    assert_tables_intact(text);
+    assert!(text.contains(r"| Repository | org/re\|po |"), "{text}");
+    assert!(text.contains("| Branch | feat fix |"), "{text}");
+    assert!(text.contains(r"| Search a\|b then c |"), "{text}");
+    assert!(
+        text.contains(r"| Command failed \| exit 1 at line 2 |"),
+        "{text}"
+    );
+}

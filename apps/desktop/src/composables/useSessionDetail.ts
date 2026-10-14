@@ -64,6 +64,12 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
   const loaded = ref<Set<string>>(new Set());
 
   const eventsError = ref<string | null>(null);
+  /**
+   * Bumped each time the session is refreshed while events are loaded. Events
+   * are paginated and filtered by the Events tab, which reloads the page in
+   * view when this changes; the refresh itself never fetches them.
+   */
+  const eventsRefreshVersion = ref(0);
 
   // Guard against stale async responses when user switches sessions quickly
   const sessionGuard = useAsyncGuard();
@@ -148,8 +154,8 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     if (cached) {
       restoreFromCachedSession(snapshotCtx, cached);
       loading.value = false;
-      // Events are paginated and always refetched on the events tab
-      // (they manage their own fingerprint/cursor), so clear them here.
+      // Events are paginated and always refetched on the events tab,
+      // which owns the page and filter, so clear them here.
       events.value = null;
       loaded.value.delete("events");
       // NOTE: todos are now cached alongside other sections. The subsequent
@@ -311,6 +317,8 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       promises.push(turnsRefresh.refreshTurns(id, token));
     }
 
+    if (loadedSections.has("events")) eventsRefreshVersion.value += 1;
+
     for (const { key, done } of sections.refreshLoaded(id, token, skip)) {
       refreshed.push(key);
       promises.push(done);
@@ -396,6 +404,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     loaded,
     turnsError: turnsRefresh.turnsError,
     eventsError,
+    eventsRefreshVersion,
     todosError: sections.todosSection.error,
     checkpointsError: sections.checkpointsSection.error,
     planError: sections.planSection.error,

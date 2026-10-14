@@ -13,6 +13,8 @@
 mod aggregate_tests;
 mod queries;
 mod query_builder;
+#[cfg(test)]
+mod query_semantics_tests;
 mod sanitize;
 mod stats;
 #[cfg(test)]

@@ -141,4 +141,39 @@ describe("search/facets slice", () => {
       dispose();
     }
   });
+
+  it("fetchFacetsForCurrentQuery keeps a restored query's facets scoped to it", async () => {
+    // Returning to #/search?q=greeting restores the query; the facets fetched
+    // on mount must count that query's matches, not the whole index.
+    const scoped = { byContentType: [["user_message", 27]], byRepository: [], byToolName: [] };
+    mockGetSearchFacets.mockResolvedValue(scoped);
+    const { f, q, dispose } = setup();
+    try {
+      q.query.value = "greeting type:user_message repo:acme";
+      await f.fetchFacetsForCurrentQuery();
+
+      expect(mockGetSearchFacets).toHaveBeenCalledTimes(1);
+      expect(mockGetSearchFacets).toHaveBeenCalledWith(
+        "greeting",
+        expect.objectContaining({ contentTypes: ["user_message"], repositories: ["acme"] }),
+      );
+      expect(f.facets.value).toStrictEqual(scoped);
+    } finally {
+      dispose();
+    }
+  });
+
+  it("fetchFacetsForCurrentQuery stays unscoped (and cached) with no query or filters", async () => {
+    const unfiltered = { byContentType: [["error", 9]], byRepository: [], byToolName: [] };
+    mockGetSearchFacets.mockResolvedValue(unfiltered);
+    const { f, dispose } = setup();
+    try {
+      await f.fetchFacetsForCurrentQuery();
+      await f.fetchFacetsForCurrentQuery();
+      expect(mockGetSearchFacets).toHaveBeenCalledTimes(1);
+      expect(mockGetSearchFacets).toHaveBeenCalledWith(undefined, expect.any(Object));
+    } finally {
+      dispose();
+    }
+  });
 });

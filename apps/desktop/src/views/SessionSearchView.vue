@@ -82,6 +82,7 @@ useScrollRestore({
       :source="store.effectiveSource"
       :sources="sourceOptions"
       :show-source="showSourceFilter"
+      :starts-with-not="store.startsWithNot"
       @update:query="store.query = $event"
       @update:filters-open="filtersOpen = $event"
       @update:sort-by="(v) => store.sortBy = v as typeof store.sortBy"
@@ -207,12 +208,30 @@ useScrollRestore({
             :result-view-mode="store.resultViewMode"
             :total-pages="store.totalPages"
             :page="store.page"
+            :no-searchable-terms="store.hasNoSearchableTerms"
             @update:result-view-mode="store.resultViewMode = $event"
             @clear-all="store.clearAll()"
             @copy-all="handleCopyAllResults()"
           />
 
-          <div v-if="!store.hasResults" class="search-empty-state">
+          <div
+            v-if="store.hasNoSearchableTerms"
+            class="search-empty-state"
+            data-testid="search-no-terms"
+          >
+            <svg class="search-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="20" cy="20" r="14" />
+              <line x1="30" y1="30" x2="44" y2="44" />
+            </svg>
+            <div class="empty-title">No searchable terms</div>
+            <div class="empty-subtitle">
+              Add a word or a "quoted phrase" to search for. Symbols and the operators
+              AND, OR and NOT don't match anything on their own.
+            </div>
+            <button class="clear-search-btn" @click="store.clearAll()">Clear search</button>
+          </div>
+
+          <div v-else-if="!store.hasResults" class="search-empty-state">
             <svg class="search-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
               <circle cx="20" cy="20" r="14" />
               <line x1="30" y1="30" x2="44" y2="44" />
@@ -256,6 +275,7 @@ useScrollRestore({
           />
 
           <SessionSearchPagination
+            v-if="!store.hasNoSearchableTerms"
             :page="store.page"
             :total-pages="store.totalPages"
             :total-count="store.totalCount"
