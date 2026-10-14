@@ -109,8 +109,13 @@ const weekStart = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DA
 /**
  * Tokens (or estimated spend) per model per day or week, with empty buckets
  * filled in so gaps in activity stay visible. Spend spreads each model's
- * total cost over its days in proportion to tokens, so the buckets add up
- * to the model's cost on the rest of the page.
+ * total cost over its days in proportion to tokens.
+ *
+ * The day rows count runs by the day they ended, while each model row totals
+ * the sessions last active in the range, so the two cover different runs and
+ * a model's spend here can be above or below its cost on the rest of the
+ * page. A model with no row (it ran only in sessions resumed after the range)
+ * counts its tokens under Others and adds no spend, since nothing prices it.
  */
 export function buildMixSeries(
   usage: readonly ModelUsageDay[],
@@ -143,11 +148,11 @@ export function buildMixSeries(
     if (Number.isNaN(ms)) continue;
     const id = `${resolveSessionSource(u.source)}:${u.model}`;
     const row = rowsById.get(id);
-    if (!row) continue; // filtered out of the page (source or repository)
     const tokens = u.inputTokens + u.outputTokens;
+    // No row: tokens go to Others, unpriced (see above).
     const value =
       options.measure === "spend"
-        ? row.tokens > 0
+        ? row && row.tokens > 0
           ? ((row.usdEquivalent ?? 0) * tokens) / row.tokens
           : 0
         : tokens;

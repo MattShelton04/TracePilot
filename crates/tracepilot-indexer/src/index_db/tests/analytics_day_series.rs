@@ -56,13 +56,13 @@ fn insert_run(db: &IndexDb, session: &str, end: &str, tokens: i64) {
         .unwrap();
 }
 
-/// Lifetime model usage for a session without runs.
-fn insert_model_metrics(db: &IndexDb, session: &str, input: i64) {
+/// Lifetime usage of one model in a session.
+fn insert_model_metrics(db: &IndexDb, session: &str, model: &str, input: i64) {
     db.conn
         .execute(
             "INSERT INTO session_model_metrics (session_id, model_name, input_tokens, output_tokens)
-             VALUES (?1, 'claude-sonnet-4.6', ?2, 0)",
-            rusqlite::params![session, input],
+             VALUES (?1, ?2, ?3, 0)",
+            rusqlite::params![session, model, input],
         )
         .unwrap();
 }
@@ -136,8 +136,8 @@ fn fixture() -> (tempfile::TempDir, IndexDb) {
     insert_run(&db, "other-repo", "2026-03-02T11:00:00Z", 40);
     insert_run(&db, "other-source", "2026-03-02T12:00:00Z", 60);
     insert_run(&db, "empty", "2026-03-02T13:00:00Z", 5);
-    insert_model_metrics(&db, "legacy-late", 300);
-    insert_model_metrics(&db, "legacy-early", 200);
+    insert_model_metrics(&db, "legacy-late", "claude-sonnet-4.6", 300);
+    insert_model_metrics(&db, "legacy-early", "claude-sonnet-4.6", 200);
     (tmp, db)
 }
 
@@ -316,4 +316,51 @@ fn repository_source_and_empty_filters_still_apply() {
             48
         )]
     );
+}
+
+#[test]
+fn session_with_runs_and_lifetime_metrics_counts_each_run_once() {
+    // The usual shape: per-run segments plus the session's lifetime model
+    // rollup. The model-day series reads the runs only; the rollup feeds the
+    // model distribution, for sessions last active in the range.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    insert_session(
+        &db,
+        &Session {
+            id: "both",
+            repo: "org/repo-a",
+            source: "copilot",
+            created: "2026-03-02T09:00:00Z",
+            updated: "2026-03-08T10:00:00Z",
+            turns: 3,
+        },
+    );
+    insert_run(&db, "both", "2026-03-02T10:00:00Z", 500);
+    insert_run(&db, "both", "2026-03-08T10:00:00Z", 700);
+    insert_model_metrics(&db, "both", "gpt-5.4", 960);
+    let gpt = |date: &str, input| {
+        (
+            date.to_string(),
+            "gpt-5.4".to_string(),
+            SessionSource::Copilot,
+            input,
+        )
+    };
+
+    // Last active in the range: one row per run, none from the rollup.
+    let whole = query(&db, "2026-03-01", "2026-03-09", None, false, None);
+    assert_eq!(
+        model_days(&whole),
+        vec![gpt("2026-03-02", 400), gpt("2026-03-08", 560)]
+    );
+    assert_eq!(whole.model_distribution.len(), 1);
+    assert_eq!(whole.model_distribution[0].input_tokens, 960);
+
+    // Resumed after the range: its run in the range only, and no lifetime
+    // totals, since the session was not last active in it.
+    let early = query(&db, "2026-03-01", "2026-03-03", None, false, None);
+    assert_eq!(model_days(&early), vec![gpt("2026-03-02", 400)]);
+    assert!(early.model_distribution.is_empty());
+    assert_eq!(early.total_sessions, 0);
 }

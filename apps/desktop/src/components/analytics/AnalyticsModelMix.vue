@@ -14,7 +14,11 @@ import { pushRoute } from "@/router/navigation";
 import { formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import type { ModelRow } from "@/utils/analyticsSummary";
 
-const props = defineProps<{ models: ModelRow[] }>();
+const props = defineProps<{
+  models: ModelRow[];
+  /** The per-day series have runs in the range, though `models` may be empty. */
+  dailyUsage?: boolean;
+}>();
 
 const router = useRouter();
 const SHOWN = 6;
@@ -105,6 +109,10 @@ function openModels() {
         </div>
       </div>
     </template>
+    <p v-else-if="dailyUsage" class="ad-empty">
+      <b>No session last active here</b>
+      Models are totalled over sessions last active in this range. Runs that ended in it show in Activity.
+    </p>
     <p v-else class="ad-empty">
       <b>No model usage</b>
       No model calls were recorded in this range.

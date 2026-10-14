@@ -27,6 +27,7 @@ import {
   cumulativeRows,
   type DayRow,
   formatShare,
+  hasDailyUsage,
   SOURCE_COLORS,
 } from "@/utils/analyticsDashboard";
 import {
@@ -58,6 +59,8 @@ const view = computed({
 });
 
 const has = computed(() => props.summary.costRows.some((row) => row.sessions > 0));
+/** Runs can end in the range even when no session was last active in it. */
+const dailyUsage = computed(() => hasDailyUsage(props.data));
 const entry = (source: string) => props.data.costBySource?.find((e) => e.source === source);
 const activeDays = computed(() => props.data.activityPerDay.filter((p) => p.count > 0).length);
 
@@ -203,9 +206,15 @@ function openModels() {
       <SegmentedControl v-model="view" class="ad-seg" :options="VIEWS" aria-label="Cost view" />
     </template>
 
-    <p v-if="!has" class="ad-empty">
-      <b>No cost</b>
-      Nothing was used in {{ rangeText }}.
+    <p v-if="!has && (view === 'sources' || !dailyUsage)" class="ad-empty">
+      <template v-if="dailyUsage">
+        <b>No session last active here</b>
+        By source counts sessions last active in this range. Runs that ended in it show in Running total.
+      </template>
+      <template v-else>
+        <b>No cost</b>
+        Nothing was used in {{ rangeText }}.
+      </template>
     </p>
 
     <div v-else-if="view === 'sources'" class="cost-cards">

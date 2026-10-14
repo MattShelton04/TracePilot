@@ -124,14 +124,23 @@ Analytics extraction version 17 refreshes previously indexed sessions with these
 rules. It changes derived rows, not the database schema or source event files.
 The normal path continues to aggregate those rows with SQL.
 
-Date filters select sessions by their last-active date. For selected sessions,
-headline totals remain lifetime values; segment-based daily charts use the day
-each segment ended and include only segments within the requested date range.
-This keeps activity, token and cost charts on the same day for sessions spanning
-midnight. The legacy daily cost series counts premium requests; the headline
-`total_cost` retains model-reported cost. Undated shutdowns contribute to lifetime
-totals without producing daily chart points. Differential fixtures in the
-indexer's `analytics_parity` tests cover these semantics against the disk fallback.
+Date filters select sessions by their last-active date for the headline
+totals, which remain lifetime values of those sessions. Segment-based daily
+charts select segments instead: each counts on the day it ended when that day is
+in the requested range, whenever its session was last active. A run that ended
+in the range therefore still shows when its session was resumed after it,
+though that session adds nothing to the headline totals. This keeps activity,
+token and cost charts on the same day for sessions spanning midnight. Sessions
+without segments place their lifetime model usage on their last-active day. The
+legacy daily cost series counts premium requests; the headline `total_cost`
+retains model-reported cost. Undated shutdowns contribute to lifetime totals
+without producing daily chart points.
+
+The indexer's `analytics_parity` tests compare these semantics with the disk
+fallback for sessions last active in the range; `analytics_day_series` covers
+runs from sessions resumed after it. The disk fallback (used when the index
+can't be opened or its query fails) still selects sessions by last-active date
+before clamping their segments, so it leaves those runs out.
 
 ### Claude Code runs and USD cost
 

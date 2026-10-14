@@ -193,11 +193,13 @@ describe("buildMixSeries", () => {
     expect(series.buckets[1].values["copilot:b"]).toBeCloseTo(10);
   });
 
-  it("skips usage for models filtered off the page", () => {
-    const series = buildMixSeries([day("2026-10-01", "gone", 50)], rows, {
-      measure: "tokens",
-      named: [],
-    });
-    expect(series.buckets[0].total).toBe(0);
+  it("counts a model with no row under Others, without spend", () => {
+    // Its runs ended in the range, but its session was last active after it.
+    const usage = [day("2026-10-01", "a", 100), day("2026-10-01", "resumed", 50)];
+    const tokens = buildMixSeries(usage, rows, { measure: "tokens", named: ["copilot:a"] });
+    expect(tokens.buckets[0].values).toEqual({ "copilot:a": 100, [OTHERS_KEY]: 50 });
+    const spend = buildMixSeries(usage, rows, { measure: "spend", named: ["copilot:a"] });
+    expect(spend.buckets[0].values[OTHERS_KEY]).toBe(0);
+    expect(spend.buckets[0].values["copilot:a"]).toBeCloseTo(1);
   });
 });

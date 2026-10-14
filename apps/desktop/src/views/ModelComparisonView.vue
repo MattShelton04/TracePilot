@@ -3,6 +3,7 @@ import { EmptyState, ErrorState, LoadingOverlay, PageShell } from "@tracepilot/u
 import { Bot } from "lucide-vue-next";
 import { provide, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import ModelMixTimeline from "@/components/modelComparison/charts/ModelMixTimeline.vue";
 import ModelCharts from "@/components/modelComparison/ModelCharts.vue";
 import ModelCompareTable from "@/components/modelComparison/ModelCompareTable.vue";
 import ModelLeaderboard from "@/components/modelComparison/ModelLeaderboard.vue";
@@ -38,7 +39,7 @@ const { revealing } = useFirstReveal({
         <template v-else-if="ctx.data">
           <!-- Empty State -->
           <EmptyState
-            v-if="ctx.modelRows.length === 0"
+            v-if="ctx.modelRows.length === 0 && !ctx.data.modelUsageByDay?.length"
             title="No Model Data"
             description="No model usage data found for the selected time range and repository."
           >
@@ -46,6 +47,15 @@ const { revealing } = useFirstReveal({
               <Bot :size="32" />
             </template>
           </EmptyState>
+
+          <!-- Runs ended in the range, but no session was last active in it. -->
+          <div v-else-if="ctx.modelRows.length === 0">
+            <p class="chart-placeholder">
+              No session was last active in this range, so there are no per-model totals. The timeline
+              shows the runs that ended in it.
+            </p>
+            <ModelMixTimeline />
+          </div>
 
           <div v-else ref="contentRoot" :class="{ 'chart-reveal': revealing }">
             <ModelStatsGrid />
