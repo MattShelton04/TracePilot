@@ -38,6 +38,8 @@ export function useModelComparison() {
   const { store } = useAnalyticsPage("fetchAnalytics");
 
   const loading = computed(() => store.analyticsLoading);
+  /** Newer results for changed filters are loading behind the current ones. */
+  const refreshing = computed(() => store.analyticsRefreshing);
   const data = computed(() => store.analytics);
 
   const pageSubtitle = computed(() => {
@@ -175,6 +177,7 @@ export function useModelComparison() {
   return reactive({
     store,
     loading,
+    refreshing,
     data,
     pageSubtitle,
     modelRows,
