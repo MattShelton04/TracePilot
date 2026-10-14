@@ -40,6 +40,8 @@ export const TOOL_KINDS: Record<ToolKind, { label: string; color: string }> = {
 };
 
 type ToolLike = Pick<ToolUsageEntry, "name" | "nativeTools">;
+/** A canonical or source-native tool's call outcomes. */
+type ToolOutcomes = Pick<ToolUsageEntry, "callCount" | "failureCount" | "successRate">;
 
 export function toolKind(tool: ToolLike): ToolKind {
   if (WAIT_TOOLS.has(tool.name)) return "wait";
@@ -52,12 +54,16 @@ export function toolKind(tool: ToolLike): ToolKind {
   return "tool";
 }
 
-/** Failed calls. Payloads before `failureCount` estimate it from the rate. */
-export function toolFailures(tool: ToolUsageEntry): number {
+/**
+ * Failed calls. Calls without an outcome (no result yet, or a killed session)
+ * are not failures. Payloads before `failureCount` estimate it from the rate.
+ */
+export function toolFailures(tool: ToolOutcomes): number {
   return tool.failureCount ?? Math.round(tool.callCount * (1 - tool.successRate));
 }
 
-export function failureRate(tool: ToolUsageEntry): number {
+/** Failed calls over all calls, the rule every Failed column uses. */
+export function failureRate(tool: ToolOutcomes): number {
   return tool.callCount > 0 ? toolFailures(tool) / tool.callCount : 0;
 }
 

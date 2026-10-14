@@ -329,6 +329,10 @@ pub struct NativeToolUsageEntry {
     pub name: String,
     pub source: SessionSource,
     pub call_count: u32,
+    /// Calls that reported failure. Calls without an outcome are neither
+    /// successes nor failures.
+    #[serde(default)]
+    pub failure_count: u32,
     pub success_rate: f64,
     pub avg_duration_ms: f64,
 }

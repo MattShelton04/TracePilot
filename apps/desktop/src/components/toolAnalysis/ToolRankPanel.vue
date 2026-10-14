@@ -139,7 +139,7 @@ function natives(tool: ToolUsageEntry) {
     key: `${native.source}-${native.name}`,
     ...native,
     calls: formatNumber(native.callCount),
-    failed: native.successRate < 1 ? formatShare((1 - native.successRate) * 100) : "—",
+    failed: toolFailures(native) ? formatShare(failureRate(native) * 100) : "—",
     avg: native.avgDurationMs > 0 ? formatCallTime(native.avgDurationMs) : "—",
   }));
 }

@@ -206,7 +206,12 @@ export interface NativeToolUsageEntry {
   name: string;
   source: SessionSource;
   callCount: number;
-  /** Success rate (0-1) */
+  /**
+   * Calls that reported failure; calls without an outcome count as neither.
+   * Absent from payloads that predate it.
+   */
+  failureCount?: number;
+  /** Success rate (0-1) over calls with an outcome; 0 when none has one. */
   successRate: number;
   avgDurationMs: number;
 }
