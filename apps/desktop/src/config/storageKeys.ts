@@ -58,6 +58,10 @@ export const STORAGE_KEYS = Object.freeze({
   analyticsDashboardViews: "tracepilot-analytics-dashboard-views",
   /** View choices inside the session detail tabs (chat or compact, graph or list…). */
   sessionTabViews: "tracepilot-session-tab-views",
+  /** Repository, source and time range last chosen on the analytics pages. */
+  analyticsFilters: "tracepilot-analytics-filters",
+  /** Export format, sections, detail and redaction choices, plus saved custom presets. */
+  exportOptions: "tracepilot-export-options",
 } as const);
 
 /** Narrowed union of valid `localStorage` keys used by the desktop app. */

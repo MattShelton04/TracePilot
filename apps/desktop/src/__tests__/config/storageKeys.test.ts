@@ -38,4 +38,9 @@ describe("storage key registry", () => {
     expect(localStorage.getItem(STORAGE_KEYS.theme)).toBe("dark");
     expect(localStorage.getItem(STORAGE_KEYS.lastSession)).toBe("session-1");
   });
+
+  it("keeps the analytics filter and export option keys stable", () => {
+    expect(STORAGE_KEYS.analyticsFilters).toBe("tracepilot-analytics-filters");
+    expect(STORAGE_KEYS.exportOptions).toBe("tracepilot-export-options");
+  });
 });
