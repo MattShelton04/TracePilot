@@ -24,7 +24,8 @@ const { draft, invalid, update } = useCliCommandDraft(
         <code>npx claude</code>)
       </div>
       <p v-if="invalid" class="claude-cli-error" role="alert">
-        Not saved: use only letters, digits, spaces and <code>- _ . / \ :</code>
+        Not saved: use only letters, digits, spaces and <code>- _ . / \ :</code>.
+        Resume uses <code>{{ preferences.claudeCliCommand.trim() || DEFAULT_CLAUDE_CLI_COMMAND }}</code>
       </p>
     </div>
     <FormInput

@@ -107,7 +107,8 @@ describe("Search grouped view counts", () => {
     );
     const { w, store } = await searchGrouped("retry");
 
-    expect(summary(w)).toContain("across 12 sessions");
+    // A space separates the count from the timing.
+    expect(summary(w)).toContain("across 12 sessions (");
     expect(summary(w)).toContain("page 1 of 3");
     // Matches interleave across pages, so no group claims "N+".
     expect(groupCounts(w)).toEqual(["2 matches on this page", "1 match on this page"]);

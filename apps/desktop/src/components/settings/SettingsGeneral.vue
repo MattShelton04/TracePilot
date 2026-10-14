@@ -108,7 +108,8 @@ const {
             The command used to resume Copilot sessions (e.g., <code>copilot</code> or <code>gh copilot-cli</code>)
           </div>
           <p v-if="cliInvalid" class="cli-command-error" role="alert">
-            Not saved: use only letters, digits, spaces and <code>- _ . / \ :</code>
+            Not saved: use only letters, digits, spaces and <code>- _ . / \ :</code>.
+            Resume uses <code>{{ preferences.cliCommand.trim() || DEFAULT_CLI_COMMAND }}</code>
           </p>
         </div>
         <FormInput

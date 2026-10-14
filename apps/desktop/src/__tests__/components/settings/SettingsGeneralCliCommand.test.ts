@@ -35,6 +35,8 @@ describe("Copilot CLI command setting", () => {
     await input.setValue("copilot --model=x");
     expect(prefs.cliCommand).toBe("gh copilot");
     expect(wrapper.get("[role='alert']").text()).toContain("Not saved");
+    // Earlier valid keystrokes may have saved; the alert names what Resume uses.
+    expect(wrapper.get("[role='alert']").text()).toContain("Resume uses gh copilot");
     expect(input.attributes("aria-invalid")).toBe("true");
     expect(input.element.value).toBe("copilot --model=x");
 
