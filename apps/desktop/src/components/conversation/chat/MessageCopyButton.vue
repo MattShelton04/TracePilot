@@ -51,7 +51,7 @@ async function onCopy() {
   background: none;
   border: none;
   border-radius: var(--radius-sm);
-  color: var(--text-placeholder);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 400;
   cursor: pointer;
