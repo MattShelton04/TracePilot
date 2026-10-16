@@ -124,4 +124,70 @@ describe("MetricsStatCards source cost", () => {
     expect(tooltip(null)).toContain("Estimated from transcript timestamps.");
     expect(tooltip(null)).toContain("longer than the session span");
   });
+
+  it("labels totals from a usage checkpoint and the credits no model row covers", () => {
+    const legend = (metrics: ShutdownMetrics) => {
+      const data = useMetricsTabData(
+        computed(() => metrics),
+        usePreferencesStore(),
+      );
+      const wrapper = mount(MetricsStatCards, {
+        props: {
+          metrics,
+          totalRequests: data.totalRequests.value,
+          copilotCost: data.copilotCost.value,
+          totalWholesaleCost: data.totalWholesaleCost.value,
+          totalTokens: data.tokenBreakdown.value.total,
+          aiCreditUsage: data.aiCreditUsage.value,
+        },
+      });
+      const card = wrapper
+        .findAllComponents(StatCard)
+        .find((item) => item.props("label") === "AI Credits");
+      return { credits: card?.props("value"), wrapper };
+    };
+    const segment = {
+      startTimestamp: "2026-10-04T01:39:40.867Z",
+      endTimestamp: "2026-10-04T01:39:48.905+00:00",
+      tokens: 0,
+      totalRequests: 1,
+      premiumRequests: 1,
+      apiDurationMs: 0,
+      totalNanoAiu: 291_646_800,
+    };
+    const model = { "mai-code-1.1-flash": { totalNanoAiu: 291_646_800 } };
+
+    const running = legend({
+      totalNanoAiu: 707_673_600,
+      totalPremiumRequests: 2,
+      metricsTimestamp: "2026-10-04T01:40:14.141Z",
+      sessionSegments: [segment],
+      modelMetrics: model,
+    });
+    expect(running.credits).toBe("0.708 AIC");
+    expect(running.wrapper.find('[data-testid="usage-checkpoint"]').exists()).toBe(true);
+    expect(running.wrapper.find('[data-testid="unattributed-credits"]').text()).toContain(
+      "0.416 AIC since the last shutdown not yet attributed to a model",
+    );
+    expect(running.wrapper.text()).not.toContain("Shutdown ");
+
+    const ended = legend({
+      totalNanoAiu: 291_646_800,
+      metricsTimestamp: "2026-10-04T01:39:48.905Z",
+      sessionSegments: [segment],
+      modelMetrics: model,
+    });
+    expect(ended.wrapper.find('[data-testid="usage-checkpoint"]').exists()).toBe(false);
+    expect(ended.wrapper.text()).toContain("Shutdown ");
+
+    // Before the first shutdown, every credit is unattributed.
+    const firstRun = legend({
+      totalNanoAiu: 291_646_800,
+      metricsTimestamp: "2026-10-04T01:39:48.877Z",
+    });
+    expect(firstRun.credits).toBe("0.292 AIC");
+    expect(firstRun.wrapper.find('[data-testid="unattributed-credits"]').text()).toBe(
+      "· 0.292 AIC not yet attributed to a model",
+    );
+  });
 });

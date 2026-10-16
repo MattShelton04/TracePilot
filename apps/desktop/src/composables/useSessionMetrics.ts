@@ -116,6 +116,43 @@ export function shutdownAiCreditUsage(
   );
 }
 
+export interface UsageCheckpointCredits {
+  /** When Copilot CLI wrote the checkpoint the session totals come from. */
+  timestamp: string;
+  /**
+   * Observed AI Credits no model row accounts for: usage since the last
+   * shutdown, which a checkpoint does not split by model. Null when nothing
+   * is left over, or when a model row has no observed credits so the
+   * remainder is unknown.
+   */
+  unattributedCredits: number | null;
+}
+
+/**
+ * Set when the session totals come from a usage checkpoint written after the
+ * last shutdown (a session still running, or one that ended without a
+ * shutdown record). Model rows and runs then cover completed runs only. The
+ * backend stamps `metricsTimestamp` with the checkpoint's time, so it no
+ * longer matches the end of the last run.
+ */
+export function usageCheckpointCredits(
+  metrics: ShutdownMetrics | null | undefined,
+): UsageCheckpointCredits | null {
+  const timestamp = metrics?.metricsTimestamp;
+  if (!timestamp || metrics.totalNanoAiu == null) return null;
+  const lastRunEnd = metrics.sessionSegments?.at(-1)?.endTimestamp;
+  if (lastRunEnd != null && Date.parse(lastRunEnd) === Date.parse(timestamp)) return null;
+  const models = Object.values(metrics.modelMetrics ?? {});
+  const attributed = models.every((m) => m.totalNanoAiu != null)
+    ? models.reduce((sum, m) => sum + (m.totalNanoAiu ?? 0), 0)
+    : null;
+  const remainder = attributed == null ? null : (metrics.totalNanoAiu - attributed) / 1e9;
+  return {
+    timestamp,
+    unattributedCredits: remainder != null && remainder > 1e-9 ? remainder : null,
+  };
+}
+
 /** True when the session has any reasoning token data (v1.0.24+ sessions). */
 export function hasReasoningTokenData(m: ShutdownMetrics | null): boolean {
   if (!m?.modelMetrics) return false;

@@ -224,3 +224,110 @@ fn claude_runs_before_the_range_leave_its_tokens_and_usd() {
     assert!(close(usd, lifetime.1 - 0.5), "{usd}");
     assert!(close(usd, usd_by_day(&ranged)), "{usd}");
 }
+
+fn checkpoint(id: &str, at: &str, nano: u64, premium: f64) -> String {
+    format!(
+        r#"{{"type":"session.usage_checkpoint","data":{{"totalNanoAiu":{nano},"totalPremiumRequests":{premium}}},"id":"{id}","timestamp":"{at}"}}"#
+    )
+}
+
+/// Copilot CLI records the session's observed totals in a usage checkpoint
+/// each time the agent goes idle. A session still running (or one that ended
+/// without a shutdown) counts its latest checkpoint; its segments and model
+/// rows stay the completed runs, so the running run's credits stay with the
+/// session on its last-active day, like other usage segments do not explain.
+#[test]
+fn a_running_copilot_session_counts_its_latest_usage_checkpoint() {
+    let marker = r#","eventsFileSizeBytes":10"#;
+    let first_run = [
+        checkpoint("k1", "2026-03-01T09:59:00Z", NANO, 1.0),
+        shutdown("s1", "2026-03-01T10:00:00Z", 100, NANO, 1.0, marker),
+    ];
+    // Resumed on 03-03 and still running: 3 AIC and 2 premium requests so far.
+    let resumed = [
+        resume("r2", "2026-03-03T09:00:00Z"),
+        checkpoint("k2", "2026-03-03T09:30:00Z", 3 * NANO, 2.0),
+    ];
+    let temp = tempfile::tempdir().unwrap();
+    let events: Vec<&str> = first_run
+        .iter()
+        .chain(&resumed)
+        .map(String::as_str)
+        .collect();
+    let path = write_copilot(
+        temp.path(),
+        "44444444-4444-4444-8444-444444444444",
+        "2026-03-03T09:30:00Z",
+        &events,
+    );
+    let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
+    db.upsert_session(&path).unwrap();
+
+    let t = super::segment_totals::totals(&db);
+    assert_eq!(t.segments, 1, "{t:?}");
+    assert_eq!(
+        t.nano_aiu,
+        (Some(3 * NANO as i64), Some(NANO as i64)),
+        "{t:?}"
+    );
+    assert_eq!(t.premium, (Some(2.0), Some(1.0)), "{t:?}");
+    let model_nano: i64 = db
+        .conn
+        .query_row(
+            "SELECT SUM(total_nano_aiu) FROM session_model_metrics",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        model_nano, NANO as i64,
+        "model rows are the completed run's"
+    );
+
+    let all = db.query_analytics(None, None, None, false, None).unwrap();
+    assert_eq!(
+        (all.total_nano_aiu, all.total_premium_requests),
+        (3 * NANO, 2.0)
+    );
+    assert_eq!(all.sessions_with_observed_ai_credits, 1);
+    // Without the 03-01 run, the range holds the running run's usage.
+    let ranged = db
+        .query_analytics(Some("2026-03-03"), Some("2026-03-05"), None, false, None)
+        .unwrap();
+    assert_eq!(
+        (ranged.total_nano_aiu, ranged.total_premium_requests),
+        (2 * NANO, 1.0)
+    );
+
+    for (from, to) in [(Some("2026-03-03"), Some("2026-03-05")), (None, None)] {
+        let inputs = load_full_sessions_filtered(temp.path(), from, to, None, false).unwrap();
+        let fallback = serde_json::to_value(compute_analytics_in_range(&inputs, from, to)).unwrap();
+        let indexed =
+            serde_json::to_value(db.query_analytics(from, to, None, false, None).unwrap()).unwrap();
+        for field in [
+            "totalNanoAiu",
+            "totalPremiumRequests",
+            "sessionsWithObservedAiCredits",
+        ] {
+            assert_eq!(indexed[field], fallback[field], "{field}: from={from:?}");
+        }
+    }
+
+    // A first run that has not shut down yet has its checkpoint totals only.
+    let temp = tempfile::tempdir().unwrap();
+    let path = write_copilot(
+        temp.path(),
+        "55555555-5555-4555-8555-555555555555",
+        "2026-03-01T09:59:00Z",
+        &[&first_run[0]],
+    );
+    let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
+    db.upsert_session(&path).unwrap();
+    let t = super::segment_totals::totals(&db);
+    assert_eq!((t.segments, t.tokens), (0, (0, 0)), "{t:?}");
+    assert_eq!(
+        (t.nano_aiu.0, t.premium.0),
+        (Some(NANO as i64), Some(1.0)),
+        "{t:?}"
+    );
+}

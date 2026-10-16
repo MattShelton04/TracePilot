@@ -7,6 +7,11 @@ use tracepilot_core::provider::SourceFingerprint;
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v19: a Copilot session with a `session.usage_checkpoint` after its last
+/// shutdown (still running, or ended without one) takes its AI Credits and
+/// premium requests from that checkpoint instead of losing them; model rows
+/// and segments stay the completed runs.
+///
 /// v18: format observations for Copilot sessions (unknown event types and
 /// Copilot CLI versions) in `session_format_observations` for Settings →
 /// Logs & Diagnostics.
@@ -46,7 +51,7 @@ use tracepilot_core::provider::SourceFingerprint;
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 19;
 
 /// The analytics version of Claude Code rows, bumped on its own so Copilot
 /// rows (and their golden snapshot) are not re-derived for a Claude-only

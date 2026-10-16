@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ConversationTurn } from "@tracepilot/types";
+import type { ConversationTurn, TaskNotification } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
 import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-vue-next";
-import type { ComponentPublicInstance } from "vue";
+import { type ComponentPublicInstance, computed } from "vue";
 import { promptPreviewText } from "@/utils/pastedContent";
 
 interface TurnStats {
@@ -14,7 +14,7 @@ interface TurnStats {
   agentCount: number;
 }
 
-defineProps<{
+const props = defineProps<{
   turns: ConversationTurn[];
   turnIndex: number;
   turnLabel: string;
@@ -36,6 +36,47 @@ const emit = defineEmits<{
 function setJumpRef(el: Element | ComponentPublicInstance | null) {
   emit("register-jump-ref", (el as HTMLElement | null) ?? null);
 }
+
+const NOTIFICATION_KIND: Record<TaskNotification["kind"], string> = {
+  agent: "Agent",
+  shell: "Background shell",
+  monitor: "Monitor",
+};
+
+interface TurnPreview {
+  text: string;
+  /** True when the text is the user's prompt rather than a stand-in for it. */
+  isPrompt: boolean;
+}
+
+/**
+ * What a turn is about: the user's prompt; else the background tasks whose
+ * completion opened it; else the main agent's first reply (a follow-up turn
+ * such as "Done."). Whitespace is collapsed for one-line display.
+ */
+function turnPreview(turn: ConversationTurn): TurnPreview {
+  const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+  const prompt = turn.userMessage ? oneLine(promptPreviewText(turn.userMessage)) : "";
+  if (prompt) return { text: prompt, isPrompt: true };
+  const notes = turn.notifications ?? [];
+  if (notes.length > 0) {
+    const what = notes
+      .map(
+        (n) => oneLine(n.summary ?? "") || `${NOTIFICATION_KIND[n.kind]} ${n.status ?? "finished"}`,
+      )
+      .join("; ");
+    return { text: `Notification: ${what}`, isPrompt: false };
+  }
+  const reply = turn.assistantMessages.find((m) => !m.parentToolCallId && m.content.trim());
+  if (reply) return { text: `Assistant: ${oneLine(reply.content)}`, isPrompt: false };
+  return { text: "(no message)", isPrompt: false };
+}
+
+// Read only while the jump list is open.
+const jumpItems = computed(() =>
+  props.turns.map((t) => ({ turnIndex: t.turnIndex, preview: turnPreview(t) })),
+);
+const currentPreview = computed(() => (props.currentTurn ? turnPreview(props.currentTurn) : null));
 </script>
 
 <template>
@@ -90,7 +131,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
         <div v-if="jumpOpen" class="jump-dropdown">
           <div class="jump-list" role="listbox">
             <button
-              v-for="(t, idx) in turns"
+              v-for="(item, idx) in jumpItems"
               :key="idx"
               class="jump-item"
               :class="{ active: idx === turnIndex }"
@@ -98,9 +139,9 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
               :aria-selected="idx === turnIndex"
               @click="emit('jump-to', idx)"
             >
-              <span class="jump-idx">{{ idx + 1 }}</span>
+              <span class="jump-idx">{{ item.turnIndex }}</span>
               <span class="jump-msg">
-                {{ truncateText(promptPreviewText(t.userMessage ?? "(no message)"), 60) }}
+                {{ truncateText(item.preview.text, 60) }}
               </span>
             </button>
           </div>
@@ -109,9 +150,10 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
     </div>
 
     <!-- Turn summary -->
-    <div v-if="currentTurn" class="turn-summary">
-      <div class="turn-message">
-        "{{ truncateText(promptPreviewText(currentTurn.userMessage ?? "(no message)"), 120) }}"
+    <div v-if="currentTurn && currentPreview" class="turn-summary">
+      <div class="turn-message" :class="{ 'turn-message--stand-in': !currentPreview.isPrompt }">
+        <template v-if="currentPreview.isPrompt">"{{ truncateText(currentPreview.text, 120) }}"</template>
+        <template v-else>{{ truncateText(currentPreview.text, 120) }}</template>
       </div>
       <div class="turn-meta">
         <span v-if="turnStats.model" class="meta-chip" :title="turnStats.modelId">
@@ -130,3 +172,12 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
     </div>
   </header>
 </template>
+
+<style scoped>
+/* A stand-in for a missing prompt (a notification or the agent's reply) is not
+   quoted like a prompt the user typed, and reads quieter. */
+.turn-message--stand-in {
+  color: var(--text-secondary);
+  font-style: normal;
+}
+</style>

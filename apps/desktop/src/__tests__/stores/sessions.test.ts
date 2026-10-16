@@ -185,6 +185,21 @@ describe("useSessionsStore", () => {
     ]);
   });
 
+  it("keeps a folder filed under its repository whichever source is picked", async () => {
+    mockListSessions.mockResolvedValue([
+      { ...MOCK_SESSION, id: "1", repository: "example/orchard", cwd: "C:/x/orchard" },
+      { ...MOCK_SESSION, id: "2", repository: null, cwd: "C:\\x\\orchard", source: "claudeCode" },
+    ]);
+    const store = useSessionsStore();
+    await store.fetchSessions();
+    store.filterRepo = "example/orchard";
+
+    store.setFilterSource("claudeCode");
+    expect(store.filterRepo).toBe("example/orchard");
+    expect(store.repositoryOptions.map((o) => o.value)).toEqual(["example/orchard"]);
+    expect(store.filteredSessions.map((s) => s.id)).toEqual(["2"]);
+  });
+
   it("sorts sessions by different options", async () => {
     mockListSessions.mockResolvedValue([
       { ...MOCK_SESSION, id: "1", updatedAt: "2025-01-01T00:00:00Z", eventCount: 5 },

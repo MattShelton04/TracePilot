@@ -1,6 +1,20 @@
 import { useShortcut } from "@tracepilot/ui";
-import { type ComputedRef, computed, type Ref, ref, watch } from "vue";
+import { type ComputedRef, computed, getCurrentInstance, type Ref, ref, watch } from "vue";
 import type { SubagentFullData } from "./useCrossTurnSubagents";
+
+function isRendered(element: Element): boolean {
+  if (!element.isConnected || element.closest("[hidden], [inert]")) return false;
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+  }
+  return true;
+}
+
+/** A visible `aria-modal` dialog (ModalDialog, "?" help, image viewer...) is open. */
+function hasOpenModal(): boolean {
+  return [...document.querySelectorAll('[aria-modal="true"]')].some(isRendered);
+}
 
 /**
  * Manages the slide-out subagent detail panel state.
@@ -63,7 +77,17 @@ export function useSubagentPanel(
     }
   }
 
-  const panelOpen = () => isPanelOpen.value;
+  // The shortcuts listen on document, so they must step aside for a modal
+  // opened on top of the panel (it owns Escape and arrows) and for a session
+  // tab kept mounted behind v-show while another tab is shown.
+  const instance = getCurrentInstance();
+  function hostIsShown(): boolean {
+    const el: Node | null | undefined = instance?.proxy?.$el;
+    if (!el) return true;
+    const host = el instanceof Element ? el : el.parentElement;
+    return host ? isRendered(host) : el.isConnected;
+  }
+  const panelOpen = () => isPanelOpen.value && !hasOpenModal() && hostIsShown();
   useShortcut("Escape", closePanel, { target: document, when: panelOpen });
   useShortcut("ArrowLeft", navigatePrev, { target: document, when: panelOpen });
   useShortcut("ArrowRight", navigateNext, { target: document, when: panelOpen });

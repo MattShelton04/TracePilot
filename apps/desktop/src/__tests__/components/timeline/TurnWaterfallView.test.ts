@@ -67,7 +67,7 @@ describe("TurnWaterfallView", () => {
     const navBtns = wrapper.findAll(".nav-btn");
     // At least 2 nav buttons (prev + next), plus possibly "Jump to"
     expect(navBtns.length).toBeGreaterThanOrEqual(2);
-    expect(wrapper.text()).toContain("Turn 1 of 2");
+    expect(wrapper.text()).toContain("Turn 0 (1 of 2)");
   });
 
   it("prev button disabled on first turn", () => {
@@ -93,13 +93,66 @@ describe("TurnWaterfallView", () => {
     ];
 
     const wrapper = mountComponent();
-    expect(wrapper.text()).toContain("Turn 1 of 2");
+    expect(wrapper.text()).toContain("Turn 0 (1 of 2)");
 
     const nextBtn = wrapper.find('button[aria-label="Next turn"]');
     await nextBtn.trigger("click");
     await nextTick();
 
-    expect(wrapper.text()).toContain("Turn 2 of 2");
+    expect(wrapper.text()).toContain("Turn 1 (2 of 2)");
+  });
+
+  it("names turns by their own index, as Conversation and Search do", async () => {
+    // A session whose turns start at 17: the 2nd turn is "Turn 18" elsewhere in the app.
+    store.turns = [
+      makeTurn({ turnIndex: 17, userMessage: "Plan the fix" }),
+      makeTurn({ turnIndex: 18, userMessage: "Launch an agent" }),
+    ];
+
+    const wrapper = mountComponent();
+    await wrapper.find('button[aria-label="Next turn"]').trigger("click");
+    expect(wrapper.find(".nav-label").text()).toBe("Turn 18 (2 of 2)");
+
+    await wrapper.find('button[aria-haspopup="listbox"]').trigger("click");
+    const indexes = wrapper.findAll(".jump-item .jump-idx").map((el) => el.text());
+    expect(indexes).toEqual(["17", "18"]);
+  });
+
+  it("previews turns without a prompt by what opened or answered them", async () => {
+    store.turns = [
+      makeTurn({ turnIndex: 0, userMessage: "Run the tests" }),
+      makeTurn({
+        turnIndex: 1,
+        userMessage: null,
+        assistantMessages: [
+          { content: "Subagent note", parentToolCallId: "tc-agent" },
+          { content: "All tests\npass." },
+        ],
+      }),
+      makeTurn({
+        turnIndex: 2,
+        userMessage: null,
+        assistantMessages: [{ content: "Read the report." }],
+        notifications: [{ kind: "shell", status: "completed", summary: "Build finished" }],
+      }),
+      makeTurn({ turnIndex: 3, userMessage: null, assistantMessages: [] }),
+    ];
+
+    const wrapper = mountComponent();
+    await wrapper.find('button[aria-haspopup="listbox"]').trigger("click");
+    const items = wrapper.findAll(".jump-item .jump-msg");
+    expect(items.map((el) => el.text())).toEqual([
+      "Run the tests",
+      "Assistant: All tests pass.",
+      "Notification: Build finished",
+      "(no message)",
+    ]);
+
+    await wrapper.findAll(".jump-item")[1].trigger("click");
+    expect(wrapper.find(".nav-label").text()).toBe("Turn 1 (2 of 4)");
+    const summary = wrapper.find(".turn-message");
+    expect(summary.text()).toBe("Assistant: All tests pass.");
+    expect(summary.classes()).toContain("turn-message--stand-in");
   });
 
   it("waterfall rows render for each tool call in current turn", () => {

@@ -6,6 +6,7 @@ import {
   type SessionSource,
 } from "@tracepilot/types";
 import { projectLabelFromCwd } from "@tracepilot/ui";
+import { type FolderRepositories, folderRepositories, folderRepository } from "./repositoryFolders";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
@@ -15,7 +16,10 @@ export interface SessionFilterPredicates {
    * one of id/summary/repository/branch/cwd/model; empty means no search.
    */
   searchTerms: readonly string[];
-  /** A repository, or a `PROJECT_FILTER_PREFIX` key for a session with only a cwd. */
+  /**
+   * A repository, or a `PROJECT_FILTER_PREFIX` key for a session with only a
+   * cwd. A repository also matches cwd-only sessions in a folder it ran in.
+   */
   repository: string | null;
   /** Only sessions from this source; `null` or absent means every source. */
   source?: SessionSource | null;
@@ -31,6 +35,8 @@ export interface SessionSearchFields {
   model: string;
   /** The model as the card shows it (`claude-opus-5.5` for `claude-opus-5-5`). */
   modelName: string;
+  /** The repository a cwd-only session's folder belongs to (see `repositoryFolders`). */
+  folderRepository: string | null;
 }
 
 /** Marks a repository-filter value as a working-directory project, not a repository. */
@@ -67,12 +73,15 @@ export function parseSearchTerms(query: string): string[] {
  * Build a per-session lower-cased search field cache.
  *
  * Pre-computes the strings used by `matchesSessionFilters` so the typing
- * keystroke path doesn't run `.toLowerCase()` per row per keystroke.
+ * keystroke path doesn't run `.toLowerCase()` per row per keystroke. Built
+ * from the whole list, it also records which repository each cwd-only
+ * session's folder belongs to.
  */
 export function buildSearchFieldCache(
   sessions: readonly SessionListItem[],
 ): Map<string, SessionSearchFields> {
   const cache = new Map<string, SessionSearchFields>();
+  const folders = folderRepositories(sessions);
   for (const s of sessions) {
     cache.set(s.id, {
       id: s.id.toLowerCase(),
@@ -82,6 +91,7 @@ export function buildSearchFieldCache(
       cwd: (s.cwd ?? "").toLowerCase(),
       model: (s.currentModel ?? "").toLowerCase(),
       modelName: s.currentModel ? modelDisplayName(s.currentModel, s.source).toLowerCase() : "",
+      folderRepository: folderRepository(s, folders),
     });
   }
   return cache;
@@ -108,10 +118,24 @@ export function matchesSessionFilters(
     }
   }
 
-  if (predicates.repository && sessionRepositoryKey(s) !== predicates.repository) return false;
+  if (predicates.repository && !inRepositoryFilter(s, predicates.repository, cache)) return false;
   if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
+}
+
+/**
+ * Whether `s` belongs under a repository-filter value: its own key, or the
+ * repository its folder belongs to (from `cache`). A cwd-only session keeps
+ * matching its folder key too, so a folder picked before a repository-bearing
+ * session appeared there still shows it.
+ */
+export function inRepositoryFilter(
+  s: SessionListItem,
+  repository: string,
+  cache: Map<string, SessionSearchFields>,
+): boolean {
+  return sessionRepositoryKey(s) === repository || cache.get(s.id)?.folderRepository === repository;
 }
 
 function fieldsInclude(fields: SessionSearchFields, term: string): boolean {
@@ -168,18 +192,23 @@ export function uniqueRepositories(sessions: readonly SessionListItem[]): string
 
 /**
  * Repository-filter options: repositories first, then projects for sessions
- * that have only a working directory, each list sorted by label. `selected`
- * stays listed even with no session behind it, so the select can show it.
+ * that have only a working directory, each list sorted by label. A cwd-only
+ * session whose folder belongs to a repository is filed under it instead;
+ * pass `folders` from the whole list when `sessions` is only part of it.
+ * `selected` stays listed even with no session behind it, so the select can
+ * show it.
  */
 export function repositoryFilterOptions(
   sessions: readonly SessionListItem[],
   selected: string | null = null,
+  folders: FolderRepositories = folderRepositories(sessions),
 ): RepositoryFilterOption[] {
   const repos = new Set<string>();
   const projects = new Map<string, Set<string>>();
   for (const s of sessions) {
-    if (s.repository) {
-      repos.add(s.repository);
+    const repository = s.repository || folderRepository(s, folders);
+    if (repository) {
+      repos.add(repository);
       continue;
     }
     const label = projectLabelFromCwd(s.cwd);
