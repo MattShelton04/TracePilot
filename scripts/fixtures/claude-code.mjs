@@ -103,6 +103,23 @@ function orchardSession() {
     "tool_use",
   );
   t.toolResult("toolu_orchard_plan", "User has approved your plan.", { plan, isAgent: false });
+  // The desktop app's task list, which the Todos tab replays.
+  const steps = ["Wrap send in a bounded retry", "Run the tests", "Report the change"];
+  t.call(
+    "msg_orchard_steps",
+    [
+      toolUse("toolu_orchard_steps", "mcp__ccd_turn__update_plan", {
+        items: steps.map((content, index) => ({
+          content,
+          status: index === 0 ? "in_progress" : "pending",
+        })),
+        scope: "first_task",
+      }),
+    ],
+    usage,
+    "tool_use",
+  );
+  t.toolResult("toolu_orchard_steps", [{ type: "text", text: "Plan shown (3 steps)." }]);
   t.call(
     "msg_orchard_1",
     [
@@ -154,6 +171,15 @@ function orchardSession() {
     userModified: false,
     replaceAll: false,
   });
+  t.call(
+    "msg_orchard_advance",
+    [toolUse("toolu_orchard_advance", "mcp__ccd_turn__update_plan", { advance: true })],
+    usage,
+    "tool_use",
+  );
+  t.toolResult("toolu_orchard_advance", [
+    { type: "text", text: "Plan updated: step 2 of 3 is in progress." },
+  ]);
   t.call(
     "msg_orchard_3",
     [toolUse("toolu_orchard_test", "Bash", { command: "npm test", description: "Run the tests" })],

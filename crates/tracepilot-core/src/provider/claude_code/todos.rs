@@ -1,16 +1,21 @@
 //! The session's task list, rebuilt from the main transcript's tool calls.
 //!
-//! Claude Code keeps no task file beside a session, so the list is replayed
-//! from the calls that changed it, in file order:
+//! The transcript is the one record of the list every client keeps: the
+//! desktop app stores none, and the CLI's `todos/` and `tasks/` folders are
+//! optional and outlive their session. So the list is replayed from the
+//! calls that changed it, in file order:
 //!
 //! - The desktop app's `mcp__ccd_turn__update_plan`: `items` replaces the
 //!   list; `advance` completes the step in progress and starts the next
 //!   pending one; `done`/`start` name 1-based steps. Its `wrap_up` completes
 //!   the step still in progress.
+//! - Legacy `TodoWrite`: `todos` replaces the list.
 //! - `TaskCreate`/`TaskUpdate` (CLI, opt-in on current models): one task per
 //!   create, with the id from `toolUseResult.task.id`; updates change status,
 //!   text and dependencies, and `deleted` removes the task.
-//! - Legacy `TodoWrite`: `todos` replaces the list.
+//!
+//! The first two keep one checklist and the task tools a separate task list,
+//! as Claude Code does; the one changed last is the session's list.
 //!
 //! A call counts once its result arrives without an error, so a refused or
 //! interrupted call never changes the list. Subagents keep their own lists,
@@ -48,6 +53,13 @@ pub(super) fn latest_todos(lines: &[Line]) -> Option<TodoList> {
         let Blocks::Array(blocks) = rec.blocks() else {
             continue;
         };
+        // `toolUseResult` belongs to the record, so it describes a result
+        // only when the record holds just one.
+        let results = blocks
+            .iter()
+            .filter(|b| block_type(b) == "tool_result")
+            .count();
+        let tool_use_result = rec.0.get("toolUseResult").filter(|_| results == 1);
         for block in blocks {
             match block_type(block) {
                 "tool_use" => {
@@ -73,13 +85,13 @@ pub(super) fn latest_todos(lines: &[Line]) -> Option<TodoList> {
                     if block.get("is_error").and_then(Value::as_bool) == Some(true) {
                         continue;
                     }
-                    board.apply(name, input, at, rec.0.get("toolUseResult"), block);
+                    board.apply(name, input, at, tool_use_result, block);
                 }
                 _ => {}
             }
         }
     }
-    board.touched.then(|| board.into_list())
+    board.into_list()
 }
 
 fn is_todo_tool(name: &str) -> bool {
@@ -95,13 +107,21 @@ struct Entry {
     blocked_by: Vec<String>,
 }
 
+/// Which list a call changed.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Family {
+    /// `update_plan` and `TodoWrite`: an ordered list without dependencies.
+    Checklist,
+    /// `TaskCreate`/`TaskUpdate`: tasks by id, with dependencies.
+    Tasks,
+}
+
 #[derive(Default)]
 struct Board {
-    entries: Vec<Entry>,
-    /// A call changed the list, even if it ends empty.
-    touched: bool,
-    /// `TaskCreate`/`TaskUpdate` were used, so dependencies are known.
-    tracks_deps: bool,
+    checklist: Vec<Entry>,
+    tasks: Vec<Entry>,
+    /// The family changed last, if any call changed a list (even to empty).
+    latest: Option<Family>,
 }
 
 impl Board {
@@ -115,31 +135,32 @@ impl Board {
     ) {
         match name {
             UPDATE_PLAN => self.update_plan(input, at),
-            // Only a list the session kept: a wrap-up alone has no steps.
-            WRAP_UP => self.complete_in_progress(at.as_deref()),
+            // A wrap-up never starts a list; it only checks off the step
+            // still in progress.
+            WRAP_UP => complete_in_progress(&mut self.checklist, at.as_deref()),
+            TODO_WRITE => self.todo_write(input, at),
             TASK_CREATE => self.task_create(input, at, tool_use_result, result),
             TASK_UPDATE => self.task_update(input, at),
-            TODO_WRITE => {
-                if let Some(todos) = input.get("todos").and_then(Value::as_array) {
-                    self.replace(todos, "content", at);
-                }
-            }
             _ => {}
         }
     }
 
     fn update_plan(&mut self, input: &Value, at: Option<String>) {
         if let Some(items) = input.get("items").and_then(Value::as_array) {
-            self.replace(items, "content", at.clone());
+            self.replace(items, at.clone());
+        } else if self.checklist.is_empty() {
+            return;
         }
+        self.latest = Some(Family::Checklist);
+        let list = &mut self.checklist;
         if input.get("advance").and_then(Value::as_bool) == Some(true) {
-            let current = self.position(IN_PROGRESS);
-            self.complete_in_progress(at.as_deref());
+            let current = position(list, IN_PROGRESS);
+            complete_in_progress(list, at.as_deref());
             let next = current
-                .and_then(|from| self.position_after(from, PENDING))
-                .or_else(|| self.position(PENDING));
+                .and_then(|from| (from + 1..list.len()).find(|&i| list[i].item.status == PENDING))
+                .or_else(|| position(list, PENDING));
             if let Some(next) = next {
-                self.set_status(next, IN_PROGRESS, at.as_deref());
+                set_status(list, next, IN_PROGRESS, at.as_deref());
             }
         }
         for step in input
@@ -149,46 +170,50 @@ impl Board {
             .flatten()
             .filter_map(step_index)
         {
-            self.set_status(step, DONE, at.as_deref());
+            set_status(list, step, DONE, at.as_deref());
         }
         if let Some(step) = input.get("start").and_then(step_index) {
-            self.set_status(step, IN_PROGRESS, at.as_deref());
+            set_status(list, step, IN_PROGRESS, at.as_deref());
         }
     }
 
-    /// Replace the list with `items`, each titled by `title_key`. Ids are
-    /// 1-based positions, as `update_plan` names its steps; an item whose
-    /// title was already listed keeps its creation time.
-    fn replace(&mut self, items: &[Value], title_key: &str, at: Option<String>) {
-        self.touched = true;
-        self.tracks_deps = false;
-        let previous = std::mem::take(&mut self.entries);
-        for (index, item) in items.iter().enumerate() {
-            let Some(title) = item
-                .get(title_key)
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|title| !title.is_empty())
-            else {
+    fn todo_write(&mut self, input: &Value, at: Option<String>) {
+        if let Some(todos) = input.get("todos").and_then(Value::as_array) {
+            self.replace(todos, at);
+        }
+    }
+
+    /// Replace the checklist with `items`. Ids are 1-based positions, as
+    /// `update_plan` names its steps; an item whose title was already listed
+    /// keeps its creation time.
+    fn replace(&mut self, items: &[Value], at: Option<String>) {
+        self.latest = Some(Family::Checklist);
+        let mut previous = std::mem::take(&mut self.checklist);
+        for item in items {
+            let Some(title) = text(item, "content") else {
                 continue;
             };
             let status = status(item.get("status")).unwrap_or(PENDING);
-            let before = previous.iter().find(|entry| entry.item.title == title);
-            let changed = before.is_none_or(|entry| entry.item.status != status);
-            self.entries.push(Entry {
+            // Each earlier entry matches once, so repeated titles keep
+            // their own times.
+            let before = previous
+                .iter()
+                .position(|entry| entry.item.title == title)
+                .map(|index| previous.remove(index).item);
+            let changed = before.as_ref().is_none_or(|item| item.status != status);
+            let (created_at, updated_at) = match before {
+                Some(item) if !changed => (item.created_at, item.updated_at),
+                Some(item) => (item.created_at, at.clone()),
+                None => (at.clone(), at.clone()),
+            };
+            self.checklist.push(Entry {
                 item: TodoItem {
-                    id: (index + 1).to_string(),
-                    title: title.to_string(),
+                    id: (self.checklist.len() + 1).to_string(),
+                    title,
                     description: None,
                     status: status.to_string(),
-                    created_at: before
-                        .map(|entry| entry.item.created_at.clone())
-                        .unwrap_or_else(|| at.clone()),
-                    updated_at: if changed {
-                        at.clone()
-                    } else {
-                        before.and_then(|entry| entry.item.updated_at.clone())
-                    },
+                    created_at,
+                    updated_at,
                 },
                 blocked_by: Vec::new(),
             });
@@ -202,30 +227,20 @@ impl Board {
         tool_use_result: Option<&Value>,
         result: &Value,
     ) {
-        let Some(subject) = input
-            .get("subject")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|subject| !subject.is_empty())
-        else {
+        let Some(subject) = text(input, "subject") else {
             return;
         };
-        if self.touched && !self.tracks_deps {
-            // A list from `TodoWrite`/`update_plan` is not a task list.
-            self.entries.clear();
-        }
-        self.touched = true;
-        self.tracks_deps = true;
+        self.latest = Some(Family::Tasks);
         let id = tool_use_result
             .and_then(|tur| tur.pointer("/task/id"))
             .and_then(id_text)
             .or_else(|| created_id(&tool_result_text(result)))
-            .unwrap_or_else(|| self.next_id());
-        self.entries.retain(|entry| entry.item.id != id);
-        self.entries.push(Entry {
+            .unwrap_or_else(|| next_id(&self.tasks));
+        self.tasks.retain(|entry| entry.item.id != id);
+        self.tasks.push(Entry {
             item: TodoItem {
                 id,
-                title: subject.to_string(),
+                title: subject,
                 description: text(input, "description"),
                 status: PENDING.to_string(),
                 created_at: at.clone(),
@@ -243,93 +258,106 @@ impl Board {
         else {
             return;
         };
+        let tasks = &mut self.tasks;
+        let Some(index) = tasks.iter().position(|entry| entry.item.id == id) else {
+            return;
+        };
+        self.latest = Some(Family::Tasks);
         if input.get("status").and_then(Value::as_str) == Some("deleted") {
-            self.entries.retain(|entry| entry.item.id != id);
-            for entry in &mut self.entries {
+            tasks.remove(index);
+            for entry in tasks.iter_mut() {
                 entry.blocked_by.retain(|blocker| *blocker != id);
             }
             return;
         }
-        let Some(index) = self.entries.iter().position(|entry| entry.item.id == id) else {
-            return;
-        };
-        let entry = &mut self.entries[index];
+        let mut changed = false;
+        let item = &mut tasks[index].item;
         if let Some(status) = status(input.get("status")) {
-            entry.item.status = status.to_string();
+            changed |= replace_if_new(&mut item.status, status.to_string());
         }
         if let Some(subject) = text(input, "subject") {
-            entry.item.title = subject;
+            changed |= replace_if_new(&mut item.title, subject);
         }
         if let Some(description) = text(input, "description") {
-            entry.item.description = Some(description);
+            changed |= item.description.as_deref() != Some(description.as_str());
+            item.description = Some(description);
         }
-        entry.item.updated_at = at;
         for blocker in ids(input.get("addBlockedBy")) {
-            push_unique(&mut self.entries[index].blocked_by, blocker);
+            if blocker != id {
+                changed |= push_unique(&mut tasks[index].blocked_by, blocker);
+            }
         }
         for blocked in ids(input.get("addBlocks")) {
-            if let Some(entry) = self.entries.iter_mut().find(|e| e.item.id == blocked) {
-                push_unique(&mut entry.blocked_by, id.clone());
+            if let Some(entry) = tasks
+                .iter_mut()
+                .find(|e| e.item.id == blocked && blocked != id)
+            {
+                changed |= push_unique(&mut entry.blocked_by, id.clone());
+            }
+        }
+        if changed {
+            tasks[index].item.updated_at = at;
+        }
+    }
+
+    fn into_list(self) -> Option<TodoList> {
+        match self.latest? {
+            Family::Checklist => Some(TodoList {
+                items: self.checklist.into_iter().map(|entry| entry.item).collect(),
+                deps: None,
+            }),
+            Family::Tasks => {
+                let tasks = self.tasks;
+                let known = |id: &String| tasks.iter().any(|entry| entry.item.id == *id);
+                let deps = tasks
+                    .iter()
+                    .flat_map(|entry| {
+                        entry
+                            .blocked_by
+                            .iter()
+                            .filter(|blocker| known(blocker))
+                            .map(|blocker| TodoDep {
+                                todo_id: entry.item.id.clone(),
+                                depends_on: blocker.clone(),
+                            })
+                    })
+                    .collect();
+                Some(TodoList {
+                    items: tasks.into_iter().map(|entry| entry.item).collect(),
+                    deps: Some(deps),
+                })
             }
         }
     }
+}
 
-    fn complete_in_progress(&mut self, at: Option<&str>) {
-        if let Some(index) = self.position(IN_PROGRESS) {
-            self.set_status(index, DONE, at);
-        }
+fn complete_in_progress(list: &mut [Entry], at: Option<&str>) {
+    if let Some(index) = position(list, IN_PROGRESS) {
+        set_status(list, index, DONE, at);
     }
+}
 
-    fn position(&self, status: &str) -> Option<usize> {
-        self.entries.iter().position(|e| e.item.status == status)
-    }
+fn position(list: &[Entry], status: &str) -> Option<usize> {
+    list.iter().position(|entry| entry.item.status == status)
+}
 
-    fn position_after(&self, from: usize, status: &str) -> Option<usize> {
-        (from + 1..self.entries.len()).find(|&i| self.entries[i].item.status == status)
+fn set_status(list: &mut [Entry], index: usize, status: &str, at: Option<&str>) {
+    if let Some(entry) = list.get_mut(index)
+        && entry.item.status != status
+    {
+        entry.item.status = status.to_string();
+        entry.item.updated_at = at.map(str::to_string);
     }
+}
 
-    fn set_status(&mut self, index: usize, status: &str, at: Option<&str>) {
-        if let Some(entry) = self.entries.get_mut(index)
-            && entry.item.status != status
-        {
-            entry.item.status = status.to_string();
-            entry.item.updated_at = at.map(str::to_string);
-        }
-    }
-
-    /// One past the highest numeric id, as Claude Code numbers its tasks.
-    fn next_id(&self) -> String {
-        let highest = self
-            .entries
-            .iter()
-            .filter_map(|entry| entry.item.id.parse::<u64>().ok())
-            .max()
-            .unwrap_or(0);
-        (highest + 1).to_string()
-    }
-
-    fn into_list(self) -> TodoList {
-        let deps = self.tracks_deps.then(|| {
-            let known = |id: &String| self.entries.iter().any(|entry| entry.item.id == *id);
-            self.entries
-                .iter()
-                .flat_map(|entry| {
-                    entry
-                        .blocked_by
-                        .iter()
-                        .filter(|blocker| known(blocker))
-                        .map(|blocker| TodoDep {
-                            todo_id: entry.item.id.clone(),
-                            depends_on: blocker.clone(),
-                        })
-                })
-                .collect()
-        });
-        TodoList {
-            items: self.entries.into_iter().map(|entry| entry.item).collect(),
-            deps,
-        }
-    }
+/// One past the highest numeric id, as Claude Code numbers its tasks.
+fn next_id(tasks: &[Entry]) -> String {
+    let highest = tasks
+        .iter()
+        .filter_map(|entry| entry.item.id.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0);
+    (highest + 1).to_string()
 }
 
 /// Claude Code's status as TracePilot's: `completed` is `done`. Unknown
@@ -367,8 +395,9 @@ fn ids(value: Option<&Value>) -> Vec<String> {
         .collect()
 }
 
-fn text(input: &Value, key: &str) -> Option<String> {
-    input
+/// A trimmed, non-blank string field.
+fn text(value: &Value, key: &str) -> Option<String> {
+    value
         .get(key)
         .and_then(Value::as_str)
         .map(str::trim)
@@ -383,8 +412,16 @@ fn created_id(text: &str) -> Option<String> {
     (!id.is_empty()).then_some(id)
 }
 
-fn push_unique(ids: &mut Vec<String>, id: String) {
-    if !ids.contains(&id) {
+fn replace_if_new(field: &mut String, value: String) -> bool {
+    let changed = *field != value;
+    *field = value;
+    changed
+}
+
+fn push_unique(ids: &mut Vec<String>, id: String) -> bool {
+    let new = !ids.contains(&id);
+    if new {
         ids.push(id);
     }
+    new
 }

@@ -49,6 +49,7 @@ sessions are removed and the new folder is indexed.
 | Context | Total input per model call. Claude Code doesn't record a system, tools and conversation split. |
 | Prompt cache | Observed cache reads and writes per call. Expiry is estimated from each request's recorded cache lifetime (5 minutes or 1 hour), and shows as unknown when none was recorded. |
 | Overview | The session plan and file-history checkpoints (below). |
+| Todos | The session's task list, rebuilt from its transcript: the Claude desktop app's task list (`update_plan`), or the CLI's `TaskCreate`/`TaskUpdate` (with dependencies) and older `TodoWrite`. Shown as a list by default. The CLI's task tools are off by default on current models, so most CLI sessions have no list; set `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` to turn them on. |
 | Explorer | **Scratchpad**: the files the agent made in Claude Code's temporary folder, which Claude Code clears about a week after the session's last activity. **Session data**: the session's `subagents/` and `tool-results/` folders. The switch shows only when the session has a scratchpad; the last choice is remembered. |
 | Export | Markdown and JSON, marked with the source. On top of the redaction options you pick, TracePilot always removes account details (email, organization and account IDs, quota limits) and the system-prompt and instruction-file attachments from the native records. |
 | Import | No. Import writes Copilot session folders. |
@@ -57,9 +58,6 @@ sessions are removed and the new folder is indexed.
 
 ### Not supported
 
-- **Todos.** Claude Code's task tools are off by default on current models, so
-  Claude sessions have no Todos tab. Task tool calls from older or opted-in
-  sessions show as generic tool calls.
 - **Copilot-only features:** launching sessions, SDK
   steering and live attach, the config injector, the MCP, skills and agents
   editors, exact context capture and CLI version management.

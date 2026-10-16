@@ -1,4 +1,4 @@
-import type { ConversationTurn, EventsResponse } from "@tracepilot/types";
+import type { ConversationTurn, EventsResponse, TodosResponse } from "@tracepilot/types";
 import { MOCK_CLAUDE_NOTIFICATION_TURNS } from "./claudeNotifications.js";
 import { ts } from "./common.js";
 
@@ -131,4 +131,14 @@ export const MOCK_CLAUDE_EVENTS: EventsResponse = {
   totalCount: 3,
   hasMore: false,
   allEventTypes: ["user.message", "tool.execution_start", "tracepilot.model_call"],
+};
+
+/** A Claude Code checklist: ordered steps without dependencies. */
+export const MOCK_CLAUDE_TODOS: TodosResponse = {
+  todos: [
+    { id: "1", title: "Survey the upload client", status: "done" },
+    { id: "2", title: "Add a bounded retry", status: "in_progress" },
+    { id: "3", title: "Run the tests", status: "pending" },
+  ],
+  deps: [],
 };

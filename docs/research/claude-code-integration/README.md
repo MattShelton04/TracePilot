@@ -101,7 +101,8 @@ main ones:
    index the same way deleted Copilot sessions do.
 2. **88.8% of thinking blocks are redacted.**
 3. **No context breakdown** into system / tools / conversation; only exact totals per call.
-4. **Todos are replayed from the transcript.** No task file sits beside a session. The desktop
+4. **Todos are replayed from the transcript.** The desktop app stores no task list, and the CLI's
+   `todos/`/`tasks/` folders are optional and outlive their session. The desktop
    app's `mcp__ccd_turn__update_plan` (since about v2.1.295, desktop only) and the CLI's
    `TaskCreate`/`TaskUpdate` or legacy `TodoWrite` are rebuilt into the Todos tab. The CLI's task
    tools are on by default only for older models (Opus 4.7, Sonnet 4.6, Haiku 4.5 and earlier),

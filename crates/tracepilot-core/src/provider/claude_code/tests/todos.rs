@@ -324,3 +324,171 @@ fn an_emptied_list_differs_from_no_list() {
     let list = todos(&write_session(&t, &[])).expect("an empty list");
     assert!(list.items.is_empty());
 }
+
+/// `advance` with nothing in progress starts the first pending step, and
+/// out-of-range or zero steps change nothing.
+#[test]
+fn advance_and_steps_tolerate_odd_input() {
+    let mut t = Transcript::main();
+    t.prompt("Go.");
+    plan(
+        &mut t,
+        "toolu_p1",
+        json!({"items": steps(&[("One", "completed"), ("Two", "pending"), ("Three", "pending")])}),
+    );
+    plan(&mut t, "toolu_p2", json!({"advance": true}));
+    plan(&mut t, "toolu_p3", json!({"done": [0, 9, "2"], "start": 7}));
+    let list = todos(&write_session(&t, &[])).unwrap();
+    assert_eq!(
+        statuses(&list),
+        [
+            ("1", "One", "done"),
+            ("2", "Two", "in_progress"),
+            ("3", "Three", "pending")
+        ]
+    );
+}
+
+/// Blank items are dropped and ids stay the steps `done`/`start` name;
+/// repeated titles each keep their own times.
+#[test]
+fn blank_and_repeated_titles_keep_steps_aligned() {
+    let mut t = Transcript::main();
+    t.prompt("Go.");
+    plan(
+        &mut t,
+        "toolu_p1",
+        json!({"items": steps(&[("Check", "completed"), ("Check", "pending")])}),
+    );
+    t.idle(60);
+    plan(
+        &mut t,
+        "toolu_p2",
+        json!({"items": steps(&[("Check", "completed"), (" ", "pending"),
+            ("Check", "pending"), ("Ship", "pending")]), "start": 3}),
+    );
+    let list = todos(&write_session(&t, &[])).unwrap();
+    assert_eq!(
+        statuses(&list),
+        [
+            ("1", "Check", "done"),
+            ("2", "Check", "pending"),
+            ("3", "Ship", "in_progress")
+        ]
+    );
+    let [first, second, _] = &list.items[..] else {
+        unreachable!()
+    };
+    assert_eq!(
+        first.updated_at, first.created_at,
+        "unchanged since the first list"
+    );
+    assert_eq!(
+        second.updated_at, second.created_at,
+        "matched its own earlier copy"
+    );
+}
+
+/// The checklist and the task list are separate, as in Claude Code: a task
+/// update never touches a plan step with the same id, and the list changed
+/// last is shown.
+#[test]
+fn checklist_and_tasks_stay_apart() {
+    let mut t = Transcript::main();
+    t.prompt("Go.");
+    for (id, subject, task_id) in [("toolu_c1", "Task one", "1"), ("toolu_c2", "Task two", "2")] {
+        call(
+            &mut t,
+            id,
+            "TaskCreate",
+            json!({ "subject": subject }),
+            "Task created",
+            json!({"task": {"id": task_id, "subject": subject}}),
+        );
+    }
+    plan(
+        &mut t,
+        "toolu_p1",
+        json!({"items": steps(&[("Step one", "in_progress"), ("Step two", "pending")])}),
+    );
+    let files = write_session(&t, &[]);
+    let list = todos(&files).unwrap();
+    assert_eq!(
+        statuses(&list),
+        [
+            ("1", "Step one", "in_progress"),
+            ("2", "Step two", "pending")
+        ]
+    );
+    assert!(list.deps.is_none());
+
+    call(
+        &mut t,
+        "toolu_u1",
+        "TaskUpdate",
+        json!({"taskId": "2", "status": "completed"}),
+        "Updated task #2",
+        Value::Null,
+    );
+    let list = todos(&write_session(&t, &[])).unwrap();
+    assert_eq!(
+        statuses(&list),
+        [("1", "Task one", "pending"), ("2", "Task two", "done")]
+    );
+
+    // Advancing the plan shows the checklist again, untouched by the update.
+    plan(&mut t, "toolu_p2", json!({"advance": true}));
+    let list = todos(&write_session(&t, &[])).unwrap();
+    assert_eq!(
+        statuses(&list),
+        [("1", "Step one", "done"), ("2", "Step two", "in_progress")]
+    );
+}
+
+/// An update that changes nothing keeps the task's update time.
+#[test]
+fn a_no_op_task_update_keeps_its_time() {
+    let mut t = Transcript::main();
+    t.prompt("Go.");
+    call(
+        &mut t,
+        "toolu_c1",
+        "TaskCreate",
+        json!({"subject": "Only task"}),
+        "Task #1 created successfully: Only task",
+        Value::Null,
+    );
+    t.idle(60);
+    call(
+        &mut t,
+        "toolu_u1",
+        "TaskUpdate",
+        json!({"taskId": "1", "status": "pending", "addBlocks": ["9"], "addBlockedBy": ["1"]}),
+        "Updated task #1",
+        Value::Null,
+    );
+    let list = todos(&write_session(&t, &[])).unwrap();
+    let task = &list.items[0];
+    assert_eq!(task.updated_at, task.created_at);
+    assert_eq!(list.deps.as_deref().map(<[_]>::len), Some(0));
+}
+
+/// Sidechain records inside the main file are a subagent's, not the
+/// session's.
+#[test]
+fn sidechain_records_in_the_main_file_are_skipped() {
+    let mut t = Transcript::main();
+    t.prompt("Go.");
+    t.record(
+        "assistant",
+        json!({"isSidechain": true, "message": {"id": "msg_side", "model": OPUS,
+            "role": "assistant", "content": [tool_use("toolu_side", UPDATE_PLAN,
+                json!({"items": steps(&[("Side step", "pending")])}))]}}),
+    );
+    t.record(
+        "user",
+        json!({"isSidechain": true, "message": {"role": "user", "content": [{
+            "type": "tool_result", "tool_use_id": "toolu_side", "content": "Plan shown."}]}}),
+    );
+    assert!(todos(&write_session(&t, &[])).is_none());
+}

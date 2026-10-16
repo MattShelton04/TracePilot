@@ -13,11 +13,11 @@ import { MOCK_PROMPT_CACHE } from "../promptCache.js";
 import {
   getMockSessionDetail,
   getMockSessionEvents,
+  getMockSessionTodos,
   getMockSessionTurns,
   getMockShutdownMetrics,
   MOCK_CHECKPOINTS,
   MOCK_SESSIONS,
-  MOCK_TODOS,
 } from "../sessions.js";
 import { type MockRoutes, mockSessionId } from "./route.js";
 
@@ -64,7 +64,7 @@ export const SESSION_ROUTES: MockRoutes = {
     sourceVersion: "mock-source-version",
   }),
   get_session_events: (args) => getMockSessionEvents(mockSessionId(args)),
-  get_session_todos: () => MOCK_TODOS,
+  get_session_todos: (args) => getMockSessionTodos(mockSessionId(args)),
   get_session_checkpoints: () => MOCK_CHECKPOINTS,
   get_session_plan: () => ({ content: "# Mock Plan\n\n1. Task one\n2. Task two" }),
   get_session_file_history: () => [],
