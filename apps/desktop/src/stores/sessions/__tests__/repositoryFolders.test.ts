@@ -6,7 +6,7 @@ import {
   PROJECT_FILTER_PREFIX,
   repositoryFilterOptions,
 } from "../filtering";
-import { folderKey } from "../repositoryFolders";
+import { folderKey, folderRepositories } from "../repositoryFolders";
 
 function s(
   id: string,
@@ -118,6 +118,18 @@ describe("stores/sessions/filtering – folders that belong to a repository", ()
     const sessions = [s("cop", "/src/Orchard", "example/orchard"), s("cc", "/src/orchard")];
     expect(values(sessions)).toEqual(["example/orchard", `${PROJECT_FILTER_PREFIX}orchard`]);
     expect(pick(sessions, "example/orchard")).toEqual(["cop"]);
+  });
+
+  it("files part of the list by what the whole list says about each folder", () => {
+    const all = [
+      s("cop", "C:/synthetic/orchard", "example/orchard"),
+      s("cc", "C:\\synthetic\\orchard"),
+    ];
+    const claudeOnly = all.filter((x) => x.source === "claudeCode");
+    expect(values(claudeOnly)).toEqual([`${PROJECT_FILTER_PREFIX}orchard`]);
+    expect(
+      repositoryFilterOptions(claudeOnly, null, folderRepositories(all)).map((o) => o.value),
+    ).toEqual(["example/orchard"]);
   });
 
   it("still matches a folder picked before it was filed under a repository", () => {

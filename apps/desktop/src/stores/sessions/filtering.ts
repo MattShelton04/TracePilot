@@ -6,7 +6,7 @@ import {
   type SessionSource,
 } from "@tracepilot/types";
 import { projectLabelFromCwd } from "@tracepilot/ui";
-import { folderRepositories, folderRepository } from "./repositoryFolders";
+import { type FolderRepositories, folderRepositories, folderRepository } from "./repositoryFolders";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
@@ -118,19 +118,24 @@ export function matchesSessionFilters(
     }
   }
 
-  // A cwd-only session keeps matching its folder key too, so a folder picked
-  // before a repository-bearing session appeared there still shows it.
-  const repository = predicates.repository;
-  if (
-    repository &&
-    sessionRepositoryKey(s) !== repository &&
-    cache.get(s.id)?.folderRepository !== repository
-  ) {
-    return false;
-  }
+  if (predicates.repository && !inRepositoryFilter(s, predicates.repository, cache)) return false;
   if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
+}
+
+/**
+ * Whether `s` belongs under a repository-filter value: its own key, or the
+ * repository its folder belongs to (from `cache`). A cwd-only session keeps
+ * matching its folder key too, so a folder picked before a repository-bearing
+ * session appeared there still shows it.
+ */
+export function inRepositoryFilter(
+  s: SessionListItem,
+  repository: string,
+  cache: Map<string, SessionSearchFields>,
+): boolean {
+  return sessionRepositoryKey(s) === repository || cache.get(s.id)?.folderRepository === repository;
 }
 
 function fieldsInclude(fields: SessionSearchFields, term: string): boolean {
@@ -188,17 +193,18 @@ export function uniqueRepositories(sessions: readonly SessionListItem[]): string
 /**
  * Repository-filter options: repositories first, then projects for sessions
  * that have only a working directory, each list sorted by label. A cwd-only
- * session whose folder belongs to a repository is filed under it instead.
+ * session whose folder belongs to a repository is filed under it instead;
+ * pass `folders` from the whole list when `sessions` is only part of it.
  * `selected` stays listed even with no session behind it, so the select can
  * show it.
  */
 export function repositoryFilterOptions(
   sessions: readonly SessionListItem[],
   selected: string | null = null,
+  folders: FolderRepositories = folderRepositories(sessions),
 ): RepositoryFilterOption[] {
   const repos = new Set<string>();
   const projects = new Map<string, Set<string>>();
-  const folders = folderRepositories(sessions);
   for (const s of sessions) {
     const repository = s.repository || folderRepository(s, folders);
     if (repository) {
