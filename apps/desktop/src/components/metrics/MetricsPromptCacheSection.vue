@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * Prompt-cache section of the Metrics tab: summary stats, then every idle
- * window with its idle time against the cache TTL, the outcome and likely
- * cache-break causes. Long sessions have many windows, so the table is a
+ * Prompt-cache section of the Metrics tab: the estimated extra cost of
+ * cache misses and how replies after an idle gap fared, then every idle
+ * window as a dot on a log scale of idle time against the cache TTL, the
+ * likely cache-break causes, and the windows as a table. Long sessions have many windows, so the table is a
  * paged disclosure (open by default when short) that can be narrowed to
  * misses and prefix changes. Rows expand to the full details. Older CLI
  * versions do not record cache timing, so their estimate is only shown on
@@ -10,18 +11,14 @@
  */
 import type { CacheWindow, PromptCacheTimeline, SessionSource } from "@tracepilot/types";
 import { calculateObservedAiCredits, formatNumber, formatTime } from "@tracepilot/types";
-import {
-  Badge,
-  ExpandChevron,
-  formatAiCreditsUsd,
-  SectionPanel,
-  StatCard,
-  Tooltip,
-} from "@tracepilot/ui";
-import { ChevronRight, Info } from "lucide-vue-next";
+import { Badge, ExpandChevron, formatAiCreditsUsd, formatShortDate, Tooltip } from "@tracepilot/ui";
+import { ChevronRight, Coins, Hourglass, Info, RotateCcw, Unplug } from "lucide-vue-next";
 import { computed, ref, useId } from "vue";
+import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useClientPager } from "@/composables/useClientPager";
+import { useElementWidth } from "@/composables/useElementWidth";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
+import { idlePercent, idleScale, idleTicks, stackDots } from "@/utils/metricsView";
 import {
   AGENT_RESUME_SOURCE,
   CONFIDENCE_EXPLANATIONS,
@@ -122,6 +119,95 @@ function outcomeBadge(window: CacheWindow) {
   return { label: OUTCOME_LABELS[window.outcome], variant: OUTCOME_VARIANTS[window.outcome] };
 }
 
+const replies = computed(() => summary.value.warm + afterExpiry.value);
+const expiredShare = computed(() =>
+  replies.value ? (afterExpiry.value / replies.value) * 100 : 0,
+);
+const pending = computed(() => props.timeline.windows.find((w) => w.outcome === "pending") ?? null);
+const resentLabel = computed(() =>
+  formatApproxTokens(summary.value.resentPrefixTokens).replace(/^about | tokens$/g, ""),
+);
+// Nothing missed costs nothing; a dash means the misses couldn't be priced.
+const extraCostLabel = computed(() => {
+  if (extraCost.value != null) return formatMissCost(extraCost.value);
+  return afterExpiry.value ? "—" : formatMissCost(0);
+});
+
+// Idle time vs TTL: one dot per window on a log scale of idle time.
+const root = ref<HTMLElement | null>(null);
+const width = useElementWidth(root, 800);
+const DOT = 9;
+const MAX_ROWS = 10;
+const plotted = computed(() =>
+  visibleWindows.value.filter((w) => w.idleSeconds != null && w.idleSeconds > 0),
+);
+const ttls = computed(() =>
+  [
+    ...new Set(
+      plotted.value.map((w) => w.ttlSeconds).filter((t): t is number => t != null && t > 0),
+    ),
+  ].sort((a, b) => a - b),
+);
+const scale = computed(() =>
+  idleScale([...plotted.value.map((w) => w.idleSeconds as number), ...ttls.value]),
+);
+const plotWidth = computed(() => Math.max(200, width.value));
+const dots = computed(() => {
+  const pcts = plotted.value.map((w) => idlePercent(w.idleSeconds as number, scale.value));
+  const rows = stackDots(pcts, plotWidth.value, DOT);
+  return plotted.value.map((w, i) => ({
+    window: w,
+    pct: pcts[i],
+    row: Math.min(rows[i], MAX_ROWS - 1),
+  }));
+});
+const plotHeight = computed(
+  () => 20 + Math.min(MAX_ROWS, Math.max(1, ...dots.value.map((d) => d.row + 1))) * DOT,
+);
+const ticks = computed(() => idleTicks(scale.value, plotWidth.value));
+const hovered = ref<CacheWindow | null>(null);
+
+function dotTone(window: CacheWindow): "warm" | "break" | "miss" | "other" {
+  if (window.outcome === "warm") return window.prefixChanges.length ? "break" : "warm";
+  if (window.outcome === "expired" || window.outcome === "modelChanged") return "miss";
+  return "other";
+}
+function dotLabel(window: CacheWindow): string {
+  const cost = windowMissCost(window);
+  return [
+    `Idle ${formatIdle(window.idleSeconds)}`,
+    outcomeBadge(window).label,
+    window.resumeSource === AGENT_RESUME_SOURCE ? "agent woke itself" : null,
+    `${formatShortDate(window.idleStart)} ${formatTime(window.idleStart)}`,
+    cost != null ? `extra cost ${formatMissCost(cost)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+/** Opens the table at a window's row, expanded. */
+function reveal(window: CacheWindow) {
+  tableChoice.value = true;
+  onlyNotable.value = false;
+  const index = tableWindows.value.indexOf(window);
+  if (index >= 0) page.value = Math.floor(index / PAGE_SIZE);
+  const next = new Set(expanded.value);
+  next.add(window.index);
+  expanded.value = next;
+}
+const causes = computed(() => {
+  const counts = new Map<string, number>();
+  for (const window of visibleWindows.value) {
+    for (const change of window.prefixChanges) {
+      counts.set(change.kind, (counts.get(change.kind) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([kind, count]) => ({ kind, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+});
+const maxCause = computed(() => Math.max(1, ...causes.value.map((c) => c.count)));
+
 function toggle(index: number) {
   const next = new Set(expanded.value);
   if (!next.delete(index)) next.add(index);
@@ -150,8 +236,10 @@ function rowCost(window: CacheWindow) {
 </script>
 
 <template>
-  <SectionPanel title="Prompt Cache" class="mb-6" data-testid="prompt-cache-section">
-    <template #actions>
+  <OverviewPanel title="Prompt cache" data-testid="prompt-cache-section">
+    <template #aside>
+      <span v-if="timeline.source === 'modelCalls'">Timed from model calls</span>
+      <span v-else-if="timeline.source === 'checkpoints'">Expiry recorded by Copilot CLI</span>
       <Badge v-if="isTurnGaps && showEstimate" variant="warning">Estimated</Badge>
       <Tooltip :text="timingExplanation">
         <button type="button" aria-label="About prompt-cache timing" class="text-[var(--text-tertiary)]">
@@ -160,8 +248,10 @@ function rowCost(window: CacheWindow) {
       </Tooltip>
     </template>
 
-    <p v-if="timeline.source === 'none'" class="text-sm text-[var(--text-tertiary)]">
-      No idle windows yet.
+    <div ref="root" class="prompt-cache">
+    <p v-if="timeline.source === 'none'" class="ad-empty">
+      <b>No idle windows yet.</b>
+      The session hasn't sat idle long enough for its prompt cache to matter.
     </p>
 
     <div v-else-if="isTurnGaps" class="prompt-cache__notice">
@@ -181,40 +271,101 @@ function rowCost(window: CacheWindow) {
     </div>
 
     <template v-if="visibleWindows.length > 0">
-      <div class="prompt-cache__stats">
-        <StatCard
-          :value="summary.warm"
-          label="Warm"
-          color="success"
-          :tooltip="`Replies sent before the cache expired. Agent wakes aren't counted.`"
-          mini
-        />
-        <StatCard
-          :value="afterExpiry"
-          label="After expiry"
-          :tooltip="resentTooltip"
-          mini
-        />
-        <StatCard
-          v-if="summary.agentResumes > 0"
-          :value="summary.agentResumes"
-          label="Agent wakes"
-          tooltip="The agent resumed without a prompt, e.g. when a background task finished."
-          mini
-        />
-        <StatCard
-          :value="formatIdle(summary.medianIdleSeconds)"
-          label="Median idle"
-          tooltip="Median time between going idle and the next reply."
-          mini
-        />
-        <StatCard
-          v-if="extraCost != null"
-          :value="formatMissCost(extraCost)"
-          label="Est. extra cost"
-          tooltip="Re-caching the prefix after each miss, from model prices."
-          mini
-        />
+      <div class="ad-tiles prompt-cache__tiles">
+        <div class="ad-tile" data-testid="prompt-cache-extra-cost">
+          <div class="ad-tile__label"><Coins :size="13" aria-hidden="true" />Est. extra cost</div>
+          <div class="ad-tile__value ad-tile__value--lg" :class="{ 'prompt-cache__cost-value': extraCost }">
+            <span class="kpi__value-num">{{ extraCostLabel }}</span>
+          </div>
+          <div class="ad-tile__detail" title="Re-caching the prefix after each miss, from model prices.">
+            <template v-if="!afterExpiry">No replies after the cache expired</template>
+            <template v-else-if="extraCost == null">No prices for these models</template>
+            <template v-else-if="summary.resentPrefixTokens"><b>{{ resentLabel }}</b> tokens re-cached after misses</template>
+            <template v-else>Re-caching the prefix after misses</template>
+          </div>
+        </div>
+        <div class="ad-tile" data-testid="prompt-cache-replies">
+          <div class="ad-tile__label">
+            <RotateCcw :size="13" aria-hidden="true" />Replies after idle
+            <span v-if="summary.agentResumes" class="ad-tile__aside" title="The agent resumed without a prompt, e.g. when a background task finished.">+{{ summary.agentResumes }} agent wake{{ summary.agentResumes === 1 ? "" : "s" }}</span>
+          </div>
+          <div class="ad-tile__value ad-tile__value--lg">
+            <span class="kpi__value-num">{{ replies }}</span>
+            <small>
+              <span class="prompt-cache__warm" title="Replies sent before the cache expired. Agent wakes aren't counted.">{{ summary.warm }} warm</span>
+              ·
+              <span class="prompt-cache__miss" :title="resentTooltip">{{ afterExpiry }} after expiry</span>
+            </small>
+          </div>
+          <div v-if="replies" class="ad-meter" aria-hidden="true">
+            <i v-if="summary.warm" :style="{ width: `${100 - expiredShare}%`, background: 'var(--success-fg)' }" data-reveal="grow-x" />
+            <i v-if="afterExpiry" :style="{ width: `${expiredShare}%`, background: 'var(--warning-fg)' }" data-reveal="grow-x" />
+          </div>
+          <div v-else class="ad-tile__detail">No replies after an idle gap yet</div>
+        </div>
+        <div class="ad-tile" data-testid="prompt-cache-breaks">
+          <div class="ad-tile__label"><Unplug :size="13" aria-hidden="true" />Likely cache breaks</div>
+          <div class="ad-tile__value ad-tile__value--lg" :class="{ 'prompt-cache__break-value': summary.likelyBreaks }">
+            <span class="kpi__value-num">{{ summary.likelyBreaks }}</span>
+          </div>
+          <div class="ad-tile__detail" title="The prompt prefix changed before a reply, so it likely missed the cache even while warm.">
+            <template v-if="causes.length">Mostly <b>{{ changeKindLabel(causes[0].kind).toLocaleLowerCase() }}</b> changes</template>
+            <template v-else>No prefix changes found</template>
+            <template v-if="summary.modelChanged"> · {{ summary.modelChanged }} on another model</template>
+          </div>
+        </div>
+        <div class="ad-tile" data-testid="prompt-cache-idle">
+          <div class="ad-tile__label"><Hourglass :size="13" aria-hidden="true" />Median idle</div>
+          <div class="ad-tile__value ad-tile__value--lg"><span>{{ formatIdle(summary.medianIdleSeconds) }}</span></div>
+          <div class="ad-tile__detail">
+            <template v-if="pending"><span class="prompt-cache__live">Live</span> idle now<template v-if="pending.expiresAt"> · expires {{ formatTime(pending.expiresAt) }}</template></template>
+            <template v-else-if="ttls.length">Cache TTL {{ ttls.map((t) => formatIdle(t)).join(" / ") }}</template>
+            <template v-else>Between going idle and the next reply</template>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="dots.length" class="prompt-cache__plot-wrap">
+        <div class="prompt-cache__plot" :style="{ height: `${plotHeight}px` }" role="group" :aria-label="`${dots.length} idle windows by idle time; the dashed lines are the cache TTL`">
+          <span v-for="ttl in ttls" :key="ttl" class="prompt-cache__ttl" :class="{ 'prompt-cache__ttl--end': idlePercent(ttl, scale) > 75 }" :style="{ left: `${idlePercent(ttl, scale)}%` }"><em>TTL {{ formatIdle(ttl) }}</em></span>
+          <button
+            v-for="dot in dots"
+            :key="dot.window.index"
+            type="button"
+            class="prompt-cache__dot"
+            :class="[`prompt-cache__dot--${dotTone(dot.window)}`, { 'prompt-cache__dot--agent': dot.window.resumeSource === AGENT_RESUME_SOURCE }]"
+            :style="{ left: `${dot.pct}%`, bottom: `${4 + dot.row * DOT}px` }"
+            :aria-label="dotLabel(dot.window)"
+            data-reveal="pop"
+            @mouseenter="hovered = dot.window"
+            @focus="hovered = dot.window"
+            @mouseleave="hovered = null"
+            @blur="hovered = null"
+            @click="reveal(dot.window)"
+          />
+        </div>
+        <div class="prompt-cache__axis" aria-hidden="true">
+          <span v-for="tick in ticks" :key="tick.label" :class="{ 'prompt-cache__tick--start': tick.pct < 2, 'prompt-cache__tick--end': tick.pct > 98 }" :style="{ left: `${tick.pct}%` }">{{ tick.label }}</span>
+        </div>
+        <div class="prompt-cache__readout" aria-live="polite">
+          <span v-if="hovered">{{ dotLabel(hovered) }}</span>
+          <div v-else class="ad-legend">
+            <span><i class="ad-sw prompt-cache__dot--warm" />Warm</span>
+            <span><i class="ad-sw prompt-cache__dot--miss" />After expiry</span>
+            <span v-if="dots.some((d) => dotTone(d.window) === 'break')"><i class="ad-sw prompt-cache__dot--break" />Likely cache break</span>
+            <span v-if="dots.some((d) => d.window.resumeSource === AGENT_RESUME_SOURCE)"><i class="ad-sw prompt-cache__sw-agent" />Agent woke itself</span>
+            <span>Select a dot to open its window</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="causes.length" class="ad-rows prompt-cache__causes" role="list" aria-label="Likely cache-break causes">
+        <div class="ad-rowh prompt-cache__cause"><span>Likely cache-break causes</span><span /><span class="ad-num">Windows</span></div>
+        <div v-for="cause in causes" :key="cause.kind" class="ad-row prompt-cache__cause" role="listitem">
+          <span class="ad-row__name"><span>{{ changeKindLabel(cause.kind) }}</span></span>
+          <span class="ad-track"><i :style="{ width: `${(cause.count / maxCause) * 100}%`, background: 'var(--warning-fg)' }" data-reveal="grow-x" /></span>
+          <span class="ad-num">{{ cause.count }}</span>
+        </div>
       </div>
 
       <div class="prompt-cache__table-bar">
@@ -339,7 +490,8 @@ function rowCost(window: CacheWindow) {
         The marker is the cache expiry. Causes are likely, not confirmed.
       </p>
     </template>
-  </SectionPanel>
+    </div>
+  </OverviewPanel>
 </template>
 
 <style scoped>
@@ -351,11 +503,144 @@ function rowCost(window: CacheWindow) {
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-.prompt-cache__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+.prompt-cache {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  margin-bottom: 12px;
+  min-width: 0;
+}
+.prompt-cache__tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 -16px;
+  border-block: 1px solid var(--border-muted);
+}
+.prompt-cache__tiles:first-child {
+  margin-top: -14px;
+  border-top: 0;
+}
+.prompt-cache__cost-value {
+  color: var(--warning-fg);
+}
+.prompt-cache__warm {
+  color: var(--success-fg);
+}
+.prompt-cache__miss {
+  color: var(--warning-fg);
+}
+.prompt-cache__sep {
+  color: var(--text-tertiary);
+}
+.prompt-cache__live {
+  margin-right: 4px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--success-muted);
+  color: var(--success-fg);
+  font-size: 11px;
+  font-weight: 600;
+}
+.prompt-cache__plot-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.prompt-cache__plot {
+  position: relative;
+  border-bottom: 1px solid var(--border-default);
+}
+.prompt-cache__ttl {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--text-secondary);
+  pointer-events: none;
+}
+.prompt-cache__ttl em {
+  position: absolute;
+  top: -2px;
+  left: 6px;
+  font: normal 11px / 14px var(--font-family);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.prompt-cache__dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.prompt-cache__dot:hover,
+.prompt-cache__dot:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 1px;
+}
+.prompt-cache__dot--warm {
+  background: var(--success-fg);
+}
+.prompt-cache__dot--miss {
+  background: var(--warning-fg);
+}
+.prompt-cache__dot--break {
+  background: var(--attention-fg);
+}
+.prompt-cache__dot--other {
+  background: var(--text-tertiary);
+}
+.prompt-cache__dot--agent {
+  box-shadow:
+    0 0 0 1.5px var(--canvas-subtle),
+    0 0 0 2.5px var(--text-tertiary);
+}
+.prompt-cache__sw-agent {
+  background: transparent;
+  border: 1.5px solid var(--text-tertiary);
+  border-radius: 50%;
+}
+.prompt-cache__axis {
+  position: relative;
+  height: 16px;
+  font: 11px / 16px var(--font-mono);
+  color: var(--text-tertiary);
+}
+.prompt-cache__axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.prompt-cache__axis .prompt-cache__tick--start {
+  transform: none;
+}
+.prompt-cache__axis .prompt-cache__tick--end {
+  transform: translateX(-100%);
+}
+.prompt-cache__ttl--end em {
+  left: auto;
+  right: 6px;
+}
+.prompt-cache__break-value {
+  color: var(--attention-fg);
+}
+.prompt-cache__readout {
+  min-height: 16px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+.prompt-cache__causes .ad-row,
+.prompt-cache__causes .ad-rowh {
+  height: 24px;
+}
+.prompt-cache__cause {
+  grid-template-columns: minmax(0, 1.3fr) minmax(60px, 1.5fr) 60px;
+}
+@container (max-width: 900px) {
+  .prompt-cache__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .prompt-cache__table-bar {
   display: flex;

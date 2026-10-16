@@ -2,23 +2,72 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import MetricsCodeChanges from "../MetricsCodeChanges.vue";
 
+const names = (wrapper: ReturnType<typeof mount>) =>
+  wrapper.findAll('[role="treeitem"] .changes__name').map((node) => node.text());
+
 describe("MetricsCodeChanges", () => {
-  it("bounds a large file list while keeping later files searchable and reachable", async () => {
-    const files = Array.from({ length: 3000 }, (_, i) => `src/module-${i}.ts`);
+  it("shows changed files as a tree relative to the repository", async () => {
+    const wrapper = mount(MetricsCodeChanges, {
+      props: {
+        metrics: {
+          codeChanges: {
+            filesModified: [
+              "C:\\repo\\src\\b.ts",
+              "C:\\repo\\src\\a.ts",
+              "C:\\repo\\README.md",
+              "C:\\repo\\docs\\guide\\intro.md",
+            ],
+            linesAdded: 1200,
+            linesRemoved: 30,
+          },
+        },
+        roots: ["C:\\repo"],
+      },
+    });
+    expect(wrapper.text()).toContain("+1,200");
+    expect(wrapper.text()).toContain("−30");
+    expect(wrapper.text()).toContain("4 files");
+    // Folders first, single-child chains compacted, then files.
+    expect(names(wrapper)).toEqual([
+      "docs/guide/",
+      "intro.md",
+      "src/",
+      "a.ts",
+      "b.ts",
+      "README.md",
+    ]);
+    await wrapper.get('button[role="treeitem"]').trigger("click");
+    expect(names(wrapper)).toEqual(["docs/guide/", "src/", "a.ts", "b.ts", "README.md"]);
+    await wrapper.get("input").setValue("intro");
+    expect(names(wrapper)).toEqual(["docs/guide/", "intro.md"]);
+    expect(wrapper.text()).toContain("1 of 4 files");
+    await wrapper.get("input").setValue("absent");
+    expect(wrapper.text()).toContain("No files match this path.");
+  });
+
+  it("opens only the top level of a long tree and bounds the rows", async () => {
+    const files = Array.from({ length: 3000 }, (_, i) => `src/module-${i % 30}/file-${i}.ts`);
     const wrapper = mount(MetricsCodeChanges, {
       props: { metrics: { codeChanges: { filesModified: files, linesAdded: 9000 } } },
     });
-    expect(wrapper.findAll("tbody tr")).toHaveLength(20);
-    expect(wrapper.text()).toContain("3000 of 3000 files");
-    await wrapper.get("nav button:last-child").trigger("click");
-    expect(wrapper.get("tbody tr").text()).toBe("src/module-20.ts");
-    await wrapper.get("input").setValue("module-2999");
-    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
-    expect(wrapper.get("tbody").text()).toContain("src/module-2999.ts");
-    expect(wrapper.find("nav").exists()).toBe(false);
-    await wrapper.get("input").setValue("absent");
-    expect(wrapper.text()).toContain("No files match this path.");
-    await wrapper.get("input").setValue("");
-    expect(wrapper.get("tbody tr").text()).toBe("src/module-0.ts");
+    // `src` is open; its 30 folders are not.
+    expect(wrapper.findAll('[role="treeitem"]')).toHaveLength(31);
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Expand all")
+      ?.trigger("click");
+    expect(wrapper.findAll('[role="treeitem"]')).toHaveLength(200);
+    const more = wrapper.findAll("button").find((button) => button.text().startsWith("Show"));
+    expect(more?.text()).toBe("Show 2,831 more rows");
+    await wrapper.get("input").setValue("file-2999.ts");
+    expect(names(wrapper)).toEqual(["src/module-29/", "file-2999.ts"]);
+  });
+
+  it("says when only line counts were recorded", () => {
+    const wrapper = mount(MetricsCodeChanges, {
+      props: { metrics: { codeChanges: { filesModified: [], linesAdded: 5, linesRemoved: 1 } } },
+    });
+    expect(wrapper.text()).toContain("No file list recorded");
+    expect(wrapper.find("input").exists()).toBe(false);
   });
 });

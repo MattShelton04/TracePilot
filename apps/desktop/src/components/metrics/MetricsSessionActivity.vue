@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import {
-  type AiCreditUsage,
-  type ModelMetricDetail,
-  type SessionSegment,
-  type ShutdownMetrics,
+/**
+ * One tile per run (each Copilot shutdown): when it ran, its tokens and
+ * cost, how the tokens divided between models, and its model time and
+ * requests. Long sessions page six runs at a time, starting at the latest.
+ */
+import type {
+  AiCreditUsage,
+  ModelMetricDetail,
+  SessionSegment,
+  ShutdownMetrics,
 } from "@tracepilot/types";
 import {
   Badge,
@@ -13,19 +18,23 @@ import {
   formatNumber,
   formatShortDate,
   formatTime,
-  SectionPanel,
 } from "@tracepilot/ui";
+import { ChevronLeft, ChevronRight } from "lucide-vue-next";
 import { computed } from "vue";
+import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useClientPager } from "@/composables/useClientPager";
 import { shutdownAiCreditUsage } from "@/composables/useSessionMetrics";
 import { useSessionModelName } from "@/composables/useSessionModelName";
 import { usePreferencesStore } from "@/stores/preferences";
 import { modelTokenBreakdown, shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
+import { MODEL_COLORS } from "@/utils/metricsView";
 
 const props = defineProps<{
   metrics: ShutdownMetrics;
   /** Show only recorded AI Credits, never GitHub-rate estimates. */
   observedOnly?: boolean;
+  /** Session models in rank order, so a model keeps its colour from the Models panel. */
+  modelOrder?: readonly string[];
 }>();
 
 const prefs = usePreferencesStore();
@@ -33,26 +42,46 @@ const modelName = useSessionModelName();
 const segments = computed(() => props.metrics.sessionSegments ?? []);
 const PAGE_SIZE = 6;
 const { page, pageCount, pageRows } = useClientPager(segments, PAGE_SIZE);
-// Price and sort only the visible page, once per data/pricing change. Previously
-// template expressions repeated this work several times for every shutdown.
+// The latest runs matter most, so long sessions open on the last page.
+page.value = pageCount.value - 1;
+
+function colorOf(name: string): string {
+  const index = props.modelOrder?.indexOf(name) ?? -1;
+  return index >= 0 ? MODEL_COLORS[index % MODEL_COLORS.length] : "var(--text-tertiary)";
+}
+
+// Price only the visible page, once per data or pricing change.
 const visibleSegments = computed(() =>
-  pageRows.value.map((seg, offset) => ({
-    seg,
-    index: page.value * PAGE_SIZE + offset,
-    duration: segmentDurationMs(seg),
-    tokens: shutdownTokenBreakdown(seg).total,
-    credits: shutdownAiCreditUsage(seg, prefs, props.observedOnly),
-    models: sortedSegmentModels(seg.modelMetrics).map(([name, metric]) => ({
+  pageRows.value.map((seg, offset) => {
+    const tokens = shutdownTokenBreakdown(seg).total;
+    const credits = shutdownAiCreditUsage(seg, prefs, props.observedOnly);
+    const models = sortedSegmentModels(seg.modelMetrics).map(([name, metric]) => ({
       name,
+      color: colorOf(name),
       tokens: modelTokenBreakdown(metric).total,
       credits: shutdownAiCreditUsage(
         { totalNanoAiu: metric.totalNanoAiu, modelMetrics: { [name]: metric } },
         prefs,
         props.observedOnly,
       ),
-    })),
-  })),
+    }));
+    const known = models.reduce((n, m) => n + (m.tokens ?? 0), 0);
+    return {
+      seg,
+      index: page.value * PAGE_SIZE + offset,
+      duration: segmentDurationMs(seg),
+      tokens,
+      credits,
+      models,
+      // With one model and a run total, the model's cost would only repeat it.
+      modelCosts: models.length > 1 || credits.credits == null,
+      shares:
+        known > 0 ? models.map((m) => ({ ...m, share: ((m.tokens ?? 0) / known) * 100 })) : [],
+    };
+  }),
 );
+const firstShown = computed(() => page.value * PAGE_SIZE + 1);
+const lastShown = computed(() => Math.min((page.value + 1) * PAGE_SIZE, segments.value.length));
 
 function sortedSegmentModels(
   modelMetrics?: Record<string, ModelMetricDetail> | null,
@@ -72,6 +101,11 @@ function segmentDurationMs(seg: SessionSegment): number | null {
   return new Date(seg.endTimestamp).getTime() - new Date(seg.startTimestamp).getTime();
 }
 
+function sameDay(seg: SessionSegment): boolean {
+  if (!seg.startTimestamp || !seg.endTimestamp) return true;
+  return new Date(seg.startTimestamp).toDateString() === new Date(seg.endTimestamp).toDateString();
+}
+
 function sourceLabel(source: AiCreditUsage["source"]): string {
   if (source === "observed") return "Observed AI Credits";
   if (source === "estimated-token-usage") return "Estimated AI Credits from GitHub token rates";
@@ -81,326 +115,247 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 </script>
 
 <template>
-  <SectionPanel v-if="metrics.sessionSegments?.length" title="Session Activity" class="mb-6">
-    <nav v-if="pageCount > 1" class="activity-pagination" aria-label="Session activity pages">
-      <span class="text-xs text-[var(--text-tertiary)]">{{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, segments.length) }} of {{ segments.length }} activities</span>
-      <button class="btn btn-secondary" :disabled="page === 0" @click="page--">Previous activities</button>
-      <button class="btn btn-secondary" :disabled="page + 1 >= pageCount" @click="page++">Next activities</button>
-      <button class="btn btn-secondary" :disabled="page + 1 >= pageCount" @click="page = pageCount - 1">Latest activities</button>
-    </nav>
-    <div class="activity-horizontal" tabindex="0" role="region" aria-label="Session activity">
-      <div
-        v-for="{ seg, index: idx, duration, tokens, credits, models } in visibleSegments"
+  <OverviewPanel v-if="segments.length" title="Runs" data-testid="metrics-runs">
+    <template #aside>
+      <span>{{ segments.length }} run{{ segments.length === 1 ? "" : "s" }} · one per shutdown</span>
+      <nav v-if="pageCount > 1" class="runs__pager" aria-label="Run pages">
+        <span class="runs__range">{{ firstShown }}–{{ lastShown }} of {{ segments.length }} runs</span>
+        <button type="button" class="runs__page" :disabled="page === 0" aria-label="Earlier runs" @click="page--">
+          <ChevronLeft :size="14" aria-hidden="true" />
+        </button>
+        <button type="button" class="runs__page" :disabled="page + 1 >= pageCount" aria-label="Later runs" @click="page++">
+          <ChevronRight :size="14" aria-hidden="true" />
+        </button>
+        <button v-if="page + 1 < pageCount" type="button" class="ad-link" @click="page = pageCount - 1">Latest</button>
+      </nav>
+    </template>
+    <div class="runs" tabindex="0" role="region" aria-label="Runs">
+      <article
+        v-for="{ seg, index: idx, duration, tokens, credits, models, modelCosts, shares } in visibleSegments"
         :key="idx"
         class="activity-tile"
       >
-        <div class="activity-tile-header">
-          <div class="flex flex-col">
-            <span class="activity-index">Activity #{{ idx + 1 }}</span>
-            <span class="activity-date">{{ formatShortDate(seg.startTimestamp) }}</span>
-            <span class="activity-timestamp">
-              {{ formatTime(seg.startTimestamp) }} → {{ formatTime(seg.endTimestamp) }}
-              <span v-if="duration" class="activity-duration">· {{ formatDuration(duration) }}</span>
-            </span>
-          </div>
-          <Badge v-if="idx === metrics.sessionSegments.length - 1" variant="success" size="sm">Latest</Badge>
+        <header class="activity-tile__head">
+          <span class="activity-index">Run {{ idx + 1 }}</span>
+          <Badge v-if="idx === segments.length - 1" variant="success">Latest</Badge>
+          <span class="activity-timestamp">
+            {{ formatShortDate(seg.startTimestamp) }} · {{ formatTime(seg.startTimestamp) }} → <template v-if="!sameDay(seg)">{{ formatShortDate(seg.endTimestamp) }} · </template>{{ formatTime(seg.endTimestamp) }}<template v-if="duration"> · {{ formatDuration(duration) }}</template>
+          </span>
+        </header>
+
+        <div class="activity-hero">
+          <span class="hero-val" :class="{ 'hero-val--muted': !tokens }" :title="tokens == null ? 'Token total unavailable' : undefined">{{ tokens == null ? "—" : formatNumber(tokens) }}</span>
+          <span class="hero-unit">tokens</span>
+          <span class="activity-tile-costs" :title="sourceLabel(credits.source)">
+            <span class="cost-pill" :class="{ 'cost-pill--estimated': credits.source !== 'observed' && credits.credits != null }">{{ formatAiCreditsUsd(credits.credits) }}</span>
+            <span v-if="credits.credits != null" class="cost-equivalent">{{ formatAiCredits(credits.credits) }}</span>
+          </span>
         </div>
 
-        <div class="activity-hero" :class="{ 'activity-hero--empty': tokens === 0 }">
-          <div class="hero-stats">
-            <div class="hero-main">
-              <span class="hero-val" :title="tokens == null ? 'Token total unavailable' : undefined">{{ tokens == null ? '—' : formatNumber(tokens) }}</span>
-              <span class="hero-unit">tokens</span>
-            </div>
-          </div>
+        <div v-if="shares.length > 1" class="ad-meter" aria-hidden="true">
+          <i v-for="m in shares" :key="m.name" :style="{ width: `${m.share}%`, background: m.color }" data-reveal="grow-x" />
         </div>
 
         <div v-if="models.length" class="activity-details">
-          <div
-            v-for="{ name, tokens: modelTokens, credits: modelCredits } in models"
-            :key="name"
-            class="model-row"
-          >
-            <div class="row-main">
-              <span class="model-name" :title="name">{{ modelName(name) }}</span>
-              <span class="model-tokens">{{ modelTokens == null ? '—' : formatNumber(modelTokens) }} <small>tokens</small></span>
-            </div>
-            <div class="row-costs">
-              <span
-                class="cost-pill blue-text"
-                :title="sourceLabel(modelCredits.source)"
-              >
-                {{ formatAiCreditsUsd(modelCredits.credits) }}
-              </span>
-              <span
-                v-if="modelCredits.credits != null"
-                class="cost-equivalent"
-              >
-                {{ formatAiCredits(modelCredits.credits) }}
-              </span>
-            </div>
+          <div v-for="m in models" :key="m.name" class="model-row">
+            <i class="ad-sw" :style="{ background: m.color }" />
+            <span class="model-name" :title="m.name">{{ modelName(m.name) }}</span>
+            <span class="model-tokens">{{ m.tokens == null ? "—" : formatNumber(m.tokens) }} <small>tokens</small></span>
+            <span v-if="modelCosts" class="cost-pill" :title="sourceLabel(m.credits.source)">{{ formatAiCreditsUsd(m.credits.credits) }}</span>
+            <span v-if="modelCosts && m.credits.credits != null" class="cost-equivalent">{{ formatAiCredits(m.credits.credits) }}</span>
           </div>
         </div>
 
-        <div class="activity-tile-costs">
-          <span class="cost-pill blue-text" :title="sourceLabel(credits.source)">
-            {{ formatAiCreditsUsd(credits.credits) }}
-          </span>
-          <span v-if="credits.credits != null" class="cost-equivalent">
-            {{ formatAiCredits(credits.credits) }}
-          </span>
-        </div>
-        <div class="activity-tile-footer">
-          <div class="footer-metric">
-            <span class="label">API Time</span>
-            <span class="val">{{ formatDuration(seg.apiDurationMs) }}</span>
-          </div>
-          <div class="footer-metric">
-            <span class="label">Reqs</span>
-            <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
-          </div>
+        <dl class="activity-tile-footer">
+          <div><dt>Model time</dt><dd>{{ formatDuration(seg.apiDurationMs) }}</dd></div>
+          <div><dt>Requests</dt><dd>{{ formatNumber(seg.totalRequests) }}</dd></div>
           <div
             v-if="credits.source === 'unavailable' && seg.premiumRequests > 0"
-            class="footer-metric"
             title="Legacy sessions only; premium requests are not converted to cost"
           >
-            <span class="label">Legacy Premium</span>
-            <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>
+            <dt>Legacy premium</dt><dd class="premium-val">{{ seg.premiumRequests.toFixed(1) }}</dd>
           </div>
-        </div>
-      </div>
+        </dl>
+      </article>
     </div>
-  </SectionPanel>
+  </OverviewPanel>
 </template>
 
 <style scoped>
-.activity-pagination {
+.runs__pager {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.activity-horizontal {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 8px 8px 16px 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-subtle) transparent;
-  margin: 0 -8px;
-  justify-content: safe center;
-}
-
-.activity-horizontal::-webkit-scrollbar {
-  height: 4px;
-}
-
-.activity-horizontal::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 10px;
-}
-
-.activity-tile {
-  flex: 0 0 280px;
-  background: var(--canvas-raised);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  transition: all var(--transition-fast);
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
-}
-
-.activity-tile:hover {
-  border-color: var(--accent-fg);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.activity-tile-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-
-.activity-index {
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--accent-fg);
-  letter-spacing: 0.05em;
-}
-
-.activity-date {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-top: 2px;
-}
-
-.activity-timestamp {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-family: var(--font-mono, monospace);
-}
-
-.activity-hero {
-  background: var(--canvas-inset);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  border-left: 2px solid var(--accent-fg);
-  display: flex;
-  align-items: center;
-  min-height: 40px;
-}
-
-.activity-hero--empty {
-  border-left-color: var(--border-subtle);
-  background: var(--canvas-default);
-  opacity: 0.5;
-}
-
-.hero-main {
-  display: flex;
-  align-items: baseline;
   gap: 4px;
 }
-
-.hero-val {
-  font-size: 1.25rem;
-  font-weight: 800;
+.runs__range {
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.runs__page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.runs__page:hover:not(:disabled) {
   color: var(--text-primary);
-  line-height: 1;
+  background: var(--state-hover-overlay);
 }
-
-.hero-unit {
-  font-size: 0.6875rem;
+.runs__page:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.runs__page:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 1px;
+}
+.runs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(250px, 1fr);
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+.runs:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+.activity-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+}
+.activity-tile__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+.activity-index {
+  font-size: 12px;
+  line-height: 18px;
   font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
+  color: var(--text-primary);
 }
-
+.activity-timestamp {
+  flex-basis: 100%;
+  font: 11px / 16px var(--font-mono);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.activity-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.hero-val {
+  font: 600 20px / 26px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.hero-val--muted {
+  color: var(--text-tertiary);
+}
+.hero-unit {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.activity-tile-costs {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.cost-pill {
+  font: 600 12px / 16px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.activity-hero .cost-pill {
+  font-size: 13px;
+}
+.cost-pill--estimated::before {
+  content: "≈ ";
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+.cost-equivalent {
+  font: 11px / 16px var(--font-mono);
+  color: var(--text-tertiary);
+}
 .activity-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex-grow: 1;
-  margin-bottom: 12px;
-  max-height: 240px;
+  gap: 4px;
+  max-height: 168px;
   overflow-y: auto;
 }
-
 .model-row {
-  background: var(--canvas-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  padding: 6px 8px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.model-row--premium {
-  border-left: 2px solid var(--warning-fg);
-  background: var(--warning-subtle);
-}
-
-.row-main {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
 }
-
 .model-name {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  max-width: 140px;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.model-tokens {
-  font-size: 0.6875rem;
-  font-family: var(--font-mono, monospace);
-  color: var(--text-tertiary);
-}
-
-.model-tokens small {
-  font-size: 0.625rem;
-  opacity: 0.7;
-}
-
-.row-costs {
-  display: flex;
-  gap: 6px;
-}
-
-.cost-pill {
-  font-size: 0.6875rem;
-  font-family: var(--font-mono, monospace);
-  font-weight: 700;
-  background: var(--canvas-inset);
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-.cost-equivalent {
-  color: var(--text-tertiary);
-  font-family: var(--font-mono, monospace);
-  font-size: 0.6875rem;
-}
-
-.activity-tile-costs {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-  margin-bottom: 8px;
-}
-
-.activity-tile-footer {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.footer-metric {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.footer-metric .label {
-  font-size: 0.625rem;
-  color: var(--text-placeholder);
-  text-transform: uppercase;
-}
-
-.footer-metric .val {
-  font-size: 0.75rem;
-  font-weight: 600;
   color: var(--text-secondary);
 }
-
+.model-tokens {
+  font: 11px / 16px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.model-tokens small {
+  font-size: 10px;
+}
+.activity-tile-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: auto 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-muted);
+}
+.activity-tile-footer > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.activity-tile-footer dt {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.activity-tile-footer dd {
+  margin: 0;
+  font: 500 12px / 16px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
 .premium-val {
-  color: var(--warning-fg) !important;
+  color: var(--warning-fg);
 }
-
-.activity-duration {
-  color: var(--text-placeholder);
-  font-weight: 400;
-}
-
-.amber-text { color: var(--warning-fg); }
-.emerald-text { color: var(--success-fg); }
-.blue-text { color: var(--accent-fg); }
 </style>

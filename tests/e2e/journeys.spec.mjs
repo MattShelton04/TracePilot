@@ -57,7 +57,7 @@ test("first install: index, browse, search, refresh, and retain settings across 
       page.getByText("Add orchard regression coverage", { exact: true }).first(),
     ).toBeVisible();
     await sessionTab(page, "Metrics");
-    await expect(page.getByRole("group", { name: "Metrics breakdown" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Metrics breakdown" })).toBeVisible();
     await expect(page.getByText("claude-sonnet-4-20250514", { exact: true }).first()).toBeVisible();
     await sessionTab(page, "Explorer");
     await page.getByText("plan.md", { exact: true }).click();

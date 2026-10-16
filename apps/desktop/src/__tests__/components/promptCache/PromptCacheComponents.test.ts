@@ -206,17 +206,18 @@ describe("MetricsPromptCacheSection", () => {
     expect(wrapper.get(".prompt-cache__chip").text()).toBe("History");
     expect(wrapper.text()).not.toContain("History rewritten at message 1");
     expect(wrapper.text()).not.toContain("re-sent");
-    const card = (label: string) =>
-      wrapper.findAll(".stat-card").find((c) => c.text().includes(label));
-    expect(card("After expiry")?.attributes("title")).toContain("about 54K tokens re-sent.");
-    expect(card("Agent wakes")).toBeUndefined();
+    expect(wrapper.get(".prompt-cache__miss").attributes("title")).toContain(
+      "about 54K tokens re-sent.",
+    );
+    const wakes = () => wrapper.find('[data-testid="prompt-cache-replies"] .ad-tile__aside');
+    expect(wakes().exists()).toBe(false);
 
     await wrapper.setProps({
       timeline: makeTimeline(wrapper.props("timeline").windows, {
         summary: { ...wrapper.props("timeline").summary, agentResumes: 3 },
       }),
     });
-    expect(card("Agent wakes")?.text()).toContain("3");
+    expect(wakes().text()).toBe("+3 agent wakes");
 
     await wrapper.findAll(".prompt-cache__toggle")[1]?.trigger("click");
     const detail = wrapper.get('[data-testid="prompt-cache-detail"]');
@@ -239,8 +240,9 @@ describe("MetricsPromptCacheSection", () => {
     const wrapper = mount(MetricsPromptCacheSection, {
       props: { timeline: makeTimeline(manyWindows(45)) },
     });
-    // Summary stats stay visible while the table is collapsed.
-    expect(wrapper.findAll(".stat-card").length).toBeGreaterThan(0);
+    // The summary and the idle plot stay visible while the table is collapsed.
+    expect(wrapper.find('[data-testid="prompt-cache-extra-cost"]').exists()).toBe(true);
+    expect(wrapper.findAll(".prompt-cache__dot")).toHaveLength(45);
     expect(wrapper.find("table").exists()).toBe(false);
     const disclosure = wrapper.get('[data-testid="prompt-cache-disclosure"]');
     expect(disclosure.text()).toBe("Show 45 idle windows");

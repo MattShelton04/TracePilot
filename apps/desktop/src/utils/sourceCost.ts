@@ -94,8 +94,13 @@ export function formatUsd(amount: number): string {
 
 /** The display value; an unpriced tail leaves at least the snapshot's cost. */
 export function formatSessionCost(cost: SessionCostEstimate): string {
-  if (cost.amount != null) return `${cost.lowerBound ? "≥ " : ""}${formatUsd(cost.amount)}`;
-  return cost.snapshotAmount != null ? `≥ ${formatUsd(cost.snapshotAmount)}` : "—";
+  if (cost.amount != null) return cost.lowerBound ? atLeast(cost.amount) : formatUsd(cost.amount);
+  return cost.snapshotAmount != null ? atLeast(cost.snapshotAmount) : "—";
+}
+
+/** A lower bound; below a cent it reads `≥ $0.00`, never `≥ < $0.01`. */
+function atLeast(amount: number): string {
+  return `≥ ${amount < 0.005 ? formatCost(0) : formatUsd(amount)}`;
 }
 
 /** USD for token usage at the source's API rates, or null when unpriced. */

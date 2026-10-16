@@ -61,6 +61,29 @@ routed view and session tabs or pop-out windows.
   in; close pins merge with a count. Gaps between runs draw as dashed baseline.
 - Tabs read the header's running state through `useSessionLiveState`.
 
+## Metrics tab
+
+`apps/desktop/src/views/tabs/MetricsTab.vue`, with its sections in
+`apps/desktop/src/components/metrics/`.
+
+- A `KPIRow` of five: Cost (basis, AI Credits, per turn), Tokens (a kind
+  meter), Requests, Model time against wall time, and Cache hit.
+- **Tokens**: input (cache hit beneath, read/written/fresh meter), output
+  with reasoning, and the context at the last shutdown (links to Context).
+- **Cost**: where the money went, by token kind and by model. Copilot
+  splits recorded AI Credits; other sources split their USD estimate at API
+  rates.
+- **Breakdown**: a Models / Agents switch. Models are ranked rows under a
+  share strip; agents are a tree with share bars (cost, then tokens, then
+  tool calls when the source records no per-agent usage).
+- **Prompt cache**: the estimated extra cost leads the summary tiles, then
+  idle windows as dots on a log scale against the TTL. A dot opens its row
+  in the windows table.
+- **Runs** (Copilot shutdowns, latest page first) and **Changed files** as a
+  folder tree relative to the repository.
+- The subagent panel narrows the tab rather than covering it, as in
+  Conversation.
+
 ## Conversation tab
 
 `apps/desktop/src/views/tabs/ConversationTab.vue`
