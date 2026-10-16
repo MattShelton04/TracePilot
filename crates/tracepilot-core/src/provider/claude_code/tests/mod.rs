@@ -12,6 +12,7 @@ mod notify;
 mod provider;
 mod scenarios;
 mod summary;
+mod todos;
 mod tools;
 mod user_prompts;
 

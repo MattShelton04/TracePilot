@@ -198,7 +198,8 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 | `TaskStop` / `KillShell` | 13 | `stop_agent` or `stop_powershell` by `task_type` | `task_id → agent_id`/`shellId` | | Generic | L2 |
 | `BashOutput` / `TaskOutput` (not observed) | 0 | `BashOutput` → `read_powershell`; `TaskOutput` generic (it reads a shell or an agent) | `bash_id → shellId` | — | ShellOutput / Generic | L3 |
 | `Monitor` | 12 | generic | — | — | Generic | — |
-| `TaskCreate/Update/List/Get`, legacy `TodoWrite` (default-on only for older models; not observed) | 0 | generic | — | — | Generic. Out of scope: no todo parsing or Todos tab | — |
+| `TaskCreate/Update/List/Get`, legacy `TodoWrite` (default-on only for older models; not observed) | 0 | generic | — | `TaskCreate` TUR `task.id` | Generic. `TaskCreate`/`TaskUpdate`/`TodoWrite` replay into the Todos tab (`todos.rs`) | L3 |
+| `mcp__ccd_turn__update_plan` / `wrap_up` (desktop app only, since about v2.1.295) | 22 | generic | `items`, `advance`, `done`/`start` (1-based) | — | Generic. Replayed into the Todos tab; `wrap_up` completes the step in progress | L3 |
 | `EnterPlanMode` / `ExitPlanMode` | 8 / 8 | `plan` *(new)* | `plan` | TUR `plan`, `filePath` → Overview plan (C13: latest `input.plan` / TUR `plan` wins; `plans/<slug>.md` only as a fallback, never `filePath`) | Markdown | L3 |
 | `WebFetch` | 32 | `web_fetch` | `url`, `prompt` | `result` | Markdown | L2 |
 | `WebSearch` | 20 | `web_search` | `query` | `results` → annotation JSON for source cards | WebSearch | L2 |
@@ -325,7 +326,7 @@ Source-aware presentation shipped in U2, U3 and U4.
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; estimated system & tools / messages / tool I/O split inside it |
 | Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
-| Todos tab | ❌ | — | Out of scope: Claude Code's task tools are off by default on current models. Hidden for Claude sessions |
+| Todos tab | 🟡 | L3 | Replayed from the main transcript's successful task calls (`update_plan`, `TaskCreate`/`TaskUpdate`, `TodoWrite`). Dependencies only from `TaskUpdate`; subagent lists are not shown |
 | Checkpoints / rewind | 🟡 | L3 | Read-only, from file-history (`has_file_history`; no Copilot-style checkpoint summaries, no restore) |
 | Explorer tab | 🟡 | L3 | `subagents/` and `tool-results/` as top-level folders; there is no session directory per se. No Open Folder action |
 | Timeline (swimlane, waterfall) | ✅ | L2 | Per-call timestamps; tool durations |
@@ -355,8 +356,9 @@ Source-aware presentation shipped in U2, U3 and U4.
 4. **Cost** is an API-equivalent estimate, not a bill. Subscription users pay differently.
 5. **Side-model usage** (Haiku) appears only in session totals, not per turn.
 6. **Background task output** in `%TEMP%` may be gone. Show the notification summary only.
-7. **No todos.** Claude Code's task tools are default-on only for older models, so TracePilot
-   doesn't parse them. Calls from older or opt-in sessions show as generic tools.
+7. **Todos are a replay.** The task list is rebuilt from the transcript's task calls; no file
+   records it. CLI task tools are off by default on current models, so most CLI sessions have
+   none.
 8. **No launching or steering** from TracePilot.
 9. **Fast-moving format.** Unknown records show up on the Events tab, and a per-source
    diagnostics panel reports unmapped types.

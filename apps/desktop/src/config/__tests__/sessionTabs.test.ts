@@ -10,6 +10,9 @@ import {
   sessionTabRoutes,
 } from "../sessionTabs";
 
+/** A source without todos or an Explorer. */
+const LIMITED = { ...sourceCapabilities("claudeCode"), hasTodos: false, hasExplorer: false };
+
 const EXPECTED_ORDER = [
   "overview",
   "conversation",
@@ -69,15 +72,20 @@ describe("mapSessionTabs", () => {
     );
   });
 
+  it("keeps every tab for Claude Code capabilities", () => {
+    expect(mapSessionTabs("router", sourceCapabilities("claudeCode"))).toEqual(
+      mapSessionTabs("router"),
+    );
+  });
+
   it("leaves out tabs the source cannot fill", () => {
-    const tabs = mapSessionTabs("local", sourceCapabilities("claudeCode"));
+    const tabs = mapSessionTabs("local", LIMITED);
     expect(tabs.map((t) => t.name)).toEqual([
       "overview",
       "conversation",
       "events",
       "metrics",
       "context",
-      "explorer",
       "timeline",
     ]);
   });
@@ -132,18 +140,17 @@ describe("sessionTabRoutes", () => {
 });
 
 describe("isSessionTabHidden", () => {
-  const claude = sourceCapabilities("claudeCode");
-
   it("matches tab names and route names", () => {
-    expect(isSessionTabHidden("todos", claude)).toBe(true);
-    expect(isSessionTabHidden(ROUTE_NAMES.sessionTodos, claude)).toBe(true);
-    expect(isSessionTabHidden(ROUTE_NAMES.sessionExplorer, claude)).toBe(false);
-    expect(isSessionTabHidden(ROUTE_NAMES.sessionContext, claude)).toBe(false);
-    expect(isSessionTabHidden("conversation", claude)).toBe(false);
+    expect(isSessionTabHidden("todos", LIMITED)).toBe(true);
+    expect(isSessionTabHidden(ROUTE_NAMES.sessionTodos, LIMITED)).toBe(true);
+    expect(isSessionTabHidden(ROUTE_NAMES.sessionExplorer, LIMITED)).toBe(true);
+    expect(isSessionTabHidden(ROUTE_NAMES.sessionContext, LIMITED)).toBe(false);
+    expect(isSessionTabHidden("conversation", LIMITED)).toBe(false);
   });
 
-  it("hides nothing for Copilot or for unknown names", () => {
+  it("hides nothing for Copilot, Claude Code or unknown names", () => {
     expect(isSessionTabHidden("todos", sourceCapabilities("copilot"))).toBe(false);
-    expect(isSessionTabHidden("not-a-tab", claude)).toBe(false);
+    expect(isSessionTabHidden("todos", sourceCapabilities("claudeCode"))).toBe(false);
+    expect(isSessionTabHidden("not-a-tab", LIMITED)).toBe(false);
   });
 });

@@ -225,7 +225,7 @@ pub struct EventItem {
     pub data: serde_json::Value,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TodosResponse {
     pub todos: Vec<tracepilot_core::parsing::session_db::TodoItem>,

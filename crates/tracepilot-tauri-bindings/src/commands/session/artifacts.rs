@@ -15,7 +15,7 @@ const MAX_FILE_VERSION_BYTES: usize = 1024 * 1024;
 
 // A source without an artifact has nothing to show, so these read-only
 // commands return it empty rather than refusing. Todos and checkpoints read
-// Copilot's layout directly; the plan and file history of
+// Copilot's layout directly; the todos, plan and file history of
 // other sources route through the provider.
 
 #[tauri::command]
@@ -31,6 +31,15 @@ pub async fn get_session_todos(
                 todos: Vec::new(),
                 deps: Vec::new(),
             });
+        }
+        if session.locator.source != SessionSource::Copilot {
+            let list = session_artifacts(&session)?.todos.clone();
+            return Ok(
+                list.map_or_else(TodosResponse::default, |list| TodosResponse {
+                    todos: list.items,
+                    deps: list.deps.unwrap_or_default(),
+                }),
+            );
         }
         let db_path = session.locator.primary_path.join("session.db");
         let todos = tracepilot_core::parsing::session_db::read_todos(&db_path)?;

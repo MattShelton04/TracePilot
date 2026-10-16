@@ -32,6 +32,7 @@ mod resume;
 mod segments;
 mod subagents;
 mod summary;
+mod todos;
 mod tool_results;
 mod tools;
 mod translate;

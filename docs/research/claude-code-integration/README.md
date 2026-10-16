@@ -101,10 +101,12 @@ main ones:
    index the same way deleted Copilot sessions do.
 2. **88.8% of thinking blocks are redacted.**
 3. **No context breakdown** into system / tools / conversation; only exact totals per call.
-4. **No todos.** Claude Code turns its task tools (`TaskCreate`/`TaskUpdate`/`TodoWrite`) on
-   by default only for older models (Claude 3.x, Opus 4–4.7, Sonnet 4–4.6, Haiku 4.5). None
-   were called in the observed Opus 5.x corpus, so TracePilot doesn't parse them: calls show
-   as generic tools and Claude sessions have no Todos tab.
+4. **Todos are replayed from the transcript.** No task file sits beside a session. The desktop
+   app's `mcp__ccd_turn__update_plan` (since about v2.1.295, desktop only) and the CLI's
+   `TaskCreate`/`TaskUpdate` or legacy `TodoWrite` are rebuilt into the Todos tab. The CLI's task
+   tools are on by default only for older models (Opus 4.7, Sonnet 4.6, Haiku 4.5 and earlier),
+   in background and cloud sessions, or with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`; none appear in
+   the observed corpus, so their replay is tested against the documented shapes only.
 5. Background task output is written under `%TEMP%`, outside `~/.claude`.
 6. No launching, steering or SDK features. Resuming in a terminal (`claude --resume <id>`) is the
    one cheap launch path, and it is implemented.

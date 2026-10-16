@@ -11,6 +11,7 @@ import {
 import { computed, ref } from "vue";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { buildTodoRelations, buildTodoStatusStats } from "@/utils/todoStats";
 
@@ -52,11 +53,18 @@ const blockedCount = computed(() => todoStats.value.blocked);
 const pendingCount = computed(() => todoStats.value.pending);
 const progressPercent = computed(() => todoStats.value.progressPercent);
 
+// Each source remembers its own choice: Copilot's todos default to the
+// dependency graph, Claude Code's to the list.
+const { source } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const viewKey = computed(() => (source.value === "claudeCode" ? "claudeTodos" : "todos"));
 const tabViews = useSessionTabViews();
 const viewMode = computed({
-  get: () => tabViews.value.todos,
+  get: () => tabViews.value[viewKey.value],
   set: (mode) => {
-    tabViews.value.todos = mode;
+    tabViews.value[viewKey.value] = mode;
   },
 });
 const showEmptyState = computed(

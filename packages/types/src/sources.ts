@@ -78,7 +78,7 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasAic: false,
     hasPremiumRequests: false,
     hasContextBreakdown: false,
-    hasTodos: false,
+    hasTodos: true,
     hasCheckpoints: false,
     hasPlan: true,
     hasExplorer: true,

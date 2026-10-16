@@ -346,7 +346,7 @@ not say whether the cache is still warm. Following
   the source's API rates in USD, with the write priced at the window's recorded TTL tier.
 - **Renderers:** show `nativeToolName` in the tool header, waterfall and swimlanes. The
   ShellOutput title comes from the tool, not a hard-coded "PowerShell". No new renderers
-  (Claude Code's todo tools are out of scope). No renderer duplication.
+  (Claude Code's task tools feed the Todos tab instead). No renderer duplication.
 
 ## 5. Analytics: mixed, with a source dimension
 

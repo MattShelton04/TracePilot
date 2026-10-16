@@ -14,7 +14,7 @@ describe("session tab view choices", () => {
     resetSessionTabViews();
   });
 
-  it("defaults to chat, agent tree, graph todos, by-model metrics and the context timeline", () => {
+  it("defaults to chat, agent tree, graph Copilot todos, listed Claude todos, by-model metrics and the context timeline", () => {
     expect(useSessionTabViews().value).toEqual({
       conversation: "chat",
       timeline: "agent-tree",
@@ -22,6 +22,7 @@ describe("session tab view choices", () => {
       messagesDiagram: "sequence",
       messagesPacked: true,
       todos: "graph",
+      claudeTodos: "list",
       metrics: "model",
       context: "timeline",
     });
