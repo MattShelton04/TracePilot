@@ -8,10 +8,12 @@ import {
   formatNumber,
   StatCard,
 } from "@tracepilot/ui";
+import { computed } from "vue";
+import { usageCheckpointCredits } from "@/composables/useSessionMetrics";
 import { DURATION_HINTS, formatRecordedDuration } from "@/utils/sessionDurations";
 import { formatSessionCost, type SessionCostEstimate } from "@/utils/sourceCost";
 
-defineProps<{
+const props = defineProps<{
   metrics: ShutdownMetrics;
   totalRequests: number;
   copilotCost: number;
@@ -21,6 +23,8 @@ defineProps<{
   /** USD estimate for sources not billed in AI Credits; replaces the credit cards. */
   sourceCost?: SessionCostEstimate | null;
 }>();
+
+const checkpoint = computed(() => usageCheckpointCredits(props.metrics));
 
 function sourceLabel(source: AiCreditUsage["source"]): string {
   if (source === "observed") return "Observed by Copilot CLI";
@@ -72,7 +76,11 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 
     <p class="cost-legend mb-6">
       {{ sourceLabel(aiCreditUsage.source) }}
-      <span v-if="metrics.metricsTimestamp" title="Usage through this shutdown; later activity is not included"> · Shutdown {{ new Date(metrics.metricsTimestamp).toLocaleString() }}</span>
+      <template v-if="checkpoint">
+        <span data-testid="usage-checkpoint" title="Session totals from the CLI's latest usage checkpoint, written when the agent last went idle. The per-model rows cover completed runs only."> · Usage checkpoint {{ new Date(checkpoint.timestamp).toLocaleString() }}</span>
+        <span v-if="checkpoint.unattributedCredits != null" data-testid="unattributed-credits"> · {{ formatAiCredits(checkpoint.unattributedCredits) }} since the last shutdown not yet attributed to a model</span>
+      </template>
+      <span v-else-if="metrics.metricsTimestamp" title="Usage through this shutdown; later activity is not included"> · Shutdown {{ new Date(metrics.metricsTimestamp).toLocaleString() }}</span>
     </p>
   </template>
 </template>

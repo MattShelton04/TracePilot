@@ -4,6 +4,7 @@ import {
   allowsAiCreditEstimate,
   shutdownAiCreditUsage,
   totalTokens,
+  usageCheckpointCredits,
   wholesaleCost,
 } from "../useSessionMetrics";
 
@@ -354,6 +355,62 @@ describe("useSessionMetrics", () => {
       const result = wholesaleCost(metrics, computeWholesaleCost);
       expect(result).toBe(10.5);
       expect(computeWholesaleCost).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("usageCheckpointCredits", () => {
+    const run = (end: string, nano: number) => ({
+      startTimestamp: "2026-10-04T01:00:00Z",
+      endTimestamp: end,
+      tokens: 0,
+      totalRequests: 1,
+      premiumRequests: 1,
+      apiDurationMs: 0,
+      totalNanoAiu: nano,
+    });
+
+    it("is unset when the totals are the last shutdown's", () => {
+      expect(usageCheckpointCredits(null)).toBeNull();
+      expect(
+        usageCheckpointCredits({
+          totalNanoAiu: 3e8,
+          metricsTimestamp: "2026-10-04T01:39:48.905Z",
+          sessionSegments: [run("2026-10-04T01:39:48.905+00:00", 3e8)],
+          modelMetrics: { m: { totalNanoAiu: 3e8 } },
+        }),
+      ).toBeNull();
+      // Provider (Claude Code) totals carry no shutdown timestamp.
+      expect(usageCheckpointCredits({ costUnit: "usd", modelMetrics: {} })).toBeNull();
+    });
+
+    it("reports a resumed run's credits as not attributed to a model", () => {
+      const result = usageCheckpointCredits({
+        totalNanoAiu: 707_673_600,
+        metricsTimestamp: "2026-10-04T01:40:14.141Z",
+        sessionSegments: [run("2026-10-04T01:39:48.905+00:00", 291_646_800)],
+        modelMetrics: { m: { totalNanoAiu: 291_646_800 } },
+      });
+      expect(result?.timestamp).toBe("2026-10-04T01:40:14.141Z");
+      expect(result?.unattributedCredits).toBeCloseTo(0.4160268, 6);
+    });
+
+    it("leaves the whole total unattributed before the first shutdown", () => {
+      expect(
+        usageCheckpointCredits({
+          totalNanoAiu: 291_646_800,
+          metricsTimestamp: "2026-10-04T01:39:48.877Z",
+        }),
+      ).toEqual({ timestamp: "2026-10-04T01:39:48.877Z", unattributedCredits: 0.2916468 });
+    });
+
+    it("keeps the remainder unknown when a model row has no observed credits", () => {
+      const result = usageCheckpointCredits({
+        totalNanoAiu: 5e8,
+        metricsTimestamp: "2026-10-04T02:00:00Z",
+        sessionSegments: [run("2026-10-04T01:00:00Z", 2e8)],
+        modelMetrics: { m: { totalNanoAiu: 2e8 }, other: { usage: { inputTokens: 1 } } },
+      });
+      expect(result).toEqual({ timestamp: "2026-10-04T02:00:00Z", unattributedCredits: null });
     });
   });
 });

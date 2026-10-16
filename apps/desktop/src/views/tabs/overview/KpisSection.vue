@@ -6,7 +6,7 @@ import SessionOverviewKpis, {
   type OverviewCost,
 } from "@/components/overview/SessionOverviewKpis.vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
-import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
+import { allowsAiCreditEstimate, usageCheckpointCredits } from "@/composables/useSessionMetrics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatSessionCost, formatUsd, sessionCostEstimate } from "@/utils/sourceCost";
 import { useOverviewModel } from "./overviewModel";
@@ -44,6 +44,8 @@ const cost = computed<OverviewCost>(() => {
     };
   }
   const { credits, source: creditSource } = aiCreditUsage.value;
+  // A running session's totals come from its latest usage checkpoint.
+  const checkpoint = creditSource === "observed" && usageCheckpointCredits(metrics.value);
   return {
     label: creditSource === "observed" || credits == null ? "Cost" : "Est. cost",
     value: formatAiCreditsUsd(credits),
@@ -59,7 +61,9 @@ const cost = computed<OverviewCost>(() => {
       creditSource === "observed"
         ? "Observed Copilot billing telemetry"
         : "Estimated for historical session data"
-    }${credits == null ? "" : `: ${formatAiCredits(credits)} at $0.01 each`}.`,
+    }${checkpoint ? " through the latest usage checkpoint" : ""}${
+      credits == null ? "" : `: ${formatAiCredits(credits)} at $0.01 each`
+    }.`,
   };
 });
 </script>
