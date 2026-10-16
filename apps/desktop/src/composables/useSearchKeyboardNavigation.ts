@@ -2,6 +2,18 @@ import type { ComputedRef, Ref } from "vue";
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
+/** A visible `aria-modal` dialog (syntax guide, "?" help...) is open over the results. */
+function hasOpenModal(): boolean {
+  return [...document.querySelectorAll('[aria-modal="true"]')].some((dialog) => {
+    if (dialog.closest("[hidden], [inert]")) return false;
+    for (let node: Element | null = dialog; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+    }
+    return true;
+  });
+}
+
 export interface UseSearchKeyboardNavigationOptions {
   /** Ref to the search input element for focus/blur management. */
   searchInputRef: Ref<HTMLInputElement | null>;
@@ -53,6 +65,10 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
       searchInputRef.value?.select();
       return;
     }
+
+    // This capture-phase listener runs before any dialog's own handlers, so it
+    // must leave Escape, j/k, arrows and Enter to a modal opened on top.
+    if (hasOpenModal()) return;
 
     const isSearchInput = e.target === searchInputRef.value;
     const withModifier = e.ctrlKey || e.metaKey;

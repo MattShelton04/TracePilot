@@ -197,8 +197,8 @@ fn copilot_segments_add_up_to_the_session_totals() {
         assert!(close(t.premium.0, t.premium.1), "{name}: {t:?}");
     }
 
-    // A running session before its first shutdown has no segments, and no
-    // usage on its row either: Copilot reports usage only at shutdown.
+    // A running session before its first shutdown and usage checkpoint has no
+    // segments, and no usage on its row either.
     let temp = tempfile::tempdir().unwrap();
     let path = write_copilot(temp.path(), "c2", "2026-03-03T10:00:00Z", &[]);
     let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();

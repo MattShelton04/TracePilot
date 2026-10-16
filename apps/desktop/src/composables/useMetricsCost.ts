@@ -17,6 +17,7 @@ import {
 import { formatAiCredits, formatAiCreditsUsd } from "@tracepilot/ui";
 import { type ComputedRef, computed, type MaybeRefOrGetter, toValue } from "vue";
 import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
+import { usageCheckpointCredits } from "@/composables/useSessionMetrics";
 import type { usePreferencesStore } from "@/stores/preferences";
 import { type CostSplit, costSplit } from "@/utils/metricsView";
 import { formatSessionCost, formatUsd, sessionCostEstimate } from "@/utils/sourceCost";
@@ -36,6 +37,11 @@ export interface MetricsCostSummary {
   lowerBound: boolean;
   /** What the figure covers, in a sentence. */
   coverage: string;
+  /**
+   * AI Credits in a usage checkpoint's total that no model row covers yet,
+   * e.g. `0.416 AIC since the last shutdown`; null when none are.
+   */
+  unattributed: string | null;
 }
 
 function creditBasis(usage: AiCreditUsage): string {
@@ -45,6 +51,11 @@ function creditBasis(usage: AiCreditUsage): string {
 }
 
 function creditCoverage(usage: AiCreditUsage, metrics: ShutdownMetrics): string {
+  // A running session's totals come from its latest usage checkpoint.
+  const checkpoint = usage.source === "observed" ? usageCheckpointCredits(metrics) : null;
+  if (checkpoint) {
+    return `Recorded by Copilot CLI at its latest usage checkpoint (${new Date(checkpoint.timestamp).toLocaleString()}), written when the agent last went idle. Model rows cover completed runs only. AI Credits count at $0.01.`;
+  }
   const at = metrics.metricsTimestamp
     ? ` at the last shutdown (${new Date(metrics.metricsTimestamp).toLocaleString()})`
     : "";
@@ -57,6 +68,13 @@ function creditCoverage(usage: AiCreditUsage, metrics: ShutdownMetrics): string 
     return "Estimated from token counts at direct API rates; GitHub rates were unavailable.";
   }
   return "No cost was recorded for this session.";
+}
+
+function unattributedCredits(usage: AiCreditUsage, metrics: ShutdownMetrics): string | null {
+  if (usage.source !== "observed") return null;
+  const credits = usageCheckpointCredits(metrics)?.unattributedCredits;
+  if (credits == null) return null;
+  return `${formatAiCredits(credits)}${metrics.sessionSegments?.length ? " since the last shutdown" : ""}`;
 }
 
 export function useMetricsCost(options: {
@@ -84,6 +102,7 @@ export function useMetricsCost(options: {
         partial: false,
         lowerBound: false,
         coverage: creditCoverage(usage, m),
+        unattributed: unattributedCredits(usage, m),
       };
     }
     const estimate = sessionCostEstimate(toValue(options.source), m);
@@ -97,6 +116,7 @@ export function useMetricsCost(options: {
       lowerBound:
         estimate.lowerBound || (estimate.amount == null && estimate.snapshotAmount != null),
       coverage: estimate.coverage,
+      unattributed: null,
     };
   });
 

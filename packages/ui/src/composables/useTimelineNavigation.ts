@@ -20,7 +20,11 @@ export interface TimelineNavigationReturn {
   turnIndex: Ref<number>;
   /** Whether the jump dropdown is open. */
   jumpOpen: Ref<boolean>;
-  /** Human-readable label like "Turn 3 of 12". */
+  /**
+   * Human-readable label. A turn with a numeric `turnIndex` is named by it, as
+   * the rest of the app names turns, with its position after it:
+   * "Turn 18 (19 of 42)". Turns without one read "Turn 3 of 12".
+   */
   turnLabel: ComputedRef<string>;
   /** Whether we can go backward. */
   canPrev: ComputedRef<boolean>;
@@ -44,7 +48,10 @@ export function useTimelineNavigation(
 
   const turnLabel = computed(() => {
     const len = turns.value.length;
-    return len === 0 ? "No turns" : `Turn ${turnIndex.value + 1} of ${len}`;
+    if (len === 0) return "No turns";
+    const position = `${turnIndex.value + 1} of ${len}`;
+    const own = (turns.value[turnIndex.value] as { turnIndex?: unknown } | undefined)?.turnIndex;
+    return typeof own === "number" ? `Turn ${own} (${position})` : `Turn ${position}`;
   });
 
   const canPrev = computed(() => turnIndex.value > 0);

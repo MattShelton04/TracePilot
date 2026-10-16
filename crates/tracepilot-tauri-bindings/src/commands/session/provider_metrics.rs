@@ -1,4 +1,6 @@
-//! Metrics IPC uses provider totals when there is no shutdown event.
+//! Metrics IPC uses provider totals when there is no shutdown event. Copilot
+//! totals come from the shutdown aggregate, which takes AI Credits and premium
+//! requests from a usage checkpoint written after the last shutdown.
 
 use tracepilot_core::models::event_types::ShutdownData;
 use tracepilot_core::parsing::events::extract_combined_shutdown_data;
@@ -136,6 +138,45 @@ mod tests {
         assert_eq!(wire, serde_json::to_value(expected).unwrap());
         assert!(wire.get("coverage").is_none());
         assert!(wire.get("costAmount").is_none());
+    }
+
+    #[test]
+    fn metrics_ipc_reports_a_running_copilot_sessions_latest_usage_checkpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let events = [
+            json!({"type":"session.shutdown","timestamp":"2026-10-04T01:00:00Z","data":{
+                "shutdownType":"routine","totalNanoAiu":100,"totalPremiumRequests":1,
+                "eventsFileSizeBytes":10,"modelMetrics":{"m":{"totalNanoAiu":100}}}}),
+            json!({"type":"session.resume","timestamp":"2026-10-04T02:00:00Z","data":{}}),
+            json!({"type":"session.usage_checkpoint","timestamp":"2026-10-04T02:30:00Z",
+                "data":{"totalNanoAiu":250,"totalPremiumRequests":2}}),
+        ];
+        let jsonl: Vec<String> = events.iter().map(|e| e.to_string()).collect();
+        std::fs::write(dir.path().join("events.jsonl"), jsonl.join("\n") + "\n").unwrap();
+        let session = ResolvedSession {
+            provider: Arc::new(CopilotProvider::new(dir.path())),
+            locator: SessionLocator {
+                source: SessionSource::Copilot,
+                id: SessionId::from_validated("synthetic"),
+                primary_path: dir.path().into(),
+                parent_id: None,
+                role: SessionRole::Primary,
+                source_bytes_hint: 0,
+            },
+        };
+        let response = metrics_for_session(&session, &cache()).unwrap().unwrap();
+        assert_eq!(response.total_nano_aiu, Some(250));
+        assert_eq!(response.total_premium_requests, Some(2.0));
+        // The model row is the completed run's; the rest is not attributed.
+        assert_eq!(
+            response.model_metrics.unwrap()["m"].total_nano_aiu,
+            Some(100)
+        );
+        assert_eq!(
+            response.metrics_timestamp.map(|t| t.to_rfc3339()),
+            Some("2026-10-04T02:30:00+00:00".to_string())
+        );
+        assert!(response.coverage.is_none());
     }
 
     #[test]

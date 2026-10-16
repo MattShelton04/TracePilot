@@ -1,5 +1,5 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { detectParallelIds, formatDuration, type TimeSpanItem, toTimeSpan } from "@tracepilot/ui";
+import { detectParallelIds, type TimeSpanItem, toTimeSpan } from "@tracepilot/ui";
 
 export interface WaterfallRow {
   call: TurnToolCall;
@@ -166,28 +166,71 @@ export function computeRows(
   return result;
 }
 
-/** Compute ruler ticks for the timeline axis. */
-export function computeRulerTicks(span: number): RulerTick[] {
-  if (span <= 0) return [];
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+const HOUR = 60 * MINUTE;
 
-  const intervals = [
-    500, 1000, 2000, 5000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000,
+/** Tick steps the ruler may use, smallest first. */
+const RULER_STEPS = [
+  100,
+  200,
+  500,
+  SECOND,
+  2 * SECOND,
+  5 * SECOND,
+  10 * SECOND,
+  15 * SECOND,
+  30 * SECOND,
+  MINUTE,
+  2 * MINUTE,
+  5 * MINUTE,
+  10 * MINUTE,
+  15 * MINUTE,
+  30 * MINUTE,
+  HOUR,
+  2 * HOUR,
+  3 * HOUR,
+  6 * HOUR,
+  12 * HOUR,
+  24 * HOUR,
+];
+
+/** At most this many intervals, so at most one more tick label than this. */
+const MAX_RULER_INTERVALS = 6;
+
+/**
+ * A tick's offset from the turn's start, without zero parts: `0s`, `500ms`,
+ * `1.5s`, `45s`, `1m 30s`, `10m`, `2h`, `1h 30m`.
+ */
+export function formatRulerOffset(ms: number): string {
+  if (ms === 0) return "0s";
+  if (ms < SECOND) return `${ms}ms`;
+  if (ms < MINUTE) return `${Math.round(ms / 100) / 10}s`;
+  const hours = Math.floor(ms / HOUR);
+  const minutes = Math.floor((ms % HOUR) / MINUTE);
+  const seconds = Math.round((ms % MINUTE) / SECOND);
+  const parts = [
+    hours && `${hours}h`,
+    minutes && `${minutes}m`,
+    !hours && seconds && `${seconds}s`,
   ];
-  const targetTicks = 6;
-  let interval = intervals[intervals.length - 1];
-  for (const iv of intervals) {
-    if (span / iv <= targetTicks) {
-      interval = iv;
-      break;
-    }
-  }
+  return parts.filter(Boolean).join(" ");
+}
+
+/**
+ * Ruler ticks for the timeline axis: the smallest step that keeps the span to
+ * at most {@link MAX_RULER_INTERVALS} intervals, so labels never pile up, however long the turn.
+ */
+export function computeRulerTicks(span: number): RulerTick[] {
+  if (!(span > 0) || !Number.isFinite(span)) return [];
+
+  const fitting = RULER_STEPS.find((step) => span / step <= MAX_RULER_INTERVALS);
+  // Longer than the largest step allows: whole days per interval.
+  const interval = fitting ?? Math.ceil(span / MAX_RULER_INTERVALS / (24 * HOUR)) * 24 * HOUR;
 
   const ticks: RulerTick[] = [];
   for (let ms = 0; ms <= span; ms += interval) {
-    ticks.push({
-      label: formatDuration(ms) || "0s",
-      leftPct: (ms / span) * 100,
-    });
+    ticks.push({ label: formatRulerOffset(ms), leftPct: (ms / span) * 100 });
   }
   return ticks;
 }

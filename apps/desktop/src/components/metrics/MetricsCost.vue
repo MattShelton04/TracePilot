@@ -95,6 +95,9 @@ const unpriced = computed(() => props.split?.unpriced.map(modelName) ?? []);
       </div>
     </div>
 
+    <p v-if="cost.unattributed" class="ad-note" data-testid="unattributed-credits">
+      {{ cost.unattributed }} not yet attributed to a model.
+    </p>
     <p class="ad-note">
       {{ cost.coverage }}
       <template v-if="kinds.length"> The split by kind{{ models.length > 1 && !credits ? " and model" : "" }} is estimated from model prices.</template>

@@ -7,14 +7,15 @@ import { usePreferencesStore } from "./preferences";
 import {
   buildSearchFieldCache,
   filterAndSortSessions,
+  inRepositoryFilter,
   matchesSessionFilters,
   parseSearchTerms,
   repositoryFilterOptions,
-  sessionRepositoryKey,
   uniqueRepositories,
   uniqueSources,
 } from "./sessions/filtering";
 import { createIndexingLifecycle } from "./sessions/indexingLifecycle";
+import { folderRepositories } from "./sessions/repositoryFolders";
 
 export type { SortOption } from "./sessions/filtering";
 
@@ -80,10 +81,13 @@ export const useSessionsStore = defineStore("sessions", () => {
   }
 
   const repositories = computed(() => uniqueRepositories(sessions.value));
+  // Which repository each folder belongs to, from every source, so a folder
+  // stays filed under its repository whichever source is picked.
+  const folders = computed(() => folderRepositories(sessions.value));
   // Only repositories with sessions to show; the list's filter also groups
   // repository-less sessions by their cwd.
   const repositoryOptions = computed(() =>
-    repositoryFilterOptions(sessionsInSource(filterSource.value), filterRepo.value),
+    repositoryFilterOptions(sessionsInSource(filterSource.value), filterRepo.value, folders.value),
   );
   const sources = computed(() => uniqueSources(sessions.value));
 
@@ -116,7 +120,8 @@ export const useSessionsStore = defineStore("sessions", () => {
   function setFilterSource(source: SessionSource | null) {
     filterSource.value = source;
     const repo = filterRepo.value;
-    if (repo && !sessionsInSource(source).some((s) => sessionRepositoryKey(s) === repo)) {
+    const cache = searchFieldCache.value;
+    if (repo && !sessionsInSource(source).some((s) => inRepositoryFilter(s, repo, cache))) {
       filterRepo.value = null;
     }
   }

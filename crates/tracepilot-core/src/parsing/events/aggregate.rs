@@ -1,5 +1,7 @@
 //! Session-level aggregation helpers — extract session start and merge shutdown metrics.
 
+mod checkpoint;
+
 use super::typed::{TypedEvent, TypedEventData};
 use crate::models::event_types::{
     CodeChanges, ModelMetricDetail, RequestMetrics, SessionEventType, SessionSegment,
@@ -17,7 +19,14 @@ fn is_cumulative_shutdown(data: &ShutdownData) -> bool {
 
 /// Normalizes legacy per-instance shutdown metrics and newer cumulative
 /// shutdown snapshots into one session aggregate. Returns `(combined_data, count)`.
+///
+/// AI Credits and premium requests come from a `session.usage_checkpoint`
+/// written after the last shutdown (a session still running, or one that
+/// ended without a shutdown record), with `count` 0 when there is no
+/// shutdown yet. Model rows and segments stay shutdown-only (see the
+/// `checkpoint` submodule).
 pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(ShutdownData, u32)> {
+    let checkpoint = checkpoint::trailing_checkpoint(events);
     let shutdowns: Vec<(&ShutdownData, Option<DateTime<Utc>>)> = events
         .iter()
         .filter(|e| e.event_type == SessionEventType::SessionShutdown && e.raw.agent_id.is_none())
@@ -27,9 +36,9 @@ pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(Shutdown
         })
         .collect();
 
-    if shutdowns.is_empty() {
-        return None;
-    }
+    let Some((last_shutdown, _)) = shutdowns.last() else {
+        return checkpoint.map(|(data, at)| (checkpoint::checkpoint_only_data(data, at), 0));
+    };
 
     // Collect session start and resume timestamps to derive correct segment start times
     let session_start_ts: Option<DateTime<Utc>> = events
@@ -49,6 +58,9 @@ pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(Shutdown
     let mut combined = combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps)?;
     combined.agent_usage = super::agent_usage::extract_agent_usage(events);
     combined.metrics_timestamp = shutdowns.last().and_then(|(_, timestamp)| *timestamp);
+    if let Some((data, at)) = checkpoint {
+        checkpoint::apply_trailing_checkpoint(&mut combined, last_shutdown, data, at);
+    }
     Some((combined, count))
 }
 
