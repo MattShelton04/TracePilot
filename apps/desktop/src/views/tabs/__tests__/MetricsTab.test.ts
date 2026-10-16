@@ -38,18 +38,16 @@ it("retries a failed activity refresh even when turns were previously loaded", a
   const wrapper = mount(MetricsTab, {
     global: {
       stubs: {
-        MetricsAgentBreakdown: true,
+        MetricsAgents: true,
         SubagentPanel: true,
-        MetricsStatCards: true,
         MetricsSessionActivity: true,
-        MetricsTokenBudget: true,
         MetricsCodeChanges: true,
       },
     },
   });
   await wrapper
     .findAll("button")
-    .find((button) => button.text() === "By agent")
+    .find((button) => button.text() === "Agents")
     ?.trigger("click");
   expect(store.turnsError).not.toBe("");
   wrapper.getComponent(ErrorAlert).vm.$emit("retry");
@@ -92,8 +90,9 @@ it("presents a Claude Code session in USD without AI Credit columns", async () =
   const wrapper = mount(MetricsTab, {
     global: { stubs: { SubagentPanel: true, MetricsSessionActivity: true } },
   });
-  expect(wrapper.text()).toContain("Est. Cost (USD)");
+  expect(wrapper.get('[data-testid="metrics-kpis"]').text()).toContain("$0.42");
   expect(wrapper.text()).toContain("Claude Code estimate");
+  expect(wrapper.text()).toContain("USD at API rates");
   expect(wrapper.text()).not.toMatch(/AI Credits|Legacy/);
   store.shutdownMetrics = null as unknown as typeof store.shutdownMetrics;
   await wrapper.vm.$nextTick();
@@ -114,8 +113,8 @@ it("reopens on a remembered By agent view and loads the turns it needs", () => {
   const wrapper = mount(MetricsTab, {
     global: { stubs: { SubagentPanel: true, MetricsSessionActivity: true } },
   });
-  const byAgent = wrapper.findAll("button").find((button) => button.text() === "By agent");
-  expect(byAgent?.attributes("aria-pressed")).toBe("true");
+  const agents = wrapper.findAll("button").find((button) => button.text() === "Agents");
+  expect(agents?.attributes("aria-checked")).toBe("true");
   expect(store.loadTurns).toHaveBeenCalledTimes(1);
   expect(wrapper.text()).toContain("Loading agent activity");
   wrapper.unmount();

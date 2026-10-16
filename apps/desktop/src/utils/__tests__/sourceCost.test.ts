@@ -51,6 +51,12 @@ describe("sessionCostEstimate", () => {
     );
     expect(covered.lowerBound).toBe(false);
     expect(formatSessionCost(covered)).toBe("$0.42");
+    // Below a cent the bound stays readable rather than "≥ < $0.01".
+    const tiny = claude(
+      { costAmount: 0.001, costUnit: "usd", costBasis: "tracepilotEstimate" },
+      { recordedCalls: 2, tailCalls: 2, unfinishedTailCalls: 1 },
+    );
+    expect(formatSessionCost(tiny)).toBe("≥ $0.00");
   });
 
   it("keeps the snapshot as a lower bound when the tail cannot be priced", () => {

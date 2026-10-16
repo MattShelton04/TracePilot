@@ -20,7 +20,7 @@ function segment(overrides: Partial<SessionSegment> = {}): SessionSegment {
 describe("MetricsSessionActivity", () => {
   beforeEach(() => setupPinia());
 
-  it("renders only one page of shutdowns and can jump to the latest activity", async () => {
+  it("renders one page of runs, opening on the latest", async () => {
     const pricing = vi.spyOn(usePreferencesStore(), "computeUsageBasedCostBreakdown");
     const wrapper = mount(MetricsSessionActivity, {
       props: {
@@ -44,18 +44,20 @@ describe("MetricsSessionActivity", () => {
       },
     });
     expect(wrapper.findAll(".activity-tile")).toHaveLength(6);
-    expect(wrapper.text()).toContain("1–6 of 120 activities");
-    // Observed credits do not need token-rate estimates at all.
-    expect(pricing).not.toHaveBeenCalled();
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text() === "Latest activities")
-      ?.trigger("click");
-    expect(wrapper.findAll(".activity-tile")).toHaveLength(6);
-    expect(wrapper.text()).toContain("Activity #120");
-    expect(wrapper.text()).toContain("115–120 of 120 activities");
+    expect(wrapper.text()).toContain("Run 120");
+    expect(wrapper.text()).toContain("115–120 of 120 runs");
     expect(wrapper.text()).toContain("120 AIC");
     expect(wrapper.text()).toContain("Latest");
+    // Observed credits do not need token-rate estimates at all.
+    expect(pricing).not.toHaveBeenCalled();
+    await wrapper.get('button[aria-label="Earlier runs"]').trigger("click");
+    expect(wrapper.findAll(".activity-tile")).toHaveLength(6);
+    expect(wrapper.text()).toContain("109–114 of 120 runs");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Latest")
+      ?.trigger("click");
+    expect(wrapper.text()).toContain("115–120 of 120 runs");
     pricing.mockRestore();
   });
 
@@ -161,7 +163,7 @@ describe("MetricsSessionActivity", () => {
     expect(wrapper.text()).not.toContain("No interaction recorded");
     expect(wrapper.get(".hero-val").text()).toBe("—");
     expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("—");
-    expect(wrapper.text()).toContain("Legacy Premium");
+    expect(wrapper.text()).toContain("Legacy premium");
     expect(wrapper.get(".premium-val").text()).toBe("3.0");
   });
 
@@ -208,17 +210,16 @@ describe("MetricsSessionActivity", () => {
     });
     expect(wrapper.get(".hero-val").text()).toBe(usage ? "0" : "—");
     expect(wrapper.get(".model-tokens").text()).toBe(usage ? "0 tokens" : "— tokens");
-    expect(wrapper.get(".model-row .cost-pill").text()).toBe("$0.00");
+    // One model with a run total: its cost would only repeat the total.
+    expect(wrapper.find(".model-row .cost-pill").exists()).toBe(false);
     expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("$0.00");
     expect(wrapper.get(".activity-tile-costs .cost-equivalent").text()).toBe("0 AIC");
-    expect(wrapper.get(".activity-tile-costs .cost-pill").attributes("title")).toBe(
-      "Observed AI Credits",
-    );
+    expect(wrapper.get(".activity-tile-costs").attributes("title")).toBe("Observed AI Credits");
     expect(pricing).not.toHaveBeenCalled();
     pricing.mockRestore();
   });
 
-  it("prices only visible complete activities and reprices the next page", async () => {
+  it("prices only visible complete runs and reprices the earlier page", async () => {
     const pricing = vi.spyOn(usePreferencesStore(), "computeUsageBasedCostBreakdown");
     const wrapper = mount(MetricsSessionActivity, {
       props: {
@@ -236,17 +237,14 @@ describe("MetricsSessionActivity", () => {
         },
       },
     });
-    expect(wrapper.findAll(".hero-val").every((node) => node.text() === "120")).toBe(true);
-    expect(pricing).toHaveBeenCalledTimes(12);
-    expect(pricing.mock.calls.every(([name]) => name === "gpt-5.5")).toBe(true);
-    pricing.mockClear();
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text() === "Next activities")
-      ?.trigger("click");
     expect(wrapper.findAll(".activity-tile")).toHaveLength(1);
     expect(pricing).toHaveBeenCalledTimes(2);
     expect(pricing.mock.calls.every(([name]) => name === "gpt-5.4")).toBe(true);
+    pricing.mockClear();
+    await wrapper.get('button[aria-label="Earlier runs"]').trigger("click");
+    expect(wrapper.findAll(".hero-val").every((node) => node.text() === "120")).toBe(true);
+    expect(pricing).toHaveBeenCalledTimes(12);
+    expect(pricing.mock.calls.every(([name]) => name === "gpt-5.5")).toBe(true);
     pricing.mockRestore();
   });
 });
