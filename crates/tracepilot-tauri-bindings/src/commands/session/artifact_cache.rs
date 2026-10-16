@@ -1,4 +1,4 @@
-//! A source's artifacts (plan, file history, browsable roots), reused while
+//! A source's artifacts (todos, plan, file history, browsable roots), reused while
 //! the session's source version is unchanged.
 //!
 //! A running session's detail view asks for them on every refresh, and the

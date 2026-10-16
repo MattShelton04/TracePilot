@@ -46,7 +46,7 @@ Browse your session history as a searchable library, filter it by source, reposi
 | **Overview** | Headline numbers, how the session ended, incidents, changes, plan and checkpoints, and turn activity over time. |
 | **Conversation** | User/assistant turns, reasoning, model switches, parallel subagents, skill invocations, tool calls, and rich tool-result renderers. |
 | **Events** | Raw session events with filtering and pagination for debugging parser or CLI behavior. |
-| **Todos** | Copilot's task state as a list or dependency graph. |
+| **Todos** | The session's task list, as a list or dependency graph. |
 | **Metrics** | Cost, token and cache usage per model or per agent, duration, code changes, and prompt-cache timing. |
 | **Context** | How the context window grows by turn or over time (system prompt, tool definitions, conversation), where compactions happened, and which tools contribute most. |
 | **Explorer** | Files inside the session state directory, with viewers for Markdown, JSON/JSONL, CSV, SQLite, images, and more. |
@@ -72,7 +72,7 @@ Claude Code sessions sit next to Copilot CLI sessions in the library, Conversati
 
 - Sessions, Search, and the analytics pages switch between **All**, **Copilot**, and **Claude Code**. Search also takes `source:copilot` and `source:claude`.
 - Copilot usage is priced in AI Credits and Claude Code usage in API-equivalent US dollars. With both sources, Analytics and Models total them in USD.
-- Launching, the SDK bridge, the config injector, todos, and the skills and agents editors stay Copilot-only.
+- Launching, the SDK bridge, the config injector, and the skills and agents editors stay Copilot-only.
 
 TracePilot only reads Claude Code's files. Claude Code deletes transcripts older than its `cleanupPeriodDays` setting (30 days by default), and **Settings → Claude Code** can raise it in one click. See [Claude Code sessions](docs/claude-code-sessions.md) for details.
 

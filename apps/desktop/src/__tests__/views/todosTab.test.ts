@@ -146,4 +146,47 @@ describe("TodosTab view choice", () => {
     expect(reopened.text()).toContain("Write tests");
     reopened.unmount();
   });
+
+  it("lists Claude Code todos by default and remembers each source's choice", async () => {
+    mockGetSessionTodos.mockResolvedValue({
+      todos: [{ id: "1", title: "Survey corpus", status: "in_progress" }],
+      deps: [],
+    });
+    const store = useSessionDetailStore();
+    const stubs = {
+      LoadingOverlay: LoadingOverlayStub,
+      EmptyState: EmptyStateStub,
+      ErrorAlert: ErrorAlertStub,
+      SectionPanel: { template: '<div class="section-panel"><slot /></div>' },
+      Badge: true,
+      StatusIcon: true,
+      TodoDependencyGraph: true,
+    };
+    const open = async (id: string, source: "copilot" | "claudeCode") => {
+      store.sessionId = id;
+      store.$patch({ detail: { id, source } });
+      const wrapper = mount(TodosTab, { global: { stubs } });
+      await flushPromises();
+      return wrapper;
+    };
+
+    const claude = await open("claude-1", "claudeCode");
+    expect(claude.find("todo-dependency-graph-stub").exists()).toBe(false);
+    expect(claude.text()).toContain("Survey corpus");
+    // Choosing the graph for Claude Code leaves Copilot's default alone.
+    await claude.findAll("button.toggle-btn")[1].trigger("click");
+    expect(claude.find("todo-dependency-graph-stub").exists()).toBe(true);
+    claude.unmount();
+
+    store.loaded.delete("todos");
+    const copilot = await open("copilot-1", "copilot");
+    expect(copilot.find("todo-dependency-graph-stub").exists()).toBe(true);
+    await copilot.findAll("button.toggle-btn")[0].trigger("click");
+    copilot.unmount();
+
+    store.loaded.delete("todos");
+    const claudeAgain = await open("claude-2", "claudeCode");
+    expect(claudeAgain.find("todo-dependency-graph-stub").exists()).toBe(true);
+    claudeAgain.unmount();
+  });
 });

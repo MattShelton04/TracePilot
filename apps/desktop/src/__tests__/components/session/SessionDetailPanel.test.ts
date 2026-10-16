@@ -117,6 +117,7 @@ describe("SessionDetailPanel", () => {
       "Overview",
       "Conversation",
       "Events",
+      "Todos",
       "Metrics",
       "Context",
       "Explorer",
@@ -172,7 +173,7 @@ describe("SessionDetailPanel", () => {
     await flushPromises();
 
     const tabs = wrapper.findAll("[role='tab']");
-    expect(tabs).toHaveLength(7);
+    expect(tabs).toHaveLength(8);
     expect(wrapper.find('[title="Copy: claude --resume session-1"]').exists()).toBe(true);
     expect(wrapper.text()).toContain("Resume in Terminal");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");

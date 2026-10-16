@@ -13,7 +13,9 @@ use std::sync::Arc;
 use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::reader::{Line, read_jsonl};
 use super::summary::summarize;
-use super::{ClaudeDiagnostics, ClaudeParse, file_history, parse_claude_session, plans, resume};
+use super::{
+    ClaudeDiagnostics, ClaudeParse, file_history, parse_claude_session, plans, resume, todos,
+};
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
@@ -23,8 +25,9 @@ use crate::provider::{
     SourceCapabilities, SourceFingerprint,
 };
 
-/// Nothing Copilot-specific and no todos. Claude Code has no Copilot-style
-/// checkpoint summaries; its rewind points are the file history. A session
+/// Nothing Copilot-specific. Todos are the task list replayed from the
+/// transcript ([`todos`]). Claude Code has no Copilot-style checkpoint
+/// summaries; its rewind points are the file history. A session
 /// resumes in a terminal, but TracePilot never drives the CLI itself
 /// (`can_resume`, which gates exact context capture).
 pub(in crate::provider) const CAPABILITIES: SourceCapabilities = SourceCapabilities {
@@ -35,7 +38,7 @@ pub(in crate::provider) const CAPABILITIES: SourceCapabilities = SourceCapabilit
     has_aic: false,
     has_premium_requests: false,
     has_context_breakdown: false,
-    has_todos: false,
+    has_todos: true,
     has_checkpoints: false,
     has_plan: true,
     has_explorer: true,
@@ -344,12 +347,12 @@ impl SessionProvider for ClaudeCodeProvider {
         )
     }
 
-    /// The plan, file history and browsable roots, from one read of the
-    /// transcript. No todos (out of scope) and no
-    /// Copilot-style checkpoints or rewind index.
+    /// The task list, plan, file history and browsable roots, from one read
+    /// of the transcript. No Copilot-style checkpoints or rewind index.
     fn artifacts(&self, session: &SessionLocator) -> Result<SessionArtifacts> {
         let lines = Self::read_lines(session)?;
         Ok(SessionArtifacts {
+            todos: todos::latest_todos(&lines),
             plan: self.plan_from(&lines),
             file_history: self.file_history_from(session, &lines),
             file_roots: self.file_roots(session)?,

@@ -13,7 +13,13 @@ export interface SessionTabViews {
   agentTree: "paginated" | "unified";
   messagesDiagram: "sequence" | "lanes" | "graph";
   messagesPacked: boolean;
+  /** Copilot's todos, which often have dependencies. */
   todos: "list" | "graph";
+  /**
+   * Claude Code's todos: mostly the desktop app's ordered checklist, which
+   * has no dependencies, so the list is the default.
+   */
+  claudeTodos: "list" | "graph";
   metrics: "model" | "agent";
   context: "timeline" | "snapshots";
 }
@@ -25,6 +31,7 @@ export const DEFAULT_SESSION_TAB_VIEWS: SessionTabViews = {
   messagesDiagram: "sequence",
   messagesPacked: true,
   todos: "graph",
+  claudeTodos: "list",
   metrics: "model",
   context: "timeline",
 };
@@ -36,6 +43,7 @@ const ALLOWED: { [K in keyof SessionTabViews]: readonly SessionTabViews[K][] } =
   messagesDiagram: ["sequence", "lanes", "graph"],
   messagesPacked: [true, false],
   todos: ["list", "graph"],
+  claudeTodos: ["list", "graph"],
   metrics: ["model", "agent"],
   context: ["timeline", "snapshots"],
 };

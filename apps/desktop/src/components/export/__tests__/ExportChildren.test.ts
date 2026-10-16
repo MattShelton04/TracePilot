@@ -319,7 +319,8 @@ describe("ExportSectionsPanel", () => {
     const claude = labels("claudeCode");
     expect(claude).toContain("Conversation");
     expect(claude).toContain("Metrics");
-    expect(claude).not.toContain("Todos");
+    // Claude Code task lists are replayed from the transcript.
+    expect(claude).toContain("Todos");
     // Claude Code plans come from ExitPlanMode (C13); its checkpoints are file history, not exported.
     expect(claude).toContain("Plan");
     expect(claude).not.toContain("Checkpoints");

@@ -1,11 +1,24 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import type { SessionListItem } from "@tracepilot/types";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouteLocationNormalized } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useSessionsStore } from "@/stores/sessions";
 import { hiddenSessionTabRedirect, sessionTabGuard } from "../sessionTabGuard";
+
+// Every source shows every tab today, so Claude Code stands in for a source
+// without todos.
+vi.mock("@tracepilot/types", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tracepilot/types")>();
+  return {
+    ...actual,
+    sourceCapabilities: (source: Parameters<typeof actual.sourceCapabilities>[0]) => {
+      const caps = actual.sourceCapabilities(source);
+      return source === "claudeCode" ? { ...caps, hasTodos: false } : caps;
+    },
+  };
+});
 
 function sessionRoute(name: string, id = "s-1"): RouteLocationNormalized {
   return {
