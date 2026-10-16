@@ -208,12 +208,21 @@
   width: 100%;
   height: 100%;
 }
+/* Each label is centred on its time. The first starts at the left edge and the
+   last ends at its time, so neither leaves the track or wraps. */
 .ruler-tick {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   user-select: none;
+}
+.ruler-tick:last-child {
+  transform: translate(-100%, -50%);
+}
+.ruler-tick:first-child {
+  transform: translateY(-50%);
 }
 
 .separator {
