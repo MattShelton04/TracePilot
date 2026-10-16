@@ -69,11 +69,21 @@ describe("useTimelineNavigation", () => {
     expect(w.vm.turnIndex).toBe(4);
   });
 
-  it("turnLabel shows correct format", () => {
+  it("turnLabel counts positions for turns without their own index", () => {
     const w = createWrapper(5);
     expect(w.vm.turnLabel).toBe("Turn 1 of 5");
     w.vm.nextTurn();
     expect(w.vm.turnLabel).toBe("Turn 2 of 5");
+  });
+
+  it("turnLabel names a turn by its own turnIndex, then its position", async () => {
+    const w = createWrapper(0);
+    // Conversation, Search and Agent Tree call the turn with turnIndex 18 "Turn 18".
+    w.vm.turns = [{ turnIndex: 0 }, { turnIndex: 18 }, { turnIndex: 19 }] as never;
+    await nextTick();
+    expect(w.vm.turnLabel).toBe("Turn 0 (1 of 3)");
+    w.vm.nextTurn();
+    expect(w.vm.turnLabel).toBe("Turn 18 (2 of 3)");
   });
 
   it("canPrev and canNext computed correctly", () => {
