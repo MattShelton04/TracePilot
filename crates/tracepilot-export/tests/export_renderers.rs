@@ -177,3 +177,43 @@ fn export_markdown_omits_tool_details_even_with_full_results_enabled() {
     assert!(!markdown.contains("**Result:**"));
     assert!(!markdown.contains("TOOL_RESULT_END"));
 }
+
+/// A session still running has no shutdown after its latest usage
+/// checkpoint; the export reports the checkpoint's observed totals, as the
+/// Metrics tab does, in both formats.
+#[test]
+fn export_metrics_of_a_running_session_use_its_latest_usage_checkpoint() {
+    let fixture =
+        include_str!("../../tracepilot-core/tests/fixtures/versions/v1_0_91_skill_refs.jsonl");
+    let lines: Vec<&str> = fixture.lines().filter(|l| !l.trim().is_empty()).collect();
+    let second_shutdown = lines
+        .iter()
+        .rposition(|l| l.contains(r#""type":"session.shutdown""#))
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("workspace.yaml"),
+        "id: 00000000-0000-4000-8000-0000000000aa\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("events.jsonl"),
+        lines[..second_shutdown].join("\n") + "\n",
+    )
+    .unwrap();
+
+    let json = export_session(dir.path(), &ExportOptions::all(ExportFormat::Json)).unwrap();
+    let archive: serde_json::Value = serde_json::from_slice(&json[0].content).unwrap();
+    let metrics = &archive["sessions"][0]["shutdownMetrics"];
+    assert_eq!(metrics["totalNanoAiu"], 707_673_600);
+    assert_eq!(metrics["totalPremiumRequests"], 2.0);
+    // Per-model usage is the completed first run's.
+    assert_eq!(
+        metrics["modelMetrics"]["mai-code-1.1-flash"]["totalNanoAiu"],
+        291_646_800
+    );
+
+    let md = export_session(dir.path(), &ExportOptions::all(ExportFormat::Markdown)).unwrap();
+    let text = md[0].as_text().unwrap();
+    assert!(text.contains("| AI Credits | 0.708 (observed) |"), "{text}");
+}
