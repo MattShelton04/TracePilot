@@ -179,5 +179,15 @@ describe("MetricsStatCards source cost", () => {
     });
     expect(ended.wrapper.find('[data-testid="usage-checkpoint"]').exists()).toBe(false);
     expect(ended.wrapper.text()).toContain("Shutdown ");
+
+    // Before the first shutdown, every credit is unattributed.
+    const firstRun = legend({
+      totalNanoAiu: 291_646_800,
+      metricsTimestamp: "2026-10-04T01:39:48.877Z",
+    });
+    expect(firstRun.credits).toBe("0.292 AIC");
+    expect(firstRun.wrapper.find('[data-testid="unattributed-credits"]').text()).toBe(
+      "· 0.292 AIC not yet attributed to a model",
+    );
   });
 });

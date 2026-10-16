@@ -78,7 +78,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
       {{ sourceLabel(aiCreditUsage.source) }}
       <template v-if="checkpoint">
         <span data-testid="usage-checkpoint" title="Session totals from the CLI's latest usage checkpoint, written when the agent last went idle. The per-model rows cover completed runs only."> · Usage checkpoint {{ new Date(checkpoint.timestamp).toLocaleString() }}</span>
-        <span v-if="checkpoint.unattributedCredits != null" data-testid="unattributed-credits"> · {{ formatAiCredits(checkpoint.unattributedCredits) }} since the last shutdown not yet attributed to a model</span>
+        <span v-if="checkpoint.unattributedCredits != null" data-testid="unattributed-credits"> · {{ formatAiCredits(checkpoint.unattributedCredits) }}{{ metrics.sessionSegments?.length ? " since the last shutdown" : "" }} not yet attributed to a model</span>
       </template>
       <span v-else-if="metrics.metricsTimestamp" title="Usage through this shutdown; later activity is not included"> · Shutdown {{ new Date(metrics.metricsTimestamp).toLocaleString() }}</span>
     </p>
