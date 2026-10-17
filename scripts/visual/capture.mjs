@@ -250,8 +250,7 @@ try {
       const landed = page.url().split("#")[1];
       const expectedRoutes = [item.route];
       if (item.preparedQuery) expectedRoutes.push(`${item.route}?${item.preparedQuery}`);
-      if (!expectedRoutes.includes(landed))
-        throw new Error(`Unexpected route redirect: ${landed}`);
+      if (!expectedRoutes.includes(landed)) throw new Error(`Unexpected route redirect: ${landed}`);
       if (item.scrollText)
         await page.getByText(item.scrollText, { exact: true }).first().scrollIntoViewIfNeeded();
       if (item.assertion === "worktree-layout") await assertWorktreeLayout(page);
