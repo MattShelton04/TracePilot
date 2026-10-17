@@ -156,6 +156,18 @@ describe("useSessionSearch", () => {
     wrapper.unmount();
   });
 
+  it("counts the Tool filter, so a Tool chip gets a badge and Clear all", () => {
+    storeState.toolName = "grep";
+    const toolOnly = runComposable();
+    expect(toolOnly.api.activeFilterCount.value).toBe(1);
+    toolOnly.wrapper.unmount();
+
+    storeState.repository = "acme/app";
+    const withRepo = runComposable();
+    expect(withRepo.api.activeFilterCount.value).toBe(2);
+    withRepo.wrapper.unmount();
+  });
+
   it("shows the source filter only once two sources have sessions, or one is selected", () => {
     const sessions = useSessionsStore();
     sessions.sessions = [{ id: "a" }, { id: "b", source: "copilot" }] as never;

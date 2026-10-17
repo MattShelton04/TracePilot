@@ -28,6 +28,10 @@ pub(super) fn map_search_result(row: &rusqlite::Row<'_>) -> rusqlite::Result<Sea
 /// as operators, so the lowercase words stay ordinary search terms.
 const OPERATORS: [&str; 3] = ["AND", "OR", "NOT"];
 
+/// Stands in for punctuation inside a word (`index.ts`, `build-std`) until
+/// the word is turned into a term. It is neither alphanumeric nor whitespace.
+const JOIN: char = '\u{1F}';
+
 /// Sanitize a user query for safe FTS5 MATCH usage.
 ///
 /// FTS5 has a specific query syntax. Raw user input can cause parse errors.
@@ -38,6 +42,9 @@ const OPERATORS: [&str; 3] = ["AND", "OR", "NOT"];
 ///   and `NOT` are operators; `and`, `or` and `not` are ordinary words
 /// - Stripping problematic characters (parentheses, colons, carets) and the
 ///   `NEAR` keyword (words such as "nearby" are kept)
+/// - Words joined by punctuation (`index.ts`, `build-std`, `path/to/file`)
+///   become a quoted phrase, so their parts must be adjacent as they are in
+///   the text; words separated by spaces still match anywhere
 /// - A NOT with no term before it: FTS5 can't search for "everything except
 ///   X", so the NOT and the term it negates are both dropped rather than
 ///   searching for X instead (`a AND NOT b` becomes `a NOT b`)
@@ -52,14 +59,14 @@ pub fn sanitize_fts_query(query: &str) -> String {
 
     // Strip characters that are problematic for FTS5 — only keep alphanumeric,
     // whitespace, quotes (for phrases), * (for prefix), and basic separators.
-    // The unicode61 tokenizer treats most punctuation as separators anyway.
+    // Other punctuation becomes JOIN, which keeps the words it joined together.
     let cleaned: String = trimmed
         .chars()
         .map(|c| {
             if c.is_alphanumeric() || c == '"' || c == '*' || c == '_' || c.is_whitespace() {
                 c
             } else {
-                ' '
+                JOIN
             }
         })
         .collect();
@@ -95,10 +102,11 @@ pub fn sanitize_fts_query(query: &str) -> String {
                     }
                 }
             } else {
-                // Valid quoted phrase, kept when it has something to match
+                // Valid quoted phrase, kept when it has something to match.
+                // The tokenizer splits on punctuation inside it anyway.
                 let inner = &phrase[1..phrase.len() - 1];
                 if inner.chars().any(char::is_alphanumeric) {
-                    tokens.push(phrase);
+                    tokens.push(phrase.replace(JOIN, " "));
                 }
             }
         } else if c.is_whitespace() {
@@ -153,15 +161,9 @@ pub fn sanitize_fts_query(query: &str) -> String {
             // Quoted phrases pass through directly.
             token.clone()
         } else {
-            // A term needs a letter or digit; a single trailing * makes it a prefix.
-            let base: String = token.chars().filter(|c| *c != '*' && *c != '"').collect();
-            if !base.chars().any(char::is_alphanumeric) {
-                continue;
-            }
-            if token.contains('*') {
-                format!("{base}*")
-            } else {
-                base
+            match bare_term(token) {
+                Some(term) => term,
+                None => continue,
             }
         };
         if skip_negated {
@@ -181,6 +183,30 @@ pub fn sanitize_fts_query(query: &str) -> String {
     }
 
     result_tokens.join(" ")
+}
+
+/// Turn an unquoted token into an FTS5 term, or `None` when it has nothing
+/// to match. A term needs a letter or digit, and a `*` makes it a prefix.
+/// Words joined by punctuation become a phrase (`index.ts` is `"index ts"`)
+/// so they match only side by side; a `NEAR` among them is dropped.
+fn bare_term(token: &str) -> Option<String> {
+    let parts: Vec<String> = token
+        .split(JOIN)
+        .filter(|part| *part != "NEAR")
+        .map(|part| part.chars().filter(|c| *c != '*' && *c != '"').collect())
+        .filter(|part: &String| part.chars().any(char::is_alphanumeric))
+        .collect();
+    let term = match parts.as_slice() {
+        [] => return None,
+        [word] => word.clone(),
+        words => format!("\"{}\"", words.join(" ")),
+    };
+    // FTS5 reads `"index t"*` as a phrase whose last word is a prefix.
+    Some(if token.contains('*') {
+        format!("{term}*")
+    } else {
+        term
+    })
 }
 
 /// Convert FTS5 snippet sentinel markers into safe HTML-escapable markers.
@@ -281,13 +307,45 @@ mod tests {
 
     #[test]
     fn test_sanitize_strips_problematic_chars() {
-        assert_eq!(sanitize_fts_query("error(code)"), "error code");
-        assert_eq!(sanitize_fts_query("field:value"), "field value");
-        assert_eq!(sanitize_fts_query("a{b}c"), "a b c");
+        // Punctuation is stripped to prevent FTS5 errors. Words it joined stay
+        // a phrase, because the tokenizer indexed them side by side.
+        // (These were separate terms before, e.g. "path to file".)
+        assert_eq!(sanitize_fts_query("error(code)"), "\"error code\"");
+        assert_eq!(sanitize_fts_query("field:value"), "\"field value\"");
+        assert_eq!(sanitize_fts_query("a{b}c"), "\"a b c\"");
         assert_eq!(sanitize_fts_query("^test$"), "test");
-        // Slashes and other punctuation are stripped to prevent FTS5 errors
-        assert_eq!(sanitize_fts_query("path/to/file"), "path to file");
-        assert_eq!(sanitize_fts_query("a+b-c"), "a b c");
+        assert_eq!(sanitize_fts_query("path/to/file"), "\"path to file\"");
+        assert_eq!(sanitize_fts_query("a+b-c"), "\"a b c\"");
+        assert_eq!(sanitize_fts_query("(error) code."), "error code");
+    }
+
+    #[test]
+    fn test_sanitize_punctuation_joined_words_are_a_phrase() {
+        assert_eq!(sanitize_fts_query("index.ts"), "\"index ts\"");
+        assert_eq!(sanitize_fts_query("build-std"), "\"build std\"");
+        assert_eq!(
+            sanitize_fts_query("open src/index.ts now"),
+            "open \"src index ts\" now"
+        );
+        assert_eq!(sanitize_fts_query("--no-verify"), "\"no verify\"");
+        assert_eq!(sanitize_fts_query("snake_case"), "snake_case");
+        // Operators around a joined word still apply to the whole phrase.
+        assert_eq!(
+            sanitize_fts_query("lib.rs OR index.ts"),
+            "\"lib rs\" OR \"index ts\""
+        );
+        assert_eq!(sanitize_fts_query("NOT index.ts store"), "store");
+        assert_eq!(
+            sanitize_fts_query("\"unclosed index.ts"),
+            "unclosed \"index ts\""
+        );
+    }
+
+    #[test]
+    fn test_sanitize_prefix_on_joined_words() {
+        assert_eq!(sanitize_fts_query("index.t*"), "\"index t\"*");
+        assert_eq!(sanitize_fts_query("build-*"), "build*");
+        assert_eq!(sanitize_fts_query("*.ts"), "ts*");
     }
 
     #[test]
@@ -319,7 +377,7 @@ mod tests {
     #[test]
     fn test_sanitize_near_stripped() {
         assert_eq!(sanitize_fts_query("NEAR(a b)"), "a b");
-        // / becomes space, so "NEAR/5" → "NEAR 5"; NEAR is stripped, 5 is kept as a term
+        // "/" joins "NEAR" and "5"; NEAR is stripped, 5 is kept as a term
         assert_eq!(sanitize_fts_query("NEAR/5 foo"), "5 foo");
     }
 

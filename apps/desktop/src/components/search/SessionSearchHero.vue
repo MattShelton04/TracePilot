@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { SessionSource } from "@tracepilot/types";
 import { Info } from "lucide-vue-next";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import SourceSwitch from "@/components/sources/SourceSwitch.vue";
+import { effectiveSortMode, type SortMode } from "@/stores/search/query";
 
-defineProps<{
+const props = defineProps<{
   query: string;
   filtersOpen: boolean;
   filtersId?: string;
@@ -27,6 +28,10 @@ const emit = defineEmits<{
   (e: "update:source", v: SessionSource | null): void;
   (e: "show-syntax-help"): void;
 }>();
+
+// Browse results are newest first while "Relevance" stays picked for the next
+// query, so the select shows the sort the results really use.
+const shownSort = computed(() => effectiveSortMode(props.sortBy as SortMode, props.isBrowseMode));
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const filterToggleRef = ref<HTMLButtonElement | null>(null);
@@ -102,7 +107,7 @@ defineExpose({ inputRef, focusFilterToggle });
         @update:model-value="emit('update:source', $event)"
       />
       <select
-        :value="sortBy"
+        :value="shownSort"
         class="sort-select"
         aria-label="Sort results"
         @change="emit('update:sortBy', ($event.target as HTMLSelectElement).value)"

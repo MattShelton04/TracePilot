@@ -17,8 +17,13 @@ function hasOpenModal(): boolean {
 export interface UseSearchKeyboardNavigationOptions {
   /** Ref to the search input element for focus/blur management. */
   searchInputRef: Ref<HTMLInputElement | null>;
-  /** Flat list of search results (used for bounds checking). */
+  /** Flat list of search results; `focusedResultIndex` indexes into it. */
   results: ComputedRef<{ id: number }[]> | Ref<{ id: number }[]>;
+  /**
+   * Ids of the results on screen, top to bottom, leaving out hidden ones (such
+   * as those in a collapsed group). ↓/↑ walk this order; defaults to `results`.
+   */
+  visibleIds?: ComputedRef<number[]> | Ref<number[]>;
   /** Whether the search store currently has a query. */
   hasQuery: ComputedRef<boolean> | Ref<boolean>;
   /** Called when Escape is pressed with no focused result and a query is active. */
@@ -43,7 +48,8 @@ export interface UseSearchKeyboardNavigationOptions {
  * Registers a global keydown listener on mount and removes it on unmount.
  */
 export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigationOptions) {
-  const { searchInputRef, results, hasQuery, onClearAll, onToggleExpand, onOpen } = options;
+  const { searchInputRef, results, visibleIds, hasQuery, onClearAll, onToggleExpand, onOpen } =
+    options;
 
   /** Index of the currently focused result (-1 = none). */
   const focusedResultIndex = ref(-1);
@@ -55,6 +61,26 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
       focusedResultIndex.value = -1;
     },
   );
+
+  /** Move the cursor to a result, e.g. one the user clicked. */
+  function focusResult(id: number) {
+    focusedResultIndex.value = results.value.findIndex((r) => r.id === id);
+  }
+
+  /**
+   * Step through the results in on-screen order; false when none is on
+   * screen. Stepping up from the first result leaves the results.
+   */
+  function step(delta: 1 | -1): boolean {
+    const order = visibleIds?.value ?? results.value.map((r) => r.id);
+    if (order.length === 0) return false;
+    const currentId = results.value[focusedResultIndex.value]?.id;
+    const at = currentId === undefined ? -1 : order.indexOf(currentId);
+    const next = Math.min(at + delta, order.length - 1);
+    if (next < 0) focusedResultIndex.value = -1;
+    else focusResult(order[next]);
+    return true;
+  }
 
   function handleKeydown(e: KeyboardEvent) {
     // Ctrl+K: focus search input (global)
@@ -100,14 +126,14 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
       case "ArrowDown":
       case "j":
         e.preventDefault();
-        focusedResultIndex.value = Math.min(focusedResultIndex.value + 1, resultCount - 1);
+        if (!step(1)) break;
         if (isSearchInput) searchInputRef.value?.blur();
         scrollToFocusedResult();
         break;
       case "ArrowUp":
       case "k":
         e.preventDefault();
-        focusedResultIndex.value = Math.max(focusedResultIndex.value - 1, -1);
+        if (!step(-1)) break;
         if (isSearchInput && focusedResultIndex.value >= 0) searchInputRef.value?.blur();
         scrollToFocusedResult();
         break;
@@ -169,6 +195,7 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
 
   return {
     focusedResultIndex,
+    focusResult,
     handleKeydown,
     scrollToFocusedResult,
   };

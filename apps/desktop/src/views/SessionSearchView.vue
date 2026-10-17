@@ -29,7 +29,6 @@ const {
   indexingProgress,
   isIndexing,
   expandedResults,
-  toggleExpand,
   collapsedGroups,
   toggleGroupCollapse,
   filteredSessionNameOverride,
@@ -37,6 +36,7 @@ const {
   filterBySession,
   focusedResultIndex,
   resultIndexMap,
+  handleResultClick,
   pageStart,
   pageEnd,
   visiblePages,
@@ -254,7 +254,7 @@ useScrollRestore({
               :expanded="expandedResults.has(result.id)"
               :focused="focusedResultIndex === idx"
               :session-link="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
-              @toggle="toggleExpand(result.id)"
+              @toggle="handleResultClick(result.id)"
               @copy="handleCopyResult(result)"
             />
           </div>
@@ -270,7 +270,7 @@ useScrollRestore({
             :content-type-config="contentTypeConfig"
             @toggle-group-collapse="toggleGroupCollapse"
             @filter-by-session="filterBySession"
-            @toggle-expand="toggleExpand"
+            @toggle-expand="handleResultClick"
             :session-link="sessionLink"
           />
 

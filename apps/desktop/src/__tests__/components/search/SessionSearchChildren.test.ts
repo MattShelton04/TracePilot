@@ -35,6 +35,26 @@ describe("SessionSearchHero", () => {
     expect(wrapper.find(".filter-count-badge").text()).toBe("3");
   });
 
+  it("shows the sort browse results really use, and the picked one once a query returns", async () => {
+    const props = {
+      query: "",
+      filtersOpen: true,
+      activeFilterCount: 1,
+      sortBy: "relevance",
+      isBrowseMode: true,
+    };
+    const wrapper = mount(SessionSearchHero, { props });
+    const select = () => wrapper.get<HTMLSelectElement>(".sort-select").element;
+    // Nothing to rank by relevance without a query, so browse results are newest first.
+    expect(select().value).toBe("newest");
+
+    await wrapper.setProps({ query: "retry", isBrowseMode: false });
+    expect(select().value).toBe("relevance");
+
+    await wrapper.setProps({ query: "", isBrowseMode: true, sortBy: "oldest" });
+    expect(select().value).toBe("oldest");
+  });
+
   it("shows the source switch only when asked and emits the picked source", async () => {
     const props = {
       query: "",
