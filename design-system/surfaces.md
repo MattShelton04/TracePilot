@@ -94,7 +94,9 @@ routed view and session tabs or pop-out windows.
   skill groups use Lucide icons (`Target`, `Zap`).
 - Deep links scroll to an event through `useConversationNavigation`.
 - Claude Code adds task notification cards and pasted-content blocks.
-- Gaps: the scroll-to-top/bottom buttons use `backdrop-filter`.
+- The scroll-to-top/bottom buttons stay fixed at the bottom-right corner; while
+  the chat view's subagent panel is open they sit just left of it, and they
+  hide when the panel fills the window.
 
 ## Session timeline
 
