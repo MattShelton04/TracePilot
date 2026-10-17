@@ -33,6 +33,7 @@ const RUST_INPUT_FILES = new Set([
   "packages/types/src/pricing-data.json",
   "packages/types/src/claude-code-pricing-data.json",
   "packages/types/src/known-events.ts",
+  "packages/types/src/defaults.ts",
 ]);
 // Lockfiles and manifests the dependency audits read, plus the audit job itself.
 const DEPENDENCY_INPUT =
