@@ -3,7 +3,7 @@
 // torn down and `window` no longer exists. Node has no `window`, which
 // reproduces that state.
 import { describe, expect, it, vi } from "vitest";
-import type { AnalyticsFetchParams } from "../analyticsFilters";
+import { type AnalyticsFetchParams, presetRange } from "../analyticsFilters";
 import { createAnalyticsPrefetch } from "../analyticsPrefetch";
 
 function setup() {
@@ -12,6 +12,7 @@ function setup() {
     prefetch,
     build: ({ source, ...range }) => ({ ...range, source: source ?? undefined }),
     dateRange: () => ({}),
+    preset: (range) => presetRange(range),
     sources: () => [],
     onWarm: () => {},
   });

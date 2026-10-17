@@ -12,7 +12,6 @@ import {
   type AnalyticsFetchParams,
   filterKey,
   PREFETCH_RANGES,
-  presetRange,
 } from "./analyticsFilters";
 
 export interface AnalyticsPrefetchOptions {
@@ -21,6 +20,8 @@ export interface AnalyticsPrefetchOptions {
   /** Request parameters for a range (and source), with the current repository. */
   build: (filters: AnalyticsDateRange & { source?: SessionSource | null }) => AnalyticsFetchParams;
   dateRange: () => AnalyticsDateRange;
+  /** The dates a preset range covers, as of the same day as `dateRange`. */
+  preset: (range: (typeof PREFETCH_RANGES)[number]) => AnalyticsDateRange;
   sources: () => readonly SessionSource[];
   /** Called when warming starts, so the store hears about reindexes. */
   onWarm: () => void;
@@ -54,7 +55,7 @@ export function createAnalyticsPrefetch(options: AnalyticsPrefetchOptions) {
     const range = options.dateRange();
     const seen = new Set([filterKey(options.build(range))]);
     const variants = [
-      ...PREFETCH_RANGES.map((preset) => options.build(presetRange(preset))),
+      ...PREFETCH_RANGES.map((preset) => options.build(options.preset(preset))),
       ...[null, ...options.sources()].map((source) => options.build({ ...range, source })),
     ];
     return variants.filter((params) => {

@@ -20,7 +20,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: mai-code-1.1-flash · 3162ms*
+*Model: mai-code-1.1-flash · 3.2s*
 
 **User**
 
@@ -50,7 +50,7 @@ Skill "probe-notes" loaded successfully. Follow the instructions in the skill co
 > ℹ️ **session.auto_mode_resolved**: Auto mode chose mai-code-1.1-flash
 
 ### Turn 2
-*Model: mai-code-1.1-flash · 1432ms*
+*Model: mai-code-1.1-flash · 1.4s*
 
 _No user message._
 
@@ -61,7 +61,7 @@ _No user message._
 > TANGERINE-42
 
 ### Turn 3
-*Model: mai-code-1.1-flash · 3254ms*
+*Model: mai-code-1.1-flash · 3.3s*
 
 **User**
 
@@ -90,7 +90,7 @@ Skill "probe-notes" loaded successfully. Follow the instructions in the skill co
 > ℹ️ **session.resume**: Session resumed (model: auto)
 
 ### Turn 4
-*Model: mai-code-1.1-flash · 1555ms*
+*Model: mai-code-1.1-flash · 1.6s*
 
 _No user message._
 
@@ -105,7 +105,7 @@ _No user message._
 | Shutdown Type | routine |
 | Model | mai-code-1.1-flash |
 | AI Credits | 0.708 (observed) |
-| API Duration | 7856ms |
+| API Duration | 7.9s |
 | Lines Added | +0 |
 | Lines Removed | -0 |
 
