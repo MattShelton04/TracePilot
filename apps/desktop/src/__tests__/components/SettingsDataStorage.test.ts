@@ -123,6 +123,27 @@ describe("SettingsDataStorage paths and maintenance", () => {
     wrapper.unmount();
   });
 
+  it.each([
+    [true, 1, "Rebuilt analytics for 12 sessions (1 empty session hidden)"],
+    [true, 2, "Rebuilt analytics for 12 sessions (2 empty sessions hidden)"],
+    [true, 0, "Rebuilt analytics for 12 sessions"],
+    [false, 1, "Rebuilt analytics for 12 sessions"],
+  ])("names hidden empty sessions in the analytics rebuild count (hidden: %s, empty: %i)", async (hide, empty, message) => {
+    mocks.reindexSessionsFull.mockResolvedValue([12, 12]);
+    // The session list the rebuild refreshes has 11 sessions with turns.
+    mocks.fetchSessions.mockImplementation(async () => {
+      mocks.emptySessionCount = empty;
+    });
+    const saved = config();
+    saved.ui.hideEmptySessions = hide;
+    mocks.getConfig.mockResolvedValue(saved);
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    await action(wrapper, "Rebuild").trigger("click");
+    await flushPromises();
+    expect(wrapper.get(".setting-result").text()).toBe(message);
+  });
+
   it("keeps browsed path changes as a draft until Apply path changes is clicked", async () => {
     const wrapper = mountSettingsDataStorage();
     await flushPromises();

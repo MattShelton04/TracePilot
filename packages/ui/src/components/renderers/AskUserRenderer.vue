@@ -3,7 +3,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Check, Circle, MessageCircleQuestion } from "lucide-vue-next";
 import { computed } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -28,7 +28,7 @@ const props = defineProps<{
   isTruncated?: boolean;
 }>();
 const emit = defineEmits<{ "load-full": [] }>();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const question = computed(() => askUserPrompt(props.args));
 const choices = computed(() => askUserChoices(props.args));
 const fields = computed(() => askUserFields(props.args));

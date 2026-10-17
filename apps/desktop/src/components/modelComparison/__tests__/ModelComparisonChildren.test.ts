@@ -209,8 +209,9 @@ describe("ModelStatsGrid cost cards", () => {
       usdSource: "claudeCode",
       totalAiCredits: 300,
     });
+    // Claude Code's USD is an API-equivalent estimate, so the total is too.
     expect(labels(ctx).slice(2)).toEqual([
-      ["Total Cost", "$4.50"],
+      ["Est. Total Cost", "$4.50"],
       ["Sessions with Observed Cost", 0],
     ]);
   });
@@ -223,6 +224,50 @@ describe("ModelStatsGrid cost cards", () => {
       ["Total Cost", "$3.00"],
       ["Sessions with Observed Cost", 0],
     ]);
+  });
+});
+
+describe("ModelStatsGrid cost labels", () => {
+  const observed = makeRow({ model: "gpt-5", aiCreditSource: "observed" });
+  const estimated = makeRow({ model: "gpt-4.1", aiCreditSource: "estimated-token-usage" });
+  const render = (rows: ModelRow[], observedSessions: number) =>
+    mount(
+      hostFor(
+        ModelStatsGrid,
+        makeCtxStub({
+          modelRows: rows,
+          totalAiCredits: 10,
+          data: { sessionsWithObservedAiCredits: observedSessions },
+        } as Partial<ModelComparisonContext>),
+      ),
+    );
+  const totalCard = (w: ReturnType<typeof render>) =>
+    w
+      .findAllComponents(StatCard)
+      .find((card) => String(card.props("label")).includes("Total Cost"));
+  const cardCostLabels = (w: ReturnType<typeof render>) =>
+    w.findAll(".model-card").map((card) => card.findAll(".model-card-stat-label")[1]?.text());
+
+  it("calls a total with no observed billing an estimate, beside 0 observed sessions", () => {
+    const w = render([estimated], 0);
+    expect(totalCard(w)?.props("label")).toBe("Est. Total Cost");
+    expect(totalCard(w)?.props("tooltip")).toContain("Includes estimates");
+    // The card agrees with its own Cost Source, "Estimated".
+    expect(cardCostLabels(w)).toEqual(["Est. Cost"]);
+    expect(w.get(".model-card").text()).toContain("Estimated");
+  });
+
+  it("keeps plain Cost labels when every cost is observed billing", () => {
+    const w = render([observed], 1);
+    expect(totalCard(w)?.props("label")).toBe("Total Cost");
+    expect(totalCard(w)?.props("tooltip")).not.toContain("estimates");
+    expect(cardCostLabels(w)).toEqual(["Cost"]);
+  });
+
+  it("marks the total an estimate when observed and estimated costs are added", () => {
+    const w = render([observed, estimated], 1);
+    expect(totalCard(w)?.props("label")).toBe("Est. Total Cost");
+    expect(cardCostLabels(w)).toEqual(["Cost", "Est. Cost"]);
   });
 });
 

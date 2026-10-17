@@ -5,7 +5,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Circle } from "lucide-vue-next";
 import { computed } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import {
@@ -26,7 +26,7 @@ const prompt = computed(() => askUserPrompt(props.args));
 const choices = computed(() => askUserChoices(props.args));
 const fields = computed(() => askUserFields(props.args));
 const allowFreeform = computed(() => askUserAllowFreeform(props.args));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 </script>
 
 <template>

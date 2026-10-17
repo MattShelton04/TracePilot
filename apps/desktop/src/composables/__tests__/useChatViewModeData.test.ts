@@ -1,7 +1,9 @@
 import type { ConversationTurn, SessionLiveState } from "@tracepilot/types";
+import { useSessionEnded } from "@tracepilot/ui";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref, shallowReactive } from "vue";
+import { computed, defineComponent, h, nextTick, ref, shallowReactive } from "vue";
+import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
 import type { SdkLiveTurn } from "@/stores/sdk/liveTurns";
 
 const detail = shallowReactive({
@@ -18,6 +20,11 @@ const sdk = shallowReactive({
   }),
 });
 
+const sessionList = shallowReactive({
+  sessions: [] as Array<{ id: string; source?: string; isRunning: boolean }>,
+});
+
+vi.mock("@/stores/sessions", () => ({ useSessionsStore: () => sessionList }));
 vi.mock("@/composables/useSessionDetailContext", () => ({
   useSessionDetailContext: () => detail,
 }));
@@ -89,6 +96,7 @@ describe("useChatViewModeData streaming derivations", () => {
     detail.turns = [];
     sdk.liveTurnsBySessionId = {};
     sdk.sessionStatesById = {};
+    sessionList.sessions = [];
     vi.clearAllMocks();
     reducedMotion = false;
     vi.stubGlobal(
@@ -284,5 +292,57 @@ describe("useChatViewModeData streaming derivations", () => {
     await nextTick();
     expect(api.renderDataFor(earlier).messages[0].content).toBe("saved 2");
     expect(api.permissionDataFor(earlier).entries).toHaveLength(1);
+  });
+
+  it.each([
+    { running: true, steered: false, detailLive: false, ended: false },
+    { running: false, steered: true, detailLive: false, ended: false },
+    // Resumed after the list loaded: the detail panel's liveness check is fresher.
+    { running: false, steered: false, detailLive: true, ended: false },
+    { running: false, steered: false, detailLive: false, ended: true },
+  ])("treats an open call as settled only once the session ended (list=$running, steered=$steered, detail=$detailLive)", async ({
+    running,
+    steered,
+    detailLive,
+    ended,
+  }) => {
+    sessionList.sessions = [{ id: "s1", source: "copilot", isRunning: running }];
+    if (steered) sdk.sessionStatesById = { s1: {} as SessionLiveState };
+    detail.turns = [
+      makeTurn(0, {
+        toolCalls: [{ toolCallId: "open", toolName: "powershell", isComplete: false }],
+      }),
+    ];
+    let seen: boolean | undefined;
+    const Probe = defineComponent({
+      setup() {
+        const sessionEnded = useSessionEnded();
+        return () => {
+          seen = sessionEnded.value;
+          return null;
+        };
+      },
+    });
+    let api!: ReturnType<typeof useChatViewModeData>;
+    const Chat = defineComponent({
+      setup() {
+        api = useChatViewModeData(ref(null));
+        return () => h(Probe);
+      },
+    });
+    wrapper = mount(Chat, {
+      global: {
+        provide: {
+          [SESSION_LIVE_STATE_KEY as symbol]: computed(() => ({
+            running: detailLive,
+            status: null,
+          })),
+        },
+      },
+    });
+    await nextTick();
+    expect(seen).toBe(ended);
+    // Live calls open so their progress shows; a call that never finished stays closed.
+    expect(api.expandedToolDetails.has("0-0")).toBe(!ended);
   });
 });

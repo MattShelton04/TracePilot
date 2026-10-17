@@ -2,13 +2,13 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Terminal } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import {
   backgroundOutcomeView,
   formatShellInput,
   parseShellOutput,
   shellLineTone,
 } from "../../utils/shellOutput";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -29,7 +29,7 @@ const description = computed(() =>
 const shellId = computed(() => props.args.shellId ?? props.args.shell_id ?? terminal.value.shellId);
 const input = computed(() => (typeof props.args.chars === "string" ? props.args.chars : null));
 const mode = computed(() => (typeof props.args.mode === "string" ? props.args.mode : ""));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 // A background shell's final state, reported after this call returned.
 const background = computed(() => backgroundOutcomeView(props.tc));
 // The recorded exit code outlives result text the CLI may strip.

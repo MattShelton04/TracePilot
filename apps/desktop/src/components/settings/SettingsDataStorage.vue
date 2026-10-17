@@ -274,14 +274,22 @@ async function persistPaths(options: { revalidateSessionDir: boolean }) {
   }
 }
 
+/** The rebuilt count includes empty sessions, so name any the session list hides. */
+function rebuildMessage(rebuilt: number): string {
+  const message = `Rebuilt analytics for ${rebuilt} session${rebuilt !== 1 ? "s" : ""}`;
+  const hidden = preferencesStore.hideEmptySessions ? (sessionsStore.emptySessionCount ?? 0) : 0;
+  if (hidden === 0) return message;
+  return `${message} (${hidden} empty session${hidden !== 1 ? "s" : ""} hidden)`;
+}
+
 async function clearCache() {
   if (dataOperationBusy.value) return;
   clearing.value = true;
   reindexResult.value = null;
   try {
-    const [rebuilt, total] = await reindexSessionsFullApi();
-    reindexResult.value = `Rebuilt analytics for ${rebuilt} session${rebuilt !== 1 ? "s" : ""}`;
+    const [rebuilt] = await reindexSessionsFullApi();
     await sessionsStore.fetchSessions();
+    reindexResult.value = rebuildMessage(rebuilt);
     analyticsStore.$reset();
   } catch (e) {
     if (isAlreadyIndexingError(e)) {

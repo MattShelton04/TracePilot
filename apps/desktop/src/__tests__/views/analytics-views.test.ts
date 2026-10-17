@@ -450,4 +450,37 @@ describe("analytics page subtitles", () => {
     await flushPromises();
     expect(wrapper.text()).toContain(subtitle);
   });
+
+  it.each([
+    ["all", 12, "Aggregate metrics across all 12 sessions"],
+    ["month-to-date", 6, "Aggregate metrics across 6 sessions this month"],
+    ["30d", 1, "Aggregate metrics across 1 session in the past 30 days"],
+    ["7d", 0, "No sessions in the past 7 days"],
+    ["all", 0, "No sessions"],
+  ] as const)("Analytics names the %s range in its subtitle (%i sessions)", async (range, totalSessions, subtitle) => {
+    mockGetAnalytics.mockResolvedValue({ ...FIXTURE_ANALYTICS, totalSessions });
+    const wrapper = mount(await loadAnalyticsDashboard(), globalStubs);
+    await flushPromises();
+    useAnalyticsStore().setTimeRange(range);
+    await flushPromises();
+    expect(wrapper.get(".page-subtitle").text()).toBe(subtitle);
+  });
+
+  it("claims no count while the first result loads", async () => {
+    mockGetAnalytics.mockReturnValue(new Promise(() => {}));
+    const wrapper = mount(await loadAnalyticsDashboard(), globalStubs);
+    await flushPromises();
+    expect(wrapper.get(".page-subtitle").text()).toBe("Aggregate metrics across sessions");
+  });
+
+  it("names the range and the repository together", async () => {
+    mockGetAnalytics.mockResolvedValue({ ...FIXTURE_ANALYTICS, totalSessions: 0 });
+    const wrapper = mount(await loadAnalyticsDashboard(), globalStubs);
+    await flushPromises();
+    const store = useAnalyticsStore();
+    store.setRepo("project:harbor");
+    store.setTimeRange("7d");
+    await flushPromises();
+    expect(wrapper.get(".page-subtitle").text()).toBe("No sessions in harbor in the past 7 days");
+  });
 });

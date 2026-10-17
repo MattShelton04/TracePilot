@@ -3,8 +3,8 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { Globe, Search } from "lucide-vue-next";
 import { computed } from "vue";
 import { useExternalLinkHandler } from "../../composables/externalLinks";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { mdReady, renderMarkdown } from "../../utils/markdownLoader";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import { parseWebSearchBody, webSearchSources } from "../../utils/webSearchResult";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
@@ -23,7 +23,7 @@ const emit = defineEmits<{
   "open-external": [url: string];
 }>();
 const externalLinkHandler = useExternalLinkHandler();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : ""));
 const body = computed(() => parseWebSearchBody(props.content));
 const sources = computed(() =>

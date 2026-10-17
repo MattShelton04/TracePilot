@@ -25,6 +25,8 @@ const mocks: {
   confirm: Mock;
   fetchSessions: Mock;
   resetAnalytics: Mock;
+  /** Empty sessions in the session list after `fetchSessions`. */
+  emptySessionCount: number;
   toast: { error: Mock; success: Mock };
   /** The callbacks the component passed to `useIndexingEvents`. */
   indexing: { onFinished?: () => void; onSearchIndexingFinished?: () => void };
@@ -44,6 +46,7 @@ const mocks: {
   confirm: vi.fn(),
   fetchSessions: vi.fn(),
   resetAnalytics: vi.fn(),
+  emptySessionCount: 0,
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -71,7 +74,12 @@ vi.mock("@tracepilot/client", async () => {
 });
 
 vi.mock("@/stores/sessions", () => ({
-  useSessionsStore: () => ({ fetchSessions: mocks.fetchSessions }),
+  useSessionsStore: () => ({
+    fetchSessions: mocks.fetchSessions,
+    get emptySessionCount() {
+      return mocks.emptySessionCount;
+    },
+  }),
 }));
 vi.mock("@/stores/analytics", () => ({
   useAnalyticsStore: () => ({ $reset: mocks.resetAnalytics }),
@@ -194,6 +202,7 @@ beforeEach(() => {
   mocks.contextCaptureStorageStats.mockResolvedValue({ captureCount: 3, totalBytes: 1024 });
   mocks.contextCaptureDeleteAll.mockResolvedValue(3);
   mocks.fetchSessions.mockResolvedValue(undefined);
+  mocks.emptySessionCount = 0;
   mocks.reindexSessionsFull.mockResolvedValue([74, 74]);
   mocks.rebuildSearchIndex.mockResolvedValue([74, 0]);
   mocks.confirm.mockResolvedValue({ confirmed: false });

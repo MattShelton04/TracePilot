@@ -85,16 +85,16 @@ pub(crate) fn extract_search_content_cancellable(
                 if let Some(ref content) = d.content
                     && !content.is_empty()
                 {
-                    let truncated = truncate_utf8(content, MAX_ASSISTANT_MESSAGE_BYTES);
+                    let content = truncate_utf8(content, MAX_ASSISTANT_MESSAGE_BYTES);
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
-                        .with_content("assistant_message", truncated.to_string());
+                        .with_content("assistant_message", content.to_string());
                     rows.push(row);
                 }
                 // Also index reasoning text if present
                 if let Some(reasoning) = d.visible_reasoning() {
-                    let truncated = truncate_utf8(&reasoning, MAX_REASONING_BYTES);
+                    let reasoning = truncate_utf8(&reasoning, MAX_REASONING_BYTES);
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
-                        .with_content("reasoning", truncated.to_string());
+                        .with_content("reasoning", reasoning.to_string());
                     rows.push(row);
                 }
             }
@@ -103,9 +103,9 @@ pub(crate) fn extract_search_content_cancellable(
                 if let Some(ref content) = d.content
                     && !content.is_empty()
                 {
-                    let truncated = truncate_utf8(content, MAX_REASONING_BYTES);
+                    let content = truncate_utf8(content, MAX_REASONING_BYTES);
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
-                        .with_content("reasoning", truncated.to_string());
+                        .with_content("reasoning", content.to_string());
                     rows.push(row);
                 }
             }

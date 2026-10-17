@@ -5,7 +5,7 @@
  */
 import type { TurnToolCall } from "@tracepilot/types";
 import { computed } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -15,7 +15,7 @@ const props = defineProps<{
   args: Record<string, unknown>;
   tc?: TurnToolCall;
 }>();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const plan = computed(() => (typeof props.args.plan === "string" ? props.args.plan : null));
 const copyText = computed(() =>
   [plan.value, props.content].filter((part): part is string => !!part).join("\n\n"),

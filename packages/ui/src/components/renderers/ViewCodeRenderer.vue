@@ -6,8 +6,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { FileCode2 } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import {
   isDirectoryOutput,
   normalizeViewedSource,
@@ -52,7 +52,7 @@ const source = computed(() => normalizeViewedSource(props.content, viewRange.val
 const isDirectoryListing = computed(() => isDirectoryOutput(props.content));
 const lineCount = computed(() => sourceLineCount(source.value.code));
 const language = computed(() => detectLanguage(filePath.value ?? ""));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 </script>
 
 <template>

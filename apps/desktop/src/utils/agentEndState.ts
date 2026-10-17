@@ -7,9 +7,9 @@ export const NO_FINAL_REPORT_HINT =
 
 /**
  * An agent's status once its session can record no more. An unfinished agent
- * in a non-Copilot session that is not live (see `useCountsUpToNow`) will
- * never report, so it reads as `unreported` rather than running. Copilot
- * sessions, live sessions and every other status are unchanged.
+ * in a session that is not live (see `useCountsUpToNow`) will never report,
+ * so it reads as `unreported` rather than running. Live sessions and every
+ * other status are unchanged.
  */
 export function settledAgentStatus<S extends string>(
   status: S,

@@ -5,12 +5,21 @@ import {
   type SessionSource,
   sourceLabel,
 } from "@tracepilot/types";
-import { Badge, EmptyState, ErrorAlert, formatDuration, SkeletonLoader } from "@tracepilot/ui";
+import {
+  Badge,
+  Banner,
+  EmptyState,
+  ErrorAlert,
+  formatDuration,
+  SkeletonLoader,
+} from "@tracepilot/ui";
+import { Columns2 } from "lucide-vue-next";
 import { computed } from "vue";
 import SessionPicker from "@/components/SessionPicker.vue";
 import {
   exitBadgeVariant,
   exitLabel,
+  plural,
   sessionLabel,
   useSessionComparisonContext,
 } from "@/composables/useSessionComparison";
@@ -86,41 +95,52 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
     title="Select Two Sessions"
     description="Pick two sessions above and click Compare to see a side-by-side analysis."
   >
-    <template #icon>⚖️</template>
+    <template #icon><Columns2 :size="36" aria-hidden="true" /></template>
   </EmptyState>
 
-  <!-- Summary Cards -->
-  <div v-else class="summary-pair">
-    <div class="summary-card session-a">
-      <div class="summary-label">Session A</div>
-      <div class="session-name">{{ sessionLabel(comp.dataA.detail) }}</div>
-      <div class="summary-meta">
-        <Badge v-if="showSources" :variant="sourceVariant(sourceA)" title="Session source">{{ sourceLabel(sourceA) }}</Badge>
-        <Badge v-if="comp.dataA.detail?.repository" variant="accent">{{ comp.dataA.detail.repository }}</Badge>
-        <Badge v-if="sessionModel(comp.dataA.detail)" variant="accent" :title="sessionModel(comp.dataA.detail)!">{{ modelDisplayName(sessionModel(comp.dataA.detail)!, sourceA) }}</Badge>
-        <Badge v-if="exitLabel(comp.dataA.metrics, sourceA)" :variant="exitBadgeVariant(comp.dataA.metrics)">{{ exitLabel(comp.dataA.metrics, sourceA) }}</Badge>
-        <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }}</Badge>
-        <Badge variant="neutral">{{ comp.dataA.turns.length }} turns</Badge>
-        <Badge variant="neutral">{{ comp.dataA.detail?.eventCount ?? 0 }} events</Badge>
+  <template v-else>
+    <!-- The pickers no longer match what the results describe. -->
+    <Banner v-if="comp.isStale" class="stale-banner" tone="info" title="Selection changed.">
+      The results below still show the sessions compared before. Click Compare to update them.
+    </Banner>
+
+    <!-- Summary Cards -->
+    <div class="summary-pair">
+      <div class="summary-card session-a">
+        <div class="summary-label">Session A</div>
+        <div class="session-name">{{ sessionLabel(comp.dataA.detail) }}</div>
+        <div class="summary-meta">
+          <Badge v-if="showSources" :variant="sourceVariant(sourceA)" title="Session source">{{ sourceLabel(sourceA) }}</Badge>
+          <Badge v-if="comp.dataA.detail?.repository" variant="accent">{{ comp.dataA.detail.repository }}</Badge>
+          <Badge v-if="sessionModel(comp.dataA.detail)" variant="accent" :title="sessionModel(comp.dataA.detail)!">{{ modelDisplayName(sessionModel(comp.dataA.detail)!, sourceA) }}</Badge>
+          <Badge v-if="exitLabel(comp.dataA.metrics, sourceA)" :variant="exitBadgeVariant(comp.dataA.metrics)">{{ exitLabel(comp.dataA.metrics, sourceA) }}</Badge>
+          <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataA.turns.length, "turn") }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataA.detail?.eventCount ?? 0, "event") }}</Badge>
+        </div>
+      </div>
+      <div class="summary-card session-b">
+        <div class="summary-label">Session B</div>
+        <div class="session-name">{{ sessionLabel(comp.dataB.detail) }}</div>
+        <div class="summary-meta">
+          <Badge v-if="showSources" :variant="sourceVariant(sourceB)" title="Session source">{{ sourceLabel(sourceB) }}</Badge>
+          <Badge v-if="comp.dataB.detail?.repository" variant="accent">{{ comp.dataB.detail.repository }}</Badge>
+          <Badge v-if="sessionModel(comp.dataB.detail)" variant="accent" :title="sessionModel(comp.dataB.detail)!">{{ modelDisplayName(sessionModel(comp.dataB.detail)!, sourceB) }}</Badge>
+          <Badge v-if="exitLabel(comp.dataB.metrics, sourceB)" :variant="exitBadgeVariant(comp.dataB.metrics)">{{ exitLabel(comp.dataB.metrics, sourceB) }}</Badge>
+          <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataB.turns.length, "turn") }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataB.detail?.eventCount ?? 0, "event") }}</Badge>
+        </div>
       </div>
     </div>
-    <div class="summary-card session-b">
-      <div class="summary-label">Session B</div>
-      <div class="session-name">{{ sessionLabel(comp.dataB.detail) }}</div>
-      <div class="summary-meta">
-        <Badge v-if="showSources" :variant="sourceVariant(sourceB)" title="Session source">{{ sourceLabel(sourceB) }}</Badge>
-        <Badge v-if="comp.dataB.detail?.repository" variant="accent">{{ comp.dataB.detail.repository }}</Badge>
-        <Badge v-if="sessionModel(comp.dataB.detail)" variant="accent" :title="sessionModel(comp.dataB.detail)!">{{ modelDisplayName(sessionModel(comp.dataB.detail)!, sourceB) }}</Badge>
-        <Badge v-if="exitLabel(comp.dataB.metrics, sourceB)" :variant="exitBadgeVariant(comp.dataB.metrics)">{{ exitLabel(comp.dataB.metrics, sourceB) }}</Badge>
-        <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }}</Badge>
-        <Badge variant="neutral">{{ comp.dataB.turns.length }} turns</Badge>
-        <Badge variant="neutral">{{ comp.dataB.detail?.eventCount ?? 0 }} events</Badge>
-      </div>
-    </div>
-  </div>
+  </template>
 </template>
 
 <style scoped>
+.stale-banner {
+  margin-bottom: 16px;
+}
+
 .comp-picker {
   flex: 0 1 340px;
   min-width: 200px;

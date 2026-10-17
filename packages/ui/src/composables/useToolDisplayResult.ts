@@ -2,10 +2,12 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { computed, inject } from "vue";
 import { isToolResultTruncated } from "../utils/toolCallStatus";
 import { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./liveToolPartialOutput";
+import { useSessionEnded } from "./sessionEnded";
 
 /** Shared by conversation cards and waterfall/swimlane details. Empty is a result. */
 export function useToolDisplayResult(props: { tc: TurnToolCall; fullResult?: string }) {
   const partials = inject(LIVE_TOOL_PARTIAL_OUTPUT_KEY, null);
+  const sessionEnded = useSessionEnded();
   // Native reconstruction omits empty results. Completion itself still
   // supersedes a streamed preview, including when no result text was saved.
   const persisted = computed(
@@ -21,7 +23,10 @@ export function useToolDisplayResult(props: { tc: TurnToolCall; fullResult?: str
   return {
     displayResult: computed(() => persisted.value ?? livePartial.value ?? ""),
     showResult: computed(() => persisted.value != null || livePartial.value != null || shell.value),
-    isStreaming: computed(() => persisted.value == null && props.tc.isComplete === false),
+    // A call left open by a session that has ended will never stream again.
+    isStreaming: computed(
+      () => persisted.value == null && props.tc.isComplete === false && !sessionEnded.value,
+    ),
     isTruncated: computed(
       () =>
         props.fullResult == null &&

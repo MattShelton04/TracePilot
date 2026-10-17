@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EmptyState, formatDuration, SectionPanel } from "@tracepilot/ui";
-import { useSessionComparisonContext } from "@/composables/useSessionComparison";
+import { plural, useSessionComparisonContext } from "@/composables/useSessionComparison";
 import { sessionDurationMs } from "@/composables/useSessionMetrics";
 import { CHART_COLORS } from "@/utils/chartColors";
 
@@ -46,7 +46,7 @@ const comp = useSessionComparisonContext();
   <SectionPanel title="Timeline Overlay">
     <p class="timeline-desc">Session duration and pacing — each block represents a turn proportional to its duration</p>
     <div class="timeline-section">
-      <div class="timeline-label label-a">Session A — {{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }} ({{ comp.dataA.turns.length }} turns)</div>
+      <div class="timeline-label label-a">Session A — {{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }} ({{ plural(comp.dataA.turns.length, "turn") }})</div>
       <div class="mini-timeline-row">
         <div
           v-for="(pct, i) in comp.timelineA"
@@ -63,7 +63,7 @@ const comp = useSessionComparisonContext();
       </div>
     </div>
     <div class="timeline-section">
-      <div class="timeline-label label-b">Session B — {{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }} ({{ comp.dataB.turns.length }} turns)</div>
+      <div class="timeline-label label-b">Session B — {{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }} ({{ plural(comp.dataB.turns.length, "turn") }})</div>
       <div class="mini-timeline-row">
         <div
           v-for="(pct, i) in comp.timelineB"

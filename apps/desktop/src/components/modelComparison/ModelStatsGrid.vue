@@ -11,6 +11,7 @@ import { StatCard } from "@tracepilot/ui";
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { formatRowCost, rowCostSource } from "@/composables/modelComparison/metrics";
+import type { ModelRow } from "@/composables/modelComparison/types";
 import { useModelComparisonContext } from "@/composables/useModelComparison";
 
 const ctx = useModelComparisonContext();
@@ -18,6 +19,20 @@ const ctx = useModelComparisonContext();
 /** False only when no model is billed in AI Credits (e.g. only Claude Code). */
 const showAiCredits = computed(
   () => ctx.modelRows.length === 0 || ctx.usdRows.length < ctx.modelRows.length,
+);
+/**
+ * A cost that is not wholly observed AI Credit billing: token-rate or
+ * provider USD estimates, or observed billing topped up with them.
+ */
+function costIsEstimate(row: ModelRow): boolean {
+  if (!row.billedInAiCredits) return row.costUsd != null;
+  return row.aiCreditSource !== "observed" && row.aiCreditSource !== "unavailable";
+}
+/** The total includes an estimate, so its label must say so. */
+const totalIsEstimate = computed(() => ctx.modelRows.some(costIsEstimate));
+const totalCostLabel = computed(() => (totalIsEstimate.value ? "Est. Total Cost" : "Total Cost"));
+const estimateNote = computed(() =>
+  totalIsEstimate.value ? " Includes estimates for usage without recorded AI Credit billing." : "",
 );
 const pricedUsdModels = computed(() => ctx.usdRows.filter((row) => row.costUsd != null).length);
 
@@ -44,16 +59,16 @@ const visibleCards = computed(() =>
     <StatCard
       v-if="ctx.mixedUnits"
       :value="ctx.totalUsd == null ? '—' : formatCost(ctx.totalUsd)"
-      label="Total Cost"
+      :label="totalCostLabel"
       color="success"
       tooltip="Every model in USD: AI Credits at $0.01 each, other sources at API-equivalent rates."
     />
     <StatCard
       v-else-if="showAiCredits"
       :value="formatAiCreditsUsd(ctx.totalAiCredits)"
-      label="Total Cost"
+      :label="totalCostLabel"
       color="success"
-      :tooltip="ctx.totalAiCredits == null ? undefined : `${formatAiCredits(ctx.totalAiCredits)} at $0.01 each.`"
+      :tooltip="ctx.totalAiCredits == null ? undefined : `${formatAiCredits(ctx.totalAiCredits)} at $0.01 each.${estimateNote}`"
     />
     <StatCard
       v-else-if="ctx.usdSource"
@@ -91,7 +106,7 @@ const visibleCards = computed(() =>
           <div class="model-card-stat-value">{{ formatNumber(row.tokens) }}</div>
         </div>
         <div>
-          <div class="model-card-stat-label">{{ row.billedInAiCredits ? 'Cost' : 'Est. Cost' }}</div>
+          <div class="model-card-stat-label">{{ costIsEstimate(row) ? 'Est. Cost' : 'Cost' }}</div>
           <div class="model-card-stat-value">{{ formatRowCost(row) }}</div>
         </div>
         <div>

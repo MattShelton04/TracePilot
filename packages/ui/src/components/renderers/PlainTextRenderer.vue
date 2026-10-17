@@ -5,8 +5,7 @@
 
 import type { TurnToolCall } from "@tracepilot/types";
 import { FileText } from "lucide-vue-next";
-import { computed } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -16,7 +15,7 @@ const props = defineProps<{
   tc?: TurnToolCall;
   isTruncated?: boolean;
 }>();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 
 const emit = defineEmits<{
   "load-full": [];

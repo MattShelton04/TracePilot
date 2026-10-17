@@ -46,6 +46,33 @@ export function formatSessionDelta(a: number, b: number, higherIsBetter: boolean
   return { delta: `${arrow} ${label}`, deltaClass: cls, arrow };
 }
 
+/**
+ * Format the change between two rates (fractions, 0–1) in percentage points,
+ * e.g. 33.3% → 91.2% is "↑ 57.9 pts". A relative change of a percentage
+ * ("↑ 174%") reads as if the rate itself had passed 100%.
+ *
+ * Direction: `b − a` (session B vs session A), as {@link formatSessionDelta}.
+ */
+export function formatSessionPointDelta(
+  a: number,
+  b: number,
+  higherIsBetter: boolean,
+): FormattedDelta {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
+  }
+  const points = (b - a) * 100;
+  const shown = formatCleanFloat(Math.abs(points), 1);
+  if (shown === "0") return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
+  const isBetter = higherIsBetter ? points > 0 : points < 0;
+  const arrow = points > 0 ? "↑" : "↓";
+  return {
+    delta: `${arrow} ${shown} ${shown === "1" ? "pt" : "pts"}`,
+    deltaClass: isBetter ? "delta-positive" : "delta-negative",
+    arrow,
+  };
+}
+
 // ── Model comparison delta ──────────────────────────────────────────────────
 
 /** Result of {@link formatModelDelta}. */

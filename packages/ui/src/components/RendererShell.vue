@@ -12,9 +12,17 @@
 import { Check, Clipboard, Clock, RotateCcw } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref } from "vue";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
+import { UNFINISHED_TOOL_CALL_HINT, UNFINISHED_TOOL_CALL_LABEL } from "../utils/toolCallStatus";
 import StatusPill, { type StatusPillTone } from "./StatusPill.vue";
 
-export type RendererShellStatus = "pending" | "success" | "warning" | "error" | "cancelled";
+/** `unfinished`: the session ended before the call reported a result. */
+export type RendererShellStatus =
+  | "pending"
+  | "success"
+  | "warning"
+  | "error"
+  | "cancelled"
+  | "unfinished";
 
 export interface RendererShellTokenUsage {
   in: number;
@@ -54,6 +62,7 @@ const STATUS_TONE: Record<RendererShellStatus, StatusPillTone> = {
   warning: "warning",
   error: "danger",
   cancelled: "neutral",
+  unfinished: "neutral",
 };
 
 const STATUS_LABEL: Record<RendererShellStatus, string> = {
@@ -62,6 +71,7 @@ const STATUS_LABEL: Record<RendererShellStatus, string> = {
   warning: "Warning",
   error: "Error",
   cancelled: "Cancelled",
+  unfinished: UNFINISHED_TOOL_CALL_LABEL,
 };
 
 const statusTone = computed(() => STATUS_TONE[props.status]);
@@ -128,7 +138,12 @@ function emitRetry() {
         </slot>
       </span>
       <span class="rs__name">{{ toolName }}</span>
-      <StatusPill :tone="statusTone" :label="statusLabel" size="xs" />
+      <StatusPill
+        :tone="statusTone"
+        :label="statusLabel"
+        size="xs"
+        :title="status === 'unfinished' ? UNFINISHED_TOOL_CALL_HINT : undefined"
+      />
       <span v-if="primaryHint" class="rs__hint" :title="primaryHint">{{ primaryHint }}</span>
       <span v-else class="rs__head-spacer" />
       <button
@@ -206,7 +221,8 @@ function emitRetry() {
 .rs--success .rs__head { border-left-color: var(--success-emphasis); }
 .rs--warning .rs__head { border-left-color: var(--warning-emphasis); }
 .rs--error .rs__head { border-left-color: var(--danger-emphasis); }
-.rs--cancelled .rs__head { border-left-color: var(--neutral-emphasis); }
+.rs--cancelled .rs__head,
+.rs--unfinished .rs__head { border-left-color: var(--neutral-emphasis); }
 .rs--pending .rs__head { border-left-color: var(--accent-emphasis); }
 
 .rs__toggle {

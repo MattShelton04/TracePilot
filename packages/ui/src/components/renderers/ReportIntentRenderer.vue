@@ -2,7 +2,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Target } from "lucide-vue-next";
 import { computed } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -14,7 +14,7 @@ const props = defineProps<{
   isTruncated?: boolean;
 }>();
 const emit = defineEmits<{ "load-full": [] }>();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const intent = computed(() => (typeof props.args.intent === "string" ? props.args.intent : null));
 const copyText = computed(() => [intent.value, props.content].filter(Boolean).join("\n\n"));
 </script>

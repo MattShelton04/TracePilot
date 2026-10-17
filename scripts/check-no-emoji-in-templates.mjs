@@ -37,7 +37,6 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/components/replay/ReplaySidebar.vue",
   "apps/desktop/src/components/replay/ReplayStepContent.vue",
   "apps/desktop/src/components/replay/ReplayTransportBar.vue",
-  "apps/desktop/src/components/sessionComparison/ComparisonHeader.vue",
   "apps/desktop/src/components/TodoDependencyGraph.vue",
   "apps/desktop/src/views/SessionReplayView.vue",
 ]);

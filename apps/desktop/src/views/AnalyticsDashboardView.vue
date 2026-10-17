@@ -72,12 +72,27 @@ useValueTween({
   source: () => [store.analytics, store.agentsSummary, store.skillsSummary],
 });
 
+/**
+ * "across all 12 sessions" only when nothing narrows them; a time range is
+ * named, so "6 sessions this month" never reads as every session.
+ */
 const pageSubtitle = computed(() => {
-  const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";
+  const range = store.selectedTimeRange;
   const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
-  const count = data.value?.totalSessions ?? 0;
+  const rangeSuffix =
+    range === "all"
+      ? ""
+      : range === "month-to-date"
+        ? " this month"
+        : ` in ${describeRange(range)}`;
+  const scope = `${store.sourcePrefix}sessions${repoSuffix}${rangeSuffix}`;
+  // No count until the first result arrives, rather than a false "No sessions".
+  if (!data.value) return `Aggregate metrics across ${scope}`;
+  const count = data.value.totalSessions;
   const noun = count === 1 ? "session" : "sessions";
-  return `Aggregate metrics across ${allPrefix}${count} ${store.sourcePrefix}${noun}${repoSuffix}`;
+  if (count === 0) return `No ${scope}`;
+  const allPrefix = store.selectedRepo || store.selectedSource || range !== "all" ? "" : "all ";
+  return `Aggregate metrics across ${allPrefix}${count} ${store.sourcePrefix}${noun}${repoSuffix}${rangeSuffix}`;
 });
 
 const summary = computed(() =>

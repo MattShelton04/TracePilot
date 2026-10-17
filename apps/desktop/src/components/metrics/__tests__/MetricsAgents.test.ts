@@ -167,7 +167,7 @@ describe("MetricsAgents", () => {
     expect(claude.emitted("activity")).toEqual([["launch"]]);
   });
 
-  it("shows an unfinished agent of an ended Claude session as No final report", () => {
+  it("shows an unfinished agent of an ended session as No final report", () => {
     const metrics: ShutdownMetrics = {
       agentUsage: {
         eventIndex: 1,
@@ -202,7 +202,7 @@ describe("MetricsAgents", () => {
     };
     expect(status("claudeCode", false)).toContain("No final report");
     expect(status("claudeCode", true)).toContain("Running");
-    // Copilot is unchanged: an unfinished agent still reads as running.
-    expect(status("copilot", false)).toContain("Running");
+    expect(status("copilot", false)).toContain("No final report");
+    expect(status("copilot", true)).toContain("Running");
   });
 });

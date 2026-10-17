@@ -5,8 +5,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { GitPullRequest } from "lucide-vue-next";
 import { computed, reactive, ref, watch } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { detectLanguage } from "../../utils/languageDetection";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -40,7 +40,7 @@ interface PatchFile {
 
 const showRaw = ref(false);
 
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const filePages = reactive<Record<number, number>>({});
 const PAGE_SIZE = 500;
 

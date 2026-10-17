@@ -93,7 +93,6 @@ watch(events, (list) => {
   if (selectedId.value && !list.some((e) => e.id === selectedId.value)) selectedId.value = null;
 });
 
-const stats = computed(() => summarizeAgentCommunications(communications.value));
 const kindCounts = computed(() => {
   const counts = { launch: 0, message: 0, read: 0 };
   for (const ev of timeline.value?.events ?? []) counts[ev.comm.kind]++;
@@ -106,17 +105,22 @@ const kindToggles = computed(() => [
   { field: "reads" as const, label: "Reads", count: kindCounts.value.read },
 ]);
 
+/** Counts of the exchanges the filters leave listed, launches included. */
 const summary = computed(() => {
-  const s = stats.value;
-  return [
-    { label: s.messages === 1 ? "message" : "messages", value: s.messages, always: true },
+  const shown = events.value;
+  const s = summarizeAgentCommunications(shown.map((ev) => ev.comm));
+  const launches = shown.filter((ev) => ev.comm.kind === "launch").length;
+  const items = [
+    { label: launches === 1 ? "launch" : "launches", value: launches },
+    { label: s.messages === 1 ? "message" : "messages", value: s.messages },
     { label: "peer", value: s.peerMessages },
     { label: s.broadcasts === 1 ? "broadcast" : "broadcasts", value: s.broadcasts },
     { label: "queued", value: s.queued },
     { label: s.reads === 1 ? "read" : "reads", value: s.reads },
     { label: s.polls === 1 ? "poll" : "polls", value: s.polls },
     { label: "not delivered", value: s.failed },
-  ].filter((item) => item.always || item.value > 0);
+  ].filter((item) => item.value > 0);
+  return items.length ? items : [{ label: "exchanges", value: 0 }];
 });
 
 function setFocus(key: string | null) {

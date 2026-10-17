@@ -2,9 +2,9 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Database } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { parseSqlResult } from "../../utils/sqlResult";
 import { highlightSql } from "../../utils/syntaxHighlight";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -17,7 +17,7 @@ const props = defineProps<{
   isTruncated?: boolean;
 }>();
 const emit = defineEmits<{ "load-full": [] }>();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : ""));
 const description = computed(() =>
   typeof props.args?.description === "string" ? props.args.description : undefined,
@@ -96,7 +96,7 @@ watch(pageCount, (count) => {
 
       <RendererScrollRegion v-else label="response" :key="`response-${tc?.toolCallId}`">
         <pre v-if="content" class="sql-plain-output">{{ content }}</pre>
-        <p v-else class="sql-empty">{{ status === 'pending' ? 'Waiting for query results…' : status === 'error' ? 'The query returned no output.' : 'Query completed with no output.' }}</p>
+        <p v-else class="sql-empty">{{ status === 'pending' ? 'Waiting for query results…' : status === 'error' ? 'The query returned no output.' : status === 'unfinished' ? 'No query results recorded.' : 'Query completed with no output.' }}</p>
       </RendererScrollRegion>
     </div>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />

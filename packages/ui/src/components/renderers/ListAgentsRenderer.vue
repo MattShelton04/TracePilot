@@ -10,8 +10,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Users } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { formatAgentAge, parseListAgentsResult, proseHint } from "../../utils/agentComms";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
 import MarkdownContent from "../MarkdownContent.vue";
@@ -30,7 +30,7 @@ const props = defineProps<{
 const emit = defineEmits<{ "load-full": [] }>();
 
 const roster = computed(() => parseListAgentsResult(props.content));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const emptyRoster = computed(() => props.content.trim() === "<no background agents>");
 
 const hint = computed(() => {

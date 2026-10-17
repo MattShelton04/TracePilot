@@ -6,8 +6,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { FilePlus } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import { sourceLineCount } from "../../utils/toolFileContent";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -32,7 +32,7 @@ const fileContent = computed(() =>
   typeof props.args?.file_text === "string" ? props.args.file_text : null,
 );
 const lineCount = computed(() => sourceLineCount(fileContent.value ?? ""));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const language = computed(() => detectLanguage(filePath.value ?? ""));
 </script>
 
