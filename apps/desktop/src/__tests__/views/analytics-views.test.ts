@@ -438,4 +438,16 @@ describe("analytics page subtitles", () => {
     await flushPromises();
     expect(wrapper.text()).toContain(" in example/orchard");
   });
+
+  it.each([
+    [1, "Aggregate metrics across 1 session in harbor"],
+    [10, "Aggregate metrics across 10 sessions in harbor"],
+  ])("Analytics agrees the noun with %i session(s)", async (totalSessions, subtitle) => {
+    mockGetAnalytics.mockResolvedValue({ ...FIXTURE_ANALYTICS, totalSessions });
+    const wrapper = mount(await loadAnalyticsDashboard(), globalStubs);
+    await flushPromises();
+    useAnalyticsStore().setRepo("project:harbor");
+    await flushPromises();
+    expect(wrapper.text()).toContain(subtitle);
+  });
 });

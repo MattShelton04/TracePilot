@@ -1,6 +1,7 @@
 import { computed, type InjectionKey, inject, reactive, ref, watch } from "vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
+import { repositoryFilterLabel } from "@/stores/sessions/filtering";
 import { analyticsTotalCostUsd } from "@/utils/analyticsCostSeries";
 import { MODEL_PALETTE, MODEL_TAIL_COLOR } from "@/utils/chartColors";
 import {
@@ -43,7 +44,7 @@ export function useModelComparison() {
   const data = computed(() => store.analytics);
 
   const pageSubtitle = computed(() => {
-    const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
+    const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
     return `Performance and cost metrics across all ${store.sourcePrefix}models${repoSuffix}`;
   });
 
