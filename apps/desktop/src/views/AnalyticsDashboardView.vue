@@ -85,9 +85,12 @@ const pageSubtitle = computed(() => {
       : range === "month-to-date"
         ? " this month"
         : ` in ${describeRange(range)}`;
-  const count = data.value?.totalSessions ?? 0;
+  const scope = `${store.sourcePrefix}sessions${repoSuffix}${rangeSuffix}`;
+  // No count until the first result arrives, rather than a false "No sessions".
+  if (!data.value) return `Aggregate metrics across ${scope}`;
+  const count = data.value.totalSessions;
   const noun = count === 1 ? "session" : "sessions";
-  if (count === 0) return `No ${store.sourcePrefix}sessions${repoSuffix}${rangeSuffix}`;
+  if (count === 0) return `No ${scope}`;
   const allPrefix = store.selectedRepo || store.selectedSource || range !== "all" ? "" : "all ";
   return `Aggregate metrics across ${allPrefix}${count} ${store.sourcePrefix}${noun}${repoSuffix}${rangeSuffix}`;
 });

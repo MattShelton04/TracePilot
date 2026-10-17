@@ -466,6 +466,13 @@ describe("analytics page subtitles", () => {
     expect(wrapper.get(".page-subtitle").text()).toBe(subtitle);
   });
 
+  it("claims no count while the first result loads", async () => {
+    mockGetAnalytics.mockReturnValue(new Promise(() => {}));
+    const wrapper = mount(await loadAnalyticsDashboard(), globalStubs);
+    await flushPromises();
+    expect(wrapper.get(".page-subtitle").text()).toBe("Aggregate metrics across sessions");
+  });
+
   it("names the range and the repository together", async () => {
     mockGetAnalytics.mockResolvedValue({ ...FIXTURE_ANALYTICS, totalSessions: 0 });
     const wrapper = mount(await loadAnalyticsDashboard(), globalStubs);
