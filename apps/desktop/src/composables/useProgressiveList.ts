@@ -52,6 +52,16 @@ export function useProgressiveList<T>(
     });
   }
 
+  /**
+   * Render through `index` and a first screen after it at once, for a view
+   * that must show that item straight away (returning to a saved scroll
+   * position). Later items keep arriving a chunk per frame.
+   */
+  function ensureRendered(index: number) {
+    limit.value = Math.max(limit.value, index + initial);
+    grow();
+  }
+
   watch(
     source,
     (items) => {
@@ -68,5 +78,5 @@ export function useProgressiveList<T>(
     });
   }
 
-  return { visible, complete };
+  return { visible, complete, ensureRendered };
 }

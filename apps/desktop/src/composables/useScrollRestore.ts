@@ -1,5 +1,5 @@
 import type { Ref, WatchStopHandle } from "vue";
-import { onMounted, watch } from "vue";
+import { onMounted, shallowRef, watch } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 
 interface ItemAnchor {
@@ -118,6 +118,9 @@ function savePosition(key: string, position: SavedPosition) {
  * The position is saved when leaving the route and restored once, after
  * `ready` reports the content is rendered, clamped to the content's current
  * height. A different key (other filters, another query) starts at the top.
+ *
+ * `pendingAnchorId` names the item a coming restore will line up, until it
+ * has run, so a list that renders progressively can render that item first.
  */
 export function useScrollRestore({
   key,
@@ -125,6 +128,9 @@ export function useScrollRestore({
   ready = () => true,
   anchorAttr,
 }: UseScrollRestoreOptions) {
+  // Read at setup so the view can prepare its first render for the restore.
+  const pending = shallowRef(positions.get(key()));
+
   onBeforeRouteLeave(() => {
     const scroller = el.value;
     if (!scroller) return;
@@ -142,7 +148,7 @@ export function useScrollRestore({
   }
 
   onMounted(() => {
-    const saved = positions.get(key());
+    const saved = pending.value;
     if (!saved) return;
     let restored = false;
     let stop: WatchStopHandle | undefined;
@@ -154,11 +160,16 @@ export function useScrollRestore({
         restored = true;
         stop?.();
         restore(scroller, saved);
+        pending.value = undefined;
       },
       { flush: "post", immediate: true },
     );
     if (restored) stop();
   });
+
+  return {
+    pendingAnchorId: (): string | undefined => (anchorAttr ? pending.value?.anchor?.id : undefined),
+  };
 }
 
 /** Test helper: forget every saved position. */

@@ -3,6 +3,7 @@ import type { SessionListItem } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive, ref } from "vue";
+import type { UseScrollRestoreOptions } from "@/composables/useScrollRestore";
 import { useSessionsStore } from "@/stores/sessions";
 import SessionListView from "@/views/SessionListView.vue";
 
@@ -33,6 +34,15 @@ vi.mock("@/composables/usePerfMonitor", () => ({ usePerfMonitor: vi.fn() }));
 vi.mock("@/composables/useRenderBudget", () => ({ useRenderBudget: vi.fn() }));
 vi.mock("@/composables/useLiveSessionBadges", () => ({
   useLiveSessionBadges: () => ({ liveBadge: () => null }),
+}));
+// The card a return to the list will line up, if any.
+let pendingAnchor: string | undefined;
+let scrollRestore: UseScrollRestoreOptions | undefined;
+vi.mock("@/composables/useScrollRestore", () => ({
+  useScrollRestore: (options: UseScrollRestoreOptions) => {
+    scrollRestore = options;
+    return { pendingAnchorId: () => pendingAnchor };
+  },
 }));
 vi.mock("@/utils/sessionPrefetch", () => ({ prefetchRecentSessions: vi.fn() }));
 // The list warms the Analytics cache in the background; left real, its mock
@@ -74,10 +84,12 @@ describe("Session list rendering", () => {
   beforeEach(() => {
     setupPinia();
     vi.clearAllMocks();
+    pendingAnchor = undefined;
+    scrollRestore = undefined;
     const store = useSessionsStore();
     vi.spyOn(store, "fetchSessions").mockResolvedValue(undefined);
     vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
-    store.sessions = Array.from({ length: 150 }, (_, i) => ({
+    store.sessions = Array.from({ length: 300 }, (_, i) => ({
       ...session,
       id: `session-${i}`,
       summary: `Session ${i}`,
@@ -95,9 +107,22 @@ describe("Session list rendering", () => {
     const cards = () => wrapper?.findAll('[data-testid="session-card"]') ?? [];
 
     expect(cards().length).toBeGreaterThan(0);
-    expect(cards().length).toBeLessThan(150);
-    expect(wrapper.get('[data-testid="session-count"]').text()).toBe("150 sessions");
+    expect(cards().length).toBeLessThan(300);
+    expect(wrapper.get('[data-testid="session-count"]').text()).toBe("300 sessions");
+    expect(scrollRestore?.ready?.()).toBe(false);
 
-    await vi.waitFor(() => expect(cards()).toHaveLength(150));
+    await vi.waitFor(() => expect(cards()).toHaveLength(300));
+    expect(scrollRestore?.ready?.()).toBe(true);
+  });
+
+  it("renders the card a return lines up in the first frame", () => {
+    pendingAnchor = "session-200";
+    wrapper = render();
+    const cards = wrapper.findAll('[data-testid="session-card"]');
+
+    expect(wrapper.find('[data-session-id="session-200"]').exists()).toBe(true);
+    expect(cards.length).toBeLessThan(300);
+    // The restore can run now, without waiting for the rest of the list.
+    expect(scrollRestore?.ready?.()).toBe(true);
   });
 });
