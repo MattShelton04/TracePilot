@@ -106,6 +106,7 @@ describe("AgentMessagesView", () => {
     store.turns = messagingSession();
     const wrapper = mountView();
 
+    expect(wrapper.find(".comms-summary").text()).toContain("2 launches");
     expect(wrapper.find(".comms-summary").text()).toContain("1 message");
     expect(wrapper.find(".comms-summary").text()).toContain("1 peer");
     expect(wrapper.find(".comms-summary").text()).toContain("1 queued");
@@ -138,6 +139,43 @@ describe("AgentMessagesView", () => {
 
     await wrapper.find("#comms-agent-filter").setValue("launch-alpha");
     expect(wrapper.findAll(".comms-log-row")).toHaveLength(2);
+  });
+
+  it("counts the exchanges the filters leave listed, launches included", async () => {
+    store.turns = messagingSession();
+    const wrapper = mountView();
+    const stats = () => wrapper.findAll(".comms-stat").map((s) => s.text());
+    const toggle = (label: string) =>
+      wrapper.findAll(".comms-toggle").find((b) => b.text().startsWith(label));
+
+    // Three rows: two launches and one message.
+    expect(wrapper.findAll(".comms-log-row")).toHaveLength(3);
+    expect(stats()).toEqual(["2 launches", "1 message", "1 peer", "1 queued"]);
+
+    await toggle("Messages")?.trigger("click");
+    expect(wrapper.findAll(".comms-log-row")).toHaveLength(2);
+    expect(stats()).toEqual(["2 launches"]);
+
+    await toggle("Launches")?.trigger("click");
+    expect(wrapper.findAll(".comms-log-row")).toHaveLength(0);
+    expect(stats()).toEqual(["0 exchanges"]);
+
+    await toggle("Messages")?.trigger("click");
+    await toggle("Launches")?.trigger("click");
+    await wrapper.find("#comms-agent-filter").setValue("launch-alpha");
+    expect(wrapper.findAll(".comms-log-row")).toHaveLength(2);
+    expect(stats()).toEqual(["1 launch", "1 message", "1 peer", "1 queued"]);
+  });
+
+  it("counts a launch-only session's launches rather than claiming 0 messages", () => {
+    const [turn] = messagingSession();
+    if (!turn) throw new Error("missing turn");
+    store.turns = [
+      { ...turn, toolCalls: [launch("launch-alpha", "alpha", ALPHA_ID, 1)], agentMessages: [] },
+    ];
+    const wrapper = mountView();
+    expect(wrapper.findAll(".comms-log-row")).toHaveLength(1);
+    expect(wrapper.findAll(".comms-stat").map((s) => s.text())).toEqual(["1 launch"]);
   });
 
   it("selects an exchange in the log and the diagram together", async () => {

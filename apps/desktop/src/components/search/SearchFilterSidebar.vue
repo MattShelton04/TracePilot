@@ -10,6 +10,7 @@ import {
   type RepositoryFilterOption,
   repositoryFilterOptionsFor,
 } from "@/stores/sessions/filtering";
+import { type PresetRange, presetRange } from "@/utils/analyticsFilters";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { searchToolOptionLabel } from "@/utils/toolDisplayName";
 
@@ -133,31 +134,26 @@ const activeDatePreset = computed(() => {
   return picked?.from === store.dateFrom && picked.to === store.dateTo ? picked.key : null;
 });
 
-function setDatePreset(preset: string) {
-  const now = new Date();
-  switch (preset) {
-    case "today": {
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      store.setDateRange(today.toISOString(), null);
-      break;
-    }
-    case "week": {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      store.setDateRange(weekAgo.toISOString(), null);
-      break;
-    }
-    case "month": {
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      store.setDateRange(monthAgo.toISOString(), null);
-      break;
-    }
-    case "3months": {
-      const threeMonths = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      store.setDateRange(threeMonths.toISOString(), null);
-      break;
-    }
-    default:
-      store.setDateRange(null, null);
+/**
+ * Date presets. The ranged ones are Analytics' presets with the same names and
+ * the same dates (`presetRange`: UTC days, "This Month" from the 1st), so a
+ * search and the analytics pages cover the same period.
+ */
+const DATE_PRESETS: { key: "today" | PresetRange; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "7d", label: "7 Days" },
+  { key: "month-to-date", label: "This Month" },
+  { key: "90d", label: "90 Days" },
+  { key: "all", label: "All Time" },
+];
+
+function setDatePreset(preset: (typeof DATE_PRESETS)[number]["key"]) {
+  if (preset === "today") {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    store.setDateRange(today.toISOString(), null);
+  } else {
+    store.setDateRange(presetRange(preset).fromDate ?? null, null);
   }
   pickedDatePreset.value = { key: preset, from: store.dateFrom, to: store.dateTo };
 }
@@ -266,13 +262,7 @@ function setDatePreset(preset: string) {
       <div class="filter-group-title">Date Range</div>
       <div class="date-preset-group">
         <button
-          v-for="preset in [
-            { key: 'today', label: 'Today' },
-            { key: 'week', label: 'This Week' },
-            { key: 'month', label: 'This Month' },
-            { key: '3months', label: 'Last 3 Months' },
-            { key: 'all', label: 'All Time' },
-          ]"
+          v-for="preset in DATE_PRESETS"
           :key="preset.key"
           class="date-preset-btn"
           :class="{ active: activeDatePreset === preset.key }"

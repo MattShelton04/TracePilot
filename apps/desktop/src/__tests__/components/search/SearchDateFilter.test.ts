@@ -30,6 +30,7 @@ vi.mock("@tracepilot/ui", async (importOriginal) => ({
 }));
 
 import { useSearchStore } from "@/stores/search";
+import { presetRange } from "@/utils/analyticsFilters";
 import SessionSearchView from "@/views/SessionSearchView.vue";
 
 let wrapper: VueWrapper | undefined;
@@ -56,21 +57,21 @@ async function pickPreset(w: VueWrapper, label: string) {
   await flushSearchQueue();
 }
 
-/** A "This Week" search; with no results the "No results found" state shows. */
-async function searchThisWeek(w: VueWrapper, results: SearchResult[] = []) {
+/** A "7 Days" search; with no results the "No results found" state shows. */
+async function searchSevenDays(w: VueWrapper, results: SearchResult[] = []) {
   const store = useSearchStore();
   mocks.searchContent.mockResolvedValue({
     ...emptySearchResponse,
     results,
     totalCount: results.length,
   });
-  await pickPreset(w, "This Week");
+  await pickPreset(w, "7 Days");
   store.query = "auth";
   await new Promise((resolve) => setTimeout(resolve, 200));
   await flushSearchQueue();
   await flushPromises();
   expect(store.dateFrom).not.toBeNull();
-  expect(pressedPresets(w)).toEqual(["This Week"]);
+  expect(pressedPresets(w)).toEqual(["7 Days"]);
 }
 
 beforeEach(() => {
@@ -88,7 +89,7 @@ afterEach(() => {
 describe("Search date filter", () => {
   it("highlights All Time again after the no-results Clear search button", async () => {
     const w = await mountView();
-    await searchThisWeek(w);
+    await searchSevenDays(w);
 
     await w.find(".clear-search-btn").trigger("click");
     await flushSearchQueue();
@@ -100,7 +101,7 @@ describe("Search date filter", () => {
 
   it("highlights All Time again after the results header's clear button", async () => {
     const w = await mountView();
-    await searchThisWeek(w);
+    await searchSevenDays(w);
 
     await w.find('.results-summary button[aria-label="Clear search"]').trigger("click");
     await flushSearchQueue();
@@ -111,7 +112,7 @@ describe("Search date filter", () => {
 
   it("highlights All Time again after Escape clears the search", async () => {
     const w = await mountView();
-    await searchThisWeek(w, [
+    await searchSevenDays(w, [
       {
         id: 1,
         sessionId: "sess-1",
@@ -140,7 +141,7 @@ describe("Search date filter", () => {
 
   it("shows a removable chip for the date filter a preset sets", async () => {
     const w = await mountView();
-    await pickPreset(w, "This Week");
+    await pickPreset(w, "7 Days");
 
     expect(dateChip(w).exists()).toBe(true);
     expect(dateChip(w).text()).toContain("Since");
@@ -151,6 +152,26 @@ describe("Search date filter", () => {
     expect(useSearchStore().dateFrom).toBeNull();
     expect(dateChip(w).exists()).toBe(false);
     expect(pressedPresets(w)).toEqual(["All Time"]);
+  });
+
+  it.each([
+    ["7 Days", "7d", "2026-10-11", "Since Oct 11, 2026"],
+    ["This Month", "month-to-date", "2026-10-01", "Since Oct 1, 2026"],
+    ["90 Days", "90d", "2026-07-20", "Since Jul 20, 2026"],
+  ] as const)("%s covers the same dates as Analytics' preset", async (label, range, from, chip) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
+    try {
+      const w = await mountView();
+      await pickPreset(w, label);
+
+      expect(useSearchStore().dateFrom).toBe(from);
+      expect(presetRange(range).fromDate).toBe(from);
+      expect(dateChip(w).text()).toContain(chip);
+      expect(pressedPresets(w)).toEqual([label]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not claim All Time when the view opens on a date-limited search", async () => {
