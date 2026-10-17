@@ -140,3 +140,24 @@ fn punctuation_joined_words_stay_adjacent() {
     assert_eq!(matches(&db, "index ts"), vec![5, 6]);
     assert_eq!(matches(&db, "build std"), vec![7, 8]);
 }
+
+#[test]
+fn operators_wrapped_in_punctuation_still_apply() {
+    let (_tmp, db) = fixture();
+    let all = SearchFilters::default();
+    for (query, expected) in [
+        ("cache AND (NOT found)", vec![0]),
+        ("(cache OR found) AND (NOT jwt)", vec![0, 1, 2]),
+        ("error OR (NOT timeout)", vec![]),
+        ("(OR jwt)", vec![3]),
+        ("(AND) cache", vec![0]),
+        ("[OR] cache", vec![0]),
+        ("-NOT cache", vec![]),
+        (".NOT cache", vec![]),
+    ] {
+        // `matches` fails on an FTS5 syntax error from the search or count.
+        assert_eq!(matches(&db, query), expected, "{query:?}");
+        let facets = db.facets(Some(query), &all).unwrap();
+        assert_eq!(facets.total_matches, expected.len() as i64, "{query:?}");
+    }
+}

@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import { nextTick } from "vue";
 import SearchSyntaxHelpModal from "../../../components/search/SearchSyntaxHelpModal.vue";
 import SessionSearchHero from "../../../components/search/SessionSearchHero.vue";
 import SessionSearchIndexingBanner from "../../../components/search/SessionSearchIndexingBanner.vue";
@@ -53,6 +54,24 @@ describe("SessionSearchHero", () => {
 
     await wrapper.setProps({ query: "", isBrowseMode: true, sortBy: "oldest" });
     expect(select().value).toBe("oldest");
+  });
+
+  it("keeps showing Newest when Relevance is picked with no query", async () => {
+    const wrapper = mount(SessionSearchHero, {
+      props: {
+        query: "",
+        filtersOpen: true,
+        activeFilterCount: 0,
+        sortBy: "relevance",
+        isBrowseMode: true,
+      },
+    });
+    const select = wrapper.get<HTMLSelectElement>(".sort-select");
+    // The pick changes nothing (the store already holds relevance), so no re-render.
+    await select.setValue("relevance");
+    expect(wrapper.emitted("update:sortBy")?.[0]).toEqual(["relevance"]);
+    await nextTick();
+    expect(select.element.value).toBe("newest");
   });
 
   it("shows the source switch only when asked and emits the picked source", async () => {
