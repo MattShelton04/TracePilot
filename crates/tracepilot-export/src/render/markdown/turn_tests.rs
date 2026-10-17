@@ -101,11 +101,14 @@ fn session_events_before_the_turn_come_before_its_work() {
         Some(true),
         false,
     )];
+    // In log order: events buffered before the message lead the list. A
+    // synthesized `session.start` (Claude Code) shares the message's instant.
     turn.session_events = vec![
         event("session.start", "Session started", at(0)),
+        event("session.resume", "Same instant, before", at(10)),
         event("session.compaction_complete", "Compacted", at(20)),
         event("session.info", "Undated", None),
-        event("session.mode_changed", "Same instant", at(10)),
+        event("session.mode_changed", "Same instant, during", at(10)),
     ];
 
     let text = render_turn(turn);
@@ -114,7 +117,11 @@ fn session_events_before_the_turn_come_before_its_work() {
         text.find(needle)
             .unwrap_or_else(|| panic!("{needle:?} missing:\n{text}"))
     };
-    assert!(pos("**session.start**") < pos("**User**"), "{text}");
+    assert!(
+        pos("**session.start**") < pos("**session.resume**"),
+        "{text}"
+    );
+    assert!(pos("**session.resume**") < pos("**User**"), "{text}");
     assert!(
         pos("**Tool Calls**") < pos("**session.compaction_complete**"),
         "{text}"

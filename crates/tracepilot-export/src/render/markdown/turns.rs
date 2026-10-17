@@ -41,11 +41,8 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
 
     // Events logged before the turn's message (`session.start`, a resume or
     // model change) come first; the rest happened during the turn's work.
-    let (before, during): (Vec<_>, Vec<_>) = turn
-        .session_events
-        .iter()
-        .partition(|event| happened_before(event, turn));
-    write_session_events(md, &before);
+    let (before, during) = turn.session_events.split_at(leading_events(turn));
+    write_session_events(md, before);
 
     // A background task's completion opened the turn, not the user.
     let author = if turn.notifications.is_empty() {
@@ -193,7 +190,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         }
     }
 
-    write_session_events(md, &during);
+    write_session_events(md, during);
 }
 
 /// Longest error text written for one tool call. A failed command's error can
@@ -218,13 +215,21 @@ fn error_text(error: &str) -> String {
     )
 }
 
-/// Whether `event` was logged before the turn's own message. Events without
-/// a timestamp, or logged at the same instant, stay with the turn's work.
-fn happened_before(event: &TurnSessionEvent, turn: &ConversationTurn) -> bool {
-    matches!((event.timestamp, turn.timestamp), (Some(at), Some(start)) if at < start)
+/// How many of the turn's session events were logged before its message.
+/// Events keep log order, and those buffered before the message lead the
+/// list, so this is the leading run stamped no later than the turn's start.
+/// A synthesized `session.start` shares the first record's timestamp.
+fn leading_events(turn: &ConversationTurn) -> usize {
+    let Some(start) = turn.timestamp else {
+        return 0;
+    };
+    turn.session_events
+        .iter()
+        .take_while(|event| event.timestamp.is_some_and(|at| at <= start))
+        .count()
 }
 
-fn write_session_events(md: &mut String, events: &[&TurnSessionEvent]) {
+fn write_session_events(md: &mut String, events: &[TurnSessionEvent]) {
     if events.is_empty() {
         return;
     }

@@ -22,6 +22,16 @@
 ### Turn 0
 *Model: fixture · 0ms · 3 output tokens*
 
+> ℹ️ **session.start**: Session started (model: fixture)
+> ℹ️ **session.resume**: Session resumed (model: fixture)
+> 🔴 **session.error**: fixture
+> 🟡 **session.warning**: fixture
+> ℹ️ **session.mode_changed**: Mode: interactive → interactive
+> ℹ️ **session.plan_changed**: Agent plan updated (create)
+> 🟡 **session.truncation**: Truncated 3 tokens, 3 messages
+> ℹ️ **session.compaction_start**: Context compaction started
+> 🟡 **session.compaction_complete**: Compaction complete (3 tokens)
+
 **User**
 
 > fixture
@@ -36,18 +46,15 @@
 
 > fixture
 
-> ℹ️ **session.start**: Session started (model: fixture)
-> ℹ️ **session.resume**: Session resumed (model: fixture)
-> 🔴 **session.error**: fixture
-> 🟡 **session.warning**: fixture
-> ℹ️ **session.mode_changed**: Mode: interactive → interactive
-> ℹ️ **session.plan_changed**: Agent plan updated (create)
-> 🟡 **session.truncation**: Truncated 3 tokens, 3 messages
-> ℹ️ **session.compaction_start**: Context compaction started
-> 🟡 **session.compaction_complete**: Compaction complete (3 tokens)
-
 ### Turn 1
 *Model: fixture*
+
+> ℹ️ **skill.invoked**: Skill invoked: fixture
+> ℹ️ **skill.invoked**: Skill invoked: fixture
+> ℹ️ **permission.requested**: Permission requested (commands): fixture
+> ℹ️ **permission.completed**: Permission result: approved
+> ℹ️ **external_tool.requested**: External tool requested: fixture
+> ℹ️ **session.auto_mode_resolved**: Auto mode chose fixture
 
 _No user message._
 
@@ -80,13 +87,6 @@ fixture
 ```
 fixture
 ```
-
-> ℹ️ **skill.invoked**: Skill invoked: fixture
-> ℹ️ **skill.invoked**: Skill invoked: fixture
-> ℹ️ **permission.requested**: Permission requested (commands): fixture
-> ℹ️ **permission.completed**: Permission result: approved
-> ℹ️ **external_tool.requested**: External tool requested: fixture
-> ℹ️ **session.auto_mode_resolved**: Auto mode chose fixture
 
 ## Metrics
 
