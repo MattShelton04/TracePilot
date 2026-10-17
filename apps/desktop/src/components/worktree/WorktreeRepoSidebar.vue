@@ -21,12 +21,6 @@ const store = useWorktreesStore();
 const totalDiskUsage = computed(() =>
   store.worktrees.reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
 );
-
-const staleDiskUsage = computed(() =>
-  store.worktrees
-    .filter((w) => w.status === "stale")
-    .reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
-);
 </script>
 
 <template>
@@ -142,10 +136,6 @@ const staleDiskUsage = computed(() =>
       <div class="disk-summary-row">
         <span class="disk-summary-label">Disk Usage</span>
         <span class="disk-summary-value">{{ formatBytes(totalDiskUsage) }}</span>
-      </div>
-      <div class="disk-summary-row">
-        <span class="disk-summary-label">Reclaimable</span>
-        <span class="disk-summary-value disk-summary-value--stale">{{ formatBytes(staleDiskUsage) }}</span>
       </div>
     </div>
   </aside>

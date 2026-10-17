@@ -8,6 +8,8 @@ const props = defineProps<{
   selectedRepoPath: string | null;
   refreshing: boolean;
   cleaningStale: boolean;
+  /** Unlocked stale worktrees in the current repo filter. */
+  cleanableStaleCount: number;
 }>();
 
 const emit = defineEmits<{
@@ -38,7 +40,8 @@ const searchModel = computed({
     </button>
     <button
       class="btn btn-sm"
-      :disabled="store.staleCount === 0 || cleaningStale"
+      :disabled="cleanableStaleCount === 0 || cleaningStale"
+      :title="selectedRepoPath ? 'Remove stale worktrees in this repository' : 'Remove stale worktrees in all repositories'"
       @click="emit('clean-stale')"
     >
       <LoadingSpinner v-if="cleaningStale" size="sm" />
