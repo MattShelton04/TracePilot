@@ -1,6 +1,11 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { chunkTurns, getCollapsedToolNames, segmentToolCalls } from "./chatViewUtils";
+import {
+  chunkTurns,
+  getCollapsedToolNames,
+  segmentToolCalls,
+  splitAtTurnStart,
+} from "./chatViewUtils";
 
 function makeToolCall(overrides: Partial<TurnToolCall>): TurnToolCall {
   return {
@@ -83,5 +88,37 @@ describe("chunkTurns", () => {
 
   it("returns no chunks for an empty conversation", () => {
     expect(chunkTurns([], 10)).toEqual([]);
+  });
+});
+
+describe("splitAtTurnStart", () => {
+  const at = (timestamp?: string) => ({ timestamp });
+  const time = (item: { timestamp?: string }) => item.timestamp;
+
+  it("puts events at or before the turn start above it and later ones after", () => {
+    const start = at("2026-03-14T03:20:07.000Z");
+    const same = at("2026-03-14T03:20:35.000Z");
+    const warning = at("2026-03-14T03:20:42.000Z");
+    const split = splitAtTurnStart(
+      [start, same, warning],
+      "2026-03-14T03:20:35.000Z",
+      time,
+      "after",
+    );
+    expect(split.before).toEqual([start, same]);
+    expect(split.after).toEqual([warning]);
+  });
+
+  it("sends untimed events, or every event of an untimed turn, to the given side", () => {
+    const untimed = at();
+    const timed = at("2026-03-14T03:20:42.000Z");
+    expect(splitAtTurnStart([untimed, timed], "2026-03-14T03:20:35.000Z", time, "before")).toEqual({
+      before: [untimed],
+      after: [timed],
+    });
+    expect(splitAtTurnStart([untimed, timed], undefined, time, "after")).toEqual({
+      before: [],
+      after: [untimed, timed],
+    });
   });
 });

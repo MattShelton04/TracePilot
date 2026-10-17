@@ -315,7 +315,12 @@ watch(
 </template>
 
 <style scoped>
-/* The action bar's root: pinned under the breadcrumb as the page scrolls. */
+/*
+ * The action bar's root: pinned under the breadcrumb as the page scrolls.
+ * Sticky offsets count from inside the scroller's padding (.page-content,
+ * layout.css), so `top` cancels that padding: a 0 offset left a strip above
+ * the pinned bar where scrolled content showed through.
+ */
 .detail-actions {
   display: flex;
   justify-content: space-between;
@@ -324,22 +329,22 @@ watch(
   gap: 12px;
   margin-bottom: 24px;
   position: sticky;
-  top: 0;
+  top: -28px;
   z-index: 60;
-  background: rgba(24, 24, 27, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--canvas-overlay);
   padding: 12px 16px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
   /* SessionDetailActions compacts its labels when the bar is narrow. */
   container: detail-actions / inline-size;
 }
 
-:root[data-theme="light"] .detail-actions {
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+/* Matches the narrow .page-content padding in responsive.css. */
+@media (max-width: 900px) {
+  .detail-actions {
+    top: -16px;
+  }
 }
 .detail-tab-content {
   padding-top: 4px;
