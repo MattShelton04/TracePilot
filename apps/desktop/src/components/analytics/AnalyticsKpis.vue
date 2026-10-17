@@ -3,13 +3,13 @@
  * The dashboard's five headline numbers, each with the context that makes it
  * readable: sessions (runs and active days), tokens (what they were), cost
  * (in USD, AI Credits at $0.01 each), model time (median and
- * p95) and errors (rate limits and sessions hit).
+ * p95) and errors (apart from rate limits, as the Incidents panel counts
+ * them; the rate limits and the sessions affected beside them).
  */
 import { type AnalyticsData, sourceLabel } from "@tracepilot/types";
 import {
   formatAiCredits,
   formatAiCreditsUsd,
-  formatCost,
   formatDuration,
   formatNumber,
   formatNumberFull,
@@ -23,8 +23,10 @@ import {
   aiCreditBasis,
   COMPOSITION,
   costBreakdown,
+  countOf,
   type DashboardSummary,
 } from "@/utils/analyticsSummary";
+import { formatUsd } from "@/utils/sourceCost";
 
 const props = defineProps<{
   data: AnalyticsData;
@@ -111,7 +113,7 @@ const cost = computed<CostKpi>(() => {
       : "";
     return {
       label: "Estimated cost",
-      value: rows[0].usdEquivalent == null ? "—" : formatCost(rows[0].usdEquivalent),
+      value: rows[0].usdEquivalent == null ? "—" : formatUsd(rows[0].usdEquivalent),
       note: `API-equivalent · ${priced}`,
       partial: rows[0].partial,
       tooltip: `API-equivalent USD from ${sourceLabel(rows[0].source)} usage.${rows[0].partial ? " Partial: some sessions could not be priced." : ""}`,
@@ -121,11 +123,11 @@ const cost = computed<CostKpi>(() => {
   const total = summary.costTotal;
   return {
     label: "Cost",
-    value: total.usd == null ? "—" : formatCost(total.usd),
+    value: total.usd == null ? "—" : formatUsd(total.usd),
     note: rows
       .map(
         (row) =>
-          `${sourceLabel(row.source)} ${row.usdEquivalent == null ? "unpriced" : formatCost(row.usdEquivalent)}`,
+          `${sourceLabel(row.source)} ${row.usdEquivalent == null ? "unpriced" : formatUsd(row.usdEquivalent)}`,
       )
       .join(" · "),
     partial: total.partial,
@@ -138,7 +140,7 @@ const cost = computed<CostKpi>(() => {
               key: row.source,
               color: SOURCE_COLORS[row.source],
               width: ((row.usdEquivalent ?? 0) / (total.usd ?? 1)) * 100,
-              title: `${sourceLabel(row.source)}: ${formatCost(row.usdEquivalent)}`,
+              title: `${sourceLabel(row.source)}: ${formatUsd(row.usdEquivalent ?? 0)}`,
             }))
         : [],
   };
@@ -228,13 +230,17 @@ const pace = computed(() => {
       </template>
     </KPI>
 
-    <KPI label="Errors" :value="formatNumberFull(errors + rateLimits)">
+    <KPI
+      label="Errors"
+      :value="formatNumberFull(errors)"
+      :description="has ? 'Errors apart from rate limits. Sessions affected had an error or a rate limit.' : undefined"
+    >
       <template #icon><OctagonAlert :size="13" /></template>
       <template #footer>
         <span class="ad-kpi-note">
           <template v-if="errors + rateLimits > 0">
-            <b>{{ formatNumberFull(rateLimits) }}</b> rate limits · in {{ formatNumberFull(data.sessionsWithErrors) }}
-            session{{ data.sessionsWithErrors === 1 ? "" : "s" }}
+            <b>{{ formatNumberFull(rateLimits) }}</b> rate limit{{ rateLimits === 1 ? "" : "s" }} ·
+            {{ countOf(data.sessionsWithErrors, "session") }} affected
           </template>
           <template v-else-if="has">No errors or rate limits</template>
           <template v-else>No incidents</template>

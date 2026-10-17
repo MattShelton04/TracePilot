@@ -95,6 +95,12 @@ describe("analytics cost labels", () => {
     expect(kpi.text).not.toContain("AI Credits");
   });
 
+  it("shows a sub-cent USD estimate as < $0.01, as the Metrics tab does, not $0.00", () => {
+    const kpi = costKpi(withSources([{ ...claudeEntry, costUsd: 0.003 }]));
+    expect(kpi.value).toBe("< $0.01");
+    expect(kpi.text).not.toContain("$0.00");
+  });
+
   it("adds every source into one USD total when sources are mixed", () => {
     const kpi = costKpi(withSources([copilotEntry, claudeEntry], { totalNanoAiu: 12_500_000_000 }));
     expect(kpi.label).toBe("Cost");
@@ -142,6 +148,13 @@ describe("analytics cost panel", () => {
     const wrapper = panel(withSources([{ ...claudeEntry, costUsd: null, sessionsWithCostUsd: 0 }]));
     expect(wrapper.get('[data-source="claudeCode"]').text()).toContain("Unpriced");
     expect(wrapper.text()).not.toContain("$0.00");
+  });
+
+  it("shows a sub-cent USD estimate as < $0.01 on its card, not $0.00", () => {
+    const wrapper = panel(withSources([{ ...claudeEntry, costUsd: 0.003 }]));
+    const claude = wrapper.get('[data-source="claudeCode"]').text();
+    expect(claude).toContain("< $0.01");
+    expect(claude).not.toContain("$0.00");
   });
 
   it("lists a single source's priciest models beside its card", () => {

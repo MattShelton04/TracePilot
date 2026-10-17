@@ -35,6 +35,7 @@ import {
   formatAxisCost,
   formatDashboardCost,
 } from "@/utils/analyticsSummary";
+import { formatUsd } from "@/utils/sourceCost";
 
 const props = defineProps<{
   data: AnalyticsData;
@@ -104,15 +105,15 @@ const usdSources = computed(() =>
       const priced = source?.sessionsWithCostUsd ?? 0;
       return {
         row,
-        value: row.usdEquivalent == null ? "Unpriced" : formatCost(row.usdEquivalent),
+        value: row.usdEquivalent == null ? "Unpriced" : formatUsd(row.usdEquivalent),
         pricedShare: row.sessions ? priced / row.sessions : 0,
         priced: `${formatNumberFull(priced)} of ${formatNumberFull(row.sessions)} sessions`,
         perSession:
-          row.usdEquivalent == null ? "—" : formatCost(row.usdEquivalent / Math.max(1, priced)),
+          row.usdEquivalent == null ? "—" : formatUsd(row.usdEquivalent / Math.max(1, priced)),
         perMillion:
           row.usdEquivalent == null || row.tokens === 0
             ? "—"
-            : formatCost(row.usdEquivalent / (row.tokens / 1e6)),
+            : formatUsd(row.usdEquivalent / (row.tokens / 1e6)),
       };
     }),
 );
@@ -136,7 +137,7 @@ const allSources = computed(() => {
   const usd = props.summary.costTotal.usd;
   if (rows.length < 2 || usd == null) return null;
   return {
-    value: formatCost(usd),
+    value: formatUsd(usd),
     partial: props.summary.costTotal.partial,
     parts: rows.map((row) => ({
       key: row.source,
@@ -145,7 +146,7 @@ const allSources = computed(() => {
       width: usd > 0 ? ((row.usdEquivalent ?? 0) / usd) * 100 : 0,
       share: usd > 0 ? formatShare(((row.usdEquivalent ?? 0) / usd) * 100) : "—",
     })),
-    perDay: formatCost(usd / Math.max(1, activeDays.value)),
+    perDay: formatUsd(usd / Math.max(1, activeDays.value)),
   };
 });
 

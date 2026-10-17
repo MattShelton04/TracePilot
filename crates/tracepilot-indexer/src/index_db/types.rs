@@ -7,6 +7,11 @@ use tracepilot_core::provider::SourceFingerprint;
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v20: every error and rate limit keeps its `session_incidents` row; only
+/// warnings, compactions and truncations stop at
+/// [`MAX_INCIDENTS_PER_SESSION`], so a session past the cap no longer hides
+/// a later error from its Overview.
+///
 /// v19: a Copilot session with a `session.usage_checkpoint` after its last
 /// shutdown (still running, or ended without one) takes its AI Credits and
 /// premium requests from that checkpoint instead of losing them; model rows
@@ -51,11 +56,15 @@ use tracepilot_core::provider::SourceFingerprint;
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 19;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 20;
 
 /// The analytics version of Claude Code rows, bumped on its own so Copilot
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
+///
+/// v33: every error and rate limit keeps its incident row (see v20 above);
+/// Claude Code records a warning per rejected tool call and interrupt, so
+/// its sessions pass the cap most often.
 ///
 /// v32: a `cost-state` snapshot covers only calls made since its `startTime`,
 /// so a run that ended without writing one (a closed desktop app) is priced
@@ -114,9 +123,11 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 19;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 32;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 33;
 
-/// Maximum incidents stored per session to prevent DB bloat.
+/// Maximum warning, compaction and truncation incidents stored per session,
+/// to prevent DB bloat. Errors and rate limits are never capped, so the
+/// stored rows agree with the session row's `error_count`.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
 
 /// Lightweight per-session info returned after indexing a session.
