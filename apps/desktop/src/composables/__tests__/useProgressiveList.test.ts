@@ -71,6 +71,20 @@ describe("useProgressiveList", () => {
     scope.stop();
   });
 
+  it("renders through a requested item and a first chunk after it at once", () => {
+    const { visible, complete, ensureRendered, scope } = setup(range(40));
+    ensureRendered(20);
+    expect(visible.value).toHaveLength(30);
+    expect(complete.value).toBe(false);
+    vi.advanceTimersByTime(16 * 2);
+    expect(visible.value).toHaveLength(40);
+
+    // Asking for an item that is already rendered never shrinks the list.
+    ensureRendered(2);
+    expect(visible.value).toHaveLength(40);
+    scope.stop();
+  });
+
   it("stops scheduling frames once disposed", () => {
     const { visible, scope } = setup(range(50));
     scope.stop();

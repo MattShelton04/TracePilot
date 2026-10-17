@@ -1,5 +1,5 @@
 import type { Ref, WatchStopHandle } from "vue";
-import { onMounted, watch } from "vue";
+import { onMounted, shallowRef, watch } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 
 interface ItemAnchor {
@@ -72,6 +72,9 @@ function scrollTo(scroller: HTMLElement, top: number) {
  * Items rendered around the new viewport swap their placeholder heights over
  * the next frames, which moves the anchor. Keep it in place until it holds
  * still, for a few frames at most, unless the user starts scrolling.
+ *
+ * Those swaps happen after animation frame callbacks, so a resize observer on
+ * the list also corrects within the same frame, before it is painted.
  */
 function holdAnchor(scroller: HTMLElement, attr: string, anchor: ItemAnchor) {
   if (typeof requestAnimationFrame !== "function") return;
@@ -81,20 +84,28 @@ function holdAnchor(scroller: HTMLElement, attr: string, anchor: ItemAnchor) {
   };
   const inputs = ["wheel", "pointerdown", "keydown", "touchstart"] as const;
   for (const type of inputs) scroller.addEventListener(type, onInput, { passive: true });
+  /** Re-aligns the anchor: true if it moved, null once it is gone or the user has scrolled. */
+  const correct = (): boolean | null => {
+    const next = userScrolled ? null : anchoredTop(scroller, attr, anchor);
+    if (next === null) return null;
+    if (Math.abs(next - scroller.scrollTop) < 1) return false;
+    scrollTo(scroller, next);
+    return true;
+  };
+  const list = scroller.querySelector(`[${attr}]`)?.parentElement;
+  const resizes =
+    list && typeof ResizeObserver === "function" ? new ResizeObserver(() => correct()) : null;
+  resizes?.observe(list as HTMLElement);
   let framesLeft = 10;
   let stillFrames = 0;
   const settle = () => {
-    const next = userScrolled ? null : anchoredTop(scroller, attr, anchor);
-    if (next !== null && Math.abs(next - scroller.scrollTop) >= 1) {
-      scrollTo(scroller, next);
-      stillFrames = 0;
-    } else {
-      stillFrames++;
-    }
-    if (next !== null && stillFrames < 2 && --framesLeft > 0) {
+    const moved = correct();
+    stillFrames = moved ? 0 : stillFrames + 1;
+    if (moved !== null && stillFrames < 2 && --framesLeft > 0) {
       requestAnimationFrame(settle);
       return;
     }
+    resizes?.disconnect();
     for (const type of inputs) scroller.removeEventListener(type, onInput);
   };
   requestAnimationFrame(settle);
@@ -118,6 +129,9 @@ function savePosition(key: string, position: SavedPosition) {
  * The position is saved when leaving the route and restored once, after
  * `ready` reports the content is rendered, clamped to the content's current
  * height. A different key (other filters, another query) starts at the top.
+ *
+ * `pendingAnchorId` names the item a coming restore will line up, until it
+ * has run, so a list that renders progressively can render that item first.
  */
 export function useScrollRestore({
   key,
@@ -125,6 +139,9 @@ export function useScrollRestore({
   ready = () => true,
   anchorAttr,
 }: UseScrollRestoreOptions) {
+  // Read at setup so the view can prepare its first render for the restore.
+  const pending = shallowRef(positions.get(key()));
+
   onBeforeRouteLeave(() => {
     const scroller = el.value;
     if (!scroller) return;
@@ -142,7 +159,7 @@ export function useScrollRestore({
   }
 
   onMounted(() => {
-    const saved = positions.get(key());
+    const saved = pending.value;
     if (!saved) return;
     let restored = false;
     let stop: WatchStopHandle | undefined;
@@ -154,11 +171,16 @@ export function useScrollRestore({
         restored = true;
         stop?.();
         restore(scroller, saved);
+        pending.value = undefined;
       },
       { flush: "post", immediate: true },
     );
     if (restored) stop();
   });
+
+  return {
+    pendingAnchorId: (): string | undefined => (anchorAttr ? pending.value?.anchor?.id : undefined),
+  };
 }
 
 /** Test helper: forget every saved position. */

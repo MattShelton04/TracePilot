@@ -45,9 +45,11 @@ const prefs = usePreferencesStore();
 const tabStore = useSessionTabsStore();
 const { liveBadge } = useLiveSessionBadges(computed(() => store.filteredSessions));
 // Hundreds of cards would otherwise all mount before the list first paints.
-const { visible: renderedSessions, complete: allCardsRendered } = useProgressiveList(
-  () => store.filteredSessions,
-);
+const {
+  visible: renderedSessions,
+  complete: allCardsRendered,
+  ensureRendered,
+} = useProgressiveList(() => store.filteredSessions);
 const { refreshing, refresh } = useAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.
@@ -208,7 +210,7 @@ const sessionCountLabel = computed(() => {
 
 // Coming back from a session lands where the user left the list, as long as
 // the filters and sort still match what they were looking at.
-useScrollRestore({
+const { pendingAnchorId } = useScrollRestore({
   key: () =>
     `sessions:${JSON.stringify([
       store.searchQuery,
@@ -219,10 +221,28 @@ useScrollRestore({
     ])}`,
   el: pageRef,
   // The card to line up may be among those still waiting to render.
-  ready: () => !store.loading && !store.indexing && allCardsRendered.value,
+  ready: () =>
+    !store.loading && !store.indexing && (anchorCardRendered.value || allCardsRendered.value),
   // Off-screen cards use placeholder heights, so line up the card instead.
   anchorAttr: "data-session-id",
 });
+
+// Render the card a return lines up (and a screen below it) in the first
+// frame, so the list paints at the saved position rather than at the top.
+const restoreAnchorIndex = computed(() => {
+  const id = pendingAnchorId();
+  return id ? store.filteredSessions.findIndex((s) => s.id === id) : -1;
+});
+const anchorCardRendered = computed(
+  () => restoreAnchorIndex.value >= 0 && restoreAnchorIndex.value < renderedSessions.value.length,
+);
+watch(
+  restoreAnchorIndex,
+  (index) => {
+    if (index >= 0) ensureRendered(index);
+  },
+  { immediate: true },
+);
 
 const emptyState = computed(() => {
   if (store.sessions.length === 0) {
