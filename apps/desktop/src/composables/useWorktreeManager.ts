@@ -259,8 +259,15 @@ export function useWorktreeManager() {
     const failures: string[] = [];
     try {
       for (const wt of targets) {
-        if (await store.deleteWorktree(wt.path, true, wt.repoRoot)) removed++;
-        else failures.push(`${wt.branch}: ${store.error ?? "unknown error"}`);
+        if (await store.deleteWorktree(wt.path, true, wt.repoRoot)) {
+          removed++;
+          if (selectedWorktree.value?.path === wt.path) {
+            selectedWorktree.value = null;
+            worktreeDetails.value = null;
+          }
+        } else {
+          failures.push(`${wt.branch}: ${store.error ?? "unknown error"}`);
+        }
       }
     } finally {
       cleaningStale.value = false;
