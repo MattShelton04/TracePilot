@@ -53,6 +53,7 @@ use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::TypedEvent;
 
 pub use census::{FormatCensus, format_census};
+pub(crate) use drift::count_undecodable;
 pub use drift::{safe_type_name, safe_version, version_order};
 pub use liveness::{ProcessStart, StalePidFiles};
 pub(crate) use privacy::redact_record;

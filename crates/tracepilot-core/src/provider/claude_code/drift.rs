@@ -10,6 +10,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use super::records::Rec;
+use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::provider::FormatObservations;
 
 /// Counted in place of a type name that does not look like one.
@@ -89,11 +90,26 @@ pub fn version_order(a: &str, b: &str) -> Ordering {
     key(a).cmp(&key(b)).then_with(|| a.cmp(b))
 }
 
+/// Count known event types whose payload failed to decode, as
+/// `<type>:undecodable` record types. Indexing keeps such events raw, so
+/// this is how the drift stays visible in diagnostics.
+pub(crate) fn count_undecodable(counts: &mut BTreeMap<String, usize>, failures: &ParseDiagnostics) {
+    for (name, info) in &failures.deserialization_failures {
+        let name = format!("{name}{UNDECODABLE_SUFFIX}");
+        *counts.entry(safe_type_name(&name).to_string()).or_default() += info.count;
+    }
+}
+
+/// Appended to a known type whose payload failed to decode.
+const UNDECODABLE_SUFFIX: &str = ":undecodable";
+
 impl super::ClaudeDiagnostics {
     /// The drift this parse observed, for the index.
     pub fn format_observations(&self) -> FormatObservations {
+        let mut unmapped_record_types = self.unknown_record_types.clone();
+        count_undecodable(&mut unmapped_record_types, &self.events);
         FormatObservations {
-            unmapped_record_types: self.unknown_record_types.clone(),
+            unmapped_record_types,
             unmapped_attachment_types: self.unknown_attachment_types.clone(),
             versions: self.versions.clone(),
         }

@@ -1,7 +1,9 @@
 //! Streaming JSONL reader for Claude Code transcripts.
 //!
 //! Lines are read in file order, never re-sorted by timestamp
-//! (data-comparison rule 1). A malformed line is skipped and counted. A last
+//! (data-comparison rule 1). A malformed line is skipped and counted; when a
+//! resumed CLI appended a whole record after a cut-off line, that record is
+//! kept ([`recover_appended_record`]). A last
 //! line without its newline is a live file mid-append: it is kept if it
 //! parses and otherwise counted as a partial tail, even when it ends inside a
 //! UTF-8 sequence. Image base64 is replaced before a line is retained.
@@ -17,7 +19,7 @@ use serde_json::Value;
 
 use super::ClaudeDiagnostics;
 use crate::error::{Result, TracePilotError};
-use crate::parsing::events::parse_json_line_lenient;
+use crate::parsing::events::{parse_json_line_lenient, recover_appended_record};
 use crate::parsing::snapshot::check_cancelled;
 
 /// One parsed, sanitized record and its 1-based line number.
@@ -89,12 +91,35 @@ pub(super) fn read_jsonl_bounded(
             }
             _ if !complete => diagnostics.partial_tails += 1,
             _ => {
-                tracing::warn!(line = number, "Skipping malformed Claude Code line");
                 diagnostics.malformed_lines += 1;
+                // A resumed CLI's first record lands after a cut-off line.
+                if let Some(mut value) = recover_appended_record(&bytes, is_claude_record) {
+                    tracing::warn!(
+                        line = number,
+                        "Kept the Claude Code record appended after a cut-off line"
+                    );
+                    diagnostics.sanitized_images += sanitize(&mut value);
+                    lines.push(Line {
+                        line: number,
+                        value: Arc::new(value),
+                    });
+                } else {
+                    tracing::warn!(line = number, "Skipping malformed Claude Code line");
+                }
             }
         }
     }
     Ok(lines)
+}
+
+/// A top-level transcript record, not an object nested in one: a string
+/// `type` plus one of the ids every record kind carries (content blocks and
+/// API messages have none of them).
+fn is_claude_record(value: &Value) -> bool {
+    value.get("type").is_some_and(Value::is_string)
+        && ["uuid", "sessionId", "leafUuid", "messageId"]
+            .iter()
+            .any(|key| value.get(key).is_some_and(Value::is_string))
 }
 
 pub(super) struct LineRead {
@@ -268,6 +293,33 @@ mod tests {
             3,
             "stopped at the first check inside the line"
         );
+    }
+
+    /// A resumed CLI's first record shares a line with the cut-off record
+    /// before it; it is kept and the line still counts as malformed. An
+    /// object nested in a cut record, such as a content block, is not.
+    #[test]
+    fn a_record_appended_after_a_cut_line_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        let resumed = r#"{"type":"user","uuid":"u2","sessionId":"s","message":{"role":"user","content":"again"}}"#;
+        let cut =
+            r#"{"type":"assistant","uuid":"u1","message":{"content":[{"type":"text","text":"caf"#;
+        let block =
+            r#"{"type":"assistant","uuid":"u1","message":{"content":[{"type":"text","text":"x"}"#;
+        let mut bytes = cut.as_bytes().to_vec();
+        bytes.push(0xC3); // cut inside a character
+        bytes.extend_from_slice(format!("{resumed}\n{block}\n").as_bytes());
+        std::fs::write(&path, bytes).unwrap();
+        let mut diagnostics = ClaudeDiagnostics::default();
+        let lines = read_jsonl_bounded(&path, 1024, &|| false, &mut diagnostics).unwrap();
+        let kept: Vec<_> = lines
+            .iter()
+            .map(|l| (l.line, l.value["uuid"].as_str()))
+            .collect();
+        assert_eq!(kept, [(1, Some("u2"))]);
+        assert_eq!(diagnostics.malformed_lines, 2);
+        assert_eq!(diagnostics.partial_tails, 0);
     }
 
     #[test]

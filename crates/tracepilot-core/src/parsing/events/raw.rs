@@ -87,19 +87,26 @@ pub(super) fn visit_events_jsonl(
         }
         line_number += 1;
         // A line cut inside a multi-byte character (a CLI killed mid-append)
-        // loses only itself, like any other malformed line.
-        match std::str::from_utf8(&bytes).map(str::trim) {
-            Ok("") => {}
-            Ok(line) => match parse_raw_event_line(line) {
-                Ok(event) => visit(event),
-                Err(error) => {
-                    tracing::warn!(line = line_number, error = %error, "Skipping malformed event line");
-                    malformed += 1;
-                }
-            },
-            Err(error) => {
-                tracing::warn!(line = line_number, error = %error, "Skipping event line that is not UTF-8");
+        // is malformed like any other: it loses only itself.
+        let parsed = match std::str::from_utf8(&bytes).map(str::trim) {
+            Ok("") => None,
+            Ok(line) => Some(parse_raw_event_line(line).map_err(|error| error.to_string())),
+            Err(error) => Some(Err(format!("not UTF-8: {error}"))),
+        };
+        match parsed {
+            None => {}
+            Some(Ok(event)) => visit(event),
+            Some(Err(error)) => {
                 malformed += 1;
+                match recover_appended_record(&bytes, is_copilot_event) {
+                    Some(event) => {
+                        tracing::warn!(line = line_number, error = %error, "Kept the event appended after a cut-off line");
+                        visit(event);
+                    }
+                    None => {
+                        tracing::warn!(line = line_number, error = %error, "Skipping malformed event line");
+                    }
+                }
             }
         }
         bytes.clear();
@@ -108,6 +115,49 @@ pub(super) fn visit_events_jsonl(
         }
     }
     Ok(malformed)
+}
+
+/// A top-level Copilot event, not a payload object: the envelope's `type`
+/// and `data` plus the `id` or `timestamp` every CLI-written event carries.
+fn is_copilot_event(event: &RawEvent) -> bool {
+    event.id.is_some() || event.timestamp.is_some()
+}
+
+/// Recover the record that a resumed CLI appended to a cut-off line.
+///
+/// A CLI killed mid-append leaves a line without its newline, so the first
+/// record the resumed CLI writes lands on the same line, after the cut
+/// bytes. Only a newline-terminated line qualifies: a crash never writes the
+/// newline itself, so a cut last line is never searched. The record is the
+/// first suffix starting at a later `{"` that parses through the end of the
+/// line and passes `accept`. An object nested in the cut record cannot
+/// qualify unless it ends exactly at the line's end; `accept` checks the
+/// record shape for that case.
+///
+/// Invalid UTF-8 (a cut inside a character) and lone surrogate escapes are
+/// repaired once for the whole line, and each candidate is a plain parse that
+/// stops where its value ends, so the cost is the line's length times its
+/// nesting depth, paid only for malformed lines.
+pub(crate) fn recover_appended_record<T: serde::de::DeserializeOwned>(
+    bytes: &[u8],
+    accept: impl Fn(&T) -> bool,
+) -> Option<T> {
+    if bytes.last() != Some(&b'\n') {
+        return None;
+    }
+    let text = String::from_utf8_lossy(bytes);
+    let text = match replace_lone_surrogate_escapes(&text) {
+        Some(repaired) => std::borrow::Cow::Owned(repaired),
+        None => text,
+    };
+    let first = text.len() - text.trim_start().len();
+    text.match_indices("{\"")
+        .filter(|(at, _)| *at > first)
+        .find_map(|(at, _)| {
+            serde_json::from_str::<T>(&text[at..])
+                .ok()
+                .filter(|record| accept(record))
+        })
 }
 
 /// Parse one JSONL record, recovering lines that contain unpaired UTF-16
@@ -339,21 +389,46 @@ mod tests {
     fn lines_with_invalid_utf8_are_skipped_not_fatal() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(EVENTS_JSONL);
-        let event = |n: u32| format!(r#"{{"type":"user.message","data":{{"content":"{n} ✅"}}}}"#);
+        let event = |n: u32| {
+            format!(r#"{{"type":"user.message","id":"e{n}","data":{{"content":"{n} ✅"}}}}"#)
+        };
         let cut = |n: u32| {
             let line = event(n);
             line.as_bytes()[..=line.find('✅').unwrap()].to_vec()
         };
-        // A cut tail, then the same cut followed by resumed lines.
+        // A cut tail, the same cut on a line of its own, and the cut with a
+        // resumed CLI's record appended right after it.
         let mut tail = format!("{}\n", event(1)).into_bytes();
         tail.extend(cut(2));
         let mut middle = tail.clone();
         middle.extend(format!("\n{}\n", event(3)).into_bytes());
-        for (bytes, kept) in [(tail, 1), (middle, 2)] {
+        let mut glued = tail.clone();
+        glued.extend(format!("{}\n", event(3)).into_bytes());
+        for (bytes, last) in [(tail, "1 ✅"), (middle, "3 ✅"), (glued, "3 ✅")] {
             std::fs::write(&path, bytes).unwrap();
             let (events, malformed) = parse_events_jsonl(&path).unwrap();
-            assert_eq!((events.len(), malformed), (kept, 1));
+            assert_eq!(malformed, 1);
             assert_eq!(events[0].data["content"], "1 ✅");
+            assert_eq!(events.last().unwrap().data["content"], last);
+        }
+    }
+
+    /// Recovery keeps only a whole top-level event that ends its line: never
+    /// a payload object, and nothing from a cut last line.
+    #[test]
+    fn recovery_rejects_nested_objects_and_cut_last_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        let nested =
+            r#"{"type":"tool.execution_complete","id":"e1","data":{"type":"payload","data":{}}"#;
+        let whole = r#"{"type":"user.message","id":"e2","data":{}}"#;
+        for bytes in [
+            format!("{nested}\n"),
+            format!(r#"{{"type":"user.mess{whole}"#),
+        ] {
+            std::fs::write(&path, bytes).unwrap();
+            let (events, malformed) = parse_events_jsonl(&path).unwrap();
+            assert_eq!((events.len(), malformed), (0, 1));
         }
     }
 

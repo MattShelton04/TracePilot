@@ -94,8 +94,8 @@ fn new_copilot_session_with_a_cut_line_is_indexed_once() {
     let events = dir.join("events.jsonl");
     fs::write(&events, turn(1, 15)).unwrap();
     append(&events, &cut_line(2));
-    // The resumed CLI appends right after the cut, so its first line is
-    // malformed too; its second line and the next turn are whole.
+    // The resumed CLI appends right after the cut, so its first record
+    // shares the cut's line; it is recovered from there.
     append(&events, turn(3, 40).as_bytes());
     append(&events, turn(4, 45).as_bytes());
 
@@ -104,7 +104,7 @@ fn new_copilot_session_with_a_cut_line_is_indexed_once() {
     let db = IndexDb::open_or_create(&db_path).unwrap();
     assert_eq!(indexed, 1, "the session must be indexed");
     assert_eq!(listed(&db), vec![detail(&dir)]);
-    assert_eq!(detail(&dir), (Some(2), Some(5)));
+    assert_eq!(detail(&dir), (Some(3), Some(6)), "prompt3 is recovered");
     assert!(!db.needs_reindex(&SessionId::from_validated(ID), &dir));
     assert_eq!(
         reindex_incremental(&state(temp.path()), &db_path).unwrap(),
@@ -117,6 +117,11 @@ fn new_copilot_session_with_a_cut_line_is_indexed_once() {
     };
     assert_eq!(search(&db_path), (1, 0));
     assert_eq!(search_hits(&db, "answer4"), 1);
+    assert_eq!(
+        search_hits(&db, "prompt3"),
+        1,
+        "the glued record is searchable"
+    );
     assert_eq!(search(&db_path), (0, 1), "search is not rebuilt either");
 }
 
@@ -138,6 +143,7 @@ fn indexed_copilot_session_catches_up_after_a_cut_line_and_resume() {
     let db = IndexDb::open_or_create(&db_path).unwrap();
     assert_eq!(indexed, 1);
     assert_eq!(listed(&db), vec![detail(&dir)]);
+    assert_eq!(detail(&dir), (Some(3), Some(6)));
     assert!(!db.needs_reindex(&SessionId::from_validated(ID), &dir));
 }
 
@@ -258,14 +264,19 @@ fn claude_transcript_with_a_cut_line_then_resume_is_indexed() {
         .unwrap()
         + 1;
     bytes.truncate(last_start + (bytes.len() - last_start) / 2);
-    // …then the resumed process appends whole records on a new line.
+    // …then the resumed process appends whole records right after the cut,
+    // so its prompt shares the cut's line.
     let mut resumed = Transcript::main();
     resumed.prompt("resumedsentinel prompt");
-    bytes.push(b'\n');
     bytes.extend_from_slice(&resumed.to_bytes());
     fs::write(dir.join(format!("{id}.jsonl")), &bytes).unwrap();
 
     let db = index_claude_once(&config, &temp.path().join("index.db"));
+    assert_eq!(
+        claude_detail(&config).0,
+        Some(2),
+        "the resumed prompt starts a turn"
+    );
     assert_eq!(listed(&db), vec![claude_detail(&config)]);
     assert_eq!(search_hits(&db, "resumedsentinel"), 1);
 }
