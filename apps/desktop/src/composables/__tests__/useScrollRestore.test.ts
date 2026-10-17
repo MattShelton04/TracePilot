@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { createMemoryHistory, createRouter, RouterView } from "vue-router";
 import { resetScrollPositions, useScrollRestore } from "../useScrollRestore";
@@ -209,6 +209,36 @@ describe("useScrollRestore", () => {
     loading.value = false;
     await flushPromises();
     expect(pendingAnchorId()).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("keeps the item in place when heights above it change before a paint", async () => {
+    const resized: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resized.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    itemHeight = 200;
+    contentHeight = 6000;
+    const { router, wrapper } = setup();
+    await go(router, "/");
+    (scroller as HTMLElement).scrollTop = 1250;
+    await go(router, "/session/a");
+    await go(router, -1);
+    await flushPromises();
+    expect(scroller?.scrollTop).toBe(1250);
+
+    // Cards near the viewport render at their real height after the restore.
+    itemHeight = 150;
+    for (const callback of resized) callback([], {} as ResizeObserver);
+    expect(scroller?.scrollTop).toBe(6 * 150 + 50);
+    vi.unstubAllGlobals();
     wrapper.unmount();
   });
 
