@@ -247,8 +247,11 @@ try {
           (cmd) => window.__TRACEPILOT_VISUAL__?.calls[cmd] > 0,
           item.command,
         );
-      if (page.url().split("#")[1] !== item.route)
-        throw new Error(`Unexpected route redirect: ${page.url().split("#")[1]}`);
+      const landed = page.url().split("#")[1];
+      const expectedRoutes = [item.route];
+      if (item.preparedQuery) expectedRoutes.push(`${item.route}?${item.preparedQuery}`);
+      if (!expectedRoutes.includes(landed))
+        throw new Error(`Unexpected route redirect: ${landed}`);
       if (item.scrollText)
         await page.getByText(item.scrollText, { exact: true }).first().scrollIntoViewIfNeeded();
       if (item.assertion === "worktree-layout") await assertWorktreeLayout(page);

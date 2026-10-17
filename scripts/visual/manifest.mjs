@@ -86,6 +86,8 @@ export const cases = [
     route: "/compare",
     start: ".selector-row",
     prepare: "compare-sessions",
+    // Compare keeps its picks in the address; earlier revisions don't.
+    preparedQuery: "a=sess-search-polish&b=sess-auth-refactor",
     ready: ".delta-table",
     command: "get_shutdown_metrics",
     state: "two synthetic sessions compared; zero file-count baseline",
