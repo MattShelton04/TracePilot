@@ -12,9 +12,8 @@ export interface Breadcrumb {
  * Derives breadcrumb trail for the top-of-page header.
  *
  * Extracted from `App.vue` (Phase 4.5 / Wave 47) so the presentation shell
- * stays focused on layout + lifecycle.  The output — including labels,
- * ordering, and `to` paths — is preserved byte-for-byte from the original
- * inline computed.
+ * stays focused on layout + lifecycle. Labels are passed whole; the
+ * breadcrumb component truncates long ones and keeps the full text on hover.
  *
  * @param isTabViewActive Reactive flag indicating the session tab view is
  *   currently covering the router-view (shared App-level state).
@@ -44,8 +43,8 @@ export function useBreadcrumbs(isTabViewActive: ComputedRef<boolean>): {
     // Session detail pages (legacy route mode)
     if (route.params.id) {
       const detail = sessionsStore.sessions.find((s) => s.id === route.params.id);
-      const sessionLabel =
-        detail?.summary?.slice(0, 40) || `Session ${String(route.params.id).slice(0, 8)}`;
+      // The whole title: BreadcrumbNav truncates it and keeps it for hover.
+      const sessionLabel = detail?.summary || `Session ${String(route.params.id).slice(0, 8)}`;
       crumbs.push({ label: sessionLabel, to: `/session/${route.params.id}/overview` });
 
       if (route.meta?.title && route.meta.title !== "Session Detail") {

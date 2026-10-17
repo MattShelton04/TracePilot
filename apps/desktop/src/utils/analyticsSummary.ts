@@ -10,8 +10,8 @@ import {
   AI_CREDIT_USD,
   type AnalyticsData,
   formatAiCreditsUsd,
-  formatCost,
   formatNumber,
+  formatNumberFull,
   type SessionSource,
   sourceCapabilities,
   sourceLabel,
@@ -28,6 +28,7 @@ import {
 } from "@/utils/analyticsCostSeries";
 import { payloadSources } from "@/utils/analyticsDashboard";
 import { modelLabels } from "@/utils/modelLabels";
+import { formatUsd } from "@/utils/sourceCost";
 
 type ComputeTokenCost = (
   model: string,
@@ -177,7 +178,7 @@ export function buildDashboardSummary(payload: AnalyticsData, pricing: Pricing):
           usd = aic * AI_CREDIT_USD;
         }
       } else if (m.costUsd != null) {
-        costText = formatCost(m.costUsd);
+        costText = formatUsd(m.costUsd);
         usd = m.costUsd;
       }
       return {
@@ -232,11 +233,16 @@ export function buildDashboardSummary(payload: AnalyticsData, pricing: Pricing):
   };
 }
 
-/** A dashboard cost in USD, compact once it reaches the hundreds. */
+/** A dashboard cost in USD, compact once it reaches the hundreds; below a cent, `< $0.01`. */
 export function formatDashboardCost(value: number): string {
   if (value >= 10_000) return `$${formatNumber(value)}`;
   if (value >= 100) return `$${Math.round(value).toLocaleString("en-US")}`;
-  return formatCost(value);
+  return formatUsd(value);
+}
+
+/** `1 session`, `1,204 sessions`: a whole count and its noun. */
+export function countOf(count: number, noun: string): string {
+  return `${formatNumberFull(count)} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 /** Axis labels: whole units, compact past a thousand. */
@@ -250,7 +256,7 @@ export function costBreakdown(rows: readonly SourceCostRow[]): string {
   return rows
     .map(
       (row) =>
-        `${sourceLabel(row.source)} ${row.usdEquivalent == null ? "unpriced" : formatCost(row.usdEquivalent)}`,
+        `${sourceLabel(row.source)} ${row.usdEquivalent == null ? "unpriced" : formatUsd(row.usdEquivalent)}`,
     )
     .join(" + ");
 }

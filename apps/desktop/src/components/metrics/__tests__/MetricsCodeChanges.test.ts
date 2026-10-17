@@ -63,6 +63,31 @@ describe("MetricsCodeChanges", () => {
     expect(names(wrapper)).toEqual(["src/module-29/", "file-2999.ts"]);
   });
 
+  it("keeps the user's open and closed folders across a refresh", async () => {
+    const metrics = (filesModified: string[]) => ({
+      codeChanges: { filesModified, linesAdded: 10, linesRemoved: 2 },
+    });
+    const wrapper = mount(MetricsCodeChanges, {
+      props: {
+        metrics: metrics(["/repo/src/b.ts", "/repo/src/a.ts", "/repo/README.md"]),
+        roots: ["/repo"],
+      },
+    });
+    await wrapper.get('button[role="treeitem"]').trigger("click");
+    expect(names(wrapper)).toEqual(["src/", "README.md"]);
+    // A refresh replaces the metrics snapshot and the roots array, same content.
+    await wrapper.setProps({
+      metrics: metrics(["/repo/src/b.ts", "/repo/src/a.ts", "/repo/README.md"]),
+      roots: ["/repo"],
+    });
+    expect(names(wrapper)).toEqual(["src/", "README.md"]);
+    // A folder that first appears in a refresh still opens by default.
+    await wrapper.setProps({
+      metrics: metrics(["/repo/src/b.ts", "/repo/src/a.ts", "/repo/README.md", "/repo/docs/c.md"]),
+    });
+    expect(names(wrapper)).toEqual(["docs/", "c.md", "src/", "README.md"]);
+  });
+
   it("says when only line counts were recorded", () => {
     const wrapper = mount(MetricsCodeChanges, {
       props: { metrics: { codeChanges: { filesModified: [], linesAdded: 5, linesRemoved: 1 } } },

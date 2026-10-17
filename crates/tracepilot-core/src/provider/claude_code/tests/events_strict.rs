@@ -1,5 +1,5 @@
 //! `load_events_strict` skips the summary but loads and refuses exactly what a
-//! strict `load_snapshot` does.
+//! strict `load_snapshot` does. Both keep every record that parses.
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -41,12 +41,8 @@ fn events_and_fingerprint_match_a_strict_snapshot() {
 }
 
 #[test]
-fn refuses_damaged_and_oversized_transcripts() {
-    let files = fixtures::damaged_lines();
-    let provider = ClaudeCodeProvider::new(files.root.path());
-    let session = provider.discover(&|| false).unwrap().remove(0);
-    assert!(provider.load_snapshot(&session, true, &|| false).is_err());
-    assert!(provider.load_events_strict(&session, &|| false).is_err());
+fn keeps_what_parses_in_damaged_and_oversized_transcripts() {
+    assert_same_as_strict_snapshot(&fixtures::damaged_lines());
 
     let mut t = Transcript::main();
     t.prompt(&"x".repeat(MAX_LINE_BYTES));
@@ -57,22 +53,28 @@ fn refuses_damaged_and_oversized_transcripts() {
         Usage::new(1, 0, 0, 1),
         "end_turn",
     );
-    let files = write_session(&t, &[]);
-    let provider = ClaudeCodeProvider::new(files.root.path());
-    let session = provider.discover(&|| false).unwrap().remove(0);
-    assert!(provider.load_events_strict(&session, &|| false).is_err());
+    assert_same_as_strict_snapshot(&write_session(&t, &[]));
 }
 
+/// A partial last line is left out, and the fingerprint covers its bytes,
+/// so finishing the line changes it.
 #[test]
-fn refuses_a_partial_last_line() {
+fn keeps_the_records_before_a_partial_last_line() {
     let files = fixtures::tool_hazards();
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let session = provider.discover(&|| false).unwrap().remove(0);
+    let whole = provider.load_events_strict(&session, &|| false).unwrap();
     let mut file = OpenOptions::new().append(true).open(&files.main).unwrap();
     file.write_all(br#"{"type":"user","uuid":"#).unwrap();
     drop(file);
-    let provider = ClaudeCodeProvider::new(files.root.path());
-    let session = provider.discover(&|| false).unwrap().remove(0);
-    assert!(provider.load_snapshot(&session, true, &|| false).is_err());
-    assert!(provider.load_events_strict(&session, &|| false).is_err());
+    let cut = provider.load_events_strict(&session, &|| false).unwrap();
+    assert_eq!(
+        cut.events.map(|events| events.len()),
+        whole.events.map(|events| events.len())
+    );
+    assert_ne!(cut.fingerprint, whole.fingerprint);
+    assert_eq!(cut.fingerprint, provider.fingerprint(&session).unwrap());
+    assert_same_as_strict_snapshot(&files);
 }
 
 #[test]

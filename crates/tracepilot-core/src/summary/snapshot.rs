@@ -28,8 +28,10 @@ impl SessionFingerprint {
     }
 }
 
-/// Successful results certify completeness and carry the pre-read identity.
-/// Failures, including changing files, are retried on the next index pass.
+/// Successful results hold every event that parsed (skipped lines are counted
+/// in the diagnostics) and carry the pre-read identity, verified unchanged
+/// after the read. Failures (I/O errors, cancellation, changing files, or an
+/// event log with no readable event) are retried on the next index pass.
 pub fn load_session_snapshot(
     session_dir: &Path,
     is_cancelled: &impl Fn() -> bool,

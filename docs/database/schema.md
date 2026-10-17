@@ -198,14 +198,17 @@ Files the session changed, for the code-impact view. Primary key: `(session_id, 
 
 ### `session_incidents`
 
-A bounded per-session log of errors, rate limits, compactions and truncations,
-for the incident drill-down. The totals on `sessions` are not capped.
+A per-session log of errors, rate limits, warnings, compactions and
+truncations, for the incident drill-down. Every error and rate limit keeps its
+row, so the rows agree with `sessions.error_count`; warnings, compactions and
+truncations share a cap of 100 rows per session (`MAX_INCIDENTS_PER_SESSION`).
+The totals on `sessions` are not capped.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
 | `id` | INTEGER PK | Rowid. Not stable across reindexes. |
 | `session_id` | TEXT NOT NULL | Owning session. |
-| `event_type` | TEXT NOT NULL | `error`, `rate_limit`, `compaction` or `truncation`. |
+| `event_type` | TEXT NOT NULL | `error`, `warning`, `compaction` or `truncation`. A rate limit is an `error` row whose `detail_json` has `errorType: "rate_limit"` (summary `Rate limit hit`). |
 | `source_event_type` | TEXT NOT NULL | Normalized event type the incident came from (for example `session.error`). |
 | `timestamp` | TEXT | When the event happened. |
 | `severity` | TEXT | `error`, `warning` or `info`. |

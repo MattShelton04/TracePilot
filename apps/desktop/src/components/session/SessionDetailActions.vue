@@ -140,7 +140,8 @@ watch(
           :title="`Copy: ${resumeCommand}`"
         >
           <component :is="copied ? Check : Clipboard" :size="14" aria-hidden="true" />
-          {{ copied ? 'Copied!' : 'Copy Resume Command' }}
+          <template v-if="copied">Copied!</template>
+          <span v-else>Copy <span class="resume-btn__extra">Resume </span>Command</span>
         </button>
 
         <template v-if="!isViewer() && capabilities.canResumeInTerminal">
@@ -165,32 +166,32 @@ watch(
 
       <button
         v-if="!isViewer() && folder"
-        class="resume-btn"
+        class="resume-btn resume-btn--collapsible"
         @click="openSessionFolder"
         title="Open the session's folder in the file explorer"
       >
         <FolderOpen :size="14" aria-hidden="true" />
-        Open Folder
+        <span class="resume-btn__extra">Open Folder</span>
       </button>
 
       <button
         v-if="!isViewer() && prefs.isFeatureEnabled('exportView') && router"
-        class="resume-btn"
+        class="resume-btn resume-btn--collapsible"
         :title="`Export session ${sessionId}`"
         @click="router!.push({ name: 'export', query: { sessionId: resolvedSessionId } })"
       >
         <Share :size="14" aria-hidden="true" />
-        Export
+        <span class="resume-btn__extra">Export</span>
       </button>
 
       <button
         v-if="prefs.isFeatureEnabled('sessionReplay') && router"
-        class="resume-btn"
+        class="resume-btn resume-btn--collapsible"
         @click="router!.push({ name: 'replay', params: { id: sessionId } })"
         title="Open session in step-by-step replay view"
       >
         <Clapperboard :size="14" aria-hidden="true" />
-        Replay
+        <span class="resume-btn__extra">Replay</span>
       </button>
     </div>
 
@@ -266,5 +267,30 @@ watch(
 }
 .resume-btn--cancel {
   color: var(--text-secondary);
+}
+
+/*
+ * Narrow bar (the minimum window with the sidebar open): keep one row by
+ * showing Open Folder, Export and Replay as icons and shortening the copy
+ * label. The hidden words stay in the accessible name; titles stay on hover.
+ */
+@container detail-actions (max-width: 760px) {
+  .resume-btn {
+    position: relative;
+  }
+  .resume-btn__extra {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .resume-btn--collapsible {
+    padding-inline: 8px;
+  }
 }
 </style>

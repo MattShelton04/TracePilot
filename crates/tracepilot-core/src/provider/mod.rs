@@ -63,9 +63,12 @@ pub trait SessionProvider: Send + Sync {
     /// The current identity of every file a load would read.
     fn fingerprint(&self, session: &SessionLocator) -> Result<SourceFingerprint>;
 
-    /// Load a session. `strict` loads are for durable indexes: they fail on
-    /// incomplete sources and on files that change while reading. Other
-    /// loads are best effort, for display.
+    /// Load a session. Every record that parses is kept, and skipped lines
+    /// are counted in the diagnostics. `strict` loads are for durable
+    /// indexes: they also fail on I/O errors, cancellation, files that change
+    /// while reading (so the returned fingerprint describes the bytes read),
+    /// and a source with skipped lines and no readable record. Other loads
+    /// are best effort, for display.
     fn load_snapshot(
         &self,
         session: &SessionLocator,

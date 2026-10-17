@@ -93,9 +93,10 @@ impl SessionProvider for FixtureProvider {
         check_cancelled(&is_cancelled)?;
         let fingerprint = self.fingerprint(session)?;
         let parsed = parse_typed_events(&session.primary_path)?;
-        if strict && parsed.diagnostics.malformed_lines > 0 {
+        // Like the real sources: keep what parses, fail only when nothing does.
+        if strict && parsed.events.is_empty() && parsed.diagnostics.malformed_lines > 0 {
             return Err(TracePilotError::ParseError {
-                context: "incomplete fixture log".into(),
+                context: "unreadable fixture log".into(),
                 source: None,
             });
         }

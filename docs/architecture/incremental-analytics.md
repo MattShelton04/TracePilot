@@ -200,8 +200,12 @@ count. Names are checked before they are counted, so a value that is not shaped
 like a type name or a version is stored as `(unrecognized name)` or
 `(unrecognized version)`, never as a path, an id or content. Copilot sessions
 record their unknown event types (as record types) and Copilot CLI versions
-from `session.start` and `session.resume`; a known event type whose payload
-fails to decode is not counted, because indexing refuses that snapshot.
+from `session.start` and `session.resume`. A known event type whose payload
+fails to decode is indexed as a raw event and counted as the record type
+`<type>:undecodable` (for both sources), so the drift stays visible even
+though analytics lose what that payload carried. A fix that decodes such
+payloads must bump the analytics version, or sessions already indexed with
+the raw event are never read again.
 Settings → Logs & Diagnostics lists the totals per source (Claude Code only
 when its sessions are enabled), and `node scripts/claude-census.mjs` prints
 the Claude Code tallies for a config folder without indexing it. Claude Code
@@ -233,12 +237,37 @@ could belong to a later append. If an append occurs after the final check, the
 stored identity still describes the older snapshot and the next freshness check
 requests another pass.
 
-A complete snapshot may contain unknown event types, which preserve their raw
-payloads for forward compatibility. I/O errors, malformed JSONL, failed known
-payload deserialization, malformed workspace metadata, and files changing during
-reads reject the update. Existing analytics, child rows, and search content remain
-available. Failed snapshots remain stale and are retried on a later indexing pass.
-Best-effort UI summary loading remains separate from this persistence contract.
+A snapshot keeps every record that parses. Unknown event types preserve their
+raw payloads for forward compatibility, and a known payload that fails typed
+deserialization is kept the same way. Lines that cannot be read (malformed JSON,
+a line cut off by a killed CLI, invalid UTF-8, or a Claude Code line over the
+reader's bound, in the main transcript or a subagent file) are skipped and
+counted in the parse diagnostics; they do not reject the update. A crashed CLI
+leaves such a line in place for good, and after `--resume` it sits mid-file,
+so rejecting it would keep a new session out of the index, or freeze an
+indexed one at its pre-crash rows, while every pass parsed it again. The cut
+line has no newline, so the resumed CLI's first record lands on the same
+line. When a newline-terminated line fails to parse, the parsers keep the
+first suffix that starts at a later `{"`, parses through the end of the line,
+and has a top-level record's shape (a Copilot envelope with an `id` or
+`timestamp`; a Claude Code record with a `type` and a record id). The line
+still counts as malformed.
+
+Because the stored fingerprint is sampled before the read and verified after
+it, it describes exactly the bytes that were parsed, including a partial last
+line that a live CLI is still writing. Finishing that line changes the file's
+size, so the next freshness check requests another pass. An unchanged file is
+never parsed again, whatever it skipped. A parser fix that would read more of
+an unchanged file needs an analytics or extractor version bump, as any other
+change to derived data does.
+
+I/O errors, malformed workspace metadata, files changing during reads, and an
+event log with skipped lines but no readable event at all reject the update.
+The last case has nothing to recover, and the existing rows are better than an
+empty session. Existing analytics, child rows, and search content remain
+available. Failed snapshots remain stale and are retried on a later indexing
+pass. Best-effort UI summary loading remains separate from this persistence
+contract.
 
 A search rebuild invalidates its own freshness markers first, then replaces each
 successful session atomically. Cancellation or a failed source read does not

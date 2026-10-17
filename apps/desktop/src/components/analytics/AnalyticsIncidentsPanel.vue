@@ -14,6 +14,7 @@ import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
 import { binRows, type DayRow, type DaySeries } from "@/utils/analyticsDashboard";
+import { countOf } from "@/utils/analyticsSummary";
 
 const props = defineProps<{
   data: AnalyticsData;
@@ -136,7 +137,7 @@ function chartDetail(row: DayRow): string[] {
   <OverviewPanel title="Incidents" :flush="view === 'tiles' && data.totalSessions > 0" data-testid="analytics-incidents">
     <template #aside>
       <span v-if="view === 'tiles' && data.totalSessions > 0" class="incidents__aside">
-        {{ formatNumberFull(data.sessionsWithErrors) }} session{{ data.sessionsWithErrors === 1 ? "" : "s" }} with errors
+        {{ countOf(data.sessionsWithErrors, "session") }} with errors or rate limits
       </span>
       <SegmentedControl v-if="view === 'chart'" v-model="scale" class="ad-seg" :options="SCALES" aria-label="Incident scale" />
       <SegmentedControl v-model="view" class="ad-seg" :options="VIEWS" aria-label="Incidents view" />

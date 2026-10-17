@@ -91,10 +91,10 @@ fn discover_honors_cancellation_inside_a_project() {
     );
 }
 
-/// A valid record over the reader's bound is skipped: strict loads refuse
-/// the snapshot, and best-effort loads report the skipped line.
+/// A valid record over the reader's bound is skipped: both kinds of load
+/// keep the rest and report the skipped line.
 #[test]
-fn oversized_records_fail_strict_loads_and_warn_best_effort_ones() {
+fn oversized_records_are_skipped_and_reported() {
     let mut t = Transcript::main();
     t.prompt(&"x".repeat(MAX_LINE_BYTES));
     t.call(
@@ -107,14 +107,16 @@ fn oversized_records_fail_strict_loads_and_warn_best_effort_ones() {
     let files = write_session(&t, &[]);
     let provider = provider(files.root.path());
     let session = provider.discover(&|| false).unwrap().remove(0);
-    assert!(provider.load_snapshot(&session, true, &|| false).is_err());
-    let snapshot = provider.load_snapshot(&session, false, &|| false).unwrap();
-    let diagnostics = snapshot.diagnostics.expect("diagnostics");
-    assert!(diagnostics.has_warnings());
-    assert_eq!(
-        diagnostics.malformed_lines, 1,
-        "the skipped line is reported"
-    );
+    for strict in [true, false] {
+        let snapshot = provider.load_snapshot(&session, strict, &|| false).unwrap();
+        assert!(snapshot.events.is_some_and(|events| !events.is_empty()));
+        let diagnostics = snapshot.diagnostics.expect("diagnostics");
+        assert!(diagnostics.has_warnings());
+        assert_eq!(
+            diagnostics.malformed_lines, 1,
+            "the skipped line is reported"
+        );
+    }
 }
 
 #[test]
@@ -190,15 +192,42 @@ fn resume_launch_uses_the_transcript_cwd_and_skips_subagents() {
     assert_eq!(provider.resume_launch(&subagent, false).unwrap(), None);
 }
 
+/// A killed process leaves a cut line for good, so strict loads index what
+/// parses rather than refuse the session forever.
 #[test]
-fn strict_loads_refuse_damaged_files_that_best_effort_loads_show() {
+fn strict_loads_keep_what_parses_in_damaged_files() {
     let files = fixtures::damaged_lines();
     let provider = provider(files.root.path());
     let session = provider.discover(&|| false).unwrap().remove(0);
-    assert!(provider.load_snapshot(&session, true, &|| false).is_err());
+    let strict = provider.load_snapshot(&session, true, &|| false).unwrap();
     let snapshot = provider.load_snapshot(&session, false, &|| false).unwrap();
-    assert!(snapshot.events.is_some_and(|events| !events.is_empty()));
+    assert!(
+        snapshot
+            .events
+            .as_ref()
+            .is_some_and(|events| !events.is_empty())
+    );
+    let counts =
+        |s: &crate::provider::ProviderSnapshot| (s.summary.event_count, s.summary.turn_count);
+    assert_eq!(counts(&strict), counts(&snapshot));
+    assert_eq!(strict.fingerprint, provider.fingerprint(&session).unwrap());
+    assert!(provider.load_snapshot(&session, true, &|| true).is_err());
     assert!(provider.load_snapshot(&session, false, &|| true).is_err());
+}
+
+/// A transcript with skipped lines and no record at all holds nothing to
+/// recover: strict loads fail, so an index keeps its last good rows.
+#[test]
+fn strict_loads_refuse_a_transcript_with_no_readable_record() {
+    let mut t = Transcript::main();
+    t.raw_line("{\"type\":\"user\",\"message\":");
+    t.partial_tail(b"{\"type\":\"user\"");
+    let files = write_session(&t, &[]);
+    let provider = provider(files.root.path());
+    let session = provider.discover(&|| false).unwrap().remove(0);
+    assert!(provider.load_snapshot(&session, true, &|| false).is_err());
+    assert!(provider.load_events_strict(&session, &|| false).is_err());
+    assert!(provider.load_snapshot(&session, false, &|| false).is_ok());
 }
 
 #[test]

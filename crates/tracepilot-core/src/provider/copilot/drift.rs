@@ -2,8 +2,8 @@
 //! know, and the Copilot CLI versions that wrote the session.
 //!
 //! Collected from the parse indexing already does, so nothing is reread.
-//! (Known types whose payload fails to decode are not counted: indexing
-//! refuses such a snapshot and keeps the last good rows.)
+//! Known types whose payload fails to decode are indexed as raw events and
+//! counted as `<type>:undecodable`, so that drift stays visible.
 //!
 //! Names go through the same checks as Claude Code's, so only type names and
 //! versions are counted, never paths, ids or content.
@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::{TypedEvent, TypedEventData};
 use crate::provider::FormatObservations;
-use crate::provider::claude_code::{safe_type_name, safe_version};
+use crate::provider::claude_code::{count_undecodable, safe_type_name, safe_version};
 
 /// The drift one parse of a session observed.
 pub(super) fn format_observations(
@@ -25,6 +25,7 @@ pub(super) fn format_observations(
         for (name, count) in &diagnostics.unknown_event_types {
             add(&mut out.unmapped_record_types, safe_type_name(name), *count);
         }
+        count_undecodable(&mut out.unmapped_record_types, diagnostics);
     }
     for event in events.unwrap_or_default() {
         let version = match &event.typed_data {
@@ -106,6 +107,22 @@ mod tests {
         assert_eq!(
             observed.unmapped_record_types,
             BTreeMap::from([("(unrecognized name)".to_string(), 1)])
+        );
+    }
+
+    #[test]
+    fn known_types_that_fail_to_decode_are_counted() {
+        let (events, diagnostics) = parse(&[
+            event(
+                "session.shutdown",
+                json!({ "modelMetrics": "changed-shape" }),
+            ),
+            event("session.shutdown", json!({ "modelMetrics": {} })),
+        ]);
+        let observed = format_observations(Some(&events), Some(&diagnostics));
+        assert_eq!(
+            observed.unmapped_record_types,
+            BTreeMap::from([("session.shutdown:undecodable".to_string(), 1)])
         );
     }
 

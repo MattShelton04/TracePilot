@@ -68,8 +68,10 @@ pub struct ClaudeCodeProvider {
 }
 
 impl ClaudeCodeProvider {
-    /// Fingerprint, then parse a session. A `strict` parse refuses an
-    /// incomplete transcript; the caller checks the files are unchanged.
+    /// Fingerprint, then parse a session; the caller of a `strict` parse
+    /// checks the files are unchanged. A strict parse fails only when lines
+    /// were skipped and no event was read: there is nothing to recover, and
+    /// failing keeps the last good index rows.
     fn parse(
         &self,
         session: &SessionLocator,
@@ -81,16 +83,22 @@ impl ClaudeCodeProvider {
         let fingerprint = self.fingerprint(session)?;
         let parsed = parse_claude_session(main, &is_cancelled)?;
         let diagnostics = &parsed.diagnostics;
-        if strict
-            && (diagnostics.malformed_lines > 0
-                || diagnostics.oversized_lines > 0
-                || diagnostics.partial_tails > 0
-                || !diagnostics.events.deserialization_failures.is_empty())
-        {
-            return Err(TracePilotError::ParseError {
-                context: format!("Incomplete Claude Code snapshot: {}", main.display()),
-                source: None,
-            });
+        let skipped =
+            diagnostics.malformed_lines + diagnostics.oversized_lines + diagnostics.partial_tails;
+        if strict && skipped > 0 {
+            if parsed.events.is_empty() {
+                return Err(TracePilotError::ParseError {
+                    context: format!("No readable Claude Code record in {}", main.display()),
+                    source: None,
+                });
+            }
+            tracing::info!(
+                session_id = %session.id,
+                malformed = diagnostics.malformed_lines,
+                oversized = diagnostics.oversized_lines,
+                partial_tails = diagnostics.partial_tails,
+                "Indexing Claude Code session without its skipped lines"
+            );
         }
         Ok((fingerprint, parsed))
     }
@@ -278,10 +286,13 @@ impl SessionProvider for ClaudeCodeProvider {
         Ok(SourceFingerprint::new(files, None))
     }
 
-    /// Strict loads fail when any record was skipped (malformed, oversized,
-    /// or a partial last line of a live file mid-append), like Copilot's, so
-    /// a skipped record never reaches a durable index. Best-effort loads
-    /// keep the rest and report the skipped lines in their diagnostics.
+    /// Both kinds of load keep every record that parses and report skipped
+    /// lines (malformed, oversized, or a partial last line, in the main file
+    /// or a subagent file) in their diagnostics, like Copilot's. A killed
+    /// process leaves such a line for good, so refusing it would keep the
+    /// session out of the index forever. Strict loads also fail when a file
+    /// changes while it is read, so the fingerprint they return describes
+    /// the bytes read: finishing a partial line changes it.
     fn load_snapshot(
         &self,
         session: &SessionLocator,

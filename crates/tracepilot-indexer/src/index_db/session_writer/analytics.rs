@@ -258,6 +258,14 @@ pub(crate) fn extract_session_analytics(
     let mut total_compaction_input: i64 = 0;
     let mut total_compaction_output: i64 = 0;
     let mut incidents: Vec<IncidentRow> = Vec::new();
+    // Every error and rate limit keeps its row, as `error_count` counts them;
+    // warnings, compactions and truncations share the cap.
+    let mut capped_rows = 0;
+    let mut under_cap = || {
+        let open = capped_rows < MAX_INCIDENTS_PER_SESSION;
+        capped_rows += usize::from(open);
+        open
+    };
 
     if let Some(events) = typed_events {
         for event in events {
@@ -284,24 +292,22 @@ pub(crate) fn extract_session_analytics(
                     if is_rate_limit {
                         rate_limit_count += 1;
                     }
-                    if incidents.len() < MAX_INCIDENTS_PER_SESSION {
-                        let summary = if is_rate_limit {
-                            "Rate limit hit".into()
-                        } else {
-                            d.message.clone().unwrap_or_default()
-                        };
-                        incidents.push(IncidentRow {
-                            event_type: "error".into(),
-                            source_event_type: "session.error".into(),
-                            timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
-                            severity: "error".into(),
-                            summary,
-                            detail_json: serde_json::to_string(&event.raw.data).ok(),
-                        });
-                    }
+                    let summary = if is_rate_limit {
+                        "Rate limit hit".into()
+                    } else {
+                        d.message.clone().unwrap_or_default()
+                    };
+                    incidents.push(IncidentRow {
+                        event_type: "error".into(),
+                        source_event_type: "session.error".into(),
+                        timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                        severity: "error".into(),
+                        summary,
+                        detail_json: serde_json::to_string(&event.raw.data).ok(),
+                    });
                 }
                 TypedEventData::SessionWarning(d) => {
-                    if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                    if under_cap() {
                         incidents.push(IncidentRow {
                             event_type: "warning".into(),
                             source_event_type: "session.warning".into(),
@@ -320,7 +326,7 @@ pub(crate) fn extract_session_analytics(
                         total_compaction_output +=
                             usage.output_tokens.or(usage.output).unwrap_or(0) as i64;
                     }
-                    if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                    if under_cap() {
                         incidents.push(IncidentRow {
                             event_type: "compaction".into(),
                             source_event_type: "session.compaction_complete".into(),
@@ -347,7 +353,7 @@ pub(crate) fn extract_session_analytics(
                 }
                 TypedEventData::SessionTruncation(d) => {
                     truncation_count += 1;
-                    if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                    if under_cap() {
                         incidents.push(IncidentRow {
                             event_type: "truncation".into(),
                             source_event_type: "session.truncation".into(),

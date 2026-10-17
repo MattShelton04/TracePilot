@@ -4,6 +4,7 @@
 use super::common::{write_session_with_incidents, write_session_with_tools};
 use crate::index_db::IndexDb;
 use crate::index_db::helpers::compute_duration_stats;
+use crate::index_db::types::MAX_INCIDENTS_PER_SESSION;
 
 #[test]
 fn test_query_analytics_basic() {
@@ -340,6 +341,65 @@ fn test_incident_indexing_and_retrieval() {
     assert_eq!(analytics.total_rate_limits, 1);
     assert_eq!(analytics.total_compactions, 1);
     assert_eq!(analytics.total_truncations, 1);
+}
+
+/// Claude Code records a warning per rejected tool call and interrupt, so a
+/// long session can pass the incident cap on warnings alone. Every error and
+/// rate limit keeps its row, so the Overview's incident tile agrees with the
+/// session's error count; only the other kinds stop at the cap.
+#[test]
+fn test_incident_cap_keeps_every_error_after_many_warnings() {
+    let id = "aaaa2222-2222-2222-2222-222222222222";
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let session_dir = write_session_with_incidents(tmp.path(), id);
+    let event = |kind: &str, data: &str, n: usize| {
+        format!(
+            "{{\"type\":\"{kind}\",\"data\":{data},\"id\":\"evt-x{n}\",\"timestamp\":\"2026-03-10T07:14:57.000Z\",\"parentId\":null}}\n"
+        )
+    };
+    let mut log = std::fs::read_to_string(session_dir.join("events.jsonl")).unwrap();
+    for n in 0..120 {
+        log.push_str(&event(
+            "session.warning",
+            &format!("{{\"warningType\":\"tool_rejected\",\"message\":\"warning {n}\"}}"),
+            n,
+        ));
+    }
+    log.push_str(&event(
+        "session.error",
+        r#"{"errorType":"rate_limit","message":"Rate limit exceeded","statusCode":429}"#,
+        200,
+    ));
+    log.push_str(&event(
+        "session.error",
+        r#"{"errorType":"model_call","message":"final failure"}"#,
+        201,
+    ));
+    std::fs::write(session_dir.join("events.jsonl"), log).unwrap();
+
+    db.upsert_session(&session_dir).unwrap();
+
+    let session = &db.list_sessions(None, None, None, false).unwrap()[0];
+    assert_eq!(session.error_count, Some(4));
+    assert_eq!(session.rate_limit_count, Some(2));
+    let incidents = db
+        .get_session_incidents(&tracepilot_core::ids::SessionId::from_validated(id))
+        .unwrap();
+    let count = |kind: &str| incidents.iter().filter(|i| i.event_type == kind).count();
+    let rate_limits = incidents
+        .iter()
+        .filter(|i| i.summary == "Rate limit hit")
+        .count();
+    assert_eq!(
+        (count("error"), rate_limits),
+        (4, 2),
+        "every error and rate limit keeps a row, as the session row counts them"
+    );
+    assert!(incidents.iter().any(|i| i.summary == "final failure"));
+    // The compaction and truncation came first; warnings fill the rest of the cap.
+    assert_eq!(count("warning"), MAX_INCIDENTS_PER_SESSION - 2);
+    assert_eq!(incidents.len(), MAX_INCIDENTS_PER_SESSION + 4);
 }
 
 #[test]
