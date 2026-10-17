@@ -6,8 +6,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { toolArgString } from "@tracepilot/types";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { MAIN_AGENT_KEY, writeAgentTarget } from "../../utils/agentComms";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import AgentMessageRoute from "../agentComms/AgentMessageRoute.vue";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
@@ -19,7 +19,7 @@ const props = defineProps<{
 
 const target = computed(() => writeAgentTarget(props.args));
 const message = computed(() => toolArgString(props.args, "message"));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 </script>
 
 <template>

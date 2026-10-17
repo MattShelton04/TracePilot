@@ -13,13 +13,13 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { toolArgString } from "@tracepilot/types";
 import { CornerDownRight, Inbox } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import {
   formatAgentAge,
   MAIN_AGENT_KEY,
   parseReadAgentResult,
   proseHint,
 } from "../../utils/agentComms";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
 import MarkdownContent from "../MarkdownContent.vue";
@@ -71,7 +71,7 @@ const readOptions = computed(() => {
 });
 
 // Reading an agent can succeed while the worker is still running or has failed.
-const shellStatus = computed(() => toolCallStatus(props.tc));
+const shellStatus = useToolCallStatus(() => props.tc);
 </script>
 
 <template>

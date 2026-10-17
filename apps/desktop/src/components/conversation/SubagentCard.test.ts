@@ -86,8 +86,15 @@ describe("subagent end state", () => {
     expect(wrapper.find(".cv-subagent-unreported").exists()).toBe(false);
   });
 
-  it("keeps Copilot agents running after the session ends", () => {
+  it("shows an unreported agent in an ended Copilot session as No final report", () => {
     const wrapper = mountIn("copilot", false);
+    expect(wrapper.get(".cv-subagent-status").classes()).toContain("unreported");
+    expect(wrapper.get(".cv-subagent-unreported").text()).toBe("No final report");
+    expect(wrapper.find(".cv-subagent-dur").exists()).toBe(false);
+  });
+
+  it("keeps the agent running while the Copilot session is live", () => {
+    const wrapper = mountIn("copilot", true);
     expect(wrapper.get(".cv-subagent-status").classes()).toContain("pending");
     expect(wrapper.find(".cv-subagent-unreported").exists()).toBe(false);
   });

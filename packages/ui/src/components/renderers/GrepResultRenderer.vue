@@ -7,8 +7,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { File, Search } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { normalizePath } from "../../utils/pathUtils";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import { parseSearchResults, type SearchMatch } from "../../utils/toolSearchResults";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -36,7 +36,7 @@ const outputMode = computed(() => {
     : "files_with_matches";
 });
 
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const parsed = computed(() => parseSearchResults(props.content, outputMode.value));
 const parsedMatches = computed(() => parsed.value.matches);
 const groupedByFile = computed(() => {

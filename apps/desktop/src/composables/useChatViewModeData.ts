@@ -15,6 +15,7 @@ import {
   type PermissionPair,
   pairPermissionEvents,
 } from "@/components/conversation/sessionEventPairing";
+import { useProvideSessionEnded } from "@/composables/useCountsUpToNow";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useLiveConversationTurn } from "@/composables/useLiveConversationTurn";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -102,6 +103,13 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
     return sdk.sessionStatesById[sid] != null || sdk.liveTurnsBySessionId[sid] != null;
   });
 
+  // Once the session has ended, a tool call with no result never finished:
+  // it reads as settled rather than pending, and is not auto-expanded.
+  const sessionEnded = useProvideSessionEnded(
+    () => store.sessionId,
+    () => isSdkSteered.value,
+  );
+
   // ─── Tool result loader ───────────────────────────────────────────
   const {
     fullResults,
@@ -122,6 +130,7 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
   watch(
     turns,
     (currentTurns) => {
+      if (sessionEnded.value) return;
       for (const turn of currentTurns) {
         const calls = turn.toolCalls ?? [];
         for (const tc of calls) {

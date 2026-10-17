@@ -4,6 +4,7 @@
 export * from "./externalLinks";
 export * from "./liveToolPartialOutput";
 export * from "./mainAgentLabel";
+export * from "./sessionEnded";
 export * from "./useAgentDirectory";
 export * from "./useAsyncData";
 export * from "./useAsyncGuard";

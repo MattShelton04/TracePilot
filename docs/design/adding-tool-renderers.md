@@ -37,7 +37,7 @@ for result framing:
 | Prop | Purpose |
 | --- | --- |
 | `toolName: string` | Required readable title |
-| `status: RendererShellStatus` | Required pending/success/warning/error/cancelled state |
+| `status: RendererShellStatus` | Required pending/success/warning/error/cancelled/unfinished state; take it from `useToolCallStatus` so a call left open by an ended session reads as unfinished, not pending |
 | `copyText?: string` | Available payload copied by the header action |
 | `primaryHint?: string` | Optional short context; do not repeat the whole body |
 | `iconName?: string` | Registered Lucide icon, or supply the `icon` slot |
@@ -59,8 +59,7 @@ A minimal result component:
 ```vue
 <script setup lang="ts">
 import type { TurnToolCall } from "@tracepilot/types";
-import { computed } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 
@@ -69,7 +68,7 @@ const props = defineProps<{
   args: Record<string, unknown>;
   tc: TurnToolCall;
 }>();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 </script>
 
 <template>

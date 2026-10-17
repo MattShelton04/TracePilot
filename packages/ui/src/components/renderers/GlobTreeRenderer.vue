@@ -6,7 +6,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { File, Folder, FolderTree } from "lucide-vue-next";
 import { computed, reactive } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { normalizeGlobPaths } from "../../utils/toolSearchResults";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -35,7 +35,7 @@ const searchRoot = computed(() =>
       : null,
 );
 
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const parsed = computed(() => normalizeGlobPaths(props.content, searchRoot.value));
 const relativePaths = computed(() => parsed.value.paths);
 const fileCount = computed(() => relativePaths.value.length);

@@ -155,7 +155,7 @@ describe("useAgentTree", () => {
     expect(api.hasInProgress.value).toBe(true);
   });
 
-  it("counts an unfinished agent up to now unless a non-Copilot session is not live", () => {
+  it("counts an unfinished agent up to now unless its session is not live", () => {
     store.sessionId = "s-1";
     store.turns = [
       makeTurn({
@@ -187,10 +187,12 @@ describe("useAgentTree", () => {
     expect(api.liveDuration(agent)).toBeUndefined();
     list("claudeCode", true);
     expect(api.liveDuration(agent)).toBeGreaterThan(0);
-    // Copilot keeps counting up to now whether or not it is running.
+    // A Copilot session that has shut down records no more results either.
     list("copilot", false);
-    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    expect(api.liveDuration(agent)).toBeUndefined();
     list(undefined, false);
+    expect(api.liveDuration(agent)).toBeUndefined();
+    list("copilot", true);
     expect(api.liveDuration(agent)).toBeGreaterThan(0);
   });
 });

@@ -52,6 +52,8 @@ import {
   splitAtTurnStart,
   type TurnStartSplit,
 } from "@/components/conversation/chatViewUtils";
+import { useProvideSessionEnded } from "@/composables/useCountsUpToNow";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { promptPreviewText } from "@/utils/pastedContent";
 import { sessionEventSummary } from "@/utils/sessionEventSummary";
 import { effortLabel } from "@/utils/sessionModel";
@@ -85,6 +87,9 @@ const props = defineProps<{
 // Turns render in `content-visibility: auto` chunks (see conversation.css).
 const turnChunks = computed(() => chunkTurns(props.turns));
 const mainAgentLabel = useMainAgentLabel();
+const store = useSessionDetailContext();
+// Calls that never reported a result read as settled once the session ended.
+useProvideSessionEnded(() => store.sessionId);
 
 // Session events logged at or before a turn started (such as `session.start`)
 // render above the turn's prompt; the rest render after its content. Events

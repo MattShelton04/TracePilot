@@ -11,6 +11,7 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { formatTime, toolArgString } from "@tracepilot/types";
 import { Send } from "lucide-vue-next";
 import { computed } from "vue";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import { useAgentDirectory } from "../../composables/useAgentDirectory";
 import {
   type AgentRuntimeStatus,
@@ -19,7 +20,6 @@ import {
   proseHint,
   writeAgentTarget,
 } from "../../utils/agentComms";
-import { toolCallStatus } from "../../utils/toolCallStatus";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentMessageRoute from "../agentComms/AgentMessageRoute.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
@@ -86,9 +86,9 @@ const deliveries = computed<DeliveryRow[]>(() => {
   }));
 });
 
+const callStatus = useToolCallStatus(() => props.tc);
 const status = computed(() => {
-  const callStatus = toolCallStatus(props.tc);
-  if (callStatus !== "success") return callStatus;
+  if (callStatus.value !== "success") return callStatus.value;
   if (deliveries.value.length && deliveries.value.every((d) => !d.delivered))
     return "error" as const;
   if (deliveries.value.some((d) => !d.delivered)) return "warning" as const;

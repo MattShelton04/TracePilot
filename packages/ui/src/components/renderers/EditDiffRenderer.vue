@@ -9,7 +9,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { FileEdit } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import { toolCallStatus } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
@@ -26,7 +26,7 @@ const emit = defineEmits<{
   "load-full": [];
 }>();
 
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const diffPage = ref(0);
 const PAGE_SIZE = 1000;
 const diffMode = ref<"unified" | "split">("unified");

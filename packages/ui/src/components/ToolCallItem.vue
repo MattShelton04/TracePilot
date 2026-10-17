@@ -2,12 +2,13 @@
 import type { TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { formatDuration } from "@tracepilot/types";
 import { computed, nextTick, ref, watch } from "vue";
+import { useToolCallStatus } from "../composables/sessionEnded";
 import { useAgentDirectory } from "../composables/useAgentDirectory";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { agentToolSummary } from "../utils/agentComms";
 import { backgroundOutcomeView } from "../utils/shellOutput";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
-import { toolCallStatus } from "../utils/toolCallStatus";
+import { UNFINISHED_TOOL_CALL_HINT, UNFINISHED_TOOL_CALL_LABEL } from "../utils/toolCallStatus";
 import ExpandChevron from "./ExpandChevron.vue";
 import ToolCallDetail from "./ToolCallDetail.vue";
 
@@ -44,7 +45,7 @@ const emit = defineEmits<{
 }>();
 
 const { directory: agentDirectory } = useAgentDirectory();
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 
 // A command that exits non-zero (failing tests, lint findings, a missing
 // path) still ran: shown as a caution, not as a failed tool.
@@ -256,6 +257,13 @@ watch(
         >exit {{ nonZeroExit }}</span>
         <span v-else-if="status === 'success'" class="tool-call-status success" aria-label="Succeeded">✓</span>
         <span v-else-if="status === 'error'" class="tool-call-status failed" aria-label="Failed">✗</span>
+        <span
+          v-else-if="status === 'unfinished'"
+          class="tool-call-status"
+          style="color: var(--text-tertiary);"
+          :aria-label="UNFINISHED_TOOL_CALL_LABEL"
+          :title="UNFINISHED_TOOL_CALL_HINT"
+        >—</span>
         <span v-else class="tool-call-status" style="color: var(--text-tertiary);" :aria-label="status === 'cancelled' ? 'Cancelled' : 'Pending'">{{ status === 'cancelled' ? '—' : '○' }}</span>
 
         <ExpandChevron :expanded="expanded" />

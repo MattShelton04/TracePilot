@@ -10,10 +10,11 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { formatDuration, formatTime } from "@tracepilot/types";
 import { computed } from "vue";
+import { useToolCallStatus } from "../composables/sessionEnded";
 import { useToolDisplayResult } from "../composables/useToolDisplayResult";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { extractPrompt, toolIcon } from "../utils/toolCall";
-import { toolCallStatus } from "../utils/toolCallStatus";
+import { UNFINISHED_TOOL_CALL_HINT, UNFINISHED_TOOL_CALL_LABEL } from "../utils/toolCallStatus";
 import Badge from "./Badge.vue";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
 import ToolErrorDisplay from "./renderers/ToolErrorDisplay.vue";
@@ -40,7 +41,7 @@ defineEmits<{
   "retry-full-result": [toolCallId: string];
 }>();
 const { displayResult, showResult, isTruncated, isStreaming } = useToolDisplayResult(props);
-const callStatus = computed(() => toolCallStatus(props.tc));
+const callStatus = useToolCallStatus(() => props.tc);
 
 const iconComponent = computed(() => {
   return resolveLucideIcon(toolIcon(props.tc.toolName));
@@ -60,6 +61,7 @@ const iconComponent = computed(() => {
         <Badge v-if="callStatus === 'error'" variant="danger">failed</Badge>
         <Badge v-else-if="callStatus === 'cancelled'" variant="neutral">cancelled</Badge>
         <Badge v-else-if="callStatus === 'success'" variant="success">ok</Badge>
+        <Badge v-else-if="callStatus === 'unfinished'" variant="neutral" :title="UNFINISHED_TOOL_CALL_HINT">did not finish</Badge>
         <Badge
           v-for="badge in badges"
           :key="badge.label"
@@ -81,7 +83,7 @@ const iconComponent = computed(() => {
       <div class="detail-field">
         <span class="detail-label">Status</span>
         <span class="detail-value">
-          {{ callStatus === 'error' ? 'Failed' : callStatus === 'cancelled' ? 'Cancelled' : callStatus === 'success' ? 'Success' : 'In progress' }}
+          {{ callStatus === 'error' ? 'Failed' : callStatus === 'cancelled' ? 'Cancelled' : callStatus === 'success' ? 'Success' : callStatus === 'unfinished' ? UNFINISHED_TOOL_CALL_LABEL : 'In progress' }}
         </span>
       </div>
       <div v-if="tc.durationMs != null" class="detail-field">

@@ -2,7 +2,8 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs } from "@tracepilot/types";
 import { computed } from "vue";
-import { toolCallStatus, toolResultPreview } from "../../utils/toolCallStatus";
+import { useToolCallStatus } from "../../composables/sessionEnded";
+import { toolResultPreview } from "../../utils/toolCallStatus";
 import MarkdownContent from "../MarkdownContent.vue";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -28,7 +29,7 @@ const activeComponent = computed(() =>
 );
 const parsedArgs = computed(() => getToolArgs(props.tc));
 const preview = computed(() => toolResultPreview(props.content, props.isTruncated));
-const status = computed(() => toolCallStatus(props.tc));
+const status = useToolCallStatus(() => props.tc);
 const useMarkdown = computed(
   () =>
     props.richEnabled &&
