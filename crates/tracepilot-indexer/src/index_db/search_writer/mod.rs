@@ -31,10 +31,7 @@ pub(crate) use content_extraction::extract_search_content_cancellable;
 
 /// Bump when extraction logic changes (new content types, field mapping, etc.)
 /// to force re-indexing even when events.jsonl hasn't changed.
-///
-/// v5: assistant replies and reasoning are indexed up to 256 KB, not their
-/// first 5 KB and 4 KB.
-pub const CURRENT_EXTRACTOR_VERSION: i64 = 5;
+pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 
 /// The search version of Claude Code sessions, bumped on its own so Copilot
 /// search content is not re-extracted when only the Claude translation
@@ -46,8 +43,7 @@ pub const CURRENT_EXTRACTOR_VERSION: i64 = 5;
 /// v7: a backgrounded shell's arguments carry its `shellId` and background mode.
 /// v8: tool rows carry the native tool name (`nativeToolName` metadata).
 /// v9: a notification wake's lines are a system message, not a user message.
-/// v10: assistant replies and reasoning are indexed up to 256 KB.
-const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 10;
+const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 9;
 
 /// The FTS insert trigger, as migration 9 defines it.
 const INSERT_TRIGGER: &str =
