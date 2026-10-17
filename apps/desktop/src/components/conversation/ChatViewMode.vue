@@ -16,7 +16,7 @@ import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { chunkTurns } from "./chatViewUtils";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
-import SubagentPanel from "./SubagentPanel.vue";
+import SubagentPanel, { type SubagentPanelLayout } from "./SubagentPanel.vue";
 import SystemMessagePanel from "./SystemMessagePanel.vue";
 
 const props = withDefaults(
@@ -34,6 +34,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   messageSent: [prompt: string];
+  /** The subagent panel opened, closed or resized. */
+  panelLayout: [layout: SubagentPanelLayout];
 }>();
 
 useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewMode" });
@@ -235,6 +237,7 @@ defineExpose({ revealEvent });
       @prev="panel.navigatePrev"
       @next="panel.navigateNext"
       @select-subagent="panel.selectSubagent"
+      @layout="emit('panelLayout', $event)"
     />
   </div>
 </template>

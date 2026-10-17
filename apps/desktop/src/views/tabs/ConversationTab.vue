@@ -20,6 +20,7 @@ import {
   useSessionTabLoader,
   useToggleSet,
 } from "@tracepilot/ui";
+import { ArrowDown, ArrowUp } from "lucide-vue-next";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
@@ -27,6 +28,7 @@ import ConversationTurnList from "@/components/conversation/ConversationTurnList
 import ConversationViewSwitcher, {
   type ConversationViewMode,
 } from "@/components/conversation/ConversationViewSwitcher.vue";
+import type { SubagentPanelLayout } from "@/components/conversation/SubagentPanel.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useConversationDeepLinkScroll } from "@/composables/useConversationDeepLinkScroll";
 import { usePromptCache } from "@/composables/usePromptCache";
@@ -119,6 +121,19 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
 function handleChatSteeringMessage() {
   nextTick(() => scrollToBottom(false));
 }
+
+// The chat view's subagent panel is fixed to the right edge. While it is open
+// the scroll buttons sit just left of it, or hide when it fills the window,
+// so they never cover its pager.
+const subagentPanel = ref<SubagentPanelLayout>({ width: 0, fullWidth: false });
+const panelBesideFabs = computed(() =>
+  activeView.value === "chat" ? subagentPanel.value : { width: 0, fullWidth: false },
+);
+const fabGroupStyle = computed(() =>
+  panelBesideFabs.value.width > 0
+    ? { "--fab-panel-offset": `${Math.round(panelBesideFabs.value.width)}px` }
+    : undefined,
+);
 
 // Deep-link scroll-to-turn (URL fragment / search navigation).
 const { scrollToTurn } = useConversationDeepLinkScroll(conversationRoot);
@@ -285,6 +300,7 @@ function richEnabledFor(toolName: string): boolean {
       :cache-windows="cacheWindows"
       :cache-timeline="cacheTimeline"
       @message-sent="handleChatSteeringMessage"
+      @panel-layout="subagentPanel = $event"
     />
 
     <!-- ═══════════════ COMPACT / TIMELINE VIEWS ═══════════════ -->
@@ -310,7 +326,11 @@ function richEnabledFor(toolName: string): boolean {
 
     <!-- Floating scroll buttons -->
     <Transition name="fab">
-      <div v-if="hasOverflow && (!isLockedToBottom || showScrollToTop)" class="scroll-fab-group">
+      <div
+        v-if="hasOverflow && (!isLockedToBottom || showScrollToTop) && !panelBesideFabs.fullWidth"
+        :class="['scroll-fab-group', { 'scroll-fab-group--beside-panel': panelBesideFabs.width > 0 }]"
+        :style="fabGroupStyle"
+      >
         <button
           v-if="showScrollToTop"
           class="scroll-fab"
@@ -318,7 +338,7 @@ function richEnabledFor(toolName: string): boolean {
           title="Jump to top"
           @click="scrollToTop()"
         >
-          ↑
+          <ArrowUp :size="18" aria-hidden="true" />
         </button>
         <button
           v-if="!isLockedToBottom"
@@ -327,7 +347,7 @@ function richEnabledFor(toolName: string): boolean {
           title="Jump to bottom"
           @click="scrollToBottom()"
         >
-          ↓
+          <ArrowDown :size="18" aria-hidden="true" />
         </button>
       </div>
     </Transition>
@@ -351,6 +371,11 @@ function richEnabledFor(toolName: string): boolean {
   z-index: var(--z-fab, 55);
 }
 
+/* The subagent panel is open: keep the same gap, measured from its left edge. */
+.scroll-fab-group--beside-panel {
+  right: calc(var(--fab-panel-offset) + 28px);
+}
+
 .scroll-fab {
   width: 40px;
   height: 40px;
@@ -358,15 +383,16 @@ function richEnabledFor(toolName: string): boolean {
   border: 1px solid var(--border-default);
   background: var(--canvas-overlay);
   color: var(--text-secondary);
-  font-size: 1.125rem;
-  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(8px);
+}
+
+.scroll-fab svg {
+  flex-shrink: 0;
 }
 
 .scroll-fab:hover {
@@ -382,13 +408,14 @@ function richEnabledFor(toolName: string): boolean {
 
 .scroll-fab--primary {
   background: var(--accent-emphasis);
-  color: white;
+  color: var(--text-on-emphasis);
   border-color: transparent;
 }
 
 .scroll-fab--primary:hover {
-  opacity: 0.9;
-  box-shadow: var(--shadow-glow-accent);
+  background: var(--accent-emphasis-hover);
+  color: var(--text-on-emphasis);
+  border-color: transparent;
 }
 
 /* FAB group transition */

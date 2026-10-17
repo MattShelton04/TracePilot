@@ -19,7 +19,7 @@ import {
   SubagentPanelNav,
   useAgentDirectory,
 } from "@tracepilot/ui";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { fromSubagentFullData } from "@/composables/subagentView";
 import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
@@ -29,6 +29,14 @@ import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
 import { NO_FINAL_REPORT, settledAgentStatus } from "@/utils/agentEndState";
 import SubagentToolRow from "./SubagentToolRow.vue";
+
+/** The panel's footprint at the right edge of the viewport. */
+export interface SubagentPanelLayout {
+  /** Rendered width in px; 0 while the panel is closed. */
+  width: number;
+  /** The panel spans the whole viewport (narrow windows). */
+  fullWidth: boolean;
+}
 
 const props = defineProps<{
   subagent: SubagentFullData | null;
@@ -54,6 +62,8 @@ const emit = defineEmits<{
   prev: [];
   next: [];
   "select-subagent": [toolCallId: string];
+  /** The strip of the viewport the panel covers, so floating controls can avoid it. */
+  layout: [layout: SubagentPanelLayout];
 }>();
 
 const preferences = usePreferencesStore();
@@ -102,6 +112,34 @@ const headerDuration = computed(() => {
   return formatDuration(ms ?? 0);
 });
 
+// Report the panel's rendered width while it is open (0 when closed). It is
+// fixed to the right edge, and spans the whole viewport on narrow windows.
+const panelEl = ref<HTMLElement | null>(null);
+const CLOSED: SubagentPanelLayout = { width: 0, fullWidth: false };
+function reportLayout() {
+  const el = panelEl.value;
+  if (!el) {
+    emit("layout", CLOSED);
+    return;
+  }
+  const width = el.getBoundingClientRect().width;
+  emit("layout", { width, fullWidth: width >= document.documentElement.clientWidth - 1 });
+}
+watch(
+  panelEl,
+  (el, _old, onCleanup) => {
+    reportLayout();
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(reportLayout);
+    observer.observe(el);
+    onCleanup(() => observer.disconnect());
+  },
+  { flush: "post" },
+);
+onBeforeUnmount(() => {
+  if (panelEl.value) emit("layout", CLOSED);
+});
+
 const scrollContainer = ref<HTMLElement | null>(null);
 watch(
   () => props.subagent?.agentId,
@@ -115,6 +153,7 @@ watch(
   <Transition name="cv-panel">
     <div
       v-if="isOpen && view"
+      ref="panelEl"
       class="cv-panel"
       :style="{ top: `${topPx}px` }"
       role="dialog"

@@ -333,6 +333,8 @@ watch(
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  /* SessionDetailActions compacts its labels when the bar is narrow. */
+  container: detail-actions / inline-size;
 }
 
 :root[data-theme="light"] .detail-actions {

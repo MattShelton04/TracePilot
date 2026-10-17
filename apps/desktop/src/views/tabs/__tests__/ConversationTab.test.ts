@@ -2,8 +2,9 @@ import { makeTurn, setupPinia } from "@tracepilot/test-utils";
 import type { ConversationTurn } from "@tracepilot/types";
 import { EmptyState, ErrorAlert, StatCard } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { nextTick, reactive } from "vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick, reactive, ref } from "vue";
+import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import ConversationTab from "../ConversationTab.vue";
 
 const store = reactive({
@@ -19,6 +20,16 @@ const store = reactive({
   loadPromptCache: vi.fn(),
 });
 vi.mock("@/composables/useSessionDetailContext", () => ({ useSessionDetailContext: () => store }));
+// Scrolled to the middle of an overflowing conversation: both jump buttons show.
+vi.mock("@/composables/useAutoScroll", () => ({
+  useAutoScroll: () => ({
+    isLockedToBottom: ref(false),
+    showScrollToTop: ref(true),
+    hasOverflow: ref(true),
+    scrollToBottom: vi.fn(),
+    scrollToTop: vi.fn(),
+  }),
+}));
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: {} }),
@@ -93,4 +104,50 @@ it("renders loaded turns with their counts", () => {
   expect(wrapper.find("chat-view-mode-stub").exists()).toBe(true);
   expect(stat("Turns")).toBe(2);
   wrapper.unmount();
+});
+
+describe("scroll buttons beside the subagent panel", () => {
+  async function mountChat() {
+    store.turns = [makeTurn({ turnIndex: 0 })];
+    store.loaded.add("turns");
+    const { wrapper } = mountTab();
+    await nextTick();
+    const group = () => wrapper.find(".scroll-fab-group");
+    const panel = async (width: number, fullWidth = false) => {
+      wrapper.getComponent(ChatViewMode).vm.$emit("panelLayout", { width, fullWidth });
+      await nextTick();
+    };
+    return { wrapper, group, panel };
+  }
+
+  it("keep their default corner while no panel is open", async () => {
+    const { wrapper, group } = await mountChat();
+    expect(group().exists()).toBe(true);
+    expect(group().classes()).not.toContain("scroll-fab-group--beside-panel");
+    expect(group().attributes("style")).toBeUndefined();
+    expect(wrapper.get('[aria-label="Scroll to top"]').attributes("title")).toBe("Jump to top");
+    expect(wrapper.get('[aria-label="Scroll to bottom"]').find("svg").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("move left of an open panel by its width, and back when it closes", async () => {
+    const { wrapper, group, panel } = await mountChat();
+    await panel(547.2);
+    expect(group().classes()).toContain("scroll-fab-group--beside-panel");
+    expect(group().attributes("style")).toContain("--fab-panel-offset: 547px");
+
+    await panel(0);
+    expect(group().classes()).not.toContain("scroll-fab-group--beside-panel");
+    expect(group().attributes("style")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("hide while the panel fills the window", async () => {
+    const { wrapper, group, panel } = await mountChat();
+    await panel(900, true);
+    expect(group().exists()).toBe(false);
+    await panel(0);
+    expect(group().exists()).toBe(true);
+    wrapper.unmount();
+  });
 });
