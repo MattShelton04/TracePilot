@@ -80,9 +80,19 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
   });
 
   // ── Keyboard navigation ─────────────────────────────────────
-  const { focusedResultIndex } = useSearchKeyboardNavigation({
+  // ↓/↑ follow the screen: group by group in the grouped view, skipping
+  // collapsed groups, whose results aren't rendered.
+  const visibleResultIds = computed(() =>
+    store.resultViewMode === "grouped"
+      ? store.groupedResults
+          .filter((g) => !collapsedGroups.value.has(g.sessionId))
+          .flatMap((g) => g.results.map((r) => r.id))
+      : store.results.map((r) => r.id),
+  );
+  const { focusedResultIndex, focusResult } = useSearchKeyboardNavigation({
     searchInputRef,
     results: computed(() => store.results),
+    visibleIds: visibleResultIds,
     hasQuery: computed(() => store.hasQuery),
     onClearAll: () => store.clearAll(),
     onToggleExpand: toggleExpand,
@@ -94,6 +104,12 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
       }
     },
   });
+
+  /** A click expands or collapses a result and moves the keyboard cursor to it. */
+  function handleResultClick(id: number) {
+    focusResult(id);
+    toggleExpand(id);
+  }
 
   // Map result.id → flat index for keyboard nav in grouped view
   const resultIndexMap = computed(() => {
@@ -143,6 +159,7 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     let count = 0;
     if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) count++;
     if (store.repository) count++;
+    if (store.toolName) count++;
     if (hasMeaningfulDateValue(store.dateFrom) || hasMeaningfulDateValue(store.dateTo)) count++;
     if (store.sessionId) count++;
     if (store.source) count++;
@@ -258,6 +275,7 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     // keyboard
     focusedResultIndex,
     resultIndexMap,
+    handleResultClick,
     // pagination
     pageStart,
     pageEnd,

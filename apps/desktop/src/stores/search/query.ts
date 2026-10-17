@@ -31,6 +31,14 @@ export interface MergedSearchInputs {
 }
 
 /**
+ * The sort results really use: with no text query there is nothing to rank
+ * by relevance, so browse mode lists the newest first.
+ */
+export function effectiveSortMode(sortBy: SortMode, isBrowseMode: boolean): SortMode {
+  return isBrowseMode && sortBy === "relevance" ? "newest" : sortBy;
+}
+
+/**
  * Merge inline qualifier syntax (e.g. `type:error repo:foo`) with the
  * explicit UI filters held by the query slice. Pure function — no Vue
  * reactivity, safe to unit-test in isolation.
@@ -42,8 +50,7 @@ export function mergeSearchInputs(
   parsed: ParsedQualifiers,
   state: MergeSearchInputsState,
 ): MergedSearchInputs {
-  const effectiveSort: SortMode =
-    state.isBrowseMode && state.sortBy === "relevance" ? "newest" : state.sortBy;
+  const effectiveSort = effectiveSortMode(state.sortBy, state.isBrowseMode);
 
   const contentTypes =
     parsed.types.length > 0

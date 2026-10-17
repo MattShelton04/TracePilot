@@ -155,16 +155,29 @@ export const useSearchStore = defineStore("search", () => {
     return clipboardCopySingle(result);
   }
 
+  // Show the browse-presets landing: drop an earlier query's results (and any
+  // search still pending or in flight) so they don't outlive the cleared query,
+  // then load stats/facets without executing a search.
+  async function fetchStatsOnly() {
+    scheduler.clear();
+    searchGuard.invalidate();
+    q.loading.value = false;
+    q.clearSearchResults();
+    await Promise.all([f.fetchStats(), f.fetchFacets(), f.fetchFilterOptions()]);
+  }
+
   function clearAll() {
     // Suppress watchers during multi-ref reset
     isHydrating = true;
     q.query.value = "";
     q.clearFilters();
-    q.clearSearchResults();
     q.error.value = null;
     nextTick(() => {
       isHydrating = false;
     });
+    // The emptied URL round-trips unchanged, so URL sync loads nothing: load
+    // the landing's whole-index facets here.
+    void fetchStatsOnly();
   }
 
   // Strip internal-only helpers before exposing query slice keys publicly.
@@ -197,15 +210,6 @@ export const useSearchStore = defineStore("search", () => {
     setViewMounted: (mounted: boolean) => {
       isViewMounted = mounted;
     },
-    // Show the browse-presets landing: drop an earlier query's results (and any
-    // search still in flight) so they don't outlive the cleared query, then
-    // load stats/facets without executing a search.
-    async fetchStatsOnly() {
-      scheduler.clear();
-      searchGuard.invalidate();
-      q.loading.value = false;
-      q.clearSearchResults();
-      await Promise.all([f.fetchStats(), f.fetchFacets(), f.fetchFilterOptions()]);
-    },
+    fetchStatsOnly,
   };
 });

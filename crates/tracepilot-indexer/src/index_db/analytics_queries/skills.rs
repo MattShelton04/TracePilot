@@ -12,7 +12,7 @@ use crate::Result;
 use tracepilot_core::analytics::{SkillUsageDetail, SkillUsageSummary};
 use tracepilot_core::provider::SessionSource;
 
-use super::super::helpers::{append_source_filter, to_refs};
+use super::super::helpers::{RepositoryScope, append_source_filter, to_refs};
 
 /// Date range (inclusive `YYYY-MM-DD`, UTC), repository and source filter.
 #[derive(Debug, Clone, Copy, Default)]
@@ -82,9 +82,8 @@ fn load_invocations(
         clause.push_str(&format!(" AND date({TIMESTAMP}) <= ?"));
         values.push(to.to_string());
     }
-    if let Some(repo) = filter.repo {
-        clause.push_str(" AND s.repository = ?");
-        values.push(repo.to_string());
+    if let Some(repo) = RepositoryScope::resolve(conn, filter.repo.as_slice(), false)? {
+        repo.append_to(&mut clause, &mut values);
     }
     append_source_filter(&mut clause, &mut values, filter.source);
     if let Some(name) = normalized_name {

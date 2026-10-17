@@ -258,6 +258,12 @@ describe("useModelComparison", () => {
     expect(comp.pageSubtitle).toContain("in foo/bar");
   });
 
+  it("pageSubtitle names a folder-only project by its folder, as the filter lists it", () => {
+    analyticsStoreMock.selectedRepo = "project:harbor";
+    const { comp } = mountHook();
+    expect(comp.pageSubtitle).toBe("Performance and cost metrics across all models in harbor");
+  });
+
   it("pageSubtitle names the selected source", () => {
     analyticsStoreMock.sourcePrefix = "Claude Code ";
     const { comp } = mountHook();

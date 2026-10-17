@@ -19,8 +19,11 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: gpt-5.6-luna · 5s*
+
+> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
+> ℹ️ **session.auto_mode_resolved**: Auto mode chose gpt-5.6-luna
 
 **User**
 
@@ -165,10 +168,7 @@ Message delivered to agent agent-beta. The recipient can reply with write_agent.
 Message delivered to agent agent-alpha. The recipient can reply with write_agent.
 ```
 
-> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
-> ℹ️ **session.auto_mode_resolved**: Auto mode chose gpt-5.6-luna
-
-### Turn 2
+### Turn 1
 *Model: gpt-5.6-luna · 8.5s*
 
 _No user message._
@@ -196,7 +196,7 @@ Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general
 Beta answered: **42**.
 ```
 
-### Turn 3
+### Turn 2
 *Model: gpt-5.6-luna · 3.7s*
 
 _No user message._
@@ -231,7 +231,7 @@ alpha asks: what is 6*7?
 
 ```
 
-### Turn 4
+### Turn 3
 *Model: gpt-5.6-luna · 1.4s*
 
 _No user message._
@@ -258,7 +258,7 @@ Message delivered to 2 agents.
 - agent-beta, delivered, task_status=running
 ```
 
-### Turn 5
+### Turn 4
 *Model: gpt-5.6-luna · 6.9s*
 
 _No user message._
@@ -300,7 +300,7 @@ Final check: reply with the single word DONE.
 DONE
 ```
 
-### Turn 6
+### Turn 5
 *Model: gpt-5.6-luna · 1.4s*
 
 _No user message._

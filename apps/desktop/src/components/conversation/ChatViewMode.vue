@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
+import type { CacheWindow, ConversationTurn, PromptCacheTimeline } from "@tracepilot/types";
 import { provideAgentOpener } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
@@ -10,11 +10,12 @@ import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
 import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.vue";
 import PermissionEventRow from "@/components/conversation/PermissionEventRow.vue";
 import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
+import type { SessionEventEntry } from "@/components/conversation/sessionEventPairing";
 import { useChatViewModeData } from "@/composables/useChatViewModeData";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useSessionSource } from "@/composables/useSessionSource";
-import { chunkTurns } from "./chatViewUtils";
+import { chunkTurns, splitAtTurnStart, type TurnStartSplit } from "./chatViewUtils";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 import SubagentPanel, { type SubagentPanelLayout } from "./SubagentPanel.vue";
 import SystemMessagePanel from "./SystemMessagePanel.vue";
@@ -104,6 +105,25 @@ function revealLaunch(toolUseId: string) {
   if (launch) revealEvent(launch.turnIndex, launch.eventIndex);
 }
 
+// Session events logged at or before a turn started render above its prompt;
+// those logged while it ran (a rejected tool call's warning, an interruption)
+// render after its content. Events without a timestamp stay above, as before.
+// Keyed by the turn's cached entries, so each turn splits once.
+const eventSplits = new WeakMap<readonly SessionEventEntry[], TurnStartSplit<SessionEventEntry>>();
+function eventEntriesFor(turn: ConversationTurn): TurnStartSplit<SessionEventEntry> {
+  const { entries } = permissionDataFor(turn);
+  let split = eventSplits.get(entries);
+  if (!split) {
+    split = splitAtTurnStart(entries, turn.timestamp, entryTime, "before");
+    eventSplits.set(entries, split);
+  }
+  return split;
+}
+function entryTime(entry: SessionEventEntry): string | undefined {
+  if (entry.type === "event") return entry.event.timestamp;
+  return entry.requested?.timestamp ?? entry.completed?.timestamp;
+}
+
 // Turns render in chunks, each a `content-visibility: auto` container.
 const turnChunks = computed(() => chunkTurns(turns.value));
 
@@ -144,8 +164,8 @@ defineExpose({ revealEvent });
                 :index="idx"
               />
 
-              <!-- Session events (with permission request/completion pairing) -->
-              <template v-for="entry in permissionDataFor(turn).entries" :key="entry.key">
+              <!-- Session events logged before the turn started (with permission request/completion pairing) -->
+              <template v-for="entry in eventEntriesFor(turn).before" :key="entry.key">
                 <PermissionEventRow
                   v-if="entry.type === 'permission'"
                   :requested="entry.requested"
@@ -210,6 +230,19 @@ defineExpose({ revealEvent });
                 @retry-full-result="handleRetryResult"
                 @select-subagent="panel.selectSubagent"
               />
+
+              <!-- Session events logged while the turn ran -->
+              <template v-for="entry in eventEntriesFor(turn).after" :key="entry.key">
+                <PermissionEventRow
+                  v-if="entry.type === 'permission'"
+                  :requested="entry.requested"
+                  :completed="entry.completed"
+                />
+                <SessionEventRow
+                  v-else
+                  :event="entry.event"
+                />
+              </template>
             </template>
             </div>
 

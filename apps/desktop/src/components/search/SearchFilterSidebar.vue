@@ -2,8 +2,14 @@
 import type { SearchContentType } from "@tracepilot/types";
 import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from "@tracepilot/ui";
 import { computed, ref, useId, watch } from "vue";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSearchStore } from "@/stores/search";
 import { useSessionsStore } from "@/stores/sessions";
+import {
+  groupRepositoryFilterOptions,
+  type RepositoryFilterOption,
+  repositoryFilterOptionsFor,
+} from "@/stores/sessions/filtering";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 import { searchToolOptionLabel } from "@/utils/toolDisplayName";
 
@@ -41,10 +47,26 @@ const visibleContentTypes = computed(() => {
   );
 });
 
-const availableRepositories = computed(() => {
-  return store.availableRepositories.length > 0
-    ? store.availableRepositories
-    : sessionsStore.repositories;
+const prefs = usePreferencesStore();
+
+// The session list's repository options for the searched source, so folder-only
+// projects (most Claude Code sessions) can be picked; the backend resolves each
+// value to the sessions the list shows for it. Before the session list loads,
+// the index's repositories stand in.
+const repositoryGroups = computed(() => {
+  const options: RepositoryFilterOption[] =
+    sessionsStore.sessions.length > 0
+      ? repositoryFilterOptionsFor(sessionsStore.sessions, {
+          source: store.effectiveSource,
+          hideEmptySessions: prefs.hideEmptySessions,
+          selected: store.repository,
+        })
+      : store.availableRepositories.map((repo) => ({
+          value: repo,
+          label: repo,
+          group: "Repositories",
+        }));
+  return groupRepositoryFilterOptions(options);
 });
 
 // Tools the searched source used (plus the selected one), named as that
@@ -206,13 +228,16 @@ function setDatePreset(preset: string) {
         @change="store.repository = ($event.target as HTMLSelectElement).value || null"
       >
         <option value="">All Repositories</option>
-        <option
-          v-for="repo in availableRepositories"
-          :key="repo"
-          :value="repo"
-        >
-          {{ repo }}
-        </option>
+        <optgroup v-for="group in repositoryGroups" :key="group.label" :label="group.label">
+          <option
+            v-for="opt in group.options"
+            :key="opt.value"
+            :value="opt.value"
+            :title="opt.title"
+          >
+            {{ opt.label }}
+          </option>
+        </optgroup>
       </select>
     </div>
 

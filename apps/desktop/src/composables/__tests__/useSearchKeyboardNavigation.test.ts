@@ -308,4 +308,38 @@ describe("useSearchKeyboardNavigation", () => {
       expect(result.focusedResultIndex.value).toBe(-1);
     });
   });
+
+  describe("on-screen order", () => {
+    it("walks visibleIds and leaves out results that aren't on screen", () => {
+      // Results 1..5; the screen shows 4, then 2 (the rest are hidden).
+      const result = useSearchKeyboardNavigation(
+        createOptions({ visibleIds: computed(() => [4, 2]) }),
+      );
+
+      result.handleKeydown(fireKey("j"));
+      expect(result.focusedResultIndex.value).toBe(3);
+      result.handleKeydown(fireKey("j"));
+      expect(result.focusedResultIndex.value).toBe(1);
+      result.handleKeydown(fireKey("j"));
+      expect(result.focusedResultIndex.value).toBe(1);
+      result.handleKeydown(fireKey("k"));
+      expect(result.focusedResultIndex.value).toBe(3);
+      result.handleKeydown(fireKey("k"));
+      expect(result.focusedResultIndex.value).toBe(-1);
+    });
+
+    it("does nothing when every result is hidden", () => {
+      const result = useSearchKeyboardNavigation(createOptions({ visibleIds: computed(() => []) }));
+      result.handleKeydown(fireKey("ArrowDown"));
+      expect(result.focusedResultIndex.value).toBe(-1);
+    });
+
+    it("continues from a result focused by focusResult", () => {
+      const result = useSearchKeyboardNavigation(createOptions());
+      result.focusResult(3);
+      expect(result.focusedResultIndex.value).toBe(2);
+      result.handleKeydown(fireKey("ArrowDown"));
+      expect(result.focusedResultIndex.value).toBe(3);
+    });
+  });
 });

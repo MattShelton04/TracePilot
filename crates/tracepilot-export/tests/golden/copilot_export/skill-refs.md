@@ -19,8 +19,11 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: mai-code-1.1-flash · 3.2s*
+
+> ℹ️ **session.start**: Session started (model: auto)
+> ℹ️ **session.auto_mode_resolved**: Auto mode chose mai-code-1.1-flash
 
 **User**
 
@@ -46,10 +49,7 @@
 Skill "probe-notes" loaded successfully. Follow the instructions in the skill context.
 ```
 
-> ℹ️ **session.start**: Session started (model: auto)
-> ℹ️ **session.auto_mode_resolved**: Auto mode chose mai-code-1.1-flash
-
-### Turn 2
+### Turn 1
 *Model: mai-code-1.1-flash · 1.4s*
 
 _No user message._
@@ -60,8 +60,10 @@ _No user message._
 > 
 > TANGERINE-42
 
-### Turn 3
+### Turn 2
 *Model: mai-code-1.1-flash · 3.3s*
+
+> ℹ️ **session.resume**: Session resumed (model: auto)
 
 **User**
 
@@ -87,9 +89,7 @@ _No user message._
 Skill "probe-notes" loaded successfully. Follow the instructions in the skill context.
 ```
 
-> ℹ️ **session.resume**: Session resumed (model: auto)
-
-### Turn 4
+### Turn 3
 *Model: mai-code-1.1-flash · 1.6s*
 
 _No user message._

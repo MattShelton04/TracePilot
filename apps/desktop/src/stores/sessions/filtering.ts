@@ -42,6 +42,17 @@ export interface SessionSearchFields {
 /** Marks a repository-filter value as a working-directory project, not a repository. */
 export const PROJECT_FILTER_PREFIX = "project:";
 
+/**
+ * What a repository-filter value reads as: the folder name for a
+ * `PROJECT_FILTER_PREFIX` key, as the filter's Folders group lists it, else
+ * the repository itself.
+ */
+export function repositoryFilterLabel(value: string): string {
+  return value.startsWith(PROJECT_FILTER_PREFIX)
+    ? value.slice(PROJECT_FILTER_PREFIX.length)
+    : value;
+}
+
 /** One option of the session list's repository filter. */
 export interface RepositoryFilterOption {
   value: string;
@@ -238,6 +249,45 @@ export function repositoryFilterOptions(
     }),
   );
   return [...repoOptions, ...projectOptions];
+}
+
+/**
+ * The repository-filter options the session list offers with `source` picked:
+ * from the sessions it would show, each folder filed under its repository on
+ * evidence from every session. Analytics and Search offer the same options,
+ * and their backends resolve each value to the same sessions
+ * (`index_db::helpers::RepositoryScope`).
+ */
+export function repositoryFilterOptionsFor(
+  sessions: readonly SessionListItem[],
+  scope: { source: SessionSource | null; hideEmptySessions: boolean; selected: string | null },
+): RepositoryFilterOption[] {
+  const predicates: SessionFilterPredicates = {
+    searchTerms: [],
+    repository: null,
+    source: scope.source,
+    hideEmptySessions: scope.hideEmptySessions,
+  };
+  // With no search terms or repository, the predicate never reads the cache.
+  const shown = sessions.filter((s) => matchesSessionFilters(s, predicates, new Map()));
+  return repositoryFilterOptions(shown, scope.selected, folderRepositories(sessions));
+}
+
+/** Options split into their non-empty `<optgroup>`s, repositories first. */
+export function groupRepositoryFilterOptions(
+  options: readonly RepositoryFilterOption[],
+): { label: RepositoryFilterOption["group"]; options: RepositoryFilterOption[] }[] {
+  return (["Repositories", "Folders"] as const)
+    .map((label) => ({ label, options: options.filter((o) => o.group === label) }))
+    .filter((group) => group.options.length > 0);
+}
+
+/** Whether any session sits under a repository-filter value, from any source. */
+export function hasRepositoryFilterValue(
+  sessions: readonly SessionListItem[],
+  value: string,
+): boolean {
+  return repositoryFilterOptions(sessions).some((option) => option.value === value);
 }
 
 /** Sources present in the session set, in display order. */

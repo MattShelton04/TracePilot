@@ -268,7 +268,9 @@ pub(super) fn write_events_summary(md: &mut String, events: &[RawEvent]) {
     }
 
     let mut sorted: Vec<_> = counts.into_iter().collect();
-    sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
+    // Most frequent first; equal counts by name, so the same session always
+    // exports the same table.
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
 
     md.push_line(format_args!("| Event Type | Count |"));
     md.push_line(format_args!("|------------|-------|"));

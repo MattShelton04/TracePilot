@@ -26,6 +26,7 @@ import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useValueTween } from "@/composables/useValueTween";
 import type { AnalyticsDatasetName } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
+import { repositoryFilterLabel } from "@/stores/sessions/filtering";
 import {
   activityRows,
   dashboardDays,
@@ -73,8 +74,10 @@ useValueTween({
 
 const pageSubtitle = computed(() => {
   const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";
-  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
-  return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} ${store.sourcePrefix}sessions${repoSuffix}`;
+  const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
+  const count = data.value?.totalSessions ?? 0;
+  const noun = count === 1 ? "session" : "sessions";
+  return `Aggregate metrics across ${allPrefix}${count} ${store.sourcePrefix}${noun}${repoSuffix}`;
 });
 
 const summary = computed(() =>

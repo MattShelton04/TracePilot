@@ -162,3 +162,40 @@ export function chunkTurns<T extends { turnIndex: number }>(
   }
   return chunks;
 }
+
+// ─── Session events around a turn ─────────────────────────────────
+
+export interface TurnStartSplit<T> {
+  /** Items logged at or before the turn started (e.g. `session.start`). */
+  before: T[];
+  /** Items logged after the turn started, while its work ran. */
+  after: T[];
+}
+
+function parseTime(value: string | undefined): number {
+  return value ? Date.parse(value) : Number.NaN;
+}
+
+/**
+ * Splits a turn's session events (or entries built from them) into those
+ * logged at or before the turn started and those logged during it, so views
+ * can render the first group above the turn's content and the rest below it.
+ *
+ * An item without a usable timestamp, or any item when the turn has none,
+ * goes to `untimed`: each view keeps its previous placement for those.
+ */
+export function splitAtTurnStart<T>(
+  items: readonly T[],
+  turnStart: string | undefined,
+  timeOf: (item: T) => string | undefined,
+  untimed: keyof TurnStartSplit<T>,
+): TurnStartSplit<T> {
+  const split: TurnStartSplit<T> = { before: [], after: [] };
+  const start = parseTime(turnStart);
+  for (const item of items) {
+    const at = parseTime(timeOf(item));
+    if (Number.isNaN(start) || Number.isNaN(at)) split[untimed].push(item);
+    else split[at <= start ? "before" : "after"].push(item);
+  }
+  return split;
+}

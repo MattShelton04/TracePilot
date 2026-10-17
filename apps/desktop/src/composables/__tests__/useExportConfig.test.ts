@@ -21,6 +21,33 @@ describe("useExportConfig", () => {
     expect(new Set(config.sectionsArray.value)).toEqual(new Set(preset?.sections ?? []));
   });
 
+  it("gives each built-in preset the same content whichever preset came before", () => {
+    for (const preset of EXPORT_PRESETS) {
+      const fresh = useExportConfig();
+      fresh.applyPreset(preset.id);
+      for (const previous of EXPORT_PRESETS) {
+        const config = useExportConfig();
+        config.applyPreset(previous.id);
+        config.applyPreset(preset.id);
+        expect(config.contentDetail.value, `${previous.id} then ${preset.id}`).toEqual(
+          fresh.contentDetail.value,
+        );
+      }
+    }
+  });
+
+  it("restores tool details and subagent internals for Full Archive after Minimal Team Log", () => {
+    const config = useExportConfig();
+    config.applyPreset("minimal-team-log");
+    config.applyPreset("full");
+
+    expect(config.contentDetail.value).toEqual({
+      includeSubagentInternals: true,
+      includeToolDetails: true,
+      includeFullToolResults: false,
+    });
+  });
+
   it("clears activePreset when format changes manually", async () => {
     const config = useExportConfig();
 

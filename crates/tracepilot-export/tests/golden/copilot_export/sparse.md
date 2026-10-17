@@ -15,12 +15,12 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
+> ℹ️ **session.start**: Session started
+
 **User**
 
 > Hi
-
-> ℹ️ **session.start**: Session started
 
 ## Events Summary
 

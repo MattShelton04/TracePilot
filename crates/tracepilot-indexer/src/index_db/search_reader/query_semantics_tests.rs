@@ -2,6 +2,7 @@
 //! words are plain terms, normal words that start with "near" survive, a
 //! leading NOT never searches for the term it negates, and a query with no
 //! searchable terms matches nothing instead of browsing the whole index.
+//! Words joined by punctuation (`index.ts`, `build-std`) stay adjacent.
 
 use super::SearchFilters;
 use crate::index_db::IndexDb;
@@ -10,12 +11,16 @@ use tracepilot_core::SessionId;
 
 const SESSION: &str = "00000000-0000-4000-8000-0000000000a1";
 
-const ROWS: [&str; 5] = [
+const ROWS: [&str; 9] = [
     "The cache tier was not recorded",
     "command not found",
     "the file was found",
     "jwt token expired",
     "the nearby replica answered",
+    "Edited src/index.ts to export the store",
+    "The ts compiler rebuilt the search index",
+    "Run cargo build-std with the nightly toolchain",
+    "build the std library docs",
 ];
 
 fn fixture() -> (tempfile::TempDir, IndexDb) {
@@ -112,4 +117,47 @@ fn query_without_searchable_terms_matches_nothing() {
         db.facets(None, &all).unwrap().total_matches,
         ROWS.len() as i64
     );
+}
+
+#[test]
+fn punctuation_joined_words_stay_adjacent() {
+    let (_tmp, db) = fixture();
+    let all = SearchFilters::default();
+    for (query, expected) in [
+        ("index.ts", vec![5]),
+        ("src/index.ts", vec![5]),
+        ("build-std", vec![7]),
+        ("cargo build-std", vec![7]),
+        // A trailing * still makes the last word a prefix.
+        ("index.t*", vec![5]),
+        ("build-st*", vec![7]),
+    ] {
+        assert_eq!(matches(&db, query), expected, "{query:?}");
+        let facets = db.facets(Some(query), &all).unwrap();
+        assert_eq!(facets.total_matches, 1, "facets for {query:?}");
+    }
+    // Words separated by spaces still match anywhere in the row.
+    assert_eq!(matches(&db, "index ts"), vec![5, 6]);
+    assert_eq!(matches(&db, "build std"), vec![7, 8]);
+}
+
+#[test]
+fn operators_wrapped_in_punctuation_still_apply() {
+    let (_tmp, db) = fixture();
+    let all = SearchFilters::default();
+    for (query, expected) in [
+        ("cache AND (NOT found)", vec![0]),
+        ("(cache OR found) AND (NOT jwt)", vec![0, 1, 2]),
+        ("error OR (NOT timeout)", vec![]),
+        ("(OR jwt)", vec![3]),
+        ("(AND) cache", vec![0]),
+        ("[OR] cache", vec![0]),
+        ("-NOT cache", vec![]),
+        (".NOT cache", vec![]),
+    ] {
+        // `matches` fails on an FTS5 syntax error from the search or count.
+        assert_eq!(matches(&db, query), expected, "{query:?}");
+        let facets = db.facets(Some(query), &all).unwrap();
+        assert_eq!(facets.total_matches, expected.len() as i64, "{query:?}");
+    }
 }

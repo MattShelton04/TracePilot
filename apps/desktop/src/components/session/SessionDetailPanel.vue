@@ -315,7 +315,13 @@ watch(
 </template>
 
 <style scoped>
-/* The action bar's root: pinned under the breadcrumb as the page scrolls. */
+/*
+ * The action bar's root: pinned under the breadcrumb as the page scrolls.
+ * Intentional styling, keep it: `top: 0` pins the bar inside .page-content's
+ * padding, so it floats below the breadcrumb with a gap rather than flush
+ * against it, and the translucent blurred surface is part of that look (it
+ * is on the backdrop-filter allow-list for this reason).
+ */
 .detail-actions {
   display: flex;
   justify-content: space-between;

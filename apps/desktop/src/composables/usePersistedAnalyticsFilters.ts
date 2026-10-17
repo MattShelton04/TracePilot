@@ -3,6 +3,7 @@ import { usePersistedRef } from "@tracepilot/ui";
 import { ref, watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { useSessionsStore } from "@/stores/sessions";
+import { hasRepositoryFilterValue } from "@/stores/sessions/filtering";
 import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
 
 /** The analytics pages' filters, kept across visits and restarts. */
@@ -88,7 +89,10 @@ export function usePersistedAnalyticsFilters() {
     const sessions = useSessionsStore();
     // Sync, so a page waiting on the session list loads without the stale filter.
     const dropMissing = () => {
-      if (selectedRepo.value !== null && !sessions.repositories.includes(selectedRepo.value)) {
+      if (
+        selectedRepo.value !== null &&
+        !hasRepositoryFilterValue(sessions.sessions, selectedRepo.value)
+      ) {
         selectedRepo.value = null;
       }
       if (selectedSource.value !== null && !sessions.sources.includes(selectedSource.value)) {

@@ -19,8 +19,10 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: gpt-5.6-luna · 15s*
+
+> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
 
 **User**
 
@@ -30,9 +32,7 @@
 
 > Fixture reply.
 
-> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
-
-### Turn 2
+### Turn 1
 *Model: gpt-5.6-luna · 30s*
 
 **User**
@@ -43,8 +43,10 @@
 
 > Fixture reply.
 
-### Turn 3
+### Turn 2
 *Model: gpt-5.6-luna · 40s*
+
+> ℹ️ **session.compaction_complete**: Compaction complete (21000 tokens)
 
 **User**
 
@@ -54,16 +56,14 @@
 
 > Fixture reply.
 
-> ℹ️ **session.compaction_complete**: Compaction complete (21000 tokens)
-
-### Turn 4
+### Turn 3
 *Model: claude-sonnet-5 · 30s*
+
+> ℹ️ **session.model_change**: Model changed gpt-5.6-luna → claude-sonnet-5
 
 **User**
 
 > Fixture prompt.
-
-> ℹ️ **session.model_change**: Model changed gpt-5.6-luna → claude-sonnet-5
 
 ## Metrics
 

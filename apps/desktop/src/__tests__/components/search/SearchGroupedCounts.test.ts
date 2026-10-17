@@ -23,7 +23,7 @@ vi.mock("@/composables/useIndexingEvents", () => ({
   useIndexingEvents: () => ({ setup: vi.fn().mockResolvedValue(undefined) }),
 }));
 vi.mock("@/stores/sessions", () => ({
-  useSessionsStore: () => ({ repositories: [], sources: [] }),
+  useSessionsStore: () => ({ repositories: [], sessions: [], sources: [] }),
 }));
 vi.mock("@tracepilot/ui", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tracepilot/ui")>()),

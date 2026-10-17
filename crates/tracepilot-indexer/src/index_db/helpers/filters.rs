@@ -2,7 +2,10 @@ use rusqlite::types::ToSql;
 use tracepilot_core::provider::SessionSource;
 use tracepilot_core::utils::InfallibleWrite;
 
+use super::RepositoryScope;
+
 /// Build a WHERE clause for date range + repo filtering on the sessions table.
+/// `repo` is a resolved session-list repository filter ([`RepositoryScope`]).
 ///
 /// Returns `(where_clause, bind_values)` where `where_clause` starts with
 /// `" WHERE 1=1"` and may include additional AND conditions.
@@ -13,7 +16,7 @@ use tracepilot_core::utils::InfallibleWrite;
 pub(in crate::index_db) fn build_date_repo_filter(
     from_date: Option<&str>,
     to_date: Option<&str>,
-    repo: Option<&str>,
+    repo: Option<&RepositoryScope>,
     hide_empty: bool,
 ) -> (String, Vec<String>) {
     let mut clause = String::from(" WHERE 1=1");
@@ -36,8 +39,7 @@ pub(in crate::index_db) fn build_date_repo_filter(
         );
     }
     if let Some(repo) = repo {
-        values.push(repo.to_string());
-        clause.push_str(" AND s.repository = ?");
+        repo.append_to(&mut clause, &mut values);
     }
 
     (clause, values)

@@ -1,4 +1,4 @@
-import type { SearchContentType } from "@tracepilot/types";
+import type { SearchContentType, SessionListItem } from "@tracepilot/types";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, defineComponent, h, nextTick, reactive, ref } from "vue";
@@ -7,7 +7,12 @@ import SessionSearchHero from "@/components/search/SessionSearchHero.vue";
 import { useSearchKeyboardNavigation } from "@/composables/useSearchKeyboardNavigation";
 
 vi.mock("@/stores/search", () => ({ useSearchStore: () => store }));
-vi.mock("@/stores/sessions", () => ({ useSessionsStore: () => ({ repositories: [] }) }));
+vi.mock("@/stores/sessions", () => ({ useSessionsStore: () => sessionsState }));
+vi.mock("@/stores/preferences", () => ({
+  usePreferencesStore: () => ({ hideEmptySessions: true }),
+}));
+
+const sessionsState = reactive({ repositories: [] as string[], sessions: [] as SessionListItem[] });
 
 const store = reactive({
   contentTypes: [] as SearchContentType[],
@@ -38,6 +43,7 @@ beforeEach(() => {
   store.toolName = null;
   store.availableToolNames = [{ name: "read_file", nativeNames: [], sources: ["copilot"] }];
   store.effectiveSource = null;
+  sessionsState.sessions = [];
   toggleResult.mockClear();
 });
 
@@ -162,6 +168,47 @@ describe("Search filter accessibility", () => {
       await select.setValue(value);
       expect(store[key]).toBe(value);
     }
+  });
+
+  it("offers the session list's repositories and folder-only projects for the searched source", async () => {
+    const base = { eventCount: 1, turnCount: 1, isRunning: false };
+    sessionsState.sessions = [
+      { ...base, id: "a", repository: "example/orchard", cwd: "C:\\synthetic\\orchard" },
+      { ...base, id: "b", source: "claudeCode", cwd: "c:/synthetic/orchard" },
+      { ...base, id: "c", cwd: "C:\\synthetic\\harbor" },
+      { ...base, id: "d", source: "claudeCode", cwd: "/home/dev/lantern" },
+      { ...base, id: "e", cwd: "C:\\synthetic\\gallery", turnCount: 0 },
+    ];
+    const view = renderFilters();
+    const repositorySelect = () => {
+      const label = view.findAll("label").find((item) => item.text() === "Repository")!;
+      return view.get(`select[id="${label.attributes("for")}"]`);
+    };
+    const groups = () =>
+      repositorySelect()
+        .findAll("optgroup")
+        .map((g) => [g.attributes("label"), g.findAll("option").map((o) => o.attributes("value"))]);
+    expect(groups()).toEqual([
+      ["Repositories", ["example/orchard"]],
+      ["Folders", ["project:harbor", "project:lantern"]],
+    ]);
+    await repositorySelect().setValue("project:harbor");
+    expect(store.repository).toBe("project:harbor");
+
+    // Claude Code only: orchard through its folded session; harbor stays
+    // listed while selected, as on the session list.
+    store.effectiveSource = "claudeCode";
+    await nextTick();
+    expect(groups()).toEqual([
+      ["Repositories", ["example/orchard"]],
+      ["Folders", ["project:harbor", "project:lantern"]],
+    ]);
+    store.repository = null;
+    await nextTick();
+    expect(groups()).toEqual([
+      ["Repositories", ["example/orchard"]],
+      ["Folders", ["project:lantern"]],
+    ]);
   });
 
   it("names Claude Code tools natively and lists the searched source's tools", async () => {

@@ -19,8 +19,10 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: gpt-5.6-luna · 6s*
+
+> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
 
 **User**
 
@@ -56,9 +58,7 @@ Prime probe worker
 {"agent_type":"general-purpose","mode":"background","model":"gpt-5.6-luna","name":"probe-worker"}
 ```
 
-> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
-
-### Turn 2
+### Turn 1
 *Model: gpt-5.6-luna · 12s*
 
 _No user message._
@@ -81,7 +81,7 @@ _No user message._
 {"agent_id":"worker-uuid","timeout":180,"wait":true}
 ```
 
-### Turn 3
+### Turn 2
 *Model: gpt-5.6-luna · 4s*
 
 _No user message._
@@ -104,7 +104,7 @@ _No user message._
 {"agent_id":"worker-uuid"}
 ```
 
-### Turn 4
+### Turn 3
 *Model: gpt-5.6-luna · 9s*
 
 _No user message._
@@ -127,7 +127,7 @@ _No user message._
 {"agent_id":"worker-uuid","timeout":180,"wait":true}
 ```
 
-### Turn 5
+### Turn 4
 *Model: gpt-5.6-luna · 2s*
 
 _No user message._

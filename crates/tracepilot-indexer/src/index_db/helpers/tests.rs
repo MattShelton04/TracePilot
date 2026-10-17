@@ -40,7 +40,7 @@ fn test_build_date_repo_filter_with_dates() {
 
 #[test]
 fn test_build_date_repo_filter_with_repo() {
-    let (clause, values) = build_date_repo_filter(None, None, Some("myrepo"), false);
+    let (clause, values) = build_date_repo_filter(None, None, Some(&myrepo()), false);
     assert!(clause.contains("s.repository = ?"));
     // Ensure anonymous placeholder is used (not indexed ?1)
     assert_no_indexed_params(&clause);
@@ -50,8 +50,12 @@ fn test_build_date_repo_filter_with_repo() {
 
 #[test]
 fn test_build_date_repo_filter_all_filters() {
-    let (clause, values) =
-        build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), true);
+    let (clause, values) = build_date_repo_filter(
+        Some("2026-01-01"),
+        Some("2026-01-31"),
+        Some(&myrepo()),
+        true,
+    );
     assert!(clause.contains("s.turn_count"));
     assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
     assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
@@ -59,6 +63,10 @@ fn test_build_date_repo_filter_all_filters() {
     // Ensure anonymous placeholders are used throughout
     assert_no_indexed_params(&clause);
     assert_eq!(values.len(), 3);
+}
+
+fn myrepo() -> RepositoryScope {
+    RepositoryScope::of_repositories(&["myrepo"])
 }
 
 /// Helper: check that a WHERE clause contains no indexed placeholders (`?N`).
@@ -112,7 +120,8 @@ fn test_build_date_repo_filter_placeholder_count_matches_values() {
         ),
     ];
     for (from, to, repo, hide_empty, expected_params) in cases {
-        let (clause, values) = build_date_repo_filter(from, to, repo, hide_empty);
+        let scope = repo.map(|r| RepositoryScope::of_repositories(&[r]));
+        let (clause, values) = build_date_repo_filter(from, to, scope.as_ref(), hide_empty);
         let placeholder_count = clause.matches('?').count();
         assert_eq!(
             placeholder_count, expected_params,
@@ -168,7 +177,7 @@ fn test_build_date_repo_filter_executes_correctly() {
     let (clause, bind_values) = build_date_repo_filter(
         Some("2026-01-01"),
         Some("2026-01-31"),
-        Some("repo-a"),
+        Some(&RepositoryScope::of_repositories(&["repo-a"])),
         false,
     );
     let sql = format!("SELECT COUNT(*) FROM sessions s{}", clause);
@@ -180,8 +189,12 @@ fn test_build_date_repo_filter_executes_correctly() {
 
     // Test 2: January 2026, repo-a, hide empty sessions (turn_count > 0).
     // Expected: s1, s3, s5 = 3 (s6 excluded because turn_count = 0)
-    let (clause2, bind_values2) =
-        build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), Some("repo-a"), true);
+    let (clause2, bind_values2) = build_date_repo_filter(
+        Some("2026-01-01"),
+        Some("2026-01-31"),
+        Some(&RepositoryScope::of_repositories(&["repo-a"])),
+        true,
+    );
     let sql2 = format!("SELECT COUNT(*) FROM sessions s{}", clause2);
     let refs2 = to_refs(&bind_values2);
     let count2: i64 = conn
@@ -191,7 +204,12 @@ fn test_build_date_repo_filter_executes_correctly() {
 
     // Test 3: repo-b only, no date range.
     // Expected: s2 = 1
-    let (clause3, bind_values3) = build_date_repo_filter(None, None, Some("repo-b"), false);
+    let (clause3, bind_values3) = build_date_repo_filter(
+        None,
+        None,
+        Some(&RepositoryScope::of_repositories(&["repo-b"])),
+        false,
+    );
     let sql3 = format!("SELECT COUNT(*) FROM sessions s{}", clause3);
     let refs3 = to_refs(&bind_values3);
     let count3: i64 = conn
@@ -308,7 +326,7 @@ fn test_append_segment_date_filter_placeholder_count() {
     ];
     for (from, to, extra_params) in cases {
         // Start with a base clause that already has some params
-        let (base_clause, base_values) = build_date_repo_filter(from, to, Some("myrepo"), false);
+        let (base_clause, base_values) = build_date_repo_filter(from, to, Some(&myrepo()), false);
         let base_q_count = base_clause.matches('?').count();
 
         let (new_clause, new_values) =

@@ -61,10 +61,10 @@ export interface AnalyticsFetchOptions {
 
 export const useAnalyticsStore = defineStore("analytics", () => {
   // Filters persist across restarts. The repository and source choices come
-  // from the sessions store, which avoids redundant listSessions() calls.
+  // from the sessions store, which avoids redundant listSessions() calls; the
+  // header offers the session list's repository options.
   const { selectedRepo, selectedSource, selectedTimeRange, customFromDate, customToDate } =
     usePersistedAnalyticsFilters();
-  const availableRepos = computed(() => useSessionsStore().repositories as string[]);
 
   // Source filter: `null` covers every source.
   const availableSources = computed(() => useSessionsStore().sources);
@@ -109,7 +109,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   const agentsFetcher = cachedFetch<AgentUsageSummary>("agents", (p) => agentsUsageSummary(p));
   const skillsFetcher = cachedFetch<SkillUsageSummary>("skills", (p) => skillsUsageSummary(p));
 
-  /** Ensure the sessions store is populated so availableRepos has data. */
+  /** Ensure the sessions store is populated so the repository options have data. */
   async function fetchAvailableRepos() {
     const sessionsStore = useSessionsStore();
     if (sessionsStore.sessions.length === 0) {
@@ -268,7 +268,6 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     agentsSummaryError: agentsFetcher.error,
     skillsSummaryError: skillsFetcher.error,
     selectedRepo,
-    availableRepos,
     selectedSource,
     availableSources,
     sourcePrefix,

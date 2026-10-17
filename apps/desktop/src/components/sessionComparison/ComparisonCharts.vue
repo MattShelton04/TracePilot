@@ -20,7 +20,7 @@ const comp = useSessionComparisonContext();
             :key="'wa-' + i"
             class="waveform-bar waveform-bar-a"
             :style="{ height: Math.max(h, 8) + '%' }"
-            :title="`Turn ${i + 1}`"
+            :title="`Turn ${comp.dataA.turns[i]?.turnIndex ?? i}`"
           ></div>
         </div>
       </div>
@@ -35,7 +35,7 @@ const comp = useSessionComparisonContext();
             :key="'wb-' + i"
             class="waveform-bar waveform-bar-b"
             :style="{ height: Math.max(h, 8) + '%' }"
-            :title="`Turn ${i + 1}`"
+            :title="`Turn ${comp.dataB.turns[i]?.turnIndex ?? i}`"
           ></div>
         </div>
       </div>
@@ -58,7 +58,7 @@ const comp = useSessionComparisonContext();
               ? `linear-gradient(90deg, ${CHART_COLORS.primary}, ${CHART_COLORS.primaryLight})`
               : 'var(--accent-muted)',
           }"
-          :title="`Turn ${i + 1}: ${formatDuration(comp.dataA.turns[i]?.durationMs) || '—'}`"
+          :title="`Turn ${comp.dataA.turns[i]?.turnIndex ?? i}: ${formatDuration(comp.dataA.turns[i]?.durationMs) || '—'}`"
         ></div>
       </div>
     </div>
@@ -75,7 +75,7 @@ const comp = useSessionComparisonContext();
               ? `linear-gradient(90deg, var(--done-fg), ${CHART_COLORS.secondary})`
               : 'var(--done-muted)',
           }"
-          :title="`Turn ${i + 1}: ${formatDuration(comp.dataB.turns[i]?.durationMs) || '—'}`"
+          :title="`Turn ${comp.dataB.turns[i]?.turnIndex ?? i}: ${formatDuration(comp.dataB.turns[i]?.durationMs) || '—'}`"
         ></div>
       </div>
     </div>

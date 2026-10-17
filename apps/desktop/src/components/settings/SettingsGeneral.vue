@@ -7,6 +7,7 @@ import {
   MIN_SESSION_CACHE_SIZE,
 } from "@tracepilot/types";
 import { ActionButton, BtnGroup, FormInput, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import { ref, watch } from "vue";
 import { useCliCommandDraft } from "@/composables/useCliCommandDraft";
 import { type ThemeOption, usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
@@ -19,8 +20,36 @@ const themeOptions = [
   { value: "dark", label: "Dark" },
 ];
 
-function updateSessionCacheSize(value: unknown) {
-  preferences.sessionCacheSize = clampSessionCacheSize(Number(value));
+// Typing edits a draft; blur or Enter saves it (clamped to the allowed range)
+// and shows the saved number, Escape restores it. A blank or non-numeric
+// draft keeps the saved value.
+const cacheSizeDraft = ref(String(preferences.sessionCacheSize));
+watch(
+  () => preferences.sessionCacheSize,
+  (size) => {
+    cacheSizeDraft.value = String(size);
+  },
+);
+
+function editCacheSize(value: string | number | undefined) {
+  cacheSizeDraft.value = value === undefined ? "" : String(value);
+}
+
+function showSavedCacheSize(event?: Event) {
+  const saved = String(preferences.sessionCacheSize);
+  cacheSizeDraft.value = saved;
+  // The draft may already equal the saved value while the input shows other text.
+  const input = event?.target;
+  if (input instanceof HTMLInputElement && input.value !== saved) input.value = saved;
+}
+
+function commitCacheSize(event?: Event) {
+  const draft = cacheSizeDraft.value.trim();
+  const size = Number(draft);
+  if (draft && Number.isFinite(size)) {
+    preferences.sessionCacheSize = clampSessionCacheSize(size);
+  }
+  showSavedCacheSize(event);
 }
 
 // Blank means `copilot`; a command Resume would refuse stays an unsaved draft.
@@ -89,8 +118,11 @@ const {
             Reset
           </ActionButton>
           <FormInput
-            :model-value="preferences.sessionCacheSize"
-            @update:model-value="updateSessionCacheSize"
+            :model-value="cacheSizeDraft"
+            @update:model-value="editCacheSize"
+            @blur="commitCacheSize"
+            @keydown.enter.prevent="commitCacheSize"
+            @keydown.esc.prevent="showSavedCacheSize"
             type="number"
             :min="MIN_SESSION_CACHE_SIZE"
             :max="MAX_SESSION_CACHE_SIZE"

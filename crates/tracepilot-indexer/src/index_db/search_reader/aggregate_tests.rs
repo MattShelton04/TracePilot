@@ -214,7 +214,7 @@ fn tied_tool_facets_keep_the_legacy_top_twenty() {
                 SearchQueryBuilder::new("SELECT sc.tool_name, COUNT(*)", query.is_some())
                     .with_optional_fts_match(query)
                     .with_extra_where("sc.tool_name IS NOT NULL")
-                    .with_filters(&filters)
+                    .with_filters(&filters, scope(&db, &filters).as_ref())
                     .with_group_by("sc.tool_name", Some("ORDER BY COUNT(*) DESC"))
                     .with_limit(20)
                     .build();
@@ -242,7 +242,7 @@ fn content_aggregates_use_covering_indexes_without_session_lookups() {
         let (sql, params) =
             SearchQueryBuilder::content_aggregate("SELECT sc.content_type, COUNT(*)", is_fts)
                 .with_optional_fts_match(is_fts.then_some("benchmark"))
-                .with_filters(&SearchFilters::default())
+                .with_filters(&SearchFilters::default(), None)
                 .with_group_by("sc.content_type", None)
                 .build();
         let mut stmt = db
@@ -278,8 +278,17 @@ fn content_aggregates_use_covering_indexes_without_session_lookups() {
         },
     ] {
         let (sql, _) = SearchQueryBuilder::content_aggregate("SELECT COUNT(*)", false)
-            .with_filters(&filters)
+            .with_filters(&filters, scope(&db, &filters).as_ref())
             .build();
         assert!(sql.contains("JOIN sessions s"), "{sql}");
     }
+}
+
+/// `filters.repositories` resolved the way the search queries resolve them.
+fn scope(
+    db: &IndexDb,
+    filters: &SearchFilters,
+) -> Option<crate::index_db::helpers::RepositoryScope> {
+    crate::index_db::helpers::RepositoryScope::resolve(&db.conn, &filters.repositories, true)
+        .unwrap()
 }

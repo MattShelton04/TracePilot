@@ -4,7 +4,7 @@
 use tracepilot_core::provider::claude_code::without_paste_tags;
 use tracepilot_core::utils::InfallibleWrite;
 
-use crate::document::{ConversationTurn, SessionEventSeverity};
+use crate::document::{ConversationTurn, SessionEventSeverity, TurnSessionEvent, TurnToolCall};
 
 use super::{cell, format_duration, push_fenced};
 
@@ -22,7 +22,8 @@ pub(super) fn write_conversation(md: &mut String, turns: &[ConversationTurn]) {
 }
 
 fn write_turn(md: &mut String, turn: &ConversationTurn) {
-    md.push_line(format_args!("### Turn {}", turn.turn_index + 1));
+    // The app numbers turns from 0; the export uses the same numbers.
+    md.push_line(format_args!("### Turn {}", turn.turn_index));
 
     let mut meta_parts = Vec::new();
     if let Some(model) = &turn.model {
@@ -37,6 +38,11 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
     if !meta_parts.is_empty() {
         md.push_line(format_args!("*{}*\n", meta_parts.join(" · ")));
     }
+
+    // Events logged before the turn's message (`session.start`, a resume or
+    // model change) come first; the rest happened during the turn's work.
+    let (before, during) = turn.session_events.split_at(leading_events(turn));
+    write_session_events(md, before);
 
     // A background task's completion opened the turn, not the user.
     let author = if turn.notifications.is_empty() {
@@ -130,7 +136,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         let detailed_tools: Vec<_> = turn
             .tool_calls
             .iter()
-            .filter(|t| t.arguments.is_some() || t.result_content.is_some())
+            .filter(|t| t.arguments.is_some() || t.result_content.is_some() || failure(t).is_some())
             .collect();
         if !detailed_tools.is_empty() {
             for tool in detailed_tools {
@@ -176,24 +182,69 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                     md.push_str("**Result:**\n\n");
                     push_fenced(md, "", result);
                 }
+                if let Some(error) = failure(tool) {
+                    md.push_str("**Error:**\n\n");
+                    push_fenced(md, "", &error_text(error));
+                }
             }
         }
     }
 
-    if !turn.session_events.is_empty() {
-        for event in &turn.session_events {
-            let icon = match event.severity {
-                SessionEventSeverity::Error => "🔴",
-                SessionEventSeverity::Warning => "🟡",
-                SessionEventSeverity::Info => "ℹ️",
-            };
-            md.push_line(format_args!(
-                "> {} **{}**: {}",
-                icon, event.event_type, event.summary
-            ));
-        }
-        md.push('\n');
+    write_session_events(md, during);
+}
+
+/// Longest error text written for one tool call. A failed command's error can
+/// carry its whole output; the start says what went wrong.
+const MAX_ERROR_BYTES: usize = 2_000;
+
+/// The error a failed tool call reported, if it reported one.
+fn failure(tool: &TurnToolCall) -> Option<&str> {
+    let error = tool.error.as_deref()?.trim();
+    (tool.success != Some(true) && !error.is_empty()).then_some(error)
+}
+
+fn error_text(error: &str) -> String {
+    if error.len() <= MAX_ERROR_BYTES {
+        return error.to_string();
     }
+    let kept = tracepilot_core::utils::truncate_utf8(error, MAX_ERROR_BYTES);
+    format!(
+        "{kept}\n… (truncated: {} of {} bytes shown)",
+        kept.len(),
+        error.len()
+    )
+}
+
+/// How many of the turn's session events were logged before its message.
+/// Events keep log order, and those buffered before the message lead the
+/// list, so this is the leading run stamped no later than the turn's start.
+/// A synthesized `session.start` shares the first record's timestamp.
+fn leading_events(turn: &ConversationTurn) -> usize {
+    let Some(start) = turn.timestamp else {
+        return 0;
+    };
+    turn.session_events
+        .iter()
+        .take_while(|event| event.timestamp.is_some_and(|at| at <= start))
+        .count()
+}
+
+fn write_session_events(md: &mut String, events: &[TurnSessionEvent]) {
+    if events.is_empty() {
+        return;
+    }
+    for event in events {
+        let icon = match event.severity {
+            SessionEventSeverity::Error => "🔴",
+            SessionEventSeverity::Warning => "🟡",
+            SessionEventSeverity::Info => "ℹ️",
+        };
+        md.push_line(format_args!(
+            "> {} **{}**: {}",
+            icon, event.event_type, event.summary
+        ));
+    }
+    md.push('\n');
 }
 
 fn write_block(md: &mut String, label: &str, text: &str) {

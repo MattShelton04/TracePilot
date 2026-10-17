@@ -51,6 +51,28 @@ describe("Export session picker accessibility", () => {
     expect(document.activeElement).toBe(input.element);
   });
 
+  it("selects the first match on Enter after typing, without arrow keys", async () => {
+    const wrapper = mountPicker();
+    const input = wrapper.get<HTMLInputElement>("input");
+    input.element.focus();
+    await input.setValue("second-repository");
+    const [only] = wrapper.findAll('[role="option"]');
+    expect(input.attributes("aria-activedescendant")).toBe(only.attributes("id"));
+    await input.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("select")).toEqual([["second-session"]]);
+
+    await input.setValue("Audit duplicate");
+    await input.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("select")?.[1]).toEqual(["first-session"]);
+
+    // Clearing the text leaves nothing highlighted, so Enter picks nothing.
+    await input.setValue("Audit");
+    await input.setValue("");
+    expect(input.attributes("aria-activedescendant")).toBeUndefined();
+    await input.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("select")).toHaveLength(2);
+  });
+
   it("names the combobox and exposes keyboard focus separately from the committed selection", async () => {
     const wrapper = mountPicker(sessions[1]);
     const input = wrapper.get<HTMLInputElement>("input");

@@ -18,7 +18,7 @@ use tracepilot_core::SessionId;
 use tracepilot_core::analytics::{AgentSelectionStats, AgentUsageDetail, AgentUsageSummary};
 use tracepilot_core::provider::{SessionLocator, SessionRole, SessionSource};
 
-use super::super::helpers::{append_source_filter, to_refs};
+use super::super::helpers::{RepositoryScope, append_source_filter, to_refs};
 
 pub(super) use detail::build_detail;
 
@@ -123,9 +123,8 @@ pub(super) fn load_runs(
         clause.push_str(&format!(" AND date({TIMESTAMP}) <= ?"));
         values.push(to.to_string());
     }
-    if let Some(repo) = filter.repo {
-        clause.push_str(" AND s.repository = ?");
-        values.push(repo.to_string());
+    if let Some(repo) = RepositoryScope::resolve(conn, filter.repo.as_slice(), false)? {
+        repo.append_to(&mut clause, &mut values);
     }
     append_source_filter(&mut clause, &mut values, filter.source);
     if let Some(name) = agent_name {
@@ -273,9 +272,8 @@ fn query_selections(
         clause.push_str(&format!(" AND date({timestamp}) <= ?"));
         values.push(to.to_string());
     }
-    if let Some(repo) = filter.repo {
-        clause.push_str(" AND s.repository = ?");
-        values.push(repo.to_string());
+    if let Some(repo) = RepositoryScope::resolve(conn, filter.repo.as_slice(), false)? {
+        repo.append_to(&mut clause, &mut values);
     }
     append_source_filter(&mut clause, &mut values, filter.source);
     let sql = format!(

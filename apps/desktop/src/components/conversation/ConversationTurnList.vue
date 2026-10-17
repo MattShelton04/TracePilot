@@ -47,7 +47,11 @@ import { Bell, Coins, User } from "lucide-vue-next";
 import { computed } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
-import { chunkTurns } from "@/components/conversation/chatViewUtils";
+import {
+  chunkTurns,
+  splitAtTurnStart,
+  type TurnStartSplit,
+} from "@/components/conversation/chatViewUtils";
 import { promptPreviewText } from "@/utils/pastedContent";
 import { sessionEventSummary } from "@/utils/sessionEventSummary";
 import { effortLabel } from "@/utils/sessionModel";
@@ -81,6 +85,29 @@ const props = defineProps<{
 // Turns render in `content-visibility: auto` chunks (see conversation.css).
 const turnChunks = computed(() => chunkTurns(props.turns));
 const mainAgentLabel = useMainAgentLabel();
+
+// Session events logged at or before a turn started (such as `session.start`)
+// render above the turn's prompt; the rest render after its content. Events
+// without a timestamp keep the old place, after the content.
+const sessionEventSplits = computed(() => {
+  const splits = new Map<number, TurnStartSplit<TurnSessionEvent>>();
+  for (const turn of props.turns) {
+    if (!turn.sessionEvents?.length) continue;
+    splits.set(
+      turn.turnIndex,
+      splitAtTurnStart(turn.sessionEvents, turn.timestamp, (se) => se.timestamp, "after"),
+    );
+  }
+  return splits;
+});
+
+function sessionEventsBefore(turn: ConversationTurn): TurnSessionEvent[] {
+  return sessionEventSplits.value.get(turn.turnIndex)?.before ?? [];
+}
+
+function sessionEventsAfter(turn: ConversationTurn): TurnSessionEvent[] {
+  return sessionEventSplits.value.get(turn.turnIndex)?.after ?? [];
+}
 
 const emit = defineEmits<{
   (e: "load-full-result", toolCallId: string): void;
@@ -166,6 +193,16 @@ function onRetryFullResult(toolCallId: string) {
     <div v-for="chunk in turnChunks" :key="chunk.key" class="turn-chunk">
     <template v-for="turn in chunk.turns" :key="turn.turnIndex">
       <CacheResumeDivider v-if="cacheWindows?.get(turn.turnIndex)" :window="cacheWindows.get(turn.turnIndex)!" />
+      <!-- Session events logged before the turn started (compact) -->
+      <div v-if="sessionEventsBefore(turn).length" class="session-events-list compact leading">
+        <div v-for="(se, seIdx) in sessionEventsBefore(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+          <Badge :variant="severityVariant(se.severity)" size="sm">
+            <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+            {{ eventTypeLabel(se.eventType) }}
+          </Badge>
+          <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
+        </div>
+      </div>
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
         <span v-if="turn.notifications?.length" class="compact-turn-label-prefix user"><Bell :size="14" aria-hidden="true" /> Notification</span>
         <span v-else class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
@@ -263,9 +300,9 @@ function onRetryFullResult(toolCallId: string) {
           </div>
         </template>
 
-        <!-- Session events (compact) -->
-        <div v-if="turn.sessionEvents?.length" class="session-events-list compact">
-          <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+        <!-- Session events logged while the turn ran (compact) -->
+        <div v-if="sessionEventsAfter(turn).length" class="session-events-list compact">
+          <div v-for="(se, seIdx) in sessionEventsAfter(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
@@ -296,6 +333,18 @@ function onRetryFullResult(toolCallId: string) {
           <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
           <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
           <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
+        </div>
+
+        <!-- Session events logged before the turn started (timeline) -->
+        <div v-if="sessionEventsBefore(turn).length" class="session-events-list leading">
+          <div v-for="(se, seIdx) in sessionEventsBefore(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+            <Badge :variant="severityVariant(se.severity)" size="sm">
+              <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              {{ eventTypeLabel(se.eventType) }}
+            </Badge>
+            <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
+            <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
+          </div>
         </div>
 
         <div v-if="turn.userMessage" class="timeline-block user">
@@ -351,9 +400,9 @@ function onRetryFullResult(toolCallId: string) {
           </div>
         </template>
 
-        <!-- Session events (timeline) -->
-        <div v-if="turn.sessionEvents?.length" class="session-events-list">
-          <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+        <!-- Session events logged while the turn ran (timeline) -->
+        <div v-if="sessionEventsAfter(turn).length" class="session-events-list">
+          <div v-for="(se, seIdx) in sessionEventsAfter(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
@@ -412,6 +461,11 @@ function onRetryFullResult(toolCallId: string) {
 .session-events-list.compact {
   margin-left: 0;
   margin-top: 8px;
+}
+/* Above the prompt, the surrounding column gap does the spacing. */
+.session-events-list.leading {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 .session-event-row {
   display: flex;
