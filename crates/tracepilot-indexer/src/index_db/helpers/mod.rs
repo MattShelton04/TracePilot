@@ -5,6 +5,7 @@ mod filters;
 mod model_distribution;
 mod queries;
 mod range_usage;
+mod repository_scope;
 
 pub(super) use duration::compute_duration_stats;
 pub(super) use filters::{
@@ -17,6 +18,7 @@ pub(super) use range_usage::{
     IN_RANGE_COST, IN_RANGE_COST_USD, IN_RANGE_NANO_AIU, IN_RANGE_PREMIUM, IN_RANGE_TOKENS,
     in_range_models_cte, out_of_range_join,
 };
+pub(super) use repository_scope::RepositoryScope;
 
 #[cfg(test)]
 mod tests;

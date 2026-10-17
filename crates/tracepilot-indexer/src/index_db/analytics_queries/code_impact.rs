@@ -18,8 +18,9 @@ pub(super) fn query_code_impact(
     hide_empty: bool,
     source: Option<SessionSource>,
 ) -> Result<CodeImpactData> {
+    let repo = RepositoryScope::resolve(conn, repo.as_slice(), false)?;
     let (mut where_clause, mut bind_values) =
-        build_date_repo_filter(from_date, to_date, repo, hide_empty);
+        build_date_repo_filter(from_date, to_date, repo.as_ref(), hide_empty);
     append_source_filter(&mut where_clause, &mut bind_values, source);
 
     // Aggregate lines

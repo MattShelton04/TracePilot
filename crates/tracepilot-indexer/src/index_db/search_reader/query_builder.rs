@@ -7,6 +7,7 @@ use rusqlite::types::ToSql;
 use tracepilot_core::utils::sqlite::build_in_placeholders;
 
 use super::SearchFilters;
+use crate::index_db::helpers::RepositoryScope;
 
 /// Builder for constructing SQL search queries with type-safe parameter binding.
 ///
@@ -14,7 +15,7 @@ use super::SearchFilters;
 /// ```ignore
 /// let (sql, params) = SearchQueryBuilder::new("SELECT * FROM ...", true)
 ///     .with_fts_match("error message")
-///     .with_filters(&filters)
+///     .with_filters(&filters, repositories.as_ref())
 ///     .with_sort(Some("newest"))
 ///     .with_pagination(50, 0)
 ///     .build();
@@ -110,14 +111,27 @@ impl SearchQueryBuilder {
     }
 
     /// Add standard search filters (content types, repositories, tools, dates,
-    /// session ID and source). Repository and source filters require the
-    /// session join even for content-only aggregates.
-    pub(super) fn with_filters(mut self, filters: &SearchFilters) -> Self {
-        self.join_sessions |= !filters.repositories.is_empty() || filters.source.is_some();
+    /// session ID and source). `repositories` is `filters.repositories`
+    /// resolved with [`RepositoryScope::resolve`], so a repository also
+    /// selects the folder-only sessions the session list files under it.
+    /// Repository and source filters require the session join even for
+    /// content-only aggregates.
+    pub(super) fn with_filters(
+        mut self,
+        filters: &SearchFilters,
+        repositories: Option<&RepositoryScope>,
+    ) -> Self {
+        self.join_sessions |= repositories.is_some() || filters.source.is_some();
         // Use helper methods for IN-filters
         self = self.add_in_filter("sc.content_type", &filters.content_types);
         self = self.add_not_in_filter("sc.content_type", &filters.exclude_content_types);
-        self = self.add_in_filter("s.repository", &filters.repositories);
+        if let Some(scope) = repositories {
+            let (condition, values) = scope.condition();
+            self.where_clauses.push(condition);
+            for value in values {
+                self.params.push(Box::new(value));
+            }
+        }
         self = self.add_in_filter("sc.tool_name", &filters.tool_names);
 
         // Build equality filter for session_id

@@ -112,11 +112,11 @@ fn test_builder_with_filters() {
     };
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&filters)
+        .with_filters(&filters, plain(&filters).as_ref())
         .build();
 
     assert!(sql.contains("sc.content_type IN (?, ?)"));
-    assert!(sql.contains("s.repository IN (?)"));
+    assert!(sql.contains("s.repository = ?"));
     assert!(sql.contains("sc.session_id = ?"));
     assert_eq!(params.len(), 4); // 2 content types + 1 repo + 1 session_id
 }
@@ -129,7 +129,7 @@ fn test_builder_with_exclude_filters() {
     };
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&filters)
+        .with_filters(&filters, plain(&filters).as_ref())
         .build();
 
     assert!(sql.contains("sc.content_type NOT IN (?, ?)"));
@@ -145,7 +145,7 @@ fn test_builder_with_date_range() {
     };
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&filters)
+        .with_filters(&filters, plain(&filters).as_ref())
         .build();
 
     assert!(sql.contains("sc.timestamp_unix >= ?"));
@@ -237,7 +237,7 @@ fn test_builder_complex_query() {
 
     let (sql, params) = SearchQueryBuilder::new("SELECT sc.id, sc.content", true)
         .with_fts_match("authentication failed")
-        .with_filters(&filters)
+        .with_filters(&filters, plain(&filters).as_ref())
         .with_sort(Some("newest"))
         .with_pagination(25, 50)
         .build();
@@ -268,7 +268,7 @@ fn test_builder_param_order_matches_placeholders() {
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
         .with_fts_match("test")
-        .with_filters(&filters)
+        .with_filters(&filters, plain(&filters).as_ref())
         .with_pagination(10, 0)
         .build();
 
@@ -283,7 +283,7 @@ fn test_builder_param_order_matches_placeholders() {
 #[test]
 fn test_builder_empty_filters() {
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&SearchFilters::default())
+        .with_filters(&SearchFilters::default(), None)
         .build();
 
     // Empty filters should still produce valid SQL
@@ -294,7 +294,7 @@ fn test_builder_empty_filters() {
 #[test]
 fn test_builder_source_filter_only_when_set() {
     let (unfiltered, _) = SearchQueryBuilder::new("SELECT *", true)
-        .with_filters(&SearchFilters::default())
+        .with_filters(&SearchFilters::default(), None)
         .build();
     assert!(!unfiltered.contains("s.source"));
 
@@ -303,7 +303,7 @@ fn test_builder_source_filter_only_when_set() {
         ..Default::default()
     };
     let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
-        .with_filters(&filters)
+        .with_filters(&filters, plain(&filters).as_ref())
         .build();
     assert!(sql.contains("WHERE s.source = ?"));
     assert_eq!(params.len(), 1);
@@ -314,7 +314,7 @@ fn test_builder_method_chaining() {
     // Test that builder methods can be chained fluently
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
         .with_optional_fts_match(None)
-        .with_filters(&SearchFilters::default())
+        .with_filters(&SearchFilters::default(), None)
         .with_sort(Some("newest"))
         .with_pagination(10, 0)
         .build();
@@ -445,4 +445,10 @@ fn fts_integrity_check_reports_index_diverging_from_content() {
     let result = db.fts_integrity_check().unwrap();
     assert_ne!(result, "ok", "a divergent index must fail the check");
     assert!(result.starts_with("Integrity check failed"), "{result}");
+}
+
+/// `filters.repositories` as plain repositories, for SQL-shape tests.
+fn plain(filters: &SearchFilters) -> Option<crate::index_db::helpers::RepositoryScope> {
+    (!filters.repositories.is_empty())
+        .then(|| crate::index_db::helpers::RepositoryScope::of_repositories(&filters.repositories))
 }

@@ -16,6 +16,7 @@ mod metadata_batches;
 mod prompt_cache;
 mod range_models;
 mod range_totals;
+mod repository_filter;
 mod schema_doc;
 mod search_batches;
 mod search_content;

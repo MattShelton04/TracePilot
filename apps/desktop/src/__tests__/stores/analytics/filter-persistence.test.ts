@@ -81,6 +81,20 @@ describe("analytics filter persistence", () => {
     expect(store.selectedTimeRange).toBe("7d");
   });
 
+  it("keeps a remembered folder-only project once the session list loads", () => {
+    localStorage.setItem(
+      STORAGE_KEYS.analyticsFilters,
+      JSON.stringify({ repo: "project:harbor", range: "7d" }),
+    );
+    const store = restart();
+
+    useSessionsStore().sessions = [
+      { id: "harbor", cwd: "C:\\synthetic\\harbor", source: "claudeCode" } as SessionListItem,
+    ];
+
+    expect(store.selectedRepo).toBe("project:harbor");
+  });
+
   it("checks a remembered source at once when the session list is already loaded", () => {
     localStorage.setItem(
       STORAGE_KEYS.analyticsFilters,

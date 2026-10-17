@@ -240,6 +240,45 @@ export function repositoryFilterOptions(
   return [...repoOptions, ...projectOptions];
 }
 
+/**
+ * The repository-filter options the session list offers with `source` picked:
+ * from the sessions it would show, each folder filed under its repository on
+ * evidence from every session. Analytics and Search offer the same options,
+ * and their backends resolve each value to the same sessions
+ * (`index_db::helpers::RepositoryScope`).
+ */
+export function repositoryFilterOptionsFor(
+  sessions: readonly SessionListItem[],
+  scope: { source: SessionSource | null; hideEmptySessions: boolean; selected: string | null },
+): RepositoryFilterOption[] {
+  const predicates: SessionFilterPredicates = {
+    searchTerms: [],
+    repository: null,
+    source: scope.source,
+    hideEmptySessions: scope.hideEmptySessions,
+  };
+  // With no search terms or repository, the predicate never reads the cache.
+  const shown = sessions.filter((s) => matchesSessionFilters(s, predicates, new Map()));
+  return repositoryFilterOptions(shown, scope.selected, folderRepositories(sessions));
+}
+
+/** Options split into their non-empty `<optgroup>`s, repositories first. */
+export function groupRepositoryFilterOptions(
+  options: readonly RepositoryFilterOption[],
+): { label: RepositoryFilterOption["group"]; options: RepositoryFilterOption[] }[] {
+  return (["Repositories", "Folders"] as const)
+    .map((label) => ({ label, options: options.filter((o) => o.group === label) }))
+    .filter((group) => group.options.length > 0);
+}
+
+/** Whether any session sits under a repository-filter value, from any source. */
+export function hasRepositoryFilterValue(
+  sessions: readonly SessionListItem[],
+  value: string,
+): boolean {
+  return repositoryFilterOptions(sessions).some((option) => option.value === value);
+}
+
 /** Sources present in the session set, in display order. */
 export function uniqueSources(sessions: readonly SessionListItem[]): SessionSource[] {
   const present = new Set(sessions.map((s) => resolveSessionSource(s.source)));

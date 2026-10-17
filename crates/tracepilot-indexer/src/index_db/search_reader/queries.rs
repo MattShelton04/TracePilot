@@ -7,6 +7,7 @@ use super::sanitize::{map_search_result, sanitize_fts_query};
 use super::{SearchFacets, SearchFilters, SearchResult};
 use crate::Result;
 use crate::index_db::IndexDb;
+use crate::index_db::helpers::RepositoryScope;
 
 /// How a query reads once sanitized for FTS5.
 enum QueryMatch {
@@ -75,12 +76,13 @@ impl IndexDb {
                     s.summary, s.repository, s.branch, s.updated_at, s.source"
         );
 
+        let repositories = self.repository_scope(filters)?;
         let limit = filters.limit.unwrap_or(50).min(200);
         let offset = filters.offset.unwrap_or(0);
 
         let (sql, params) = SearchQueryBuilder::new(&base_select, is_fts)
             .with_optional_fts_match(sanitized)
-            .with_filters(filters)
+            .with_filters(filters, repositories.as_ref())
             .with_sort(filters.sort_by.as_deref())
             .with_pagination(limit, offset)
             .build();
@@ -107,9 +109,10 @@ impl IndexDb {
         let sanitized = query.fts();
         let is_fts = sanitized.is_some();
 
+        let repositories = self.repository_scope(filters)?;
         let (sql, params) = SearchQueryBuilder::content_aggregate("SELECT COUNT(*)", is_fts)
             .with_optional_fts_match(sanitized)
-            .with_filters(filters)
+            .with_filters(filters, repositories.as_ref())
             .build();
 
         let count: i64 = self.conn.query_row(
@@ -134,13 +137,15 @@ impl IndexDb {
             });
         }
         let sanitized = query.fts();
+        let repositories = self.repository_scope(filters)?;
+        let repositories = repositories.as_ref();
 
         let by_content_type = {
             let excl = SearchFilters {
                 content_types: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(FacetDimension::ContentType, sanitized, &excl)?
+            self.facet_dimension(FacetDimension::ContentType, sanitized, &excl, repositories)?
         };
 
         let by_repository = {
@@ -148,7 +153,7 @@ impl IndexDb {
                 repositories: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(FacetDimension::Repository, sanitized, &excl)?
+            self.facet_dimension(FacetDimension::Repository, sanitized, &excl, None)?
         };
 
         let by_tool_name = {
@@ -156,11 +161,11 @@ impl IndexDb {
                 tool_names: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(FacetDimension::ToolName, sanitized, &excl)?
+            self.facet_dimension(FacetDimension::ToolName, sanitized, &excl, repositories)?
         };
 
         // Total matches and distinct sessions
-        let (total_matches, session_count) = self.totals_query(sanitized, filters)?;
+        let (total_matches, session_count) = self.totals_query(sanitized, filters, repositories)?;
 
         Ok(SearchFacets {
             by_content_type,
@@ -173,12 +178,20 @@ impl IndexDb {
 
     // ── Private helpers ─────────────────────────────────────────────
 
+    /// The repository filter as the session list applies it. A plain value
+    /// that names no repository selects the folder of that name, so a typed
+    /// `repo:<folder>` finds folder-only sessions.
+    fn repository_scope(&self, filters: &SearchFilters) -> Result<Option<RepositoryScope>> {
+        RepositoryScope::resolve(&self.conn, &filters.repositories, true)
+    }
+
     /// Run a single facet-dimension query (content_type, repository, or tool_name).
     fn facet_dimension(
         &self,
         dimension: FacetDimension,
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
+        repositories: Option<&RepositoryScope>,
     ) -> Result<Vec<(String, i64)>> {
         let is_fts = sanitized_query.is_some();
         let (column, extra_where, limit) = match dimension {
@@ -203,7 +216,7 @@ impl IndexDb {
         }
 
         builder = builder
-            .with_filters(filters)
+            .with_filters(filters, repositories)
             .with_group_by(column, Some("ORDER BY COUNT(*) DESC"));
 
         if let Some(n) = limit {
@@ -228,6 +241,7 @@ impl IndexDb {
         &self,
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
+        repositories: Option<&RepositoryScope>,
     ) -> Result<(i64, i64)> {
         let is_fts = sanitized_query.is_some();
 
@@ -236,7 +250,7 @@ impl IndexDb {
             is_fts,
         )
         .with_optional_fts_match(sanitized_query)
-        .with_filters(filters)
+        .with_filters(filters, repositories)
         .build();
 
         Ok(self.conn.query_row(

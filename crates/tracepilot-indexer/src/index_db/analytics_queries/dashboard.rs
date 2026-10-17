@@ -19,15 +19,17 @@ pub(super) fn query_analytics(
     hide_empty: bool,
     source: Option<SessionSource>,
 ) -> Result<AnalyticsData> {
+    let repo = RepositoryScope::resolve(conn, repo.as_slice(), false)?;
     let (mut where_clause, mut bind_values) =
-        build_date_repo_filter(from_date, to_date, repo, hide_empty);
+        build_date_repo_filter(from_date, to_date, repo.as_ref(), hide_empty);
     append_source_filter(&mut where_clause, &mut bind_values, source);
 
     // Per-run series select runs by the day each one ended, so they skip the
     // session last-activity guard: a run that ended in the range counts even
     // when its session was resumed later. The range itself is applied to
     // `m.end_timestamp` by `query_day_bucketed` / `append_segment_date_filter`.
-    let (mut run_where, mut run_values) = build_date_repo_filter(None, None, repo, hide_empty);
+    let (mut run_where, mut run_values) =
+        build_date_repo_filter(None, None, repo.as_ref(), hide_empty);
     append_source_filter(&mut run_where, &mut run_values, source);
 
     // Aggregate session-level stats.
