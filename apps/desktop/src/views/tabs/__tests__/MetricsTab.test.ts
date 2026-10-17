@@ -3,7 +3,11 @@ import { EmptyState, ErrorAlert } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { beforeEach, expect, it, vi } from "vitest";
 import { reactive } from "vue";
+import MetricsTokens from "@/components/metrics/MetricsTokens.vue";
+import { NAVIGATE_SESSION_TAB_KEY } from "@/composables/useSessionTabNavigation";
 import { resetSessionTabViews, useSessionTabViews } from "@/composables/useSessionTabViews";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import MetricsTab from "../MetricsTab.vue";
 
 const store = reactive({
@@ -21,6 +25,7 @@ const store = reactive({
   loadPromptCache: vi.fn(),
 });
 vi.mock("@/composables/useSessionDetailContext", () => ({ useSessionDetailContext: () => store }));
+vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
 
 beforeEach(() => {
   localStorage.clear();
@@ -118,4 +123,39 @@ it("reopens on a remembered By agent view and loads the turns it needs", () => {
   expect(store.loadTurns).toHaveBeenCalledTimes(1);
   expect(wrapper.text()).toContain("Loading agent activity");
   wrapper.unmount();
+});
+
+it("opens the Context tab in place in tab mode and by route in route mode", () => {
+  setupPinia();
+  store.sessionId = "context-session";
+  store.loaded = new Set(["metrics"]);
+  store.shutdownMetrics = {
+    modelMetrics: {
+      "claude-opus-4-6": {
+        requests: { count: 1 },
+        usage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      },
+    },
+  } as unknown as typeof store.shutdownMetrics;
+  const stubs = { SubagentPanel: true, MetricsSessionActivity: true, MetricsTokens: true };
+  const navigate = vi.fn();
+  vi.mocked(pushRoute).mockClear();
+
+  // Tab mode: SessionDetailTabView provides the navigator; its panels have no route.
+  const tabMode = mount(MetricsTab, {
+    global: { stubs, provide: { [NAVIGATE_SESSION_TAB_KEY as symbol]: navigate } },
+  });
+  tabMode.getComponent(MetricsTokens).vm.$emit("openContext");
+  expect(navigate).toHaveBeenCalledWith("context");
+  expect(pushRoute).not.toHaveBeenCalled();
+  tabMode.unmount();
+
+  // Route mode provides no navigator, so the link pushes the Context route.
+  const routeMode = mount(MetricsTab, { global: { stubs } });
+  routeMode.getComponent(MetricsTokens).vm.$emit("openContext");
+  expect(pushRoute).toHaveBeenCalledWith(undefined, ROUTE_NAMES.sessionContext, {
+    params: { id: "context-session" },
+  });
+  routeMode.unmount();
+  store.sessionId = "retry-session";
 });
