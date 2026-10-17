@@ -233,12 +233,31 @@ could belong to a later append. If an append occurs after the final check, the
 stored identity still describes the older snapshot and the next freshness check
 requests another pass.
 
-A complete snapshot may contain unknown event types, which preserve their raw
-payloads for forward compatibility. I/O errors, malformed JSONL, failed known
-payload deserialization, malformed workspace metadata, and files changing during
-reads reject the update. Existing analytics, child rows, and search content remain
-available. Failed snapshots remain stale and are retried on a later indexing pass.
-Best-effort UI summary loading remains separate from this persistence contract.
+A snapshot keeps every record that parses. Unknown event types preserve their
+raw payloads for forward compatibility, and a known payload that fails typed
+deserialization is kept the same way. Lines that cannot be read (malformed JSON,
+a line cut off by a killed CLI, invalid UTF-8, or a Claude Code line over the
+reader's bound, in the main transcript or a subagent file) are skipped and
+counted in the parse diagnostics; they do not reject the update. A crashed CLI
+leaves such a line in place for good, and after `--resume` it sits mid-file,
+so rejecting it would keep a new session out of the index, or freeze an
+indexed one at its pre-crash rows, while every pass parsed it again.
+
+Because the stored fingerprint is sampled before the read and verified after
+it, it describes exactly the bytes that were parsed, including a partial last
+line that a live CLI is still writing. Finishing that line changes the file's
+size, so the next freshness check requests another pass. An unchanged file is
+never parsed again, whatever it skipped. A parser fix that would read more of
+an unchanged file needs an analytics or extractor version bump, as any other
+change to derived data does.
+
+I/O errors, malformed workspace metadata, files changing during reads, and an
+event log with skipped lines but no readable event at all reject the update.
+The last case has nothing to recover, and the existing rows are better than an
+empty session. Existing analytics, child rows, and search content remain
+available. Failed snapshots remain stale and are retried on a later indexing
+pass. Best-effort UI summary loading remains separate from this persistence
+contract.
 
 A search rebuild invalidates its own freshness markers first, then replaces each
 successful session atomically. Cancellation or a failed source read does not

@@ -63,7 +63,7 @@ fn cancellation_is_checked_inside_a_single_large_record() {
 }
 
 #[test]
-fn malformed_or_unreadable_sources_are_not_missing_snapshots() {
+fn unreadable_sources_are_not_missing_snapshots() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("events.jsonl");
     assert!(
@@ -72,13 +72,53 @@ fn malformed_or_unreadable_sources_are_not_missing_snapshots() {
             .parsed
             .is_none()
     );
-    std::fs::write(&path, format!("{EVENT}{{broken")).unwrap();
-    assert!(load_event_snapshot(&path, &|| false).is_err());
-    std::fs::write(&path, [0xff, 0xfe]).unwrap();
-    assert!(load_event_snapshot(&path, &|| false).is_err());
+    // Nothing to recover: fail, so the index keeps its last good rows.
+    for bytes in [&b"{broken"[..], &[0xff, 0xfe]] {
+        std::fs::write(&path, bytes).unwrap();
+        assert!(load_event_snapshot(&path, &|| false).is_err());
+    }
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
     assert!(load_event_snapshot(&path, &|| false).is_err());
+}
+
+/// A CLI killed mid-append leaves a cut line, which a resumed CLI follows
+/// with more lines. The snapshot keeps every other event and counts the
+/// skipped lines, whether the cut ends in a partial character or not.
+#[test]
+fn cut_lines_are_skipped_not_fatal() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    let cut_in_char = "{\"type\":\"user.message\",\"data\":{\"content\":\"✅".as_bytes();
+    let cut_in_char = &cut_in_char[..cut_in_char.len() - 2];
+    for cut in [&b"{\"type\":\"user.mess"[..], cut_in_char] {
+        let mut bytes = EVENT.as_bytes().to_vec();
+        bytes.extend_from_slice(cut);
+        std::fs::write(&path, &bytes).unwrap();
+        let tail = load_event_snapshot(&path, &|| false).unwrap();
+        let parsed = tail.parsed.unwrap();
+        assert_eq!(
+            (parsed.events.len(), parsed.diagnostics.malformed_lines),
+            (1, 1)
+        );
+        assert_eq!(
+            tail.fingerprint.unwrap().size,
+            bytes.len() as u64,
+            "the fingerprint covers the cut bytes, so finishing them changes it"
+        );
+
+        bytes.extend_from_slice(b"\n");
+        bytes.extend_from_slice(EVENT.as_bytes());
+        std::fs::write(&path, &bytes).unwrap();
+        let parsed = load_event_snapshot(&path, &|| false)
+            .unwrap()
+            .parsed
+            .unwrap();
+        assert_eq!(
+            (parsed.events.len(), parsed.diagnostics.malformed_lines),
+            (2, 1)
+        );
+    }
 }
 
 #[test]

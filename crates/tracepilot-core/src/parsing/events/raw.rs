@@ -86,18 +86,20 @@ pub(super) fn visit_events_jsonl(
             continue;
         }
         line_number += 1;
-        let line = std::str::from_utf8(&bytes)
-            .map_err(|error| {
-                TracePilotError::parse_context("UTF-8 event line", path.display(), error)
-            })?
-            .trim();
-        if !line.is_empty() {
-            match parse_raw_event_line(line) {
+        // A line cut inside a multi-byte character (a CLI killed mid-append)
+        // loses only itself, like any other malformed line.
+        match std::str::from_utf8(&bytes).map(str::trim) {
+            Ok("") => {}
+            Ok(line) => match parse_raw_event_line(line) {
                 Ok(event) => visit(event),
                 Err(error) => {
                     tracing::warn!(line = line_number, error = %error, "Skipping malformed event line");
                     malformed += 1;
                 }
+            },
+            Err(error) => {
+                tracing::warn!(line = line_number, error = %error, "Skipping event line that is not UTF-8");
+                malformed += 1;
             }
         }
         bytes.clear();
@@ -329,6 +331,30 @@ mod tests {
             repair(r#"{"a":"|uD83D|uD83D|uDE00"}"#),
             Some(esc(r#"{"a":"|ufffd|uD83D|uDE00"}"#))
         );
+    }
+
+    /// A CLI killed mid-append can cut a line inside a multi-byte character.
+    /// Only that line is lost, wherever it is in the file.
+    #[test]
+    fn lines_with_invalid_utf8_are_skipped_not_fatal() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        let event = |n: u32| format!(r#"{{"type":"user.message","data":{{"content":"{n} ✅"}}}}"#);
+        let cut = |n: u32| {
+            let line = event(n);
+            line.as_bytes()[..=line.find('✅').unwrap()].to_vec()
+        };
+        // A cut tail, then the same cut followed by resumed lines.
+        let mut tail = format!("{}\n", event(1)).into_bytes();
+        tail.extend(cut(2));
+        let mut middle = tail.clone();
+        middle.extend(format!("\n{}\n", event(3)).into_bytes());
+        for (bytes, kept) in [(tail, 1), (middle, 2)] {
+            std::fs::write(&path, bytes).unwrap();
+            let (events, malformed) = parse_events_jsonl(&path).unwrap();
+            assert_eq!((events.len(), malformed), (kept, 1));
+            assert_eq!(events[0].data["content"], "1 ✅");
+        }
     }
 
     #[test]
