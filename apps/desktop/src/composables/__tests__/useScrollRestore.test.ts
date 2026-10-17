@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { createMemoryHistory, createRouter, RouterView } from "vue-router";
 import { resetScrollPositions, useScrollRestore } from "../useScrollRestore";
@@ -26,6 +26,9 @@ const loading = ref(false);
 let scroller: HTMLElement | null = null;
 /** Height each item is laid out with; off-screen placeholders can differ from rendered cards. */
 let itemHeight = 200;
+/** What the list's pending restore reported while it was being set up. */
+let anchorAtSetup: string | undefined;
+let pendingAnchorId: () => string | undefined = () => undefined;
 
 /** Items whose box follows the fake scroll offset, like a real list. */
 function fakeItem(el: HTMLElement, index: number) {
@@ -38,12 +41,13 @@ function fakeItem(el: HTMLElement, index: number) {
 const ListView = defineComponent({
   setup() {
     const el = ref<HTMLElement | null>(null);
-    useScrollRestore({
+    ({ pendingAnchorId } = useScrollRestore({
       key: () => `list:${filter.value}`,
       el,
       ready: () => !loading.value,
       anchorAttr: "data-id",
-    });
+    }));
+    anchorAtSetup = pendingAnchorId();
     return () =>
       loading.value
         ? h("p", "Loading")
@@ -99,6 +103,7 @@ describe("useScrollRestore", () => {
     contentHeight = 3000;
     itemHeight = 0;
     scroller = null;
+    anchorAtSetup = undefined;
   });
 
   afterEach(() => {
@@ -183,6 +188,57 @@ describe("useScrollRestore", () => {
     expect(scroller?.scrollTop).toBe(6 * 180 + 50);
     const top = scroller?.querySelector<HTMLElement>('[data-id="item-6"]')?.getBoundingClientRect();
     expect(top?.top).toBe(-50);
+    wrapper.unmount();
+  });
+
+  it("names the item to line up before the first render, until it is restored", async () => {
+    itemHeight = 200;
+    contentHeight = 6000;
+    const { router, wrapper } = setup();
+    await go(router, "/");
+    expect(anchorAtSetup).toBeUndefined();
+    (scroller as HTMLElement).scrollTop = 1250;
+    await go(router, "/session/a");
+
+    loading.value = true;
+    await go(router, -1);
+    await flushPromises();
+    expect(anchorAtSetup).toBe("item-6");
+    expect(pendingAnchorId()).toBe("item-6");
+
+    loading.value = false;
+    await flushPromises();
+    expect(pendingAnchorId()).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("keeps the item in place when heights above it change before a paint", async () => {
+    const resized: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resized.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    itemHeight = 200;
+    contentHeight = 6000;
+    const { router, wrapper } = setup();
+    await go(router, "/");
+    (scroller as HTMLElement).scrollTop = 1250;
+    await go(router, "/session/a");
+    await go(router, -1);
+    await flushPromises();
+    expect(scroller?.scrollTop).toBe(1250);
+
+    // Cards near the viewport render at their real height after the restore.
+    itemHeight = 150;
+    for (const callback of resized) callback([], {} as ResizeObserver);
+    expect(scroller?.scrollTop).toBe(6 * 150 + 50);
+    vi.unstubAllGlobals();
     wrapper.unmount();
   });
 
