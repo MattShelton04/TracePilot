@@ -4,6 +4,7 @@
 //! cross-module behavior of `extract_search_content`.
 
 mod helpers;
+mod long_replies;
 mod modern_agents;
 mod native_tools;
 mod notifications;

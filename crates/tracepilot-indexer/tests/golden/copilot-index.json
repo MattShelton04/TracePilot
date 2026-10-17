@@ -4339,7 +4339,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000003",
         "rate_limit_count": 0,
         "repository": "org/project",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4393,7 +4393,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000005",
         "rate_limit_count": 0,
         "repository": "golden/v1-0-24",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4447,7 +4447,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000006",
         "rate_limit_count": 0,
         "repository": "golden/agents",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4501,7 +4501,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000007",
         "rate_limit_count": 0,
         "repository": "golden/multiturn",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4555,7 +4555,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000009",
         "rate_limit_count": 0,
         "repository": "golden/agent-messaging",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4609,7 +4609,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-00000000000a",
         "rate_limit_count": 0,
         "repository": "golden/skill-refs",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4663,7 +4663,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000001",
         "rate_limit_count": 0,
         "repository": "user/repo",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4717,7 +4717,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000008",
         "rate_limit_count": 0,
         "repository": "golden/prompt-cache",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4771,7 +4771,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-00000000000b",
         "rate_limit_count": 0,
         "repository": "golden/schema-v1-0-91",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4825,7 +4825,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000004",
         "rate_limit_count": 0,
         "repository": null,
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4876,7 +4876,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000002",
         "rate_limit_count": 0,
         "repository": null,
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": null

@@ -7,7 +7,7 @@ use super::defaults::default_true;
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FeaturesConfig {
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub export_view: bool,
     #[serde(default)]
     pub session_replay: bool,
@@ -37,7 +37,7 @@ pub struct FeaturesConfig {
 impl Default for FeaturesConfig {
     fn default() -> Self {
         Self {
-            export_view: false,
+            export_view: true,
             session_replay: false,
             render_markdown: true,
             mcp_servers: false,
@@ -55,6 +55,51 @@ impl Default for FeaturesConfig {
 #[cfg(test)]
 mod tests {
     use super::FeaturesConfig;
+    use std::collections::BTreeMap;
+
+    const TS_DEFAULTS: &str = include_str!("../../../../packages/types/src/defaults.ts");
+
+    /// `DEFAULT_FEATURES` from `packages/types/src/defaults.ts`, by camelCase key.
+    fn ts_default_features() -> BTreeMap<String, bool> {
+        let start = TS_DEFAULTS
+            .find("export const DEFAULT_FEATURES")
+            .expect("defaults.ts exports DEFAULT_FEATURES");
+        let body = &TS_DEFAULTS[start..];
+        let body = &body[body.find('{').unwrap() + 1..body.find("};").unwrap()];
+        body.lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with("//"))
+            .map(|line| {
+                let (key, value) = line
+                    .trim_end_matches(',')
+                    .split_once(':')
+                    .unwrap_or_else(|| panic!("unexpected DEFAULT_FEATURES line {line:?}"));
+                let value = value
+                    .trim()
+                    .parse()
+                    .unwrap_or_else(|_| panic!("{key} is not a boolean literal"));
+                (key.trim().to_string(), value)
+            })
+            .collect()
+    }
+
+    fn as_map(features: &FeaturesConfig) -> BTreeMap<String, bool> {
+        serde_json::from_value(serde_json::to_value(features).unwrap()).unwrap()
+    }
+
+    /// The frontend's defaults, `Default` and a config missing every key all
+    /// agree, so a config written without a flag shows what Settings promises.
+    #[test]
+    fn defaults_match_the_frontend_and_missing_keys() {
+        let ts = ts_default_features();
+        assert_eq!(
+            as_map(&FeaturesConfig::default()),
+            ts,
+            "Default vs defaults.ts"
+        );
+        let missing: FeaturesConfig = toml::from_str("").unwrap();
+        assert_eq!(as_map(&missing), ts, "serde defaults vs defaults.ts");
+    }
 
     #[test]
     fn experimental_configuration_features_default_off() {

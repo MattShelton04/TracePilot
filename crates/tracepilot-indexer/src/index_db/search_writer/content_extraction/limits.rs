@@ -1,12 +1,12 @@
-/// Maximum bytes for individual content fields.
+/// Maximum bytes for individual content fields. Prompts, assistant replies
+/// and reasoning are what a user reads in Conversation, so they are indexed
+/// in full (one row per event; the reader's snippet keeps results bounded).
 pub(super) const MAX_TOOL_CALL_BYTES: usize = 2_000;
 pub(super) const MAX_TOOL_RESULT_BYTES: usize = 800;
 pub(super) const MAX_TOOL_ERROR_BYTES: usize = 2_000;
 pub(super) const MAX_ERROR_BYTES: usize = 2_000;
 pub(super) const MAX_COMPACTION_BYTES: usize = 3_000;
 pub(super) const MAX_SYSTEM_MESSAGE_BYTES: usize = 3_000;
-pub(super) const MAX_ASSISTANT_MESSAGE_BYTES: usize = 5_000;
-pub(super) const MAX_REASONING_BYTES: usize = 4_000;
 
 /// Tools whose results add negligible search value (session management, status).
 /// Both tool_call and tool_result are skipped for these tools.
