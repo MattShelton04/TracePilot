@@ -36,7 +36,9 @@ fn renders_conversation_turns() {
 
     let text = files[0].as_text().unwrap();
     assert!(text.contains("## Conversation"));
-    assert!(text.contains("### Turn 1"));
+    // Numbered as the app numbers it: the turn's own index, from 0.
+    assert!(text.contains("### Turn 0\n"));
+    assert!(!text.contains("### Turn 1"));
     assert!(text.contains("*Model: claude-opus-4.6"));
     assert!(text.contains("> Hello"));
     assert!(text.contains("> Hi there!"));
@@ -343,7 +345,7 @@ fn renders_todos_with_dep_list() {
 
 /// Each line of `md` paired with whether it sits inside a fenced code block,
 /// by CommonMark's backtick-fence rules, plus whether a fence is left open.
-fn fence_states(md: &str) -> (Vec<(&str, bool)>, bool) {
+pub(super) fn fence_states(md: &str) -> (Vec<(&str, bool)>, bool) {
     let mut open: Option<usize> = None;
     let lines = md
         .lines()
@@ -371,7 +373,7 @@ fn fence_states(md: &str) -> (Vec<(&str, bool)>, bool) {
     (lines, open.is_some())
 }
 
-fn is_fenced(md: &str, needle: &str) -> bool {
+pub(super) fn is_fenced(md: &str, needle: &str) -> bool {
     let (lines, _) = fence_states(md);
     lines
         .iter()

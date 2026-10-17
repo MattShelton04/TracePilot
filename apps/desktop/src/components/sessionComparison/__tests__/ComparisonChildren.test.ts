@@ -301,6 +301,35 @@ describe("ComparisonCharts", () => {
     expect(wrapper.findAll(".mini-tl-block").length).toBe(3);
   });
 
+  it("labels each bar and block with the turn number the app shows", () => {
+    const comp = makeCompStub({
+      compared: true,
+      dataA: {
+        detail: { id: "a" } as SessionDetail,
+        metrics: null,
+        turns: [
+          { turnIndex: 0, durationMs: 1000 },
+          { turnIndex: 1, durationMs: 3000 },
+        ] as ConversationTurn[],
+      },
+      dataB: {
+        detail: { id: "b" } as SessionDetail,
+        metrics: null,
+        turns: [{ turnIndex: 0, durationMs: 2000 }] as ConversationTurn[],
+      },
+      waveA: [50, 80],
+      waveB: [40],
+      timelineA: [25, 75],
+      timelineB: [100],
+    });
+    const wrapper = mount(hostFor(ComparisonCharts, comp));
+    const titles = (selector: string) =>
+      wrapper.findAll(selector).map((el) => el.attributes("title"));
+    expect(titles(".waveform-bar-a")).toEqual(["Turn 0", "Turn 1"]);
+    expect(titles(".waveform-bar-b")).toEqual(["Turn 0"]);
+    expect(titles(".mini-tl-block")).toEqual(["Turn 0: 1s", "Turn 1: 3s", "Turn 0: 2s"]);
+  });
+
   it("shows empty state when waveA/waveB are empty", () => {
     const comp = makeCompStub({ compared: true });
     const wrapper = mount(hostFor(ComparisonCharts, comp));

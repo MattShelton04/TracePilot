@@ -27,8 +27,10 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: claude-opus-4.6 · 2s*
+
+> ℹ️ **session.start**: Session started
 
 **User**
 
@@ -57,8 +59,6 @@
 ```
 file contents
 ```
-
-> ℹ️ **session.start**: Session started
 
 ## Checkpoints
 

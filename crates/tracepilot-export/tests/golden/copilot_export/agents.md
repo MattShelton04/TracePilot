@@ -19,8 +19,10 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: gpt-5.6-luna · 5s*
+
+> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
 
 **User**
 
@@ -90,9 +92,13 @@ Fixture content.
 {"agent_type":"general-purpose","mode":"background","model":"gpt-5.6-luna"}
 ```
 
-> ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
+**Error:**
 
-### Turn 2
+```
+Cancelled
+```
+
+### Turn 1
 *Model: gpt-5.6-luna · 10s*
 
 **User**

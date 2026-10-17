@@ -38,7 +38,22 @@ export interface ExportPreset {
   redaction?: Partial<RedactionOptions>;
 }
 
-export const EXPORT_PRESETS: readonly ExportPreset[] = [
+/**
+ * A built-in preset sets every content-detail option, so it exports the same
+ * content whichever preset was used before it.
+ */
+export interface BuiltInExportPreset extends ExportPreset {
+  contentDetail: ContentDetailOptions;
+}
+
+/** The content-detail options of a fresh install and of Full Archive. */
+const DEFAULT_CONTENT_DETAIL: Readonly<ContentDetailOptions> = {
+  includeSubagentInternals: true,
+  includeToolDetails: true,
+  includeFullToolResults: false,
+};
+
+export const EXPORT_PRESETS: readonly BuiltInExportPreset[] = [
   {
     id: "full",
     label: "Full Archive",
@@ -46,6 +61,7 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
     description: "Lossless archive — all data, suitable for re-import.",
     format: "json",
     sections: [...ALL_SECTION_IDS],
+    contentDetail: { ...DEFAULT_CONTENT_DETAIL },
   },
   {
     id: "minimal-team-log",
@@ -70,6 +86,7 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
       "Session summary for sharing with another AI — includes conversation, plan, todos, and metrics.",
     format: "markdown",
     sections: ["conversation", "todos", "plan", "metrics"],
+    contentDetail: { ...DEFAULT_CONTENT_DETAIL },
   },
   {
     id: "full-fidelity-backup",
@@ -173,11 +190,7 @@ export function defaultExportOptions(): ExportOptions {
     format: "json",
     sections: [...ALL_SECTION_IDS],
     activePreset: "full",
-    contentDetail: {
-      includeSubagentInternals: true,
-      includeToolDetails: true,
-      includeFullToolResults: false,
-    },
+    contentDetail: { ...DEFAULT_CONTENT_DETAIL },
     redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
     customPresets: [],
   };

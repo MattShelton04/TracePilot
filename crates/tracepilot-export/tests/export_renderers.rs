@@ -42,7 +42,7 @@ fn export_markdown_includes_conversation() {
 
     assert!(text.contains("## Conversation"));
     assert!(text.contains("Hello world"));
-    assert!(text.contains("### Turn 1"));
+    assert!(text.contains("### Turn 0"));
 }
 
 #[test]

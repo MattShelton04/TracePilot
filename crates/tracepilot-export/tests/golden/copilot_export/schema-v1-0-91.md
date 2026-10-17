@@ -19,7 +19,7 @@
 
 ## Conversation
 
-### Turn 1
+### Turn 0
 *Model: fixture · 0ms · 3 output tokens*
 
 **User**
@@ -46,7 +46,7 @@
 > ℹ️ **session.compaction_start**: Context compaction started
 > 🟡 **session.compaction_complete**: Compaction complete (3 tokens)
 
-### Turn 2
+### Turn 1
 *Model: fixture*
 
 _No user message._
@@ -70,6 +70,12 @@ fixture
 ```
 
 **Result:**
+
+```
+fixture
+```
+
+**Error:**
 
 ```
 fixture

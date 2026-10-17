@@ -20,6 +20,8 @@ mod turns;
 mod format_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod turn_tests;
 
 /// Renderer that produces human-readable Markdown documents.
 pub struct MarkdownRenderer;

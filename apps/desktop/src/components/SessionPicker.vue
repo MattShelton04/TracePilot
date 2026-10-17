@@ -98,7 +98,8 @@ function closeList() {
 function onInput(event: Event) {
   query.value = (event.target as HTMLInputElement).value;
   open.value = true;
-  activeId.value = null;
+  // Typing highlights the best match, so Enter picks it without ArrowDown.
+  activeId.value = query.value.trim() ? (filteredSessions.value[0]?.id ?? null) : null;
 }
 
 function onSelect(id: string) {
