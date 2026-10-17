@@ -24,6 +24,7 @@ import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { useLiveClock } from "@/composables/useLiveClock";
 import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { useProgressiveList } from "@/composables/useProgressiveList";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useScrollRestore } from "@/composables/useScrollRestore";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -43,6 +44,10 @@ const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const tabStore = useSessionTabsStore();
 const { liveBadge } = useLiveSessionBadges(computed(() => store.filteredSessions));
+// Hundreds of cards would otherwise all mount before the list first paints.
+const { visible: renderedSessions, complete: allCardsRendered } = useProgressiveList(
+  () => store.filteredSessions,
+);
 const { refreshing, refresh } = useAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.
@@ -213,7 +218,8 @@ useScrollRestore({
       prefs.hideEmptySessions,
     ])}`,
   el: pageRef,
-  ready: () => !store.loading && !store.indexing,
+  // The card to line up may be among those still waiting to render.
+  ready: () => !store.loading && !store.indexing && allCardsRendered.value,
   // Off-screen cards use placeholder heights, so line up the card instead.
   anchorAttr: "data-session-id",
 });
@@ -386,7 +392,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       <!-- Session cards grid -->
       <div v-else-if="store.filteredSessions.length > 0" class="grid-cards" data-testid="session-grid">
         <SessionCard
-          v-for="session in store.filteredSessions"
+          v-for="session in renderedSessions"
           :key="session.id"
           data-testid="session-card"
           :data-session-id="session.id"
