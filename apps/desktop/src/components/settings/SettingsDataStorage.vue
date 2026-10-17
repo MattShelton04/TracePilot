@@ -279,7 +279,7 @@ function rebuildMessage(rebuilt: number): string {
   const message = `Rebuilt analytics for ${rebuilt} session${rebuilt !== 1 ? "s" : ""}`;
   const hidden = preferencesStore.hideEmptySessions ? (sessionsStore.emptySessionCount ?? 0) : 0;
   if (hidden === 0) return message;
-  return `${message}, including ${hidden} hidden empty session${hidden !== 1 ? "s" : ""}`;
+  return `${message} (${hidden} empty session${hidden !== 1 ? "s" : ""} hidden)`;
 }
 
 async function clearCache() {

@@ -124,8 +124,8 @@ describe("SettingsDataStorage paths and maintenance", () => {
   });
 
   it.each([
-    [true, 1, "Rebuilt analytics for 12 sessions, including 1 hidden empty session"],
-    [true, 2, "Rebuilt analytics for 12 sessions, including 2 hidden empty sessions"],
+    [true, 1, "Rebuilt analytics for 12 sessions (1 empty session hidden)"],
+    [true, 2, "Rebuilt analytics for 12 sessions (2 empty sessions hidden)"],
     [true, 0, "Rebuilt analytics for 12 sessions"],
     [false, 1, "Rebuilt analytics for 12 sessions"],
   ])("names hidden empty sessions in the analytics rebuild count (hidden: %s, empty: %i)", async (hide, empty, message) => {
