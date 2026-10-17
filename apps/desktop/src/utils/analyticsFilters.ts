@@ -23,6 +23,8 @@ export type AnalyticsDatasetName =
   | "agents"
   | "skills";
 
+export type PresetRange = Exclude<AnalyticsTimeRange, "custom">;
+
 export interface AnalyticsDateRange {
   fromDate?: string;
   toDate?: string;
@@ -37,13 +39,15 @@ const PRESET_DAYS = { "7d": 7, "30d": 30, "90d": 90 } as const;
 /**
  * The dates a preset range covers today, in UTC days because that is how the
  * index buckets activity. "7 Days" is today and the six UTC days before it,
- * the same span the Agents and Skills ranges use (`usage/range.ts`).
+ * the same span the Agents and Skills ranges use (`usage/range.ts`). `day`
+ * is any moment of the current day, or that UTC day as `YYYY-MM-DD`.
  */
 export function presetRange(
-  range: Exclude<AnalyticsTimeRange, "custom">,
-  now: Date = new Date(),
+  range: PresetRange,
+  day: Date | string = new Date(),
 ): AnalyticsDateRange {
   if (range === "all") return {};
+  const now = typeof day === "string" ? new Date(`${day}T00:00:00Z`) : day;
   if (range === "month-to-date") {
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, "0");

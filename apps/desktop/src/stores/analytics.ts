@@ -20,6 +20,7 @@ import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { usePersistedAnalyticsFilters } from "@/composables/usePersistedAnalyticsFilters";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
+import { useUtcDay } from "@/composables/useUtcDay";
 import {
   type AnalyticsDatasetName,
   type AnalyticsDateRange,
@@ -63,10 +64,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   // from the sessions store, which avoids redundant listSessions() calls.
   const { selectedRepo, selectedSource, selectedTimeRange, customFromDate, customToDate } =
     usePersistedAnalyticsFilters();
-  const availableRepos = computed(() => {
-    const sessionsStore = useSessionsStore();
-    return sessionsStore.repositories as string[];
-  });
+  const availableRepos = computed(() => useSessionsStore().repositories as string[]);
 
   // Source filter: `null` covers every source.
   const availableSources = computed(() => useSessionsStore().sources);
@@ -75,10 +73,13 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     selectedSource.value ? `${sourceLabel(selectedSource.value)} ` : "",
   );
 
+  // Preset ranges end today (UTC), so they move when the day turns over.
+  const utcDay = useUtcDay();
+  const preset = (range: Parameters<typeof presetRange>[0]) => presetRange(range, utcDay.value);
   const dateRange = computed<AnalyticsDateRange>(() =>
     selectedTimeRange.value === "custom"
       ? { fromDate: customFromDate.value, toDate: customToDate.value }
-      : presetRange(selectedTimeRange.value),
+      : preset(selectedTimeRange.value),
   );
 
   function setTimeRange(range: AnalyticsTimeRange, from?: string, to?: string) {
@@ -178,6 +179,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     prefetch: (name, params) => datasets[name].prefetch(params),
     build: buildParams,
     dateRange: () => dateRange.value,
+    preset,
     sources: () => availableSources.value,
     onWarm: () => void watchIndexUpdates(),
   });

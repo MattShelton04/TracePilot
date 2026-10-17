@@ -4,7 +4,7 @@ use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{PortableSession, PortableSessionMetadata, SessionArchive, SessionSource};
 
-use super::{cell, format_dt};
+use super::{cell, format_dt, push_nested_markdown};
 
 pub(super) fn write_header(md: &mut String, session: &PortableSession, archive: &SessionArchive) {
     let title = session
@@ -75,12 +75,6 @@ fn source_label(source: SessionSource) -> Option<&'static str> {
 
 pub(super) fn write_plan(md: &mut String, plan: &str) {
     md.push_line(format_args!("## Plan\n"));
-    for line in plan.lines() {
-        if line.starts_with('#') {
-            md.push_line(format_args!("##{}", line));
-        } else {
-            md.push_line(format_args!("{}", line));
-        }
-    }
+    push_nested_markdown(md, plan, 2);
     md.push('\n');
 }

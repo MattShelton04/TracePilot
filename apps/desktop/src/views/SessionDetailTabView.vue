@@ -22,6 +22,7 @@ import {
   toSessionDetailContext,
 } from "@/composables/useSessionDetail";
 import { useSessionSource } from "@/composables/useSessionSource";
+import { NAVIGATE_SESSION_TAB_KEY } from "@/composables/useSessionTabNavigation";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { DEFAULT_SESSION_TAB, isSessionTabHidden, SESSION_TABS } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -103,6 +104,10 @@ provide(NAVIGATE_CHECKPOINT_KEY, (checkpointNumber: number) => {
 provide(NAVIGATE_CONVERSATION_KEY, (target: ConversationNavigationTarget) => {
   store.focusConversation(target.turnIndex, target.eventIndex ?? null);
   emit("update:activeSubTab", "conversation");
+});
+// Panels here have no route to push (e.g. Metrics → Context).
+provide(NAVIGATE_SESSION_TAB_KEY, (tab: string) => {
+  emit("update:activeSubTab", tab);
 });
 </script>
 

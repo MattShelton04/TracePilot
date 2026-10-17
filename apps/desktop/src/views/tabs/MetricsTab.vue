@@ -26,6 +26,7 @@ import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { useSessionSource } from "@/composables/useSessionSource";
+import { useSessionTabNavigation } from "@/composables/useSessionTabNavigation";
 import { useSessionTabViews } from "@/composables/useSessionTabViews";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -37,6 +38,8 @@ import "@/styles/features/analytics-dashboard.css";
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
 const router = useRouter();
+// Tab mode switches its own sub-tab; route mode pushes the Context route.
+const navigateToTab = useSessionTabNavigation();
 // Remembered across tabs and restarts; a remembered "agent" still loads turns
 // on mount through the loader below.
 const tabViews = useSessionTabViews();
@@ -164,7 +167,8 @@ const modeOptions = computed(() => [
 
 function openContext() {
   if (!store.sessionId) return;
-  pushRoute(router, ROUTE_NAMES.sessionContext, { params: { id: store.sessionId } });
+  if (navigateToTab) navigateToTab("context");
+  else pushRoute(router, ROUTE_NAMES.sessionContext, { params: { id: store.sessionId } });
 }
 </script>
 

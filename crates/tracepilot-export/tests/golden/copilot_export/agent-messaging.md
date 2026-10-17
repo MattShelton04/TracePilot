@@ -20,7 +20,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: gpt-5.6-luna · 5004ms*
+*Model: gpt-5.6-luna · 5s*
 
 **User**
 
@@ -58,8 +58,8 @@
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| 🤖 alpha | ✅ | 20000ms | Coordinate alpha messaging · claude-haiku-4.5 |
-| 🤖 beta | ✅ | 12000ms | Answer alpha question · claude-haiku-4.5 |
+| 🤖 alpha | ✅ | 20s | Coordinate alpha messaging · claude-haiku-4.5 |
+| 🤖 beta | ✅ | 12s | Answer alpha question · claude-haiku-4.5 |
 | list_agents | ✅ | 6ms | — |
 | list_agents | ✅ | 1ms | — |
 | write_agent | ✅ | 1ms | — |
@@ -169,7 +169,7 @@ Message delivered to agent agent-alpha. The recipient can reply with write_agent
 > ℹ️ **session.auto_mode_resolved**: Auto mode chose gpt-5.6-luna
 
 ### Turn 2
-*Model: gpt-5.6-luna · 8489ms*
+*Model: gpt-5.6-luna · 8.5s*
 
 _No user message._
 
@@ -177,7 +177,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 6753ms | — |
+| read_agent | ✅ | 6.8s | — |
 
 #### 🔧 read_agent
 
@@ -197,7 +197,7 @@ Beta answered: **42**.
 ```
 
 ### Turn 3
-*Model: gpt-5.6-luna · 3662ms*
+*Model: gpt-5.6-luna · 3.7s*
 
 _No user message._
 
@@ -205,7 +205,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 2064ms | — |
+| read_agent | ✅ | 2.1s | — |
 
 #### 🔧 read_agent
 
@@ -232,7 +232,7 @@ alpha asks: what is 6*7?
 ```
 
 ### Turn 4
-*Model: gpt-5.6-luna · 1435ms*
+*Model: gpt-5.6-luna · 1.4s*
 
 _No user message._
 
@@ -259,7 +259,7 @@ Message delivered to 2 agents.
 ```
 
 ### Turn 5
-*Model: gpt-5.6-luna · 6863ms*
+*Model: gpt-5.6-luna · 6.9s*
 
 _No user message._
 
@@ -267,7 +267,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 5220ms | — |
+| read_agent | ✅ | 5.2s | — |
 
 #### 🔧 read_agent
 
@@ -301,7 +301,7 @@ DONE
 ```
 
 ### Turn 6
-*Model: gpt-5.6-luna · 1365ms*
+*Model: gpt-5.6-luna · 1.4s*
 
 _No user message._
 

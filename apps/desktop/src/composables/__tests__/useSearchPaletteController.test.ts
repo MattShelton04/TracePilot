@@ -17,10 +17,18 @@ const search = {
   },
 };
 
+const prefs = reactive({ hideEmptySessions: true });
+const sessionsStore = reactive({
+  sessions: [] as { id: string; summary?: string; turnCount?: number }[],
+});
+
 vi.mock("@/stores/preferences", () => ({
-  usePreferencesStore: () => ({ isFeatureEnabled: (flag: FeatureFlag) => flags[flag] ?? false }),
+  usePreferencesStore: () =>
+    Object.assign(prefs, {
+      isFeatureEnabled: (flag: FeatureFlag) => flags[flag] ?? false,
+    }),
 }));
-vi.mock("@/stores/sessions", () => ({ useSessionsStore: () => ({ sessions: [] }) }));
+vi.mock("@/stores/sessions", () => ({ useSessionsStore: () => sessionsStore }));
 vi.mock("@/composables/useSearchPaletteSearch", () => ({ useSearchPaletteSearch: () => search }));
 vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
 
@@ -34,6 +42,8 @@ beforeEach(() => {
   scope = effectScope();
   query.value = "";
   for (const flag of FEATURE_FLAGS) flags[flag] = false;
+  prefs.hideEmptySessions = true;
+  sessionsStore.sessions = [];
   vi.mocked(pushRoute).mockClear();
 });
 
@@ -120,5 +130,45 @@ describe("command palette navigation registry", () => {
     }
     expect(palette.selectedIndex.value).toBeLessThan(palette.allItems.value.length);
     expect(palette.allItems.value[palette.selectedIndex.value]).toBeDefined();
+  });
+});
+
+describe("command palette recent sessions", () => {
+  const sessions = [
+    { id: "empty-1", summary: "Empty one", turnCount: 0 },
+    { id: "a", summary: "A", turnCount: 3 },
+    { id: "empty-2", summary: "Empty two" },
+    { id: "b", summary: "B", turnCount: 1 },
+    { id: "c", summary: "C", turnCount: 2 },
+    { id: "d", summary: "D", turnCount: 5 },
+    { id: "e", summary: "E", turnCount: 4 },
+    { id: "f", summary: "F", turnCount: 9 },
+  ];
+
+  it("skips empty sessions while the session list hides them", () => {
+    sessionsStore.sessions = sessions;
+    const palette = controller();
+
+    expect(palette.recentEntries.value.map((entry) => entry.sessionId)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
+  });
+
+  it("lists empty sessions when the preference shows them", () => {
+    sessionsStore.sessions = sessions;
+    prefs.hideEmptySessions = false;
+    const palette = controller();
+
+    expect(palette.recentEntries.value.map((entry) => entry.sessionId)).toEqual([
+      "empty-1",
+      "a",
+      "empty-2",
+      "b",
+      "c",
+    ]);
   });
 });

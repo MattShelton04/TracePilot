@@ -20,7 +20,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: gpt-5.6-luna · 5000ms*
+*Model: gpt-5.6-luna · 5s*
 
 **User**
 
@@ -46,9 +46,9 @@
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| 🤖 Worker A | ✅ | 20000ms | — · gpt-5.6-luna · 123 tok · 2 calls |
-| view | ✅ | 1000ms | — |
-| 🤖 Worker B | ❌ | 3000ms | — · gpt-5.6-luna |
+| 🤖 Worker A | ✅ | 20s | — · gpt-5.6-luna · 123 tok · 2 calls |
+| view | ✅ | 1s | — |
+| 🤖 Worker B | ❌ | 3s | — · gpt-5.6-luna |
 
 #### 🤖 Worker A
 
@@ -93,7 +93,7 @@ Fixture content.
 > ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
 
 ### Turn 2
-*Model: gpt-5.6-luna · 10000ms*
+*Model: gpt-5.6-luna · 10s*
 
 **User**
 
@@ -107,7 +107,7 @@ Fixture content.
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 1000ms | — |
+| read_agent | ✅ | 1s | — |
 
 #### 🔧 read_agent
 

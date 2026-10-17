@@ -20,7 +20,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: fixture · 0ms · 3 tokens*
+*Model: fixture · 0ms · 3 output tokens*
 
 **User**
 
