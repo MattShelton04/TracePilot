@@ -32,6 +32,7 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/styles/features/skills-manager.css",
   "apps/desktop/src/styles/features/worktree-manager.css",
   "apps/desktop/src/views/SessionListView.vue",
+  "apps/desktop/src/components/session/SessionDetailPanel.vue",
   "apps/desktop/src/components/mcp/addServer/add-server.css",
 ]);
 
