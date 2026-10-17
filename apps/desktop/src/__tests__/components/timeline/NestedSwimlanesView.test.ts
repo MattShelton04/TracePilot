@@ -124,6 +124,58 @@ describe("NestedSwimlanesView", () => {
     expect(wrapper.find(".phase-body").exists()).toBe(true);
   });
 
+  describe("phase collapse", () => {
+    function promptTurns(count: number, from = 0) {
+      return Array.from({ length: count }, (_, i) =>
+        makeTurn({ turnIndex: from + i, userMessage: `Prompt ${from + i + 1}` }),
+      );
+    }
+    function expandedPhases(wrapper: ReturnType<typeof mountComponent>) {
+      return wrapper
+        .findAll(".phase-group")
+        .map((group, i) => (group.find(".phase-body").exists() ? i : -1))
+        .filter((i) => i >= 0);
+    }
+
+    it("expands every phase of a short session", () => {
+      store.turns = promptTurns(3);
+      const wrapper = mountComponent();
+      expect(expandedPhases(wrapper)).toEqual([0, 1, 2]);
+    });
+
+    it("opens a long session on its latest phase", () => {
+      store.turns = promptTurns(5);
+      const wrapper = mountComponent();
+      expect(expandedPhases(wrapper)).toEqual([4]);
+    });
+
+    it("keeps phases the user toggled when a new prompt arrives", async () => {
+      store.turns = promptTurns(5);
+      const wrapper = mountComponent();
+      await wrapper.findAll(".phase-header")[1].trigger("click"); // expand phase 2
+      const beforeUpdate = expandedPhases(wrapper);
+      expect(beforeUpdate).toContain(1);
+
+      store.turns = [...store.turns, ...promptTurns(1, 5)];
+      await nextTick();
+      // The user's choices stand, and the new prompt's phase opens.
+      expect(expandedPhases(wrapper)).toEqual([...beforeUpdate, 5]);
+    });
+
+    it("applies the defaults again for another session", async () => {
+      store.sessionId = "session-a";
+      store.turns = promptTurns(5);
+      const wrapper = mountComponent();
+      await wrapper.findAll(".phase-header")[0].trigger("click");
+      expect(expandedPhases(wrapper)).toEqual([0, 4]);
+
+      store.sessionId = "session-b";
+      store.turns = promptTurns(4);
+      await nextTick();
+      expect(expandedPhases(wrapper)).toEqual([3]);
+    });
+  });
+
   it("subagent lanes appear for turns with isSubagent tool calls", () => {
     const subagentTc = makeTurnToolCall({
       toolName: "explore",

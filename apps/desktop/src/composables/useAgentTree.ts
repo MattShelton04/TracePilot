@@ -31,6 +31,11 @@ export type { AgentNode, TreeData } from "@/utils/agentTreeBuilder";
 export type AgentTreeLayout = AgentTreeLayoutResult<AgentNode>;
 export type AgentTreeSvgLineT = AgentTreeSvgLine;
 
+/** Turns with a subagent call: the turns the agent tree draws. */
+export function isAgentTurn(turn: ConversationTurn): boolean {
+  return turn.toolCalls.some((tc) => tc.isSubagent);
+}
+
 export function useAgentTree() {
   const {
     store,
@@ -85,9 +90,7 @@ export function useAgentTree() {
     return node.durationMs;
   }
 
-  const agentTurns = computed<ConversationTurn[]>(() =>
-    store.turns.filter((t) => t.toolCalls.some((tc) => tc.isSubagent)),
-  );
+  const agentTurns = computed<ConversationTurn[]>(() => store.turns.filter(isAgentTurn));
 
   const {
     turnIndex: agentTurnIndex,

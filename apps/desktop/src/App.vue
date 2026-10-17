@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ConfirmDialog, EXTERNAL_LINK_HANDLER_KEY, ToastContainer } from "@tracepilot/ui";
-import { computed, provide, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { computed, onScopeDispose, provide, watch } from "vue";
+import {
+  isNavigationFailure,
+  NavigationFailureType,
+  START_LOCATION,
+  useRoute,
+  useRouter,
+} from "vue-router";
 import AlertCenterDrawer from "@/components/chrome/AlertCenterDrawer.vue";
 import KbdHelpOverlay from "@/components/chrome/KbdHelpOverlay.vue";
 import SearchPalette from "@/components/chrome/SearchPalette.vue";
@@ -94,21 +100,20 @@ const routeViewVisible = computed(() => !isTabViewActive.value);
 provide("routeViewVisible", routeViewVisible);
 provide(EXTERNAL_LINK_HANDLER_KEY, openExternal);
 
-// When the user navigates away from session-compatible routes (e.g. settings),
-// deactivate tab selection so the router-view shows through.
-// Note: navigating to "/" (sessions list) is handled by sidebar's @nav-sessions
-// and tab strip's @go-home, not this watcher.
+// Any navigation shows the routed page: Ctrl+K, a notification, the "Sessions"
+// breadcrumb or a link to another session must not stay hidden behind the
+// active tab. Duplicate navigations count too (the breadcrumb or Ctrl+K
+// targeting the current route), so this hooks afterEach rather than watching
+// the path. The router's initial navigation keeps a restored tab showing, and
+// the tab-activation push below suppresses it.
 let suppressTabDeactivation = false;
 
-watch(
-  () => route.fullPath,
-  () => {
-    if (suppressTabDeactivation) return;
-    if (!isSessionRoute.value) {
-      tabStore.deactivateAll();
-    }
-  },
-);
+const removeAfterEach = router.afterEach((_to, from, failure) => {
+  if (suppressTabDeactivation || from === START_LOCATION) return;
+  if (failure && !isNavigationFailure(failure, NavigationFailureType.duplicated)) return;
+  tabStore.deactivateAll();
+});
+onScopeDispose(removeAfterEach);
 
 // Re-show tab view when a tab is activated (e.g. clicking tab strip)
 watch(

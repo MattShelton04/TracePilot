@@ -105,19 +105,21 @@ function setAssistantMsgIdx(turnIndex: number, idx: number) {
   assistantMsgIndex.value.set(turnIndex, idx);
 }
 
-// Default collapsed for large sessions
-let lastPhaseCount = 0;
+// A long session opens with every phase but the latest collapsed: the
+// collapsed headers read as a list of the session's prompts, and the latest
+// phase is the one a live session is working in. The default applies once per
+// session; later updates keep the user's toggles, and a new prompt's phase
+// arrives expanded.
+let defaultsAppliedFor: { sessionId: string | null } | null = null;
 watch(
   groupedPhases,
   (newPhases) => {
-    // Only auto-collapse on initial load or when phase count changes
-    // (not on soft refresh which returns the same structure)
-    if (newPhases.length > 3 && newPhases.length !== lastPhaseCount) {
-      for (let i = 1; i < newPhases.length; i++) {
-        phases.set.value.add(i);
-      }
+    if (!newPhases.length || defaultsAppliedFor?.sessionId === store.sessionId) return;
+    defaultsAppliedFor = { sessionId: store.sessionId };
+    phases.clear();
+    if (newPhases.length > 3) {
+      for (let i = 0; i < newPhases.length - 1; i++) phases.add(i);
     }
-    lastPhaseCount = newPhases.length;
   },
   { immediate: true },
 );

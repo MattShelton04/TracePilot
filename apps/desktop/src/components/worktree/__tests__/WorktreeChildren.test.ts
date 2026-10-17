@@ -113,6 +113,7 @@ describe("WorktreeToolbar", () => {
         selectedRepoPath: null,
         refreshing: false,
         cleaningStale: false,
+        cleanableStaleCount: 0,
       },
     });
     const buttons = wrapper.findAll(".toolbar > button");
@@ -131,11 +132,31 @@ describe("WorktreeToolbar", () => {
         selectedRepoPath: null,
         refreshing: false,
         cleaningStale: false,
+        cleanableStaleCount: 0,
       },
     });
     const input = wrapper.find(".search-input");
     await input.setValue("foo");
     expect(wrapper.emitted("update:searchQuery")?.[0]).toEqual(["foo"]);
+  });
+
+  it("enables Clean Stale from the scoped count, not the global stale total", async () => {
+    const store = useWorktreesStore();
+    store.worktrees = [makeWt({ status: "stale", repoRoot: "/other" })];
+    const props = {
+      searchQuery: "",
+      selectedRepoPath: "/repo",
+      refreshing: false,
+      cleaningStale: false,
+      cleanableStaleCount: 0,
+    };
+    const wrapper = mount(WorktreeToolbar, { props });
+    const clean = () => wrapper.findAll(".toolbar > button")[1]!;
+    expect(clean().attributes("disabled")).toBeDefined();
+    await wrapper.setProps({ cleanableStaleCount: 2 });
+    expect(clean().attributes("disabled")).toBeUndefined();
+    await clean().trigger("click");
+    expect(wrapper.emitted("clean-stale")).toHaveLength(1);
   });
 });
 
@@ -216,6 +237,29 @@ describe("WorktreeList", () => {
     expect(lock.get("svg").attributes("aria-hidden")).toBe("true");
     expect(remove.get("svg").attributes("aria-hidden")).toBe("true");
   });
+
+  it("disables folder actions on a stale row and says why", async () => {
+    const wrapper = mount(WorktreeList, {
+      props: {
+        filteredWorktrees: [makeWt({ status: "stale" })],
+        selectedWorktreePath: null,
+        searchQuery: "",
+      },
+    });
+    for (const action of ["Open Folder", "Open Terminal", "Launch Session Here"]) {
+      const btn = wrapper.get(`[aria-label="${action}: folder no longer exists"]`);
+      expect(btn.attributes("disabled")).toBeDefined();
+      expect(btn.attributes("title")).toBe("Folder no longer exists");
+      await btn.trigger("click");
+    }
+    expect(wrapper.emitted("open-explorer")).toBeUndefined();
+    expect(wrapper.emitted("open-terminal")).toBeUndefined();
+    expect(wrapper.emitted("navigate-launcher")).toBeUndefined();
+    // Removing the stale entry stays available.
+    expect(
+      wrapper.get('[aria-label="Remove worktree feature/a"]').attributes("disabled"),
+    ).toBeUndefined();
+  });
 });
 
 describe("WorktreeDetailPanel", () => {
@@ -232,6 +276,23 @@ describe("WorktreeDetailPanel", () => {
     expect(wrapper.text()).toContain("Uncommitted");
     await wrapper.find(".detail-header .icon-btn").trigger("click");
     expect(wrapper.emitted("close")).toBeTruthy();
+  });
+
+  it("disables folder actions for a stale worktree", () => {
+    const wrapper = mount(WorktreeDetailPanel, {
+      props: { worktree: makeWt({ status: "stale" }), details: null, detailsLoading: false },
+    });
+    const buttons = wrapper.findAll(".detail-actions button");
+    for (const label of ["Open Folder", "Open Terminal", "Launch Session Here"]) {
+      const btn = buttons.find((b) => b.text() === label)!;
+      expect(btn.attributes("disabled")).toBeDefined();
+      expect(btn.attributes("title")).toBe("Folder no longer exists");
+    }
+    const active = mount(WorktreeDetailPanel, {
+      props: { worktree: makeWt(), details: null, detailsLoading: false },
+    });
+    const open = active.findAll(".detail-actions button").find((b) => b.text() === "Open Folder")!;
+    expect(open.attributes("disabled")).toBeUndefined();
   });
 });
 

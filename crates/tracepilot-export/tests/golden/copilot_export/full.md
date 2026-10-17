@@ -28,7 +28,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: claude-opus-4.6 · 2000ms*
+*Model: claude-opus-4.6 · 2s*
 
 **User**
 
@@ -79,7 +79,7 @@ Added authentication
 | Shutdown Type | routine |
 | Model | claude-opus-4.6 |
 | AI Credits | 2.500 (observed) |
-| API Duration | 5000ms |
+| API Duration | 5s |
 | Lines Added | +10 |
 | Lines Removed | -2 |
 

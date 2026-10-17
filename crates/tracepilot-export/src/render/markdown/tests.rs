@@ -143,6 +143,8 @@ fn renders_plan() {
 
     let text = files[0].as_text().unwrap();
     assert!(text.contains("## Plan"));
+    assert!(text.contains("\n### My Plan\n"));
+    assert!(text.contains("\n#### Phase 1\n"));
     assert!(text.contains("Build core"));
 }
 
