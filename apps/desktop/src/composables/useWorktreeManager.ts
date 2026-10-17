@@ -1,11 +1,15 @@
 import { openInExplorer, openInTerminal } from "@tracepilot/client";
 import type { WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
-import { useConfirmDialog, useToast } from "@tracepilot/ui";
+import { toErrorMessage, useConfirmDialog, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { useWorktreesStore } from "@/stores/worktrees";
+
+function pluralStale(n: number): string {
+  return `${n} stale worktree${n === 1 ? "" : "s"}`;
+}
 
 /**
  * Central state + action coordinator for the WorktreeManagerView shell.
@@ -37,13 +41,19 @@ export function useWorktreeManager() {
     }
   });
 
-  const staleDiskUsage = computed(() =>
-    store.worktrees
-      .filter((w) => w.status === "stale")
-      .reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
+  // A worktree is stale when its folder no longer exists, so stale entries hold
+  // no disk space; they are counted, never sized. Clean-up acts on the repo the
+  // user is looking at, and skips locked entries just as `git worktree prune` does.
+  const staleInScope = computed(() =>
+    store.worktrees.filter(
+      (w) =>
+        w.status === "stale" && (!selectedRepoPath.value || w.repoRoot === selectedRepoPath.value),
+    ),
   );
 
-  const staleWorktrees = computed(() => store.worktrees.filter((w) => w.status === "stale"));
+  const cleanableStale = computed(() =>
+    staleInScope.value.filter((w) => !w.isLocked && !w.isMainWorktree),
+  );
 
   const worktreeCountByRepo = computed(() => {
     const counts = new Map<string, number>();
@@ -96,12 +106,16 @@ export function useWorktreeManager() {
         selectedRepoPath.value = null;
       }
       toastSuccess("Repository removed");
+    } else {
+      toastError(`Failed to remove repository: ${store.error ?? "unknown error"}`);
     }
   }
 
   async function handleDiscoverRepos() {
     const found = await store.discoverRepos();
-    if (found.length > 0) {
+    if (store.error) {
+      toastError(`Failed to discover repositories: ${store.error}`);
+    } else if (found.length > 0) {
       loaded.value = true;
       toastSuccess(`Discovered ${found.length} repo${found.length > 1 ? "s" : ""}`);
       await store.loadAllWorktrees();
@@ -189,30 +203,75 @@ export function useWorktreeManager() {
           result.prunedCount > 0
             ? `Pruned ${result.prunedCount} stale worktree(s).`
             : "Nothing to prune — all worktrees are clean.";
+        // store.prune reloads only this repo; restore every repo's rows.
+        if (result.prunedCount > 0) await store.loadAllWorktrees();
+      } else {
+        toastError(`Prune failed: ${store.error ?? "unknown error"}`);
       }
     } else {
+      const repos = [...store.registeredRepos];
       let totalPruned = 0;
-      for (const repo of store.registeredRepos) {
+      const failures: string[] = [];
+      for (const repo of repos) {
         const result = await store.prune(repo.path);
         if (result) totalPruned += result.prunedCount;
+        else failures.push(`${repo.name}: ${store.error ?? "unknown error"}`);
       }
-      pruneMessage.value =
-        totalPruned > 0
-          ? `Pruned ${totalPruned} stale worktree(s) across all repos.`
-          : "Nothing to prune — all worktrees are clean.";
+      if (failures.length < repos.length) {
+        pruneMessage.value =
+          totalPruned > 0
+            ? `Pruned ${totalPruned} stale worktree(s) across all repos.`
+            : "Nothing to prune — all worktrees are clean.";
+      }
+      if (failures.length > 0) {
+        toastError(
+          `Prune failed for ${failures.length} of ${repos.length} repositories — ${failures[0]}`,
+        );
+      }
+      // store.prune reloads only the last pruned repo; restore every repo's rows.
+      if (totalPruned > 0) await store.loadAllWorktrees();
     }
   }
 
   async function handleCleanStale() {
+    const targets = [...cleanableStale.value];
+    if (targets.length === 0 || cleaningStale.value) return;
+    const skippedLocked = staleInScope.value.length - targets.length;
+    const repoName = selectedRepoPath.value
+      ? (store.registeredRepos.find((r) => r.path === selectedRepoPath.value)?.name ??
+        selectedRepoPath.value)
+      : null;
+    const { confirmed } = await confirm({
+      title: "Clean Up Stale Worktrees",
+      message:
+        `Remove ${pluralStale(targets.length)} ${repoName ? `in ${repoName}` : "across all repositories"}? ` +
+        "Their folders no longer exist; this deletes git's records of them. Branches are kept." +
+        (skippedLocked > 0
+          ? ` ${skippedLocked} locked worktree${skippedLocked === 1 ? " is" : "s are"} skipped.`
+          : ""),
+      variant: "warning",
+      confirmLabel: "Clean Up",
+    });
+    if (!confirmed) return;
+
     cleaningStale.value = true;
+    let removed = 0;
+    const failures: string[] = [];
     try {
-      for (const wt of staleWorktrees.value) {
-        await store.deleteWorktree(wt.path, true, wt.repoRoot);
+      for (const wt of targets) {
+        if (await store.deleteWorktree(wt.path, true, wt.repoRoot)) removed++;
+        else failures.push(`${wt.branch}: ${store.error ?? "unknown error"}`);
       }
-      selectedWorktree.value = null;
-      worktreeDetails.value = null;
     } finally {
       cleaningStale.value = false;
+    }
+
+    if (failures.length === 0) {
+      toastSuccess(`Removed ${pluralStale(removed)}`);
+    } else {
+      toastError(
+        `Removed ${removed} of ${pluralStale(targets.length)}; ${failures.length} failed — ${failures[0]}`,
+      );
     }
   }
 
@@ -223,6 +282,8 @@ export function useWorktreeManager() {
         selectedWorktree.value = { ...selectedWorktree.value, isLocked: true };
       }
       toastSuccess("Worktree locked");
+    } else {
+      toastError(`Failed to lock worktree: ${store.error ?? "unknown error"}`);
     }
   }
 
@@ -237,6 +298,8 @@ export function useWorktreeManager() {
         };
       }
       toastSuccess("Worktree unlocked");
+    } else {
+      toastError(`Failed to unlock worktree: ${store.error ?? "unknown error"}`);
     }
   }
 
@@ -271,7 +334,7 @@ export function useWorktreeManager() {
     try {
       await openInExplorer(path);
     } catch (e) {
-      toastError(`Failed to open folder: ${e}`);
+      toastError(`Failed to open folder: ${toErrorMessage(e)}`);
     }
   }
 
@@ -279,7 +342,7 @@ export function useWorktreeManager() {
     try {
       await openInTerminal(path);
     } catch (e) {
-      toastError(`Failed to open terminal: ${e}`);
+      toastError(`Failed to open terminal: ${toErrorMessage(e)}`);
     }
   }
 
@@ -316,7 +379,8 @@ export function useWorktreeManager() {
     worktreeDetails,
     detailsLoading,
     refreshing,
-    staleDiskUsage,
+    staleInScope,
+    cleanableStale,
     worktreeCountByRepo,
     filteredWorktrees,
     initialRepoPath,

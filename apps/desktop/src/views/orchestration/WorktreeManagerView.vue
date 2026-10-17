@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatBytes, LoadingSpinner } from "@tracepilot/ui";
+import { LoadingSpinner } from "@tracepilot/ui";
 import CreateWorktreeModal from "@/components/worktree/CreateWorktreeModal.vue";
 import WorktreeDetailPanel from "@/components/worktree/WorktreeDetailPanel.vue";
 import WorktreeList from "@/components/worktree/WorktreeList.vue";
@@ -20,7 +20,8 @@ const {
   worktreeDetails,
   detailsLoading,
   refreshing,
-  staleDiskUsage,
+  staleInScope,
+  cleanableStale,
   worktreeCountByRepo,
   filteredWorktrees,
   initialRepoPath,
@@ -90,6 +91,7 @@ const {
           :selected-repo-path="selectedRepoPath"
           :refreshing="refreshing"
           :cleaning-stale="cleaningStale"
+          :cleanable-stale-count="cleanableStale.length"
           @create="openCreateModal"
           @clean-stale="handleCleanStale"
           @prune="handlePrune"
@@ -101,18 +103,19 @@ const {
           {{ pruneMessage }}
         </div>
 
-        <div v-if="store.staleCount > 0" class="stale-banner">
+        <div v-if="staleInScope.length > 0" class="stale-banner">
           <svg class="stale-banner-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          <span><strong>{{ store.staleCount }} stale worktree{{ store.staleCount > 1 ? 's' : '' }}</strong> — {{ formatBytes(staleDiskUsage) }} reclaimable</span>
+          <span><strong>{{ staleInScope.length }} stale worktree{{ staleInScope.length === 1 ? '' : 's' }}</strong> — {{ staleInScope.length === 1 ? 'its folder no longer exists' : 'their folders no longer exist' }}</span>
           <button
             class="btn btn-sm stale-banner-btn"
-            :disabled="cleaningStale"
+            :disabled="cleaningStale || cleanableStale.length === 0"
+            :title="cleanableStale.length === 0 ? 'Locked worktrees are kept. Unlock them to clean up.' : undefined"
             @click="handleCleanStale"
-          >{{ cleaningStale ? 'Cleaning…' : 'Clean Now' }}</button>
+          >{{ cleaningStale ? 'Cleaning…' : 'Clean Up' }}</button>
         </div>
 
         <WorktreeList

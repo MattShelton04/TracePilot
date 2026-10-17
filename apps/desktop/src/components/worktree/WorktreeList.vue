@@ -188,13 +188,31 @@ function sortOrder(field: "branch" | "status" | "createdAt" | "diskUsageBytes") 
           <!-- Actions -->
           <td>
             <div class="wt-row-actions" @click.stop>
-              <button class="icon-btn" title="Open Folder" aria-label="Open Folder" @click="emit('open-explorer', wt.path)">
+              <button
+                class="icon-btn"
+                :title="wt.status === 'stale' ? 'Folder no longer exists' : 'Open Folder'"
+                :aria-label="wt.status === 'stale' ? `Open Folder: folder no longer exists` : 'Open Folder'"
+                :disabled="wt.status === 'stale'"
+                @click="emit('open-explorer', wt.path)"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
               </button>
-              <button class="icon-btn" title="Open Terminal" aria-label="Open Terminal" @click="emit('open-terminal', wt.path)">
+              <button
+                class="icon-btn"
+                :title="wt.status === 'stale' ? 'Folder no longer exists' : 'Open Terminal'"
+                :aria-label="wt.status === 'stale' ? `Open Terminal: folder no longer exists` : 'Open Terminal'"
+                :disabled="wt.status === 'stale'"
+                @click="emit('open-terminal', wt.path)"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
               </button>
-              <button class="icon-btn" title="Launch Session Here" aria-label="Launch Session Here" @click="emit('navigate-launcher', wt)">
+              <button
+                class="icon-btn"
+                :title="wt.status === 'stale' ? 'Folder no longer exists' : 'Launch Session Here'"
+                :aria-label="wt.status === 'stale' ? `Launch Session Here: folder no longer exists` : 'Launch Session Here'"
+                :disabled="wt.status === 'stale'"
+                @click="emit('navigate-launcher', wt)"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3" /></svg>
               </button>
               <button
