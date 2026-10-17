@@ -32,10 +32,20 @@ const filtering = computed(() => query.value.trim() !== "");
 
 const open = ref(new Set<string>());
 const limit = ref(ROW_LIMIT);
+// Refreshes rebuild the tree; folders already shown keep the user's choice,
+// and only folders seen for the first time take the default.
+const seen = new Set<string>();
 watch(
   tree,
   (node) => {
-    open.value = new Set(folderPaths(node, node.files <= OPEN_ALL_MAX ? Infinity : 1));
+    const defaults = new Set(folderPaths(node, node.files <= OPEN_ALL_MAX ? Infinity : 1));
+    const next = new Set(open.value);
+    for (const path of folderPaths(node)) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      if (defaults.has(path)) next.add(path);
+    }
+    open.value = next;
   },
   { immediate: true },
 );

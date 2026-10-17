@@ -17,6 +17,7 @@ import { computed, ref, useId } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useClientPager } from "@/composables/useClientPager";
 import { useElementWidth } from "@/composables/useElementWidth";
+import { useLiveCacheStatus } from "@/composables/useLiveCacheStatus";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
 import { idlePercent, idleScale, idleTicks, stackDots } from "@/utils/metricsView";
 import {
@@ -123,7 +124,14 @@ const replies = computed(() => summary.value.warm + afterExpiry.value);
 const expiredShare = computed(() =>
   replies.value ? (afterExpiry.value / replies.value) * 100 : 0,
 );
-const pending = computed(() => props.timeline.windows.find((w) => w.outcome === "pending") ?? null);
+// Live only while the unresumed window's cache is still warm, as the
+// Conversation tab's countdown says; an ended session's old window is not.
+const live = useLiveCacheStatus(() => props.timeline);
+const pending = computed(() => {
+  const window = live.window.value;
+  if (window?.outcome !== "pending" || live.stale.value) return null;
+  return live.status.value?.state === "expired" ? null : window;
+});
 const resentLabel = computed(() =>
   formatApproxTokens(summary.value.resentPrefixTokens).replace(/^about | tokens$/g, ""),
 );
