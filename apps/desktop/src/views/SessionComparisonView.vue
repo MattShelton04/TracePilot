@@ -26,10 +26,23 @@ function picksFrom(query: LocationQuery): { a: string; b: string } {
 // Leaving the page changes the route before this view unmounts.
 const onComparePage = () => route.name === ROUTE_NAMES.compare;
 
+function writePicks(a: string, b: string) {
+  const current = picksFrom(route.query);
+  if (current.a === a && current.b === b) return;
+  const query = { ...route.query, a: a || undefined, b: b || undefined };
+  void router.replace({ query });
+}
+
 function applyRoute() {
   if (!onComparePage()) return;
   const { a, b } = picksFrom(route.query);
   if (a === comp.selectedA && b === comp.selectedB) return;
+  // An address without picks (the sidebar's Compare link) keeps the current
+  // picks; only an address naming other sessions replaces them.
+  if (!a && !b) {
+    writePicks(comp.selectedA, comp.selectedB);
+    return;
+  }
   comp.selectedA = a;
   comp.selectedB = b;
   if (a && b && a !== b) void comp.runComparison();
@@ -41,11 +54,7 @@ watch(() => route.query, applyRoute);
 watch(
   () => [comp.selectedA, comp.selectedB] as const,
   ([a, b]) => {
-    if (!onComparePage()) return;
-    const current = picksFrom(route.query);
-    if (current.a === a && current.b === b) return;
-    const query = { ...route.query, a: a || undefined, b: b || undefined };
-    void router.replace({ query });
+    if (onComparePage()) writePicks(a, b);
   },
 );
 </script>

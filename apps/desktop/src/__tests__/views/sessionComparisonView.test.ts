@@ -99,6 +99,21 @@ describe("SessionComparisonView route state", () => {
     same.unmount();
   });
 
+  it("keeps the picks and results when the sidebar opens Compare without picks", async () => {
+    const router = makeRouter();
+    const wrapper = await mountAt(router, "/compare?a=a&b=b");
+    client.getSessionDetail.mockClear();
+
+    await router.push("/compare");
+    await flushPromises();
+    expect(router.currentRoute.value.query).toEqual({ a: "a", b: "b" });
+    expect(wrapper.findAll(".session-name").map((n) => n.text())).toEqual(["a", "b"]);
+    expect(wrapper.text()).not.toContain("Selection changed.");
+    expect(wrapper.get<HTMLButtonElement>(".compare-btn").element.disabled).toBe(false);
+    expect(client.getSessionDetail).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("does not re-run the comparison when a re-pick updates the URL", async () => {
     const router = makeRouter();
     const wrapper = await mountAt(router, "/compare?a=a&b=b");

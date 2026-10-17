@@ -26,7 +26,6 @@ import {
   reactive,
   ref,
 } from "vue";
-import { exitTitle, isNormalExit } from "@/components/overview/sessionExit";
 import {
   allowsAiCreditEstimate,
   filesModified,
@@ -52,6 +51,7 @@ import { getChartColors } from "@/utils/designTokens";
 import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 import { modelLabels } from "@/utils/modelLabels";
 import { DURATION_HINTS } from "@/utils/sessionDurations";
+import { exitTitle, isNormalExit } from "@/utils/sessionExit";
 import { sessionCostEstimate } from "@/utils/sourceCost";
 
 /**

@@ -23,9 +23,9 @@ import {
 import { computed } from "vue";
 import type { SessionLiveState } from "@/composables/useSessionLiveState";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
+import { exitTitle, isNormalExit } from "@/utils/sessionExit";
 import { countIncidents, groupByFolder, splitSessionTime } from "@/utils/sessionOverview";
 import OverviewPanel from "./OverviewPanel.vue";
-import { exitTitle, isNormalExit } from "./sessionExit";
 
 export type OverviewSection = "incidents" | "checkpoints" | "fileHistory" | "plan";
 
