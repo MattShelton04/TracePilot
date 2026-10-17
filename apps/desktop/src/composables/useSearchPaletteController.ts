@@ -4,7 +4,7 @@
 // command palette. Kept separate from the SFC to keep `<SearchPalette>`
 // under the per-file size budget.
 
-import type { SearchResult } from "@tracepilot/types";
+import type { SearchResult, SessionListItem } from "@tracepilot/types";
 import { computed, nextTick, type Ref, ref, watch } from "vue";
 import type { RouteRecordNormalized, Router } from "vue-router";
 import { useSearchPaletteSearch } from "@/composables/useSearchPaletteSearch";
@@ -107,7 +107,14 @@ export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInp
 
   const recentEntries = computed<RecentEntry[]>(() => {
     if (search.hasQuery.value) return [];
-    return sessionsStore.sessions.slice(0, 5).map((s) => ({
+    // Skip empty sessions while the session list hides them.
+    const hideEmpty = prefsStore.hideEmptySessions;
+    const recent: SessionListItem[] = [];
+    for (const s of sessionsStore.sessions) {
+      if (recent.length === 5) break;
+      if (!hideEmpty || (s.turnCount ?? 0) !== 0) recent.push(s);
+    }
+    return recent.map((s) => ({
       id: `recent:${s.id}`,
       label: s.summary || `Session ${s.id.slice(0, 8)}`,
       hint: s.repository || s.branch || "",
