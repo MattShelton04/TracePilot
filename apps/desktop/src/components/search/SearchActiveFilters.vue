@@ -2,6 +2,7 @@
 import { type SearchContentType, type SessionSource, sourceLabel } from "@tracepilot/types";
 import type { ContentTypeStyle } from "@tracepilot/ui";
 import { computed } from "vue";
+import { PROJECT_FILTER_PREFIX, repositoryFilterLabel } from "@/stores/sessions/filtering";
 import { normalizeDateValue } from "@/utils/dateValidation";
 
 const props = defineProps<{
@@ -26,6 +27,14 @@ const emit = defineEmits<{
   "clear-date-range": [];
   "clear-all": [];
 }>();
+
+// A folder-only project reads as the session list's Folders group shows it.
+const repositoryChip = computed(() => {
+  const repository = props.repository;
+  if (!repository) return null;
+  const kind = repository.startsWith(PROJECT_FILTER_PREFIX) ? "Folder" : "Repo";
+  return `${kind}: ${repositoryFilterLabel(repository)}`;
+});
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -70,7 +79,7 @@ const dateRangeLabel = computed(() => {
         <button class="filter-chip-remove" @click="$emit('remove-content-type', chip.type)" aria-label="Remove filter">×</button>
       </span>
       <span v-if="repository" class="filter-chip filter-chip-neutral">
-        Repo: {{ repository }}
+        {{ repositoryChip }}
         <button class="filter-chip-remove" @click="$emit('clear-repository')" aria-label="Remove filter">×</button>
       </span>
       <span v-if="toolName" class="filter-chip filter-chip-neutral">

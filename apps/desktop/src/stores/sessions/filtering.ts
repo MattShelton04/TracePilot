@@ -42,6 +42,17 @@ export interface SessionSearchFields {
 /** Marks a repository-filter value as a working-directory project, not a repository. */
 export const PROJECT_FILTER_PREFIX = "project:";
 
+/**
+ * What a repository-filter value reads as: the folder name for a
+ * `PROJECT_FILTER_PREFIX` key, as the filter's Folders group lists it, else
+ * the repository itself.
+ */
+export function repositoryFilterLabel(value: string): string {
+  return value.startsWith(PROJECT_FILTER_PREFIX)
+    ? value.slice(PROJECT_FILTER_PREFIX.length)
+    : value;
+}
+
 /** One option of the session list's repository filter. */
 export interface RepositoryFilterOption {
   value: string;

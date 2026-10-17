@@ -52,6 +52,13 @@ describe("SearchActiveFilters", () => {
     expect(wrapper.find(".filter-chip-neutral").text()).toContain("Repo: org/repo");
   });
 
+  it("names a folder-only project filter by its folder", () => {
+    const wrapper = mountFilters({ repository: "project:harbor" });
+    const chip = wrapper.find(".filter-chip-neutral").text();
+    expect(chip).toContain("Folder: harbor");
+    expect(chip).not.toContain("project:");
+  });
+
   it("renders tool name filter chip", () => {
     const wrapper = mountFilters({ toolName: "read_file" });
     expect(wrapper.find(".filter-chip-neutral").text()).toContain("Tool: read_file");
