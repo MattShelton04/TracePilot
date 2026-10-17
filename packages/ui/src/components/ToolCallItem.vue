@@ -47,6 +47,14 @@ const emit = defineEmits<{
 const { directory: agentDirectory } = useAgentDirectory();
 const status = useToolCallStatus(() => props.tc);
 
+// Header mark for a call without a recorded success or failure.
+const openMark = computed(() => {
+  if (status.value === "unfinished")
+    return { glyph: "—", label: UNFINISHED_TOOL_CALL_LABEL, title: UNFINISHED_TOOL_CALL_HINT };
+  if (status.value === "cancelled") return { glyph: "—", label: "Cancelled", title: undefined };
+  return { glyph: "○", label: "Pending", title: undefined };
+});
+
 // A command that exits non-zero (failing tests, lint findings, a missing
 // path) still ran: shown as a caution, not as a failed tool.
 const nonZeroExit = computed(() => {
@@ -258,13 +266,12 @@ watch(
         <span v-else-if="status === 'success'" class="tool-call-status success" aria-label="Succeeded">✓</span>
         <span v-else-if="status === 'error'" class="tool-call-status failed" aria-label="Failed">✗</span>
         <span
-          v-else-if="status === 'unfinished'"
+          v-else
           class="tool-call-status"
           style="color: var(--text-tertiary);"
-          :aria-label="UNFINISHED_TOOL_CALL_LABEL"
-          :title="UNFINISHED_TOOL_CALL_HINT"
-        >—</span>
-        <span v-else class="tool-call-status" style="color: var(--text-tertiary);" :aria-label="status === 'cancelled' ? 'Cancelled' : 'Pending'">{{ status === 'cancelled' ? '—' : '○' }}</span>
+          :aria-label="openMark.label"
+          :title="openMark.title"
+        >{{ openMark.glyph }}</span>
 
         <ExpandChevron :expanded="expanded" />
       </span>

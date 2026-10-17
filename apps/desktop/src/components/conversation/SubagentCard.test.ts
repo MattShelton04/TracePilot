@@ -2,6 +2,8 @@ import { setupPinia } from "@tracepilot/test-utils";
 import type { TurnToolCall } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it } from "vitest";
+import { computed } from "vue";
+import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useSessionsStore } from "@/stores/sessions";
 import SubagentCard from "./SubagentCard.vue";
@@ -91,6 +93,21 @@ describe("subagent end state", () => {
     expect(wrapper.get(".cv-subagent-status").classes()).toContain("unreported");
     expect(wrapper.get(".cv-subagent-unreported").text()).toBe("No final report");
     expect(wrapper.find(".cv-subagent-dur").exists()).toBe(false);
+  });
+
+  it("keeps the agent running when the detail panel sees a resumed session the list does not", () => {
+    useSessionDetailStore().sessionId = "s-1";
+    useSessionsStore().sessions = [{ id: "s-1", source: "copilot", isRunning: false } as Item];
+    const wrapper = mount(SubagentCard, {
+      props: { toolCall: unfinished },
+      global: {
+        provide: {
+          [SESSION_LIVE_STATE_KEY as symbol]: computed(() => ({ running: true, status: null })),
+        },
+      },
+    });
+    expect(wrapper.get(".cv-subagent-status").classes()).toContain("pending");
+    expect(wrapper.find(".cv-subagent-unreported").exists()).toBe(false);
   });
 
   it("keeps the agent running while the Copilot session is live", () => {

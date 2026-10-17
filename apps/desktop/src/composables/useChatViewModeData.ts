@@ -105,10 +105,7 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
 
   // Once the session has ended, a tool call with no result never finished:
   // it reads as settled rather than pending, and is not auto-expanded.
-  const sessionEnded = useProvideSessionEnded(
-    () => store.sessionId,
-    () => isSdkSteered.value,
-  );
+  const sessionEnded = useProvideSessionEnded(() => store.sessionId);
 
   // ─── Tool result loader ───────────────────────────────────────────
   const {

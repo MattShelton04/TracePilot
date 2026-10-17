@@ -2,7 +2,8 @@ import type { ConversationTurn, SessionLiveState } from "@tracepilot/types";
 import { useSessionEnded } from "@tracepilot/ui";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick, ref, shallowReactive } from "vue";
+import { computed, defineComponent, h, nextTick, ref, shallowReactive } from "vue";
+import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
 import type { SdkLiveTurn } from "@/stores/sdk/liveTurns";
 
 const detail = shallowReactive({
@@ -294,12 +295,15 @@ describe("useChatViewModeData streaming derivations", () => {
   });
 
   it.each([
-    { running: true, steered: false, ended: false },
-    { running: false, steered: true, ended: false },
-    { running: false, steered: false, ended: true },
-  ])("treats an open call as settled only once the session ended (running=$running, steered=$steered)", async ({
+    { running: true, steered: false, detailLive: false, ended: false },
+    { running: false, steered: true, detailLive: false, ended: false },
+    // Resumed after the list loaded: the detail panel's liveness check is fresher.
+    { running: false, steered: false, detailLive: true, ended: false },
+    { running: false, steered: false, detailLive: false, ended: true },
+  ])("treats an open call as settled only once the session ended (list=$running, steered=$steered, detail=$detailLive)", async ({
     running,
     steered,
+    detailLive,
     ended,
   }) => {
     sessionList.sessions = [{ id: "s1", source: "copilot", isRunning: running }];
@@ -320,14 +324,22 @@ describe("useChatViewModeData streaming derivations", () => {
       },
     });
     let api!: ReturnType<typeof useChatViewModeData>;
-    wrapper = mount(
-      defineComponent({
-        setup() {
-          api = useChatViewModeData(ref(null));
-          return () => h(Probe);
+    const Chat = defineComponent({
+      setup() {
+        api = useChatViewModeData(ref(null));
+        return () => h(Probe);
+      },
+    });
+    wrapper = mount(Chat, {
+      global: {
+        provide: {
+          [SESSION_LIVE_STATE_KEY as symbol]: computed(() => ({
+            running: detailLive,
+            status: null,
+          })),
         },
-      }),
-    );
+      },
+    });
     await nextTick();
     expect(seen).toBe(ended);
     // Live calls open so their progress shows; a call that never finished stays closed.

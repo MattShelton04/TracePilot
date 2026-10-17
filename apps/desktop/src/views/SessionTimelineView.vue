@@ -15,6 +15,7 @@ import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
 import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
 import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
 import { isAgentTurn } from "@/composables/useAgentTree";
+import { useProvideSessionEnded } from "@/composables/useCountsUpToNow";
 import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionModelName } from "@/composables/useSessionModelName";
@@ -23,6 +24,8 @@ import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
 const { directory } = provideSessionAgentDirectory(store);
+// Waterfall and swimlane tool details settle calls an ended session left open.
+useProvideSessionEnded(() => store.sessionId);
 const modelName = useSessionModelName();
 
 // Load turns when component mounts (if not already loaded)
