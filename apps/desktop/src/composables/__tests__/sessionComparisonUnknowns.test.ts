@@ -78,6 +78,19 @@ describe("Compare keeps unknown values unknown", () => {
     expect(row("Success Rate")).toMatchObject({ ...unknown, valueB: "50%", rawB: 0.5 });
   });
 
+  it("shows the change in success rate in percentage points", () => {
+    const row = compared(
+      { turns: [turnWith(true, false, false)] },
+      { turns: [turnWith(...Array(9).fill(true), false)] },
+    );
+    expect(row("Success Rate")).toMatchObject({
+      valueA: "33.3%",
+      valueB: "90%",
+      delta: "↑ 56.7 pts",
+      deltaClass: "delta-positive",
+    });
+  });
+
   it("shows code changes as unknown without a change record", () => {
     expect([linesChanged(null), filesModified(null)]).toEqual([null, null]);
     expect([linesChanged({ codeChanges: {} }), filesModified({ codeChanges: {} })]).toEqual([

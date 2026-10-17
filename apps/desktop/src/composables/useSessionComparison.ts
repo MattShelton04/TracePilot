@@ -15,8 +15,18 @@ import {
   formatNumber,
   formatRate,
   toErrorMessage,
+  useAsyncGuard,
 } from "@tracepilot/ui";
-import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "vue";
+import {
+  computed,
+  type InjectionKey,
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+} from "vue";
+import { exitTitle, isNormalExit } from "@/components/overview/sessionExit";
 import {
   allowsAiCreditEstimate,
   filesModified,
@@ -33,7 +43,11 @@ import {
 } from "@/composables/useSessionMetrics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
-import { formatSessionDelta } from "@/utils/deltaFormatting";
+import {
+  type FormattedDelta,
+  formatSessionDelta,
+  formatSessionPointDelta,
+} from "@/utils/deltaFormatting";
 import { getChartColors } from "@/utils/designTokens";
 import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 import { modelLabels } from "@/utils/modelLabels";
@@ -195,24 +209,25 @@ export function sessionLabel(detail: SessionDetail | null): string {
   return detail?.summary || detail?.id || "Unknown";
 }
 
-export function exitBadgeVariant(
-  m: ShutdownMetrics | null,
-): "default" | "accent" | "success" | "warning" | "danger" | "done" | "neutral" {
+/** The exit chip's tone, as Overview's Exit tile colours the same exit. */
+export function exitBadgeVariant(m: ShutdownMetrics | null): "success" | "danger" | "neutral" {
   if (!m?.shutdownType) return "neutral";
-  const t = m.shutdownType.toLowerCase();
-  if (t.includes("clean") || t === "completed" || t === "normal") return "success";
-  if (t.includes("forced") || t.includes("error") || t.includes("crash")) return "danger";
-  return "warning";
+  return isNormalExit(m.shutdownType) ? "success" : "danger";
 }
 
 /**
- * The exit chip's text, or `null` to hide the chip. Only Copilot records how
- * a session ended, so a missing exit is "Unknown" there and simply not
- * reported for other sources.
+ * The exit chip's text, named as Overview names it, or `null` to hide the
+ * chip. Only Copilot records how a session ended, so a missing exit is
+ * reported there and simply not mentioned for other sources.
  */
 export function exitLabel(m: ShutdownMetrics | null, source?: SessionSource | null): string | null {
-  if (m?.shutdownType) return m.shutdownType;
-  return isNonCopilotSource(source) ? null : "Unknown";
+  if (m?.shutdownType) return exitTitle(m.shutdownType);
+  return isNonCopilotSource(source) ? null : exitTitle(null);
+}
+
+/** "1 turn", "2 turns". */
+export function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 export function useSessionComparison() {
@@ -225,6 +240,11 @@ export function useSessionComparison() {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const compared = ref(false);
+  /** The pair the results describe, so a later re-pick can be flagged. */
+  const comparedIds = ref<{ a: string; b: string } | null>(null);
+  // A newer comparison supersedes one still in flight.
+  const guard = useAsyncGuard();
+  onBeforeUnmount(() => guard.invalidate());
 
   const dataA = reactive<SessionData>({ detail: null, metrics: null, turns: [] });
   const dataB = reactive<SessionData>({ detail: null, metrics: null, turns: [] });
@@ -249,31 +269,44 @@ export function useSessionComparison() {
       selectedA.value && selectedB.value && selectedA.value !== selectedB.value && !loading.value,
   );
 
+  // The results no longer match the pickers once either pick changes.
+  const isStale = computed(
+    () =>
+      compared.value &&
+      comparedIds.value != null &&
+      (comparedIds.value.a !== selectedA.value || comparedIds.value.b !== selectedB.value),
+  );
+
   async function runComparison() {
-    if (!selectedA.value || !selectedB.value) return;
+    const a = selectedA.value;
+    const b = selectedB.value;
+    if (!a || !b) return;
+    const token = guard.start();
     loading.value = true;
     error.value = null;
     compared.value = false;
     try {
       const [detailA, metricsA, turnsA, detailB, metricsB, turnsB] = await Promise.all([
-        getSessionDetail(selectedA.value),
-        getShutdownMetrics(selectedA.value),
-        getSessionTurns(selectedA.value).then((r) => r.turns),
-        getSessionDetail(selectedB.value),
-        getShutdownMetrics(selectedB.value),
-        getSessionTurns(selectedB.value).then((r) => r.turns),
+        getSessionDetail(a),
+        getShutdownMetrics(a),
+        getSessionTurns(a).then((r) => r.turns),
+        getSessionDetail(b),
+        getShutdownMetrics(b),
+        getSessionTurns(b).then((r) => r.turns),
       ]);
+      if (!guard.isValid(token)) return;
       dataA.detail = detailA;
       dataA.metrics = metricsA;
       dataA.turns = turnsA;
       dataB.detail = detailB;
       dataB.metrics = metricsB;
       dataB.turns = turnsB;
+      comparedIds.value = { a, b };
       compared.value = true;
     } catch (e) {
-      error.value = toErrorMessage(e);
+      if (guard.isValid(token)) error.value = toErrorMessage(e);
     } finally {
-      loading.value = false;
+      if (guard.isValid(token)) loading.value = false;
     }
   }
 
@@ -319,11 +352,12 @@ export function useSessionComparison() {
       vb: number | null,
       fmt: (v: number) => string,
       hib: boolean,
+      delta: (a: number, b: number, hib: boolean) => FormattedDelta = formatSessionDelta,
     ): MetricRow {
       const d =
         va == null || vb == null
           ? { delta: "—", deltaClass: "delta-neutral", arrow: "" }
-          : formatSessionDelta(va, vb, hib);
+          : delta(va, vb, hib);
       return {
         label,
         valueA: va == null ? "—" : fmt(va),
@@ -363,7 +397,8 @@ export function useSessionComparison() {
       row(`Total Tokens${suffix}`, per(tokA, divA), per(tokB, divB), fmtN, false),
       costRow(),
       row(`Tool Calls${suffix}`, per(tcA, divA), per(tcB, divB), fmtInt, false),
-      row("Success Rate", srA, srB, formatRate, true),
+      // A change between two rates reads in percentage points.
+      row("Success Rate", srA, srB, formatRate, true, formatSessionPointDelta),
       row("Files Modified", fmA, fmB, String, false),
       row(`Lines Changed${suffix}`, per(lcA, divA), per(lcB, divB), fmtInt, false),
     ];
@@ -423,6 +458,7 @@ export function useSessionComparison() {
     loading,
     error,
     compared,
+    isStale,
     dataA,
     dataB,
     // computed

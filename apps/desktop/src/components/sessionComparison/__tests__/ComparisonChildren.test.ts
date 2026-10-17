@@ -29,6 +29,7 @@ function makeCompStub(overrides: Partial<SessionComparisonContext> = {}): Sessio
     loading: false,
     error: null as string | null,
     compared: false,
+    isStale: false,
     dataA: {
       detail: null as SessionDetail | null,
       metrics: null as ShutdownMetrics | null,
@@ -200,14 +201,64 @@ describe("ComparisonHeader", () => {
     const { a, b } = compared("claudeCode", "copilot");
     expect(a[0]).toBe("Claude Code");
     expect(b[0]).toBe("Copilot");
-    expect(a).not.toContain("Unknown");
-    expect(b).toContain("routine");
+    expect(a).not.toContain("No exit record");
+    expect(b).toContain("Ended normally");
   });
 
   it("leaves a Copilot-only comparison without source chips", () => {
     const { a, b } = compared("copilot", "copilot");
     expect([...a, ...b]).not.toContain("Copilot");
-    expect(a).toContain("routine");
+    expect(a).toContain("Ended normally");
+  });
+
+  it("counts a single turn and event in the singular", () => {
+    const side = (id: string, turns: number, events: number) => ({
+      detail: { id, summary: id, eventCount: events } as SessionDetail,
+      metrics: null,
+      turns: Array.from({ length: turns }, (_, i) => ({ turnIndex: i }) as ConversationTurn),
+    });
+    const comp = makeCompStub({ compared: true, dataA: side("a", 1, 1), dataB: side("b", 2, 0) });
+    const header = mount(hostFor(ComparisonHeader, comp));
+    const chips = (card: string) =>
+      header.findAll(`.${card} .summary-meta .badge`).map((b) => b.text());
+    expect(chips("session-a")).toEqual(expect.arrayContaining(["1 turn", "1 event"]));
+    expect(chips("session-b")).toEqual(expect.arrayContaining(["2 turns", "0 events"]));
+
+    const charts = mount(hostFor(ComparisonCharts, comp));
+    expect(charts.findAll(".timeline-label").map((l) => l.text())).toEqual([
+      "Session A — — (1 turn)",
+      "Session B — — (2 turns)",
+    ]);
+  });
+
+  it("says when the results no longer match the picked sessions", () => {
+    const side = (id: string) => ({
+      detail: { id, summary: id, eventCount: 1 } as SessionDetail,
+      metrics: null,
+      turns: [] as ConversationTurn[],
+    });
+    const fresh = mount(
+      hostFor(
+        ComparisonHeader,
+        makeCompStub({ compared: true, dataA: side("a"), dataB: side("b") }),
+      ),
+    );
+    expect(fresh.text()).not.toContain("Selection changed.");
+
+    const stale = mount(
+      hostFor(
+        ComparisonHeader,
+        makeCompStub({ compared: true, isStale: true, dataA: side("a"), dataB: side("b") }),
+      ),
+    );
+    expect(stale.get('[role="status"]').text()).toContain("Click Compare to update them");
+    expect(stale.findAll(".session-name").map((n) => n.text())).toEqual(["a", "b"]);
+  });
+
+  it("draws the empty state's icon with Lucide, not an emoji", () => {
+    const wrapper = mount(hostFor(ComparisonHeader, makeCompStub()));
+    expect(wrapper.find(".lucide-columns-2, svg").exists()).toBe(true);
+    expect(wrapper.text()).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 });
 

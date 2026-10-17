@@ -71,6 +71,7 @@ import {
   donutSegments,
   exitBadgeVariant,
   exitLabel,
+  plural,
   sessionLabel,
   useSessionComparison,
 } from "../useSessionComparison";
@@ -149,6 +150,50 @@ describe("useSessionComparison", () => {
     expect(comp.compared).toBe(true);
     expect(comp.loading).toBe(false);
     expect(comp.error).toBe(null);
+  });
+
+  it("flags the results as stale once a pick changes after Compare, until compared again", async () => {
+    const { comp } = mountHook();
+    comp.selectedA = "a";
+    comp.selectedB = "b";
+    await comp.runComparison();
+    expect(comp.isStale).toBe(false);
+
+    comp.selectedA = "c";
+    expect(comp.isStale).toBe(true);
+    // The results still describe the pair that was compared.
+    expect(comp.dataA.detail?.id).toBe("a");
+
+    await comp.runComparison();
+    expect(comp.isStale).toBe(false);
+    expect(comp.dataA.detail?.id).toBe("c");
+  });
+
+  it("keeps the newest comparison when an earlier one finishes last", async () => {
+    let releaseFirst: () => void = () => {};
+    const firstDone = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    clientMock.getSessionDetail = vi.fn(async (id: string) => {
+      if (id === "slow") await firstDone;
+      return { id, summary: id } as SessionDetail;
+    });
+    const { comp } = mountHook();
+    comp.selectedA = "slow";
+    comp.selectedB = "b";
+    const first = comp.runComparison();
+
+    comp.selectedA = "fast";
+    await comp.runComparison();
+    expect(comp.dataA.detail?.id).toBe("fast");
+    expect(comp.loading).toBe(false);
+
+    releaseFirst();
+    await first;
+    expect(comp.dataA.detail?.id).toBe("fast");
+    expect(comp.compared).toBe(true);
+    expect(comp.isStale).toBe(false);
+    expect(comp.loading).toBe(false);
   });
 
   it("runComparison surfaces errors via error + leaves compared=false", async () => {
@@ -396,22 +441,30 @@ describe("helpers", () => {
     expect(sessionLabel({ id: "x", summary: "Sum" } as SessionDetail)).toBe("Sum");
   });
 
-  it("exitBadgeVariant maps shutdown type to variant", () => {
+  it("names and colours Copilot's normal exit the way Overview does", () => {
+    const routine = { shutdownType: "routine" } as ShutdownMetrics;
+    expect(exitLabel(routine, "copilot")).toBe("Ended normally");
+    expect(exitBadgeVariant(routine)).toBe("success");
+  });
+
+  it("exitBadgeVariant marks any other recorded exit as a problem, as Overview does", () => {
     expect(exitBadgeVariant(null)).toBe("neutral");
-    expect(exitBadgeVariant({ shutdownType: "clean_exit" } as ShutdownMetrics)).toBe("success");
-    expect(exitBadgeVariant({ shutdownType: "forced_kill" } as ShutdownMetrics)).toBe("danger");
-    expect(exitBadgeVariant({ shutdownType: "other" } as ShutdownMetrics)).toBe("warning");
+    expect(exitBadgeVariant({ shutdownType: "user_exit" } as ShutdownMetrics)).toBe("danger");
+    expect(exitLabel({ shutdownType: "user_exit" } as ShutdownMetrics)).toBe("Ended: user_exit");
   });
 
   it("exitLabel hides the chip for sources that do not report an exit", () => {
     expect(exitLabel(null, "claudeCode")).toBeNull();
-    expect(exitLabel(null, "copilot")).toBe("Unknown");
-    expect(exitLabel({ shutdownType: "routine" } as ShutdownMetrics, "claudeCode")).toBe("routine");
+    expect(exitLabel(null, "copilot")).toBe("No exit record");
+    expect(exitLabel(null)).toBe("No exit record");
   });
 
-  it("exitLabel returns shutdownType or Unknown", () => {
-    expect(exitLabel(null)).toBe("Unknown");
-    expect(exitLabel({ shutdownType: "completed" } as ShutdownMetrics)).toBe("completed");
+  it("plural counts one item in the singular", () => {
+    expect([plural(1, "turn"), plural(0, "event"), plural(37, "event")]).toEqual([
+      "1 turn",
+      "0 events",
+      "37 events",
+    ]);
   });
 
   it("donutSegments returns cumulative offsets for each segment", () => {

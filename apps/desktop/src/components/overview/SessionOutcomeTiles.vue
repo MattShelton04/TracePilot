@@ -25,6 +25,7 @@ import type { SessionLiveState } from "@/composables/useSessionLiveState";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { countIncidents, groupByFolder, splitSessionTime } from "@/utils/sessionOverview";
 import OverviewPanel from "./OverviewPanel.vue";
+import { exitTitle, isNormalExit } from "./sessionExit";
 
 export type OverviewSection = "incidents" | "checkpoints" | "fileHistory" | "plan";
 
@@ -105,18 +106,19 @@ const exit = computed<{
       muted: true,
     };
   }
+  const title = exitTitle(props.shutdownType);
   if (!props.shutdownType) {
     return {
       tone: "neutral",
-      title: "No exit record",
+      title,
       detail: "The session didn't record a shutdown",
       icon: Clock,
     };
   }
-  if (props.shutdownType === "routine") {
-    return { tone: "success", title: "Ended normally", detail: runs, icon: Flag };
+  if (isNormalExit(props.shutdownType)) {
+    return { tone: "success", title, detail: runs, icon: Flag };
   }
-  return { tone: "danger", title: `Ended: ${props.shutdownType}`, detail: runs, icon: OctagonX };
+  return { tone: "danger", title, detail: runs, icon: OctagonX };
 });
 
 const incidentCounts = computed(() => countIncidents(props.incidents));

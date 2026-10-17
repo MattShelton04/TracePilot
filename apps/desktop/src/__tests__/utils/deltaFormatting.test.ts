@@ -3,8 +3,36 @@ import {
   type FormattedDelta,
   formatModelDelta,
   formatSessionDelta,
+  formatSessionPointDelta,
   type ModelDelta,
 } from "../../utils/deltaFormatting";
+
+// ── formatSessionPointDelta ─────────────────────────────────────────────────
+
+describe("formatSessionPointDelta", () => {
+  it("shows a rate change in percentage points, not a percent of a percent", () => {
+    expect(formatSessionPointDelta(1 / 3, 0.912, true)).toEqual({
+      delta: "↑ 57.9 pts",
+      deltaClass: "delta-positive",
+      arrow: "↑",
+    });
+    expect(formatSessionPointDelta(0.9, 0.85, true)).toEqual({
+      delta: "↓ 5 pts",
+      deltaClass: "delta-negative",
+      arrow: "↓",
+    });
+  });
+
+  it("uses the singular for one point and a dash when the rates round equal", () => {
+    expect(formatSessionPointDelta(0.5, 0.51, true).delta).toBe("↑ 1 pt");
+    expect(formatSessionPointDelta(0.5, 0.5004, true).delta).toBe("—");
+    expect(formatSessionPointDelta(0.5, Number.NaN, true).delta).toBe("—");
+  });
+
+  it("compares from a zero rate without inventing a base", () => {
+    expect(formatSessionPointDelta(0, 0.25, true).delta).toBe("↑ 25 pts");
+  });
+});
 
 // ── formatSessionDelta ──────────────────────────────────────────────────────
 
