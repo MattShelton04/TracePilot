@@ -9,7 +9,7 @@ use crate::document::{
     RewindIndex, ShutdownMetrics, TodoExport,
 };
 
-use super::{cell, format_dt};
+use super::{cell, format_dt, format_duration, push_nested_markdown};
 
 pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
     md.push_line(format_args!("## Todos\n"));
@@ -56,13 +56,7 @@ pub(super) fn write_checkpoints(md: &mut String, checkpoints: &[CheckpointExport
     for cp in checkpoints {
         md.push_line(format_args!("### Checkpoint {}: {}\n", cp.number, cp.title));
         if let Some(content) = &cp.content {
-            for line in content.lines() {
-                if line.starts_with('#') {
-                    md.push_line(format_args!("####{}", line));
-                } else {
-                    md.push_line(format_args!("{}", line));
-                }
-            }
+            push_nested_markdown(md, content, 4);
             md.push('\n');
         }
     }
@@ -94,7 +88,10 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
         md.push_line(format_args!("| Est. cost | {} |", provider_cost(metrics)));
     }
     if let Some(api_ms) = metrics.total_api_duration_ms {
-        md.push_line(format_args!("| API Duration | {}ms |", api_ms));
+        md.push_line(format_args!(
+            "| API Duration | {} |",
+            format_duration(api_ms)
+        ));
     }
     if let Some(changes) = &metrics.code_changes {
         if let Some(added) = changes.lines_added {

@@ -20,7 +20,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: gpt-5.6-luna · 15000ms*
+*Model: gpt-5.6-luna · 15s*
 
 **User**
 
@@ -33,7 +33,7 @@
 > ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
 
 ### Turn 2
-*Model: gpt-5.6-luna · 30000ms*
+*Model: gpt-5.6-luna · 30s*
 
 **User**
 
@@ -44,7 +44,7 @@
 > Fixture reply.
 
 ### Turn 3
-*Model: gpt-5.6-luna · 40000ms*
+*Model: gpt-5.6-luna · 40s*
 
 **User**
 
@@ -57,7 +57,7 @@
 > ℹ️ **session.compaction_complete**: Compaction complete (21000 tokens)
 
 ### Turn 4
-*Model: claude-sonnet-5 · 30000ms*
+*Model: claude-sonnet-5 · 30s*
 
 **User**
 

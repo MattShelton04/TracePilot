@@ -20,7 +20,7 @@
 ## Conversation
 
 ### Turn 1
-*Model: gpt-5.6-luna · 6000ms*
+*Model: gpt-5.6-luna · 6s*
 
 **User**
 
@@ -42,7 +42,7 @@
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| 🤖 probe-worker | ✅ | 10000ms | — · gpt-5.6-luna |
+| 🤖 probe-worker | ✅ | 10s | — · gpt-5.6-luna |
 
 #### 🤖 probe-worker
 
@@ -59,7 +59,7 @@ Prime probe worker
 > ℹ️ **session.start**: Session started (model: gpt-5.6-luna)
 
 ### Turn 2
-*Model: gpt-5.6-luna · 12000ms*
+*Model: gpt-5.6-luna · 12s*
 
 _No user message._
 
@@ -71,7 +71,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 9000ms | — |
+| read_agent | ✅ | 9s | — |
 
 #### 🔧 read_agent
 
@@ -82,7 +82,7 @@ _No user message._
 ```
 
 ### Turn 3
-*Model: gpt-5.6-luna · 4000ms*
+*Model: gpt-5.6-luna · 4s*
 
 _No user message._
 
@@ -94,7 +94,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| write_agent | ✅ | 1000ms | — |
+| write_agent | ✅ | 1s | — |
 
 #### 🔧 write_agent
 
@@ -105,7 +105,7 @@ _No user message._
 ```
 
 ### Turn 4
-*Model: gpt-5.6-luna · 9000ms*
+*Model: gpt-5.6-luna · 9s*
 
 _No user message._
 
@@ -117,7 +117,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 6000ms | — |
+| read_agent | ✅ | 6s | — |
 
 #### 🔧 read_agent
 
@@ -128,7 +128,7 @@ _No user message._
 ```
 
 ### Turn 5
-*Model: gpt-5.6-luna · 2000ms*
+*Model: gpt-5.6-luna · 2s*
 
 _No user message._
 

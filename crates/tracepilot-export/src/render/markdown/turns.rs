@@ -6,7 +6,7 @@ use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{ConversationTurn, SessionEventSeverity};
 
-use super::{cell, push_fenced};
+use super::{cell, format_duration, push_fenced};
 
 pub(super) fn write_conversation(md: &mut String, turns: &[ConversationTurn]) {
     md.push_line(format_args!("## Conversation\n"));
@@ -29,10 +29,10 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         meta_parts.push(format!("Model: {}", model));
     }
     if let Some(duration) = turn.duration_ms {
-        meta_parts.push(format!("{}ms", duration));
+        meta_parts.push(format_duration(duration));
     }
     if let Some(tokens) = turn.output_tokens {
-        meta_parts.push(format!("{} tokens", tokens));
+        meta_parts.push(format!("{} output tokens", tokens));
     }
     if !meta_parts.is_empty() {
         md.push_line(format_args!("*{}*\n", meta_parts.join(" · ")));
@@ -79,7 +79,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
             };
             let duration = tool
                 .duration_ms
-                .map(|d| format!("{}ms", d))
+                .map(format_duration)
                 .unwrap_or_else(|| "—".to_string());
 
             let name = if tool.is_subagent {
