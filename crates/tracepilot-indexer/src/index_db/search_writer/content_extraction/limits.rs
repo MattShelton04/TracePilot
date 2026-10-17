@@ -1,12 +1,15 @@
-/// Maximum bytes for individual content fields. Prompts, assistant replies
-/// and reasoning are what a user reads in Conversation, so they are indexed
-/// in full (one row per event; the reader's snippet keeps results bounded).
+/// Maximum bytes for individual content fields.
 pub(super) const MAX_TOOL_CALL_BYTES: usize = 2_000;
 pub(super) const MAX_TOOL_RESULT_BYTES: usize = 800;
 pub(super) const MAX_TOOL_ERROR_BYTES: usize = 2_000;
 pub(super) const MAX_ERROR_BYTES: usize = 2_000;
 pub(super) const MAX_COMPACTION_BYTES: usize = 3_000;
 pub(super) const MAX_SYSTEM_MESSAGE_BYTES: usize = 3_000;
+/// Replies and reasoning are what a user reads in Conversation, so they stay
+/// whole up to a safety bound: FTS computes `snippet()` for every matching
+/// row, and its cost grows faster than the row (1 MB takes over a second).
+pub(super) const MAX_ASSISTANT_MESSAGE_BYTES: usize = 256 * 1024;
+pub(super) const MAX_REASONING_BYTES: usize = 256 * 1024;
 
 /// Tools whose results add negligible search value (session management, status).
 /// Both tool_call and tool_result are skipped for these tools.

@@ -45,7 +45,7 @@ export const DEFAULT_ALERT_COOLDOWN_SECONDS = 20;
 
 /**
  * Default feature flag values — single source of truth for TypeScript.
- * MUST match `crates/tracepilot-tauri-bindings/src/config.rs` FeaturesConfig::default().
+ * MUST match `crates/tracepilot-tauri-bindings/src/config/features.rs` FeaturesConfig::default().
  */
 export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   exportView: true,

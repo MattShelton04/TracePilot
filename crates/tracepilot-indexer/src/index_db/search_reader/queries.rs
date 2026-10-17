@@ -65,7 +65,8 @@ impl IndexDb {
         let snippet_col = if is_fts {
             "snippet(search_fts, 0, '\x01MARK_OPEN\x01', '\x01MARK_CLOSE\x01', '…', 48)"
         } else {
-            "CASE WHEN LENGTH(sc.content) > 200 \
+            // Measure a prefix so browsing never reads a whole long row.
+            "CASE WHEN LENGTH(SUBSTR(sc.content, 1, 201)) > 200 \
                   THEN SUBSTR(sc.content, 1, 200) || '…' \
                   ELSE sc.content END"
         };

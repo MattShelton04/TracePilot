@@ -1,4 +1,5 @@
-//! A long assistant reply or reasoning block is searchable to its last word,
+//! A long assistant reply or reasoning block is searchable to its last word
+//! (up to a 256 KB safety cap),
 //! and still reads as one result with a bounded snippet.
 
 use super::super::extract_search_content;
@@ -33,6 +34,29 @@ fn reply_with_reasoning(
             ..Default::default()
         }),
     )
+}
+
+/// The per-row safety bound for replies and reasoning (`limits.rs`).
+const SAFETY_CAP: usize = 256 * 1024;
+
+#[test]
+fn a_reply_past_the_safety_cap_is_cut_at_a_char_boundary() {
+    // "é" is two bytes starting at odd offsets, so the cap falls mid-character.
+    let huge = format!("a{}", "é".repeat(SAFETY_CAP));
+    let events = vec![
+        user_message("summarise"),
+        assistant_turn_start(),
+        reply_with_reasoning(&huge, &huge),
+        reasoning(&huge),
+        assistant_turn_end(),
+    ];
+
+    let rows = extract_search_content(&sid(), &events);
+    assert_eq!(rows.len(), 4, "one row per text, never split");
+    for row in &rows[1..] {
+        assert_eq!(row.content.len(), SAFETY_CAP - 1, "{}", row.content_type);
+        assert!(huge.starts_with(&row.content), "{}", row.content_type);
+    }
 }
 
 #[test]
@@ -123,4 +147,19 @@ fn a_word_past_five_kilobytes_finds_its_reply_once() {
             hit.snippet.len()
         );
     }
+
+    // Browsing (no query) previews the first 200 characters of each row.
+    let browsed = db.query_content(None, &filters).unwrap();
+    let preview = |kind: &str| {
+        browsed
+            .iter()
+            .find(|r| r.content_type == kind)
+            .map(|r| r.snippet.clone())
+            .unwrap()
+    };
+    assert_eq!(preview("user_message"), "summarise");
+    let reply_preview = preview("assistant_message");
+    assert_eq!(reply_preview.chars().count(), 201);
+    assert!(reply_preview.ends_with('…'));
+    assert!(reply.starts_with(reply_preview.trim_end_matches('…')));
 }
