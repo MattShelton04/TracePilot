@@ -245,7 +245,9 @@ export function useWorktreeManager() {
       title: "Clean Up Stale Worktrees",
       message:
         `Remove ${pluralStale(targets.length)} ${repoName ? `in ${repoName}` : "across all repositories"}? ` +
-        "Their folders no longer exist; this deletes git's records of them. Branches are kept." +
+        (targets.length === 1
+          ? "Its folder no longer exists; this deletes git's record of it. Its branch is kept."
+          : "Their folders no longer exist; this deletes git's records of them. Branches are kept.") +
         (skippedLocked > 0
           ? ` ${skippedLocked} locked worktree${skippedLocked === 1 ? " is" : "s are"} skipped.`
           : ""),
