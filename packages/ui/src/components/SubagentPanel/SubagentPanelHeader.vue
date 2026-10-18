@@ -46,7 +46,7 @@ function statusClass(s: SubagentStatus): string {
         </template>
         <template v-if="view.totalToolCalls">
           <span class="sep">·</span>
-          <span title="Total tool calls made">{{ view.totalToolCalls }} tools</span>
+          <span title="Total tool calls made">{{ view.totalToolCalls }} {{ view.totalToolCalls === 1 ? "tool" : "tools" }}</span>
         </template>
       </div>
     </div>

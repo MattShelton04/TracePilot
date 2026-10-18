@@ -8,7 +8,7 @@ import {
   mockListSessions,
 } from "./setup";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 describe("useOrchestrationHomeStore - computed properties and activity feed", () => {
   describe("computed properties", () => {
@@ -95,32 +95,66 @@ describe("useOrchestrationHomeStore - computed properties and activity feed", ()
       expect(store.activityFeed).toHaveLength(6);
     });
 
-    it("marks running sessions as 'session_launched'", async () => {
-      mockCheckSystemDeps.mockResolvedValue(FIXTURE_SYSTEM_DEPS);
-      mockGetActiveCopilotVersion.mockResolvedValue(FIXTURE_ACTIVE_VERSION);
+    it("describes a running session as running, in its repository", async () => {
       mockListSessions.mockResolvedValue([
-        { ...FIXTURE_SESSIONS[0], isRunning: true, repository: "TestRepo" },
+        { ...FIXTURE_SESSIONS[0], isRunning: true, repository: "TestRepo", summary: "Ship it" },
       ]);
 
       const store = useOrchestrationHomeStore();
       await store.initialize();
 
-      expect(store.activityFeed[0].type).toBe("session_launched");
-      expect(store.activityFeed[0].message).toContain("Session started in TestRepo");
+      expect(store.activityFeed[0]).toMatchObject({
+        sessionId: "session-1",
+        title: "Ship it",
+        location: "TestRepo",
+        isRunning: true,
+      });
     });
 
-    it("marks completed sessions as 'batch_completed'", async () => {
-      mockCheckSystemDeps.mockResolvedValue(FIXTURE_SYSTEM_DEPS);
-      mockGetActiveCopilotVersion.mockResolvedValue(FIXTURE_ACTIVE_VERSION);
+    it("falls back to the folder for a session with no repository", async () => {
       mockListSessions.mockResolvedValue([
-        { ...FIXTURE_SESSIONS[1], isRunning: false, repository: "CompletedRepo" },
+        { ...FIXTURE_SESSIONS[1], repository: null, cwd: "/home/user/work/harbor" },
       ]);
 
       const store = useOrchestrationHomeStore();
       await store.initialize();
 
-      expect(store.activityFeed[0].type).toBe("batch_completed");
-      expect(store.activityFeed[0].message).toContain("Session completed in CompletedRepo");
+      expect(store.activityFeed[0]).toMatchObject({
+        title: null,
+        location: "harbor",
+        isRunning: false,
+      });
+    });
+
+    it("lists the most recently active sessions first", async () => {
+      mockListSessions.mockResolvedValue([
+        FIXTURE_SESSIONS[2],
+        FIXTURE_SESSIONS[0],
+        FIXTURE_SESSIONS[1],
+      ]);
+
+      const store = useOrchestrationHomeStore();
+      await store.initialize();
+
+      expect(store.activityFeed.map((e) => e.sessionId)).toEqual([
+        "session-1",
+        "session-2",
+        "session-3",
+      ]);
+    });
+
+    it("marks sessions loaded only once they arrive", async () => {
+      let resolve!: (value: unknown[]) => void;
+      mockListSessions.mockReturnValue(new Promise((r) => (resolve = r)));
+
+      const store = useOrchestrationHomeStore();
+      const init = store.initialize();
+      await vi.waitFor(() => expect(store.loading).toBe(false));
+      expect(store.sessionsLoaded).toBe(false);
+
+      resolve(FIXTURE_SESSIONS);
+      await init;
+      expect(store.sessionsLoaded).toBe(true);
     });
 
     it("uses correct timestamp fallback logic", async () => {

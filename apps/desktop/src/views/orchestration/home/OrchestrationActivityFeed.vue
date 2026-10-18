@@ -1,60 +1,24 @@
 <script setup lang="ts">
-import { formatRelativeTime } from "@tracepilot/ui";
-import {
-  Activity,
-  CheckCircle2,
-  ClipboardList,
-  DollarSign,
-  type LucideIcon,
-  Rocket,
-  Wrench,
-  XCircle,
-} from "lucide-vue-next";
-import { computed } from "vue";
-import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
+import { formatRelativeTime, runStatusBadge } from "@tracepilot/types";
+import { EmptyState, LoadingSpinner } from "@tracepilot/ui";
+import { Activity, CircleDot, History } from "lucide-vue-next";
+import { useRouter } from "vue-router";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
+import { type ActivityEvent, useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 
 const store = useOrchestrationHomeStore();
+const router = useRouter();
 
-const FEED_ICON_MAP: Record<string, { icon: LucideIcon; tone: string }> = {
-  session_launched: { icon: Rocket, tone: "feed-icon--accent" },
-  session_error: { icon: XCircle, tone: "feed-icon--danger" },
-  batch_completed: { icon: CheckCircle2, tone: "feed-icon--success" },
-  budget_alert: { icon: DollarSign, tone: "feed-icon--warning" },
-  config_changed: { icon: Wrench, tone: "feed-icon--accent" },
-};
-
-function feedEntry(type: string) {
-  return FEED_ICON_MAP[type] ?? { icon: ClipboardList, tone: "feed-icon--accent" };
+/** What the session is doing now, in the session list's words. */
+function statusLabel(event: ActivityEvent): string {
+  if (!event.isRunning) return "Last active";
+  return runStatusBadge(event.runStatus, event.source)?.label ?? "Running";
 }
 
-const mockFeed = [
-  {
-    id: "mock-1",
-    type: "session_launched",
-    message: "Session started in tracepilot",
-    timestamp: new Date(Date.now() - 300_000).toISOString(),
-  },
-  {
-    id: "mock-2",
-    type: "batch_completed",
-    message: "Batch run completed (3 sessions)",
-    timestamp: new Date(Date.now() - 900_000).toISOString(),
-  },
-  {
-    id: "mock-3",
-    type: "budget_alert",
-    message: "Budget threshold reached 60%",
-    timestamp: new Date(Date.now() - 3_600_000).toISOString(),
-  },
-  {
-    id: "mock-4",
-    type: "config_changed",
-    message: "Agent config updated",
-    timestamp: new Date(Date.now() - 7_200_000).toISOString(),
-  },
-];
-
-const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activityFeed : mockFeed));
+function open(event: ActivityEvent) {
+  void pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: event.sessionId } });
+}
 </script>
 
 <template>
@@ -62,22 +26,36 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
     <div class="section-header">
       <Activity class="section-icon" :size="16" :stroke-width="2" aria-hidden="true" />
       <span>Activity Feed</span>
-      <span class="feed-badge">{{ feedItems.length }}</span>
+      <span v-if="store.sessionsLoaded && store.activityFeed.length" class="feed-badge">
+        {{ store.activityFeed.length }}
+      </span>
     </div>
-    <div class="feed-list">
-      <div
-        v-for="event in feedItems"
-        :key="event.id"
-        class="feed-item"
-      >
-        <span class="feed-icon" :class="feedEntry(event.type).tone">
-          <component :is="feedEntry(event.type).icon" :size="14" :stroke-width="1.75" aria-hidden="true" />
-        </span>
-        <span class="feed-msg">{{ event.message }}</span>
-        <span class="feed-time">{{ formatRelativeTime(event.timestamp) }}</span>
-      </div>
-      <div v-if="feedItems.length === 0" class="feed-empty">No recent activity</div>
+    <div v-if="!store.sessionsLoaded" class="feed-loading" role="status">
+      <LoadingSpinner size="sm" aria-hidden="true" />
+      <span>Loading recent sessions…</span>
     </div>
+    <EmptyState
+      v-else-if="store.activityFeed.length === 0"
+      size="sm"
+      title="No sessions yet"
+      description="Sessions appear here as soon as you run one."
+    />
+    <ul v-else class="feed-list" aria-label="Recently active sessions">
+      <li v-for="event in store.activityFeed" :key="event.sessionId">
+        <button type="button" class="feed-item" @click="open(event)">
+          <span class="feed-icon" :class="event.isRunning ? 'feed-icon--success' : 'feed-icon--neutral'">
+            <component :is="event.isRunning ? CircleDot : History" :size="14" :stroke-width="1.75" aria-hidden="true" />
+          </span>
+          <span class="feed-text">
+            <span class="feed-msg" :title="event.title ?? undefined">{{ event.title ?? "Untitled Session" }}</span>
+            <span class="feed-meta">
+              <template v-if="event.location">{{ event.location }} · </template>{{ statusLabel(event) }}
+            </span>
+          </span>
+          <span class="feed-time" :title="event.timestamp ?? undefined">{{ formatRelativeTime(event.timestamp) }}</span>
+        </button>
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -114,6 +92,9 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
 }
 
 .feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   max-height: 360px;
   overflow-y: auto;
 }
@@ -121,21 +102,31 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
 .feed-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 0;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 4px;
+  border: none;
   border-bottom: 1px solid var(--border-muted);
-  font-size: 0.8125rem;
-  transition: background var(--transition-fast);
   border-radius: var(--radius-sm);
-  padding-left: 4px;
-  padding-right: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
 .feed-item:hover {
   background: var(--canvas-subtle);
 }
 
-.feed-item:last-child {
+/* The list scrolls, which would clip an outer focus ring. */
+.feed-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.feed-list li:last-child .feed-item {
   border-bottom: none;
 }
 
@@ -149,45 +140,54 @@ const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activity
   flex-shrink: 0;
 }
 
-.feed-icon--accent {
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-}
-
-.feed-icon--danger {
-  background: var(--danger-muted);
-  color: var(--danger-fg);
-}
-
 .feed-icon--success {
   background: var(--success-muted);
   color: var(--success-fg);
 }
 
-.feed-icon--warning {
-  background: var(--warning-muted);
-  color: var(--warning-fg);
+.feed-icon--neutral {
+  background: var(--neutral-muted);
+  color: var(--text-secondary);
 }
 
-.feed-msg {
+.feed-text {
   flex: 1;
-  color: var(--text-primary);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feed-msg,
+.feed-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.feed-msg {
+  color: var(--text-primary);
+}
+
+.feed-meta {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 .feed-time {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.feed-empty {
-  text-align: center;
+.feed-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 32px 0;
-  color: var(--text-placeholder);
+  color: var(--text-tertiary);
   font-size: 0.8125rem;
 }
 </style>

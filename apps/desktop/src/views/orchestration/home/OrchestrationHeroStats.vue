@@ -2,6 +2,7 @@
 import { formatBytes } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
+import { plural } from "@/utils/format";
 
 const store = useOrchestrationHomeStore();
 
@@ -10,6 +11,7 @@ const activeBreakdown = computed(() => {
   const working = store.workingSessions;
   const waiting = store.waitingSessions;
   const other = Math.max(0, store.activeSessions - working - waiting);
+  if (!store.sessionsLoaded) return "Loading sessions…";
   if (store.activeSessions === 0) return "None running";
   return [
     working ? `${working} working` : null,
@@ -20,6 +22,13 @@ const activeBreakdown = computed(() => {
     .filter(Boolean)
     .join(" · ");
 });
+
+/** The sidebar's count: empty sessions are left out while the list hides them. */
+const totalSub = computed(() =>
+  store.hiddenEmptySessions > 0
+    ? `All time · ${plural(store.hiddenEmptySessions, "empty session")} hidden`
+    : "All-time indexed sessions",
+);
 </script>
 
 <template>
@@ -29,7 +38,7 @@ const activeBreakdown = computed(() => {
       <svg class="hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2L12 14M12 2L8 6M12 2L16 6" /><path d="M5 18c0-3.87 3.13-7 7-7s7 3.13 7 7" /><circle cx="12" cy="22" r="1" fill="currentColor" />
       </svg>
-      <div class="hero-value">{{ store.activeSessions }}</div>
+      <div class="hero-value">{{ store.sessionsLoaded ? store.activeSessions : "—" }}</div>
       <div class="hero-label">Active Sessions</div>
       <div class="hero-sub">{{ activeBreakdown }}</div>
     </div>
@@ -79,9 +88,9 @@ const activeBreakdown = computed(() => {
       <svg class="hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
       </svg>
-      <div class="hero-value">{{ store.totalSessions }}</div>
+      <div class="hero-value">{{ store.sessionsLoaded ? store.totalSessions : "—" }}</div>
       <div class="hero-label">Total Sessions</div>
-      <div class="hero-sub">All-time indexed sessions</div>
+      <div class="hero-sub">{{ store.sessionsLoaded ? totalSub : "Loading sessions…" }}</div>
     </div>
   </div>
 </template>

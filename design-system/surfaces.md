@@ -188,8 +188,12 @@ Models views, all headed by `AnalyticsPageHeader`.
 `apps/desktop/src/views/orchestration/OrchestrationHomeView.vue`
 
 - Quick actions and the activity feed use Lucide icons.
+- The activity feed lists the six most recently active sessions the session
+  list would show (it follows Hide empty sessions), each a button that opens
+  the session; it shows a loading row until sessions arrive and an empty state
+  when there are none.
 - Gaps: hero stat tiles with gradients, hover lift and oversized numbers; a
-  fade-in-up entrance animation; a placeholder action and mock feed entries.
+  fade-in-up entrance animation; a placeholder action.
 
 ## Session launcher
 

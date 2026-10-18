@@ -54,7 +54,7 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
     store: { analyticsError: null, fetchAnalytics: vi.fn() },
     loading: false,
     data: { modelDistribution: [], modelUsageByDay: [] },
-    pageSubtitle: "Performance and cost metrics across all models",
+    pageSubtitle: "Performance and cost metrics across models in the past 30 days",
     modelRows: [] as ModelRow[],
     totalTokens: 0,
     totalCost: 0,

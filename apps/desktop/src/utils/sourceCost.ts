@@ -12,6 +12,7 @@ import {
   type TokenUsageForCost,
 } from "@tracepilot/types";
 import { formatCost } from "@tracepilot/ui";
+import { plural } from "@/utils/format";
 
 export interface SessionCostEstimate {
   /** The current USD estimate; null when it could not be priced. */
@@ -27,10 +28,6 @@ export interface SessionCostEstimate {
   partial: boolean;
   /** Some priced calls have no final token counts, so `amount` undercounts. */
   lowerBound: boolean;
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 /** The session's USD estimate, its basis and what it covers. */

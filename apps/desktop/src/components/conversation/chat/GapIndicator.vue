@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { plural } from "@/utils/format";
+
 defineProps<{
   count: number;
 }>();
@@ -7,7 +9,7 @@ defineProps<{
 <template>
   <div class="cv-gap">
     <div class="cv-gap-line" />
-    <div class="cv-gap-label">⋯ {{ count }} turns not shown</div>
+    <div class="cv-gap-label">⋯ {{ plural(count, "turn") }} not shown</div>
     <div class="cv-gap-line" />
   </div>
 </template>

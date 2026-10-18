@@ -26,9 +26,9 @@ import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useValueTween } from "@/composables/useValueTween";
 import type { AnalyticsDatasetName } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
-import { repositoryFilterLabel } from "@/stores/sessions/filtering";
 import {
   activityRows,
+  analyticsScopeWords,
   dashboardDays,
   rangeText as describeRange,
   hasDailyUsage,
@@ -77,22 +77,14 @@ useValueTween({
  * named, so "6 sessions this month" never reads as every session.
  */
 const pageSubtitle = computed(() => {
-  const range = store.selectedTimeRange;
-  const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
-  const rangeSuffix =
-    range === "all"
-      ? ""
-      : range === "month-to-date"
-        ? " this month"
-        : ` in ${describeRange(range)}`;
-  const scope = `${store.sourcePrefix}sessions${repoSuffix}${rangeSuffix}`;
+  const { all, suffix } = analyticsScopeWords(store);
+  const scope = `${store.sourcePrefix}sessions${suffix}`;
   // No count until the first result arrives, rather than a false "No sessions".
   if (!data.value) return `Aggregate metrics across ${scope}`;
   const count = data.value.totalSessions;
   const noun = count === 1 ? "session" : "sessions";
   if (count === 0) return `No ${scope}`;
-  const allPrefix = store.selectedRepo || store.selectedSource || range !== "all" ? "" : "all ";
-  return `Aggregate metrics across ${allPrefix}${count} ${store.sourcePrefix}${noun}${repoSuffix}${rangeSuffix}`;
+  return `Aggregate metrics across ${all}${count} ${store.sourcePrefix}${noun}${suffix}`;
 });
 
 const summary = computed(() =>

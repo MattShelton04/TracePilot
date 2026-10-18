@@ -35,9 +35,10 @@ const store = useOrchestrationHomeStore();
     <span class="health-divider" />
     <div class="health-item">
       <span class="health-label">Sessions</span>
-      <span class="health-val" :class="store.activeSessions > 0 ? 'ok' : 'warn'">
+      <span v-if="store.sessionsLoaded" class="health-val" :class="store.activeSessions > 0 ? 'ok' : 'warn'">
         {{ store.activeSessions }} active
       </span>
+      <span v-else class="health-val">—</span>
     </div>
   </div>
 </template>

@@ -4,13 +4,21 @@
  * that loaded the skill, where the existing skill row takes over — the Skills
  * page never becomes a second conversation browser.
  */
-import type { SkillInvocationRecord } from "@tracepilot/types";
+import { modelDisplayName, type SkillInvocationRecord } from "@tracepilot/types";
 import { formatNumber, formatRelativeTime } from "@tracepilot/ui";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 
 defineProps<{ invocations: SkillInvocationRecord[] }>();
+
+/**
+ * Invocations don't record their session's source. The Claude Code registry
+ * renames only the ids it knows; other ids show as recorded.
+ */
+function modelLabel(model: string): string {
+  return modelDisplayName(model, "claudeCode");
+}
 
 const router = useRouter();
 
@@ -45,7 +53,7 @@ function triggerLabel(record: SkillInvocationRecord): string {
           <span>{{ triggerLabel(record) }}</span>
           <span v-if="record.agentName">via {{ record.agentName }}</span>
           <span v-if="record.repository">{{ record.repository }}</span>
-          <span v-if="record.model" class="invocations__model">{{ record.model }}</span>
+          <span v-if="record.model" class="invocations__model" :title="record.model">{{ modelLabel(record.model) }}</span>
           <span v-if="record.contentTokens != null">
             ~{{ formatNumber(record.contentTokens) }} tokens
           </span>
