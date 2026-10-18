@@ -1,16 +1,23 @@
+import { getSessionRequestLog } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
-import type { ContextTimeline, ContextTimelineResponse, TurnToolCall } from "@tracepilot/types";
+import type { RequestLog } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { resetSessionTabViews } from "@/composables/useSessionTabViews";
 import ContextTab from "@/views/tabs/ContextTab.vue";
+import { ChartStub, makeDetailStore, requestLog, response, timeline } from "./contextTabFixtures";
 
 const loadTimeline = vi.fn();
 const loadFullResult = vi.fn();
 const navigateToConversation = vi.fn();
 let detailStore: ReturnType<typeof makeDetailStore>;
 let contextCaptureEnabled = false;
+
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({ getSessionRequestLog: vi.fn() });
+});
 
 vi.mock("@/composables/useContextTimeline", () => ({
   getCachedContextTimeline: () => null,
@@ -47,130 +54,6 @@ vi.mock("@/composables/useToolResultLoader", () => ({
   }),
 }));
 
-const turnToolCall: TurnToolCall = {
-  toolCallId: "turn-tool",
-  toolName: "shell",
-  eventIndex: 7,
-  arguments: { command: "pnpm test" },
-  argsSummary: "pnpm test",
-  success: true,
-  isComplete: true,
-};
-const nestedSubagentToolCall: TurnToolCall = {
-  toolCallId: "nested-tool",
-  parentToolCallId: "subagent-call",
-  toolName: "view",
-  success: true,
-  isComplete: true,
-};
-
-function makeDetailStore() {
-  const store = reactive({
-    sessionId: "session-a",
-    detail: {
-      id: "session-a",
-      source: undefined as "claudeCode" | undefined,
-      eventCount: 10,
-      turnCount: 1,
-      updatedAt: "2026-07-18T00:00:00Z",
-    },
-    turns: [] as Array<{
-      turnIndex: number;
-      toolCalls: TurnToolCall[];
-      model?: string;
-    }>,
-    turnsVersion: 0,
-    turnsError: null as string | null,
-    loaded: new Set<string>(),
-    async loadTurns() {
-      store.turns = [
-        {
-          turnIndex: 0,
-          toolCalls: [turnToolCall, nestedSubagentToolCall],
-          model: "gpt-5.6-luna",
-        },
-        { turnIndex: 1, toolCalls: [] },
-      ];
-      store.turnsVersion += 1;
-      store.loaded.add("turns");
-    },
-  });
-  return store;
-}
-
-function timeline(totalTokens = 100): ContextTimeline {
-  return {
-    turnCount: 1,
-    observedPointCount: 0,
-    estimatedPointCount: 1,
-    compactionStartCount: 0,
-    compactionCompleteCount: 0,
-    pairedCompactionCount: 0,
-    methodology: "test",
-    events: [],
-    points: [
-      {
-        turn: 0,
-        phase: "turn",
-        timestamp: "2026-07-18T00:00:00Z",
-        systemTokens: 10,
-        toolDefinitionTokens: 20,
-        conversationTokens: totalTokens - 30,
-        contextChangeTokens: null,
-        totalTokens,
-        source: "estimated",
-      },
-    ],
-    compactions: [],
-    topToolCalls: [
-      {
-        turn: 0,
-        toolCallId: "expensive-tool",
-        toolName: "view",
-        argumentTokens: 5,
-        resultTokens: 95,
-        totalTokens: 100,
-        success: true,
-        argumentsPreview: '{"path":"large.txt"}',
-        resultPreview: "preview",
-      },
-    ],
-    toolTypes: [
-      {
-        toolName: "view",
-        callCount: 1,
-        errorCount: 0,
-        argumentTokens: 5,
-        resultTokens: 95,
-        totalTokens: 100,
-        percentage: 100,
-      },
-    ],
-  };
-}
-
-function response(value: ContextTimeline): ContextTimelineResponse {
-  return { timeline: value, eventsFileSize: value.points[0]?.totalTokens ?? 0 };
-}
-
-const ChartStub = {
-  props: ["timeline", "selectedPoint", "selectedEvent"],
-  emits: ["selectPoint", "selectCompaction", "selectEvent", "clearSelection"],
-  template: `
-    <div>
-      <button class="select-chart-point" @click="$emit('selectPoint', timeline.points[0])">Select</button>
-      <button
-        v-if="timeline.events[0]"
-        class="select-chart-event"
-        @click="$emit('selectEvent', timeline.events[0])"
-      >
-        Select event
-      </button>
-      <span class="selected-chart-value">{{ selectedPoint?.totalTokens ?? 'none' }}</span>
-    </div>
-  `,
-};
-
 function mountTab() {
   return mount(ContextTab, {
     global: {
@@ -200,6 +83,8 @@ describe("ContextTab", () => {
     detailStore = makeDetailStore();
     loadTimeline.mockReset();
     loadFullResult.mockReset();
+    vi.mocked(getSessionRequestLog).mockReset();
+    vi.mocked(getSessionRequestLog).mockResolvedValue(requestLog(9));
     navigateToConversation.mockReset();
     contextCaptureEnabled = false;
     localStorage.clear();
@@ -250,6 +135,7 @@ describe("ContextTab", () => {
     loadTimeline.mockResolvedValue(response(timeline()));
     const wrapper = mountTab();
     await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledWith("session-a");
 
     expect(wrapper.find(".recorded-requests-stub").exists()).toBe(false);
     await wrapper
@@ -268,6 +154,49 @@ describe("ContextTab", () => {
     expect(copilot.find(".context-tab__view-nav").exists()).toBe(false);
     expect(copilot.find(".recorded-requests-stub").exists()).toBe(false);
     expect(copilot.find(".context-tab__stats").exists()).toBe(true);
+    // Only the Claude Code session's log was read.
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a Claude Code session with no request records on the timeline alone", async () => {
+    detailStore.detail.source = "claudeCode";
+    vi.mocked(getSessionRequestLog).mockResolvedValue(requestLog(0));
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    expect(wrapper.find(".context-tab__view-nav").exists()).toBe(false);
+    expect(wrapper.find(".recorded-requests-stub").exists()).toBe(false);
+    expect(wrapper.find(".context-tab__stats").exists()).toBe(true);
+  });
+
+  it("reopens a remembered Recorded requests view without flashing the timeline", async () => {
+    detailStore.detail.source = "claudeCode";
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const first = mountTab();
+    await flushPromises();
+    await first
+      .findAll(".context-tab__view-nav button")
+      .find((button) => button.text().includes("Recorded requests"))
+      ?.trigger("click");
+    first.unmount();
+
+    let resolveLog: (value: RequestLog) => void = () => {};
+    vi.mocked(getSessionRequestLog).mockImplementationOnce(
+      () => new Promise((resolve) => (resolveLog = resolve)),
+    );
+    const reopened = mountTab();
+    await flushPromises();
+    // Still reading: the panel's own loading state, no timeline, no switch yet.
+    expect(reopened.find(".recorded-requests-stub").exists()).toBe(true);
+    expect(reopened.find(".context-tab__stats").exists()).toBe(false);
+    expect(reopened.find(".context-tab__view-nav").exists()).toBe(false);
+
+    resolveLog(requestLog(0));
+    await flushPromises();
+    // No records after all: the timeline, and the remembered view waits.
+    expect(reopened.find(".recorded-requests-stub").exists()).toBe(false);
+    expect(reopened.find(".context-tab__stats").exists()).toBe(true);
   });
 
   it("does not show an empty message when expensive tool calls exist and prefetches details", async () => {

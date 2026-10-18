@@ -56,6 +56,9 @@ function costKpi(data: AnalyticsData, pricing = unpriced) {
     value: kpi.props("value"),
     tooltip: kpi.props("description"),
     text: kpi.text(),
+    sources: kpi
+      .findAll(".ad-kpi-sources li")
+      .map((line) => `${line.find(".ad-kpi-sources__name").text()} ${line.find("b").text()}`),
   };
 }
 
@@ -108,7 +111,9 @@ describe("analytics cost labels", () => {
     expect(kpi.tooltip).toContain("Copilot $0.13 + Claude Code $1.25");
     expect(kpi.tooltip).toContain("$0.01 each");
     expect(kpi.tooltip).toContain("Partial");
-    expect(kpi.text).toContain("Copilot $0.13 · Claude Code $1.25");
+    // One line per source, so a long total never cuts the second one off.
+    expect(kpi.sources).toEqual(["Copilot $0.13", "Claude Code $1.25"]);
+    expect(kpi.text).toContain("$1.25*");
   });
 });
 
