@@ -99,6 +99,15 @@ describe("alert center shortcut follows the Alerts setting", () => {
     expect(listsAlertShortcut()).toBe(false);
     pressAlertChord();
     expect(alerts.drawerOpen).toBe(false);
+
+    // Modifier chords also fire from text fields, so check one there too.
+    const field = document.createElement("input");
+    document.body.append(field);
+    field.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "A", ctrlKey: true, shiftKey: true, bubbles: true }),
+    );
+    expect(alerts.drawerOpen).toBe(false);
+    field.remove();
   });
 
   it("adds the shortcut when alerts are turned on and removes it when they are turned off", async () => {
