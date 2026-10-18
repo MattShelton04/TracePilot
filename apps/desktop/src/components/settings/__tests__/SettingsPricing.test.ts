@@ -59,6 +59,7 @@ describe("SettingsPricing", () => {
         cachedInputPerM: 0.1,
         cacheWritePerM: 0,
         outputPerM: 2,
+        premiumRequests: 1,
       });
       const models = () => preferences.modelWholesalePrices.map((p) => p.model);
       const dialog = () => document.body.querySelector<HTMLElement>('[role="alertdialog"]');
