@@ -18,31 +18,14 @@ use super::records::Rec;
 use super::subagents::ChildStream;
 use super::translate_agents::{AgentTotals, Terminal};
 use super::usage::{CallTable, CostSnapshot};
-use super::{ClaudeDiagnostics, ClaudeParse, NativePosition, branch, drift, subagents};
+use super::{
+    ClaudeDiagnostics, ClaudeParse, NativePosition, branch, drift, request_records, subagents,
+};
 use crate::error::Result;
 use crate::models::event_types::SessionEventType;
 use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData, typed_data_from_raw};
 use crate::parsing::snapshot::check_cancelled;
 use crate::provider::{NativeRecord, SessionSource};
-
-/// Record types without a mapping, shown on the Events tab only. The last
-/// four were first seen by the S3 probe (2.1.274–2.1.289).
-const BOOKKEEPING: &[&str] = &[
-    "custom-title",
-    "ai-title",
-    "agent-name",
-    "pr-link",
-    "last-prompt",
-    "mode",
-    "permission-mode",
-    "atis-latch",
-    "file-history-snapshot",
-    "file-history-delta",
-    "bridge-session",
-    "frame-link",
-    "artifact-autoreact-ledger",
-    "artifact-comment-monitor",
-];
 
 /// Stop reasons that end a call for good, so a file ending after one is not live.
 const FINAL_STOPS: &[&str] = &["end_turn", "stop_sequence", "max_tokens", "refusal"];
@@ -66,6 +49,8 @@ pub(super) struct Translator<'a, F> {
     /// `tracepilot.model_call` events by message id, filled in by `finish`.
     pub(super) model_calls: HashMap<String, usize>,
     pub(super) snapshots: Vec<CostSnapshot>,
+    /// See [`ClaudeParse::request_times`].
+    pub(super) request_times: Vec<(usize, DateTime<Utc>)>,
     pub(super) diagnostics: ClaudeDiagnostics,
     /// Notification keys already emitted.
     pub(super) notifications: HashSet<(String, String)>,
@@ -186,6 +171,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             calls: CallTable::default(),
             model_calls: HashMap::new(),
             snapshots: Vec::new(),
+            request_times: Vec::new(),
             diagnostics,
             notifications: HashSet::new(),
             terminals: HashMap::new(),
@@ -323,6 +309,10 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             st.previous_ts = Some(ts);
         }
         st.last_record = Some((ctx.base.clone(), ctx.ts));
+        if request_records::is_request_type(rec.kind()) {
+            self.request_record(st, &ctx);
+            return Ok(());
+        }
         if abandoned {
             self.diagnostics.abandoned_records += 1;
             if rec.kind() == "assistant" {
@@ -339,9 +329,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             "queue-operation" => self.queue_operation(st, &mut ctx, rec),
             "cost-state" if st.agent_id.is_none() => self.cost_state(rec, line),
             kind => {
-                if !BOOKKEEPING.contains(&kind) && kind != "cost-state" {
-                    drift::count_type(&mut self.diagnostics.unknown_record_types, kind);
-                }
+                drift::count_unmapped_type(&mut self.diagnostics.unknown_record_types, kind);
                 self.native_only(st, &mut ctx);
             }
         }
@@ -439,7 +427,9 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
 
     fn finish(mut self) -> (ClaudeParse, Vec<Option<Arc<Value>>>) {
         super::usage::fill_model_calls(&mut self.events, &self.model_calls, &self.calls.calls);
-        super::usage::set_coverage_starts(&mut self.snapshots, &self.events, &self.positions);
+        let (events, positions) = (&self.events, &self.positions);
+        let times = &self.request_times;
+        super::usage::set_coverage_starts(&mut self.snapshots, events, positions, times);
         let mut diagnostics = self.diagnostics;
         let events = self
             .events
@@ -472,6 +462,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             positions: self.positions,
             calls: self.calls.calls,
             cost_snapshots: self.snapshots,
+            request_times: self.request_times,
             diagnostics,
         };
         (parse, self.natives)

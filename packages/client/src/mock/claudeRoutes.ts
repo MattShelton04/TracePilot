@@ -2,6 +2,7 @@ import type { ContextTimelineResponse, PromptCacheResponse } from "@tracepilot/t
 import { MOCK_CLAUDE_ANALYTICS, MOCK_CLAUDE_TOOL_ANALYSIS } from "./claudeAnalytics.js";
 import { MOCK_CLAUDE_FILE_HISTORY, MOCK_CLAUDE_PLAN } from "./claudeArtifacts.js";
 import { MOCK_CLAUDE_CONTEXT_TIMELINE, MOCK_CLAUDE_PROMPT_CACHE } from "./claudeContext.js";
+import { MOCK_CLAUDE_REQUEST_LOG } from "./claudeRequestLog.js";
 import { MOCK_EVENTS_MTIME } from "./common.js";
 import { MOCK_CLAUDE_FORMAT_DIAGNOSTICS } from "./formatDiagnostics.js";
 import { isMockClaudeSession } from "./sessions.js";
@@ -9,7 +10,7 @@ import { isMockClaudeSession } from "./sessions.js";
 /**
  * Per-session commands whose Claude Code answer differs from Copilot's: Claude
  * records context totals only, has no checkpoint summaries, approves plans via
- * `ExitPlanMode`, and keeps file history.
+ * `ExitPlanMode`, keeps file history and records its API requests.
  */
 const CLAUDE_SESSION_ROUTES: Record<string, unknown> = {
   get_session_context_timeline: {
@@ -25,6 +26,7 @@ const CLAUDE_SESSION_ROUTES: Record<string, unknown> = {
     eventsFileSize: 1024,
     eventsFileMtime: MOCK_EVENTS_MTIME,
   } as PromptCacheResponse,
+  get_session_request_log: MOCK_CLAUDE_REQUEST_LOG,
 };
 
 /** Cross-session commands filtered with `source: "claudeCode"`. */

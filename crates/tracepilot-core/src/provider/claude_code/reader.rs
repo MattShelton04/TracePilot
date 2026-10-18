@@ -6,7 +6,8 @@
 //! kept ([`recover_appended_record`]). A last
 //! line without its newline is a live file mid-append: it is kept if it
 //! parses and otherwise counted as a partial tail, even when it ends inside a
-//! UTF-8 sequence. Image base64 is replaced before a line is retained.
+//! UTF-8 sequence. Image base64 is replaced before a line is retained, and a
+//! request record (`api-request*`) is kept as a stub ([`request_records`]).
 //!
 //! Memory is bounded per line: a line longer than [`MAX_LINE_BYTES`] is
 //! skipped without being buffered and counted as oversized.
@@ -17,7 +18,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
-use super::ClaudeDiagnostics;
+use super::{ClaudeDiagnostics, request_records};
 use crate::error::{Result, TracePilotError};
 use crate::parsing::events::{parse_json_line_lenient, recover_appended_record};
 use crate::parsing::snapshot::check_cancelled;
@@ -75,13 +76,21 @@ pub(super) fn read_jsonl_bounded(
             continue;
         }
         let complete = bytes.last() == Some(&b'\n');
-        let parsed = std::str::from_utf8(&bytes)
-            .ok()
-            .map(str::trim)
+        let text = std::str::from_utf8(&bytes).ok().map(str::trim);
+        // A request record keeps only what the parser reads of it, without
+        // building the rest.
+        if let Some(value) = text.and_then(request_records::stub) {
+            lines.push(Line {
+                line: number,
+                value: Arc::new(value),
+            });
+            continue;
+        }
+        let parsed = text
             .filter(|text| !text.is_empty())
             .map(parse_json_line_lenient::<Value>);
         match parsed {
-            None if std::str::from_utf8(&bytes).is_ok() => {} // blank line
+            None if text.is_some() => {} // blank line
             Some(Ok(mut value)) if value.is_object() => {
                 diagnostics.sanitized_images += sanitize(&mut value);
                 lines.push(Line {

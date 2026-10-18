@@ -18,13 +18,37 @@ struct Row<'a> {
     records: i64,
 }
 
+/// Whether the session was indexed by a parser that listed Claude Code's
+/// request records (`api-request*`, 2.1.301+) as unmapped types. That parser
+/// made an event of each, so the session's stored event indexes (search rows,
+/// agent runs, skill invocations) and event count are off by the request
+/// events before them. Re-indexing it writes rows without them, so this
+/// holds once per session: no analytics or extractor version bump, which
+/// would re-index every session.
+pub(super) fn lists_request_records(conn: &Connection, session_id: &str) -> bool {
+    conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM session_format_observations          WHERE session_id = ?1 AND kind = ?2 AND name LIKE 'api-request%')",
+        (session_id, KIND_RECORD),
+        |row| row.get(0),
+    )
+    .unwrap_or(false)
+}
+
 /// Replace the session's observations. `None` (a source that reports none)
-/// leaves the session with no rows.
+/// leaves the session with no rows. A session whose old observations listed
+/// request records also has its search content marked stale, as its search
+/// rows point at the old event indexes ([`lists_request_records`]).
 pub(super) fn write(
     conn: &Connection,
     session_id: &str,
     format: Option<&FormatObservations>,
 ) -> Result<()> {
+    if lists_request_records(conn, session_id) {
+        conn.execute(
+            "UPDATE sessions SET search_source_fingerprint = NULL WHERE id = ?1",
+            [session_id],
+        )?;
+    }
     conn.execute(
         "DELETE FROM session_format_observations WHERE session_id = ?1",
         [session_id],

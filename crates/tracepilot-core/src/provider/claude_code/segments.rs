@@ -40,6 +40,7 @@ pub(super) fn run_segments(parsed: &ClaudeParse) -> Vec<MetricsSegment> {
             }
             Some((position.line, event.raw.timestamp?))
         })
+        .chain(parsed.request_times.iter().copied())
         .collect();
     let span = |after: usize, before: Option<usize>| {
         let mut inside = times

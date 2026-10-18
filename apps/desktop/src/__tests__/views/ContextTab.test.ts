@@ -188,6 +188,7 @@ function mountTab() {
         },
         ToolTypeDonut: { template: '<div class="tool-donut-stub" />' },
         ContextCapturePanel: { template: '<div class="capture-panel-stub">Snapshots</div>' },
+        RecordedRequestsPanel: { template: '<div class="recorded-requests-stub">Recorded</div>' },
       },
     },
   });
@@ -242,6 +243,31 @@ describe("ContextTab", () => {
     expect(withoutCapture.find(".capture-panel-stub").exists()).toBe(false);
     expect(withoutCapture.find(".context-tab__stats").exists()).toBe(true);
     withoutCapture.unmount();
+  });
+
+  it("offers a Claude Code session's recorded requests without the capture flag", async () => {
+    detailStore.detail.source = "claudeCode";
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    expect(wrapper.find(".recorded-requests-stub").exists()).toBe(false);
+    await wrapper
+      .findAll(".context-tab__view-nav button")
+      .find((button) => button.text().includes("Recorded requests"))
+      ?.trigger("click");
+    expect(wrapper.find(".recorded-requests-stub").exists()).toBe(true);
+    expect(wrapper.find(".capture-panel-stub").exists()).toBe(false);
+    expect(wrapper.find(".context-tab__stats").exists()).toBe(false);
+    wrapper.unmount();
+
+    // A Copilot session without capture keeps the timeline alone.
+    detailStore.detail.source = undefined;
+    const copilot = mountTab();
+    await flushPromises();
+    expect(copilot.find(".context-tab__view-nav").exists()).toBe(false);
+    expect(copilot.find(".recorded-requests-stub").exists()).toBe(false);
+    expect(copilot.find(".context-tab__stats").exists()).toBe(true);
   });
 
   it("does not show an empty message when expensive tool calls exist and prefetches details", async () => {
@@ -316,7 +342,10 @@ describe("ContextTab", () => {
     const wrapper = mountTab();
     await flushPromises();
 
-    expect(wrapper.find(".context-tab__view-nav").exists()).toBe(false);
+    // The second view is Claude Code's own request record, never capture.
+    expect(wrapper.findAll(".context-tab__view-nav button").map((button) => button.text())).toEqual(
+      ["Context timeline", "Recorded requests"],
+    );
     const observed = wrapper
       .find('[aria-label="Explain observed context telemetry"]')
       .element.closest(".context-tab__confidence-anchor");

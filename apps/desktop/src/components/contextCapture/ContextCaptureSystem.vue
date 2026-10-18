@@ -4,7 +4,19 @@ import { ActionButton, Badge, EmptyState, formatBytes, useClipboard } from "@tra
 import { Copy } from "lucide-vue-next";
 import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 
-defineProps<{ blocks: NormalizedSection[] }>();
+withDefaults(
+  defineProps<{
+    blocks: NormalizedSection[];
+    /** The line under the heading; captured requests use the default. */
+    description?: string;
+    /** The empty state's text. */
+    emptyDescription?: string;
+  }>(),
+  {
+    description: "Blocks are shown in the order used by the captured API request.",
+    emptyDescription: "Check Raw JSON if this API uses an unfamiliar system-instruction field.",
+  },
+);
 const { copy } = useClipboard();
 </script>
 
@@ -12,13 +24,13 @@ const { copy } = useClipboard();
   <div class="capture-system">
     <div class="capture-system__header">
       <strong>System instructions</strong>
-      <p>Blocks are shown in the order used by the captured API request.</p>
+      <p>{{ description }}</p>
     </div>
 
     <EmptyState
       v-if="blocks.length === 0"
       title="No recognized system blocks"
-      description="Check Raw JSON if this API uses an unfamiliar system-instruction field."
+      :description="emptyDescription"
     />
 
     <div v-else class="capture-system__list">

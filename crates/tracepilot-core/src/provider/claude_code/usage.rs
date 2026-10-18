@@ -207,12 +207,24 @@ impl CostSnapshot {
 }
 
 /// Set each snapshot's [`CostSnapshot::covers_from`] from the times of the
-/// main-file records, aligned with their `positions`.
+/// main-file records: the events' records, aligned with their `positions`,
+/// and the request records ([`super::ClaudeParse::request_times`]).
 pub(super) fn set_coverage_starts(
     snapshots: &mut [CostSnapshot],
     events: &[RawEvent],
     positions: &[Option<NativePosition>],
+    request_times: &[(usize, DateTime<Utc>)],
 ) {
+    let times: Vec<(usize, DateTime<Utc>)> = events
+        .iter()
+        .zip(positions)
+        .filter_map(|(event, position)| {
+            let position = position.as_ref()?;
+            let main = position.file_agent_id.is_none();
+            main.then_some((position.line, event.timestamp?))
+        })
+        .chain(request_times.iter().copied())
+        .collect();
     for snapshot in snapshots {
         let Some(start) = snapshot
             .start_time
@@ -221,16 +233,10 @@ pub(super) fn set_coverage_starts(
         else {
             continue;
         };
-        snapshot.covers_from = events
+        snapshot.covers_from = times
             .iter()
-            .zip(positions)
-            .filter_map(|(event, position)| {
-                let position = position.as_ref()?;
-                let since = position.file_agent_id.is_none()
-                    && position.line < snapshot.line
-                    && event.timestamp? >= start;
-                since.then_some(position.line)
-            })
+            .filter(|(line, at)| *line < snapshot.line && *at >= start)
+            .map(|(line, _)| *line)
             .min()
             .unwrap_or(snapshot.line);
     }

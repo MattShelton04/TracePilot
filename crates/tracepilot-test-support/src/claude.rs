@@ -17,6 +17,8 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value, json};
 use tempfile::TempDir;
 
+mod requests;
+
 pub const SESSION_ID: &str = "11111111-1111-4111-8111-111111111111";
 pub const OPUS: &str = "claude-opus-5-5";
 pub const HAIKU: &str = "claude-haiku-4-5-20251001";

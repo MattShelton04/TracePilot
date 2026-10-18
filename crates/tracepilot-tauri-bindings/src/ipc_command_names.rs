@@ -41,6 +41,7 @@ macro_rules! with_ipc_commands {
                 get_session_prompt_cache,
                 get_tool_result,
                 get_prompt_image,
+                get_session_request_log,
                 resume_session_in_terminal,
                 context_capture_preflight,
                 context_capture_start,

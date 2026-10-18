@@ -5,6 +5,7 @@ export * from "./agents.js";
 export * from "./agentUsage.js";
 export * from "./analytics.js";
 export * from "./claude-code-pricing.js";
+export * from "./claude-request-log.js";
 export * from "./config.js";
 export * from "./context-capture.js";
 export * from "./conversation.js";
