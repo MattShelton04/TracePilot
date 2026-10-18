@@ -62,12 +62,12 @@ pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData
                 }
                 entry.1 += 1;
 
-                // Extension tracking
+                // Extension tracking, ASCII case-insensitive like the indexed
+                // query's SQLite LOWER().
                 let ext = std::path::Path::new(file)
                     .extension()
                     .and_then(|e| e.to_str())
-                    .unwrap_or("(no ext)")
-                    .to_string();
+                    .map_or_else(|| "(no ext)".to_string(), str::to_ascii_lowercase);
                 *ext_counts.entry(ext).or_insert(0) += 1;
             }
         }
@@ -203,6 +203,33 @@ mod tests {
             .find(|e| e.extension == "rs")
             .unwrap();
         assert_eq!(rs.count, 2, "one per session");
+    }
+
+    /// `README.MD` and `notes.md` are one file type, labelled `md`.
+    #[test]
+    fn test_code_impact_groups_extensions_case_insensitively() {
+        let sessions = vec![make_input_with_code(
+            "s1",
+            "2026-01-15",
+            1,
+            0,
+            vec!["README.MD", "docs/notes.md", "img/Logo.PNG", "img/icon.png"],
+        )];
+        let result = compute_code_impact(&sessions);
+        let types: Vec<(&str, u32)> = result
+            .file_type_breakdown
+            .iter()
+            .map(|e| (e.extension.as_str(), e.count))
+            .collect();
+        assert_eq!(types.len(), 2, "{types:?}");
+        assert!(types.contains(&("md", 2)), "{types:?}");
+        assert!(types.contains(&("png", 2)), "{types:?}");
+        assert!(
+            result
+                .file_type_breakdown
+                .iter()
+                .all(|e| (e.percentage - 50.0).abs() < 1e-9)
+        );
     }
 
     #[test]

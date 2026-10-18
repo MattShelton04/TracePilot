@@ -35,12 +35,15 @@ pub(super) fn query_code_impact(
             Ok((row.get(0)?, row.get(1)?))
         })?;
 
-    // File type breakdown from session_modified_files
+    // File type breakdown from session_modified_files. Extensions group
+    // case-insensitively (`.MD` with `.md`) under the lowercase label, here
+    // rather than at index time so existing rows need no re-extract.
     let ext_sql = format!(
-        "SELECT COALESCE(f.extension, '(no ext)'), COUNT(DISTINCT f.session_id || '|' || {FILE_KEY})
+        "SELECT COALESCE(LOWER(f.extension), '(no ext)') AS ext,
+                COUNT(DISTINCT f.session_id || '|' || {FILE_KEY})
              FROM session_modified_files f
              JOIN sessions s ON s.id = f.session_id{where_clause}
-             GROUP BY f.extension ORDER BY 2 DESC"
+             GROUP BY ext ORDER BY 2 DESC"
     );
     let refs = to_refs(&bind_values);
     let mut ext_stmt = conn.prepare(&ext_sql)?;

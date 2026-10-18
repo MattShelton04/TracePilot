@@ -9,7 +9,7 @@ use crate::parsing::events::load_event_snapshot;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 
 use super::artifacts::apply_artifact_flags;
-use super::enrichment::apply_event_enrichment;
+use super::enrichment::apply_workspace_event_enrichment;
 use super::types::SessionLoadResult;
 use super::workspace::load_workspace_summary_strict;
 
@@ -42,7 +42,7 @@ pub fn load_session_snapshot(
     let snapshot = load_event_snapshot(&session_dir.join("events.jsonl"), is_cancelled)?;
     let (typed_events, turns, diagnostics) = if let Some(parsed) = snapshot.parsed {
         summary.has_events = true;
-        let turns = apply_event_enrichment(&mut summary, &parsed.events);
+        let turns = apply_workspace_event_enrichment(&mut summary, &parsed.events);
         (Some(parsed.events), Some(turns), Some(parsed.diagnostics))
     } else {
         (None, None, None)

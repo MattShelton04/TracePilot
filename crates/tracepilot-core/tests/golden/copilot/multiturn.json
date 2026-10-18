@@ -313,7 +313,7 @@
       "shutdownMetrics": null,
       "summary": "Golden multiturn",
       "turnCount": 5,
-      "updatedAt": "2026-03-10T07:15:00Z"
+      "updatedAt": "2026-09-12T00:00:39Z"
     },
     "turns": [
       {
@@ -606,6 +606,6 @@
     "shutdownMetrics": null,
     "summary": "Golden multiturn",
     "turnCount": 5,
-    "updatedAt": "2026-03-10T07:15:00Z"
+    "updatedAt": "2026-09-12T00:00:39Z"
   }
 }

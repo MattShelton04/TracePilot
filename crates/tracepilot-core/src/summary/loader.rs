@@ -5,7 +5,7 @@ use crate::models::session_summary::SessionSummary;
 use crate::parsing::events::{TypedEvent, parse_typed_events};
 
 use super::artifacts::apply_artifact_flags;
-use super::enrichment::apply_event_enrichment;
+use super::enrichment::apply_workspace_event_enrichment;
 use super::types::SessionLoadResult;
 use super::workspace::load_workspace_summary;
 
@@ -42,7 +42,7 @@ pub fn load_session_summary_from_events(
 
     if !events.is_empty() {
         summary.has_events = true;
-        apply_event_enrichment(&mut summary, events);
+        apply_workspace_event_enrichment(&mut summary, events);
     }
 
     apply_artifact_flags(&mut summary, session_dir);
@@ -70,7 +70,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
                 let typed_events = parsed.events;
                 diagnostics_out = Some(parsed.diagnostics);
 
-                let turns = apply_event_enrichment(&mut summary, &typed_events);
+                let turns = apply_workspace_event_enrichment(&mut summary, &typed_events);
 
                 if retain_events {
                     typed_events_out = Some(typed_events);

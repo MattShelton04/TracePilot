@@ -227,9 +227,14 @@
   "codeImpact": {
     "changesByDay": [
       {
-        "additions": 13,
+        "additions": 10,
         "date": "2026-03-10",
-        "deletions": 5
+        "deletions": 2
+      },
+      {
+        "additions": 3,
+        "date": "2026-10-04",
+        "deletions": 3
       }
     ],
     "fileTypeBreakdown": [
@@ -1107,10 +1112,28 @@
     "avgDurationMs": 5325.192307692308,
     "callsByDay": [
       {
-        "calls": 26,
+        "calls": 4,
         "date": "2026-03-10",
-        "durationMs": 138455.0,
-        "failures": 3
+        "durationMs": 41400.0,
+        "failures": 1
+      },
+      {
+        "calls": 8,
+        "date": "2026-09-12",
+        "durationMs": 51000.0,
+        "failures": 1
+      },
+      {
+        "calls": 11,
+        "date": "2026-09-25",
+        "durationMs": 46046.0,
+        "failures": 0
+      },
+      {
+        "calls": 3,
+        "date": "2026-10-04",
+        "durationMs": 9.0,
+        "failures": 1
       }
     ],
     "mostUsedTool": "read_agent",

@@ -366,8 +366,29 @@
           "truncations": 0
         },
         {
-          "compactions": 2,
+          "compactions": 0,
           "date": "2026-03-10",
+          "errors": 0,
+          "rateLimits": 0,
+          "truncations": 0
+        },
+        {
+          "compactions": 1,
+          "date": "2026-09-12",
+          "errors": 0,
+          "rateLimits": 0,
+          "truncations": 0
+        },
+        {
+          "compactions": 0,
+          "date": "2026-09-25",
+          "errors": 0,
+          "rateLimits": 0,
+          "truncations": 0
+        },
+        {
+          "compactions": 1,
+          "date": "2026-10-04",
           "errors": 1,
           "rateLimits": 0,
           "truncations": 1
@@ -612,9 +633,24 @@
           "deletions": 0
         },
         {
-          "additions": 13,
+          "additions": 10,
           "date": "2026-03-10",
-          "deletions": 5
+          "deletions": 2
+        },
+        {
+          "additions": 0,
+          "date": "2026-09-12",
+          "deletions": 0
+        },
+        {
+          "additions": 0,
+          "date": "2026-09-25",
+          "deletions": 0
+        },
+        {
+          "additions": 3,
+          "date": "2026-10-04",
+          "deletions": 3
         }
       ],
       "fileTypeBreakdown": [
@@ -687,7 +723,7 @@
         "sessionId": "00000000-0000-4000-8000-000000000004",
         "sessionRepository": null,
         "sessionSummary": null,
-        "sessionUpdatedAt": null,
+        "sessionUpdatedAt": "2026-01-01T00:00:09+00:00",
         "snippet": "<mark>Hello</mark> world",
         "timestampUnix": 1767225602,
         "toolName": null,
@@ -696,16 +732,16 @@
     ],
     "searchStats": "SearchStats { total_rows: 101, indexed_sessions: 11, total_sessions: 11, content_type_counts: [(\"assistant_message\", 26), (\"user_message\", 24), (\"tool_call\", 16), (\"system_message\", 13), (\"subagent\", 9), (\"tool_result\", 7), (\"reasoning\", 3), (\"compaction_summary\", 1), (\"error\", 1), (\"tool_error\", 1)] }",
     "sessionListOrder": [
-      "00000000-0000-4000-8000-00000000000b",
       "00000000-0000-4000-8000-00000000000a",
+      "00000000-0000-4000-8000-00000000000b",
       "00000000-0000-4000-8000-000000000009",
       "00000000-0000-4000-8000-000000000008",
       "00000000-0000-4000-8000-000000000007",
       "00000000-0000-4000-8000-000000000006",
       "00000000-0000-4000-8000-000000000005",
       "00000000-0000-4000-8000-000000000001",
-      "00000000-0000-4000-8000-000000000004",
       "00000000-0000-4000-8000-000000000003",
+      "00000000-0000-4000-8000-000000000004",
       "00000000-0000-4000-8000-000000000002"
     ],
     "skillUsage": {
@@ -1664,10 +1700,28 @@
           "failures": 0
         },
         {
-          "calls": 26,
+          "calls": 4,
           "date": "2026-03-10",
-          "durationMs": 138455.0,
-          "failures": 3
+          "durationMs": 41400.0,
+          "failures": 1
+        },
+        {
+          "calls": 8,
+          "date": "2026-09-12",
+          "durationMs": 51000.0,
+          "failures": 1
+        },
+        {
+          "calls": 11,
+          "date": "2026-09-25",
+          "durationMs": 46046.0,
+          "failures": 0
+        },
+        {
+          "calls": 3,
+          "date": "2026-10-04",
+          "durationMs": 9.0,
+          "failures": 1
         }
       ],
       "mostUsedTool": "read_agent",
@@ -4320,7 +4374,7 @@
     ],
     "sessions": [
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "feature-x",
         "compaction_count": 0,
         "copilot_version": null,
@@ -4370,11 +4424,11 @@
         "total_tokens": 0,
         "truncation_count": 0,
         "turn_count": 1,
-        "updated_at": null,
+        "updated_at": "2026-03-10T07:14:51+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.24",
@@ -4428,7 +4482,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.83",
@@ -4478,11 +4532,11 @@
         "total_tokens": 0,
         "truncation_count": 0,
         "turn_count": 2,
-        "updated_at": "2026-03-10T07:15:00+00:00",
+        "updated_at": "2026-09-12T00:00:27+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.83",
@@ -4532,11 +4586,11 @@
         "total_tokens": 0,
         "truncation_count": 0,
         "turn_count": 5,
-        "updated_at": "2026-03-10T07:15:00+00:00",
+        "updated_at": "2026-09-12T00:00:39+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.88",
@@ -4586,11 +4640,11 @@
         "total_tokens": 0,
         "truncation_count": 0,
         "turn_count": 6,
-        "updated_at": "2026-03-10T07:15:00+00:00",
+        "updated_at": "2026-09-25T09:17:15.732+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.91",
@@ -4640,11 +4694,11 @@
         "total_tokens": 58474,
         "truncation_count": 0,
         "turn_count": 4,
-        "updated_at": "2026-03-10T07:15:00+00:00",
+        "updated_at": "2026-10-04T01:40:14.141+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": null,
@@ -4698,7 +4752,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 1,
         "copilot_version": "1.0.83",
@@ -4748,11 +4802,11 @@
         "total_tokens": 0,
         "truncation_count": 0,
         "turn_count": 4,
-        "updated_at": "2026-03-10T07:15:00+00:00",
+        "updated_at": "2026-09-12T01:01:30+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": "main",
         "compaction_count": 1,
         "copilot_version": "1.0.91",
@@ -4802,11 +4856,11 @@
         "total_tokens": 6,
         "truncation_count": 1,
         "turn_count": 2,
-        "updated_at": "2026-03-10T07:15:00+00:00",
+        "updated_at": "2026-10-04T00:00:00+00:00",
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": null,
         "compaction_count": 0,
         "copilot_version": "1.0.2",
@@ -4853,11 +4907,11 @@
         "total_tokens": 1500,
         "truncation_count": 0,
         "turn_count": 1,
-        "updated_at": null,
+        "updated_at": "2026-01-01T00:00:09+00:00",
         "workspace_mtime": null
       },
       {
-        "analytics_version": 20,
+        "analytics_version": 21,
         "branch": null,
         "compaction_count": 0,
         "copilot_version": null,
