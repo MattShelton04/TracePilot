@@ -120,6 +120,75 @@ describe("AgentMessagesView", () => {
     expect(rows[2]?.find(".comms-log-delivery").text()).toBe("+4.0s queued");
   });
 
+  it("names recipients the session didn't record and takes delivery from the result", () => {
+    const UNKNOWN_A = "72510000-0000-4000-8000-000000000002";
+    const UNKNOWN_B = "72510000-0000-4000-8000-000000000003";
+    store.turns = [
+      {
+        turnIndex: 0,
+        isComplete: true,
+        timestamp: at(0),
+        endTimestamp: at(30),
+        assistantMessages: [],
+        toolCalls: [
+          launch("launch-alpha", "alpha", ALPHA_ID, 1),
+          tool({
+            toolName: "write_agent",
+            toolCallId: "to-unknown",
+            startedAt: at(4),
+            eventIndex: 2,
+            arguments: { agent_ids: [UNKNOWN_A, UNKNOWN_B], message: "Review wrapping." },
+            resultContent: `Message delivered to 2 agents.\n- ${UNKNOWN_A}, delivered, task_status=running\n- ${UNKNOWN_B}, not accepting messages`,
+          }),
+          tool({
+            toolName: "write_agent",
+            toolCallId: "to-alpha",
+            startedAt: at(6),
+            eventIndex: 3,
+            arguments: { agent_id: ALPHA_ID, message: "Carry on." },
+            resultContent: `Message delivered to agent ${ALPHA_ID}.`,
+          }),
+          tool({
+            toolName: "write_agent",
+            toolCallId: "to-unknown-pending",
+            startedAt: at(8),
+            eventIndex: 4,
+            isComplete: false,
+            arguments: { agent_id: UNKNOWN_A, message: "Please review." },
+          }),
+        ],
+      },
+    ];
+    const wrapper = mountView();
+    const row = (id: string) => wrapper.get(`[data-comm-id="message:${id}"]`);
+    const cells = (id: string) => row(id).findAll("td");
+
+    const chips = cells("to-unknown")[2]?.findAll(".agent-chip") ?? [];
+    expect(chips.map((c) => c.text())).toEqual(["72510000…0002", "72510000…0003"]);
+    expect(chips.map((c) => c.attributes("title"))).toEqual([UNKNOWN_A, UNKNOWN_B]);
+    expect(chips[0]?.classes()).toContain("agent-chip--unknown");
+    const lines = row("to-unknown").findAll(".comms-log-delivery div");
+    expect(lines.map((l) => l.text())).toEqual(["delivered to 1 of 2", "1 not accepting messages"]);
+    expect(lines[1]?.classes()).toContain("failed");
+    // A known recipient with no delivery event is confirmed by the result.
+    expect(row("to-alpha").find(".comms-log-delivery").text()).toBe("delivered");
+    // No result yet: still named, still unconfirmed.
+    expect(cells("to-unknown-pending")[2]?.text()).toBe("72510000…0002");
+    expect(row("to-unknown-pending").find(".comms-log-delivery").text()).toBe("unconfirmed");
+
+    // The diagram has no column for them: no arrow, but the row says who it went to.
+    const labels = wrapper.findAll(".comms-msg-label").map((t) => t.text());
+    expect(labels).toContain("to 2 unrecorded agents");
+    expect(labels).toContain("to 1 unrecorded agent");
+    const edge = wrapper
+      .findAll(".comms-edge")
+      .find((e) => e.attributes("aria-label")?.includes("Review wrapping."));
+    expect(edge?.findAll(".comms-edge-line")).toHaveLength(0);
+    expect(edge?.attributes("aria-label")).toContain(
+      `Main agent → ${UNKNOWN_A}, ${UNKNOWN_B} (not recorded in this session)`,
+    );
+  });
+
   it("draws one sequence column per agent, with the queued wait on the recipient", () => {
     store.turns = messagingSession();
     const wrapper = mountView();

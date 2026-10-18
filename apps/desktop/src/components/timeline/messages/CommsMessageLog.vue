@@ -34,12 +34,34 @@ function deliveryLines(
     return [{ text: ev.comm.kind === "read" ? "failed" : "not delivered", tone: "failed" }];
   }
   if (ev.comm.kind === "read") return [{ text: ev.poll ? "still running" : "returned" }];
+  // A message's recipients are only its intent; without a recorded delivery,
+  // the tool result is the evidence.
+  if (ev.comm.kind === "message" && !ev.comm.deliveries.length) return reportedLines(ev);
   const waits = ev.deliveries.filter((x) => x.waitMs >= 500 || x.queued);
   if (!waits.length) return [{ text: ev.deliveries.length ? "immediate" : "unconfirmed" }];
   return waits.map((x) => ({
     text: `${ev.toKeys.length > 1 ? `${nameOf(x.toKey)} ` : ""}+${formatTimelineOffset(x.waitMs, d)}${x.queued ? " queued" : ""}`,
     tone: x.queued ? "queued" : undefined,
   }));
+}
+
+/**
+ * Delivery as the `write_agent` result reported it, when no recipient's log
+ * recorded the message (older CLIs, or recipients outside this session).
+ */
+function reportedLines(ev: CommsTimelineEvent): Array<{ text: string; tone?: "failed" }> {
+  const reported = ev.comm.reported ?? [];
+  if (!reported.length) return [{ text: "unconfirmed" }];
+  const delivered = reported.filter((r) => r.delivered).length;
+  if (delivered === reported.length) return [{ text: "delivered" }];
+  const refused = new Map<string, number>();
+  for (const r of reported) {
+    if (!r.delivered) refused.set(r.outcome, (refused.get(r.outcome) ?? 0) + 1);
+  }
+  return [
+    { text: `delivered to ${delivered} of ${reported.length}` },
+    ...[...refused].map(([outcome, n]) => ({ text: `${n} ${outcome}`, tone: "failed" as const })),
+  ];
 }
 
 function nameOf(key: string): string {
@@ -105,6 +127,15 @@ watch(
               <span v-if="ev.comm.scope" class="comms-scope">all {{ ev.comm.scope }}</span>
               <span v-else class="comms-log-agents">
                 <AgentChip v-for="to in ev.toKeys" :key="to" :identifier="to" size="sm" />
+                <!-- Addressed by ID but never launched in this session's log:
+                     a muted short ID, with the full one in the chip's title. -->
+                <AgentChip
+                  v-for="id in ev.comm.unresolvedTo"
+                  :key="id"
+                  :identifier="id"
+                  size="sm"
+                  :style="{ '--agent-chip-color': 'var(--neutral-fg)' }"
+                />
               </span>
             </td>
             <td><span class="comms-kind">{{ edgeLabel(ev) }}</span></td>

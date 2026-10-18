@@ -228,6 +228,49 @@ describe("buildAgentCommunications", () => {
     });
   });
 
+  it("keeps recipients the directory can't place, with the reported outcome", () => {
+    const UNKNOWN_A = "72510000-0000-4000-8000-000000000002";
+    const UNKNOWN_B = "72510000-0000-4000-8000-000000000003";
+    const turns: ConversationTurn[] = [
+      {
+        turnIndex: 0,
+        isComplete: true,
+        assistantMessages: [],
+        toolCalls: [
+          tool({
+            toolName: "write_agent",
+            toolCallId: "w-unknown",
+            eventIndex: 3,
+            arguments: { agent_ids: [UNKNOWN_A, UNKNOWN_B], message: "Review wrapping." },
+            resultContent: `Message delivered to 2 agents.\n- ${UNKNOWN_A}, delivered, task_status=running\n- ${UNKNOWN_B}, not accepting messages`,
+          }),
+          tool({
+            toolName: "write_agent",
+            toolCallId: "w-pending",
+            eventIndex: 4,
+            isComplete: false,
+            arguments: { agent_id: UNKNOWN_A, message: "Please review." },
+          }),
+        ],
+      },
+    ];
+    const unknownLog = buildAgentCommunications(turns, buildAgentDirectory(turns));
+    const [sent, pending] = unknownLog;
+    expect(sent).toMatchObject({ toKeys: [], unresolvedTo: [UNKNOWN_A, UNKNOWN_B] });
+    expect(sent.reported?.map((r) => [r.agentId, r.delivered, r.outcome])).toEqual([
+      [UNKNOWN_A, true, "delivered"],
+      [UNKNOWN_B, false, "not accepting messages"],
+    ]);
+    expect(pending).toMatchObject({ toKeys: [], unresolvedTo: [UNKNOWN_A] });
+    expect(pending.reported).toBeUndefined();
+    // A message to two agents counts as a broadcast even when neither has a lane.
+    expect(summarizeAgentCommunications(unknownLog)).toMatchObject({
+      messages: 2,
+      broadcasts: 1,
+      participants: 3,
+    });
+  });
+
   it("works for logs without delivered messages", () => {
     const legacy = siblingSession();
     legacy[0].agentMessages = undefined;
@@ -236,5 +279,11 @@ describe("buildAgentCommunications", () => {
     // Recipients come from the multi-delivery result when deliveries are absent.
     expect(broadcast?.toKeys).toEqual(["launch-alpha", "launch-beta"]);
     expect(broadcast?.deliveries).toEqual([]);
+    // The result still confirms each delivery, keyed to the directory.
+    expect(broadcast?.reported?.map((r) => [r.toKey, r.delivered])).toEqual([
+      ["launch-alpha", true],
+      ["launch-beta", true],
+    ]);
+    expect(broadcast?.unresolvedTo).toBeUndefined();
   });
 });
