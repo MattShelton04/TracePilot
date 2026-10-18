@@ -20,7 +20,12 @@ import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
 import { usageCheckpointCredits } from "@/composables/useSessionMetrics";
 import type { usePreferencesStore } from "@/stores/preferences";
 import { type CostSplit, costSplit } from "@/utils/metricsView";
-import { formatSessionCost, formatUsd, sessionCostEstimate } from "@/utils/sourceCost";
+import {
+  formatSessionCost,
+  formatUsd,
+  isCostLowerBound,
+  sessionCostEstimate,
+} from "@/utils/sourceCost";
 
 export interface MetricsCostSummary {
   /** The headline figure, e.g. `$54.83` or `≥ $71.87`; `—` when unknown. */
@@ -113,8 +118,7 @@ export function useMetricsCost(options: {
       basis: estimate.basisLabel,
       estimate: estimate.basis !== "billed",
       partial: estimate.partial,
-      lowerBound:
-        estimate.lowerBound || (estimate.amount == null && estimate.snapshotAmount != null),
+      lowerBound: isCostLowerBound(estimate),
       coverage: estimate.coverage,
       unattributed: null,
     };

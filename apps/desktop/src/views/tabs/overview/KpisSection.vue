@@ -8,7 +8,12 @@ import SessionOverviewKpis, {
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { allowsAiCreditEstimate, usageCheckpointCredits } from "@/composables/useSessionMetrics";
 import { usePreferencesStore } from "@/stores/preferences";
-import { formatSessionCost, formatUsd, sessionCostEstimate } from "@/utils/sourceCost";
+import {
+  formatSessionCost,
+  formatUsd,
+  isCostLowerBound,
+  sessionCostEstimate,
+} from "@/utils/sourceCost";
 import { useOverviewModel } from "./overviewModel";
 
 const {
@@ -39,6 +44,7 @@ const cost = computed<OverviewCost>(() => {
       value: formatSessionCost(estimate),
       basis: estimate.basisLabel,
       partial: estimate.partial,
+      lowerBound: isCostLowerBound(estimate),
       perTurn: estimate.amount != null && turns > 0 ? formatUsd(estimate.amount / turns) : null,
       tooltip: estimate.coverage,
     };
@@ -56,6 +62,7 @@ const cost = computed<OverviewCost>(() => {
           ? "Observed billing"
           : "Estimated",
     partial: false,
+    lowerBound: false,
     perTurn: credits != null && turns > 0 ? formatAiCreditsUsd(credits / turns) : null,
     tooltip: `${
       creditSource === "observed"

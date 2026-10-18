@@ -75,7 +75,11 @@ export function calculateClaudeCodeTokenCost(
   model: string,
   usage: TokenUsageForCost,
 ): TokenCostBreakdown {
-  const cost = calculateTokenCost(model, usage, { registry: CLAUDE_CODE_PRICING });
+  // A cost snapshot keys a 1M-context selection as `claude-opus-5-5[1m]`;
+  // its calls record the API id and are priced at that model's rates.
+  const cost = calculateTokenCost(model.replace(/\[1m\]$/i, ""), usage, {
+    registry: CLAUDE_CODE_PRICING,
+  });
   if (usage.inputTokens == null || usage.outputTokens == null) {
     return {
       ...cost,

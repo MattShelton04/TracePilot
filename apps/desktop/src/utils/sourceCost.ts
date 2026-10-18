@@ -89,6 +89,11 @@ export function formatUsd(amount: number): string {
   return amount > 0 && amount < 0.005 ? "< $0.01" : formatCost(amount);
 }
 
+/** Whether the display value is a floor (`≥`): unfinished calls, or an unpriced tail. */
+export function isCostLowerBound(cost: SessionCostEstimate): boolean {
+  return cost.lowerBound || (cost.amount == null && cost.snapshotAmount != null);
+}
+
 /** The display value; an unpriced tail leaves at least the snapshot's cost. */
 export function formatSessionCost(cost: SessionCostEstimate): string {
   if (cost.amount != null) return cost.lowerBound ? atLeast(cost.amount) : formatUsd(cost.amount);

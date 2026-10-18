@@ -335,9 +335,14 @@
 
 .agent-tree-feature .agent-node-tokens {
   color: var(--text-tertiary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Long stats truncate the token count; the status icon keeps its size. */
 .agent-tree-feature .agent-node-status {
+  flex-shrink: 0;
   margin-left: auto;
   font-size: 0.8125rem;
   line-height: 1;
