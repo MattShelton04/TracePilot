@@ -1,6 +1,6 @@
 // ─── SearchPalette controller ─────────────────────────────────
 // Encapsulates the open/close lifecycle, fuzzy-scored navigation actions,
-// recent-session list, and combined-list selection model used by the global
+// recent-session list, session-name matches, and combined-list selection model used by the global
 // command palette. Kept separate from the SFC to keep `<SearchPalette>`
 // under the per-file size budget.
 
@@ -14,6 +14,7 @@ import type { SidebarSection } from "@/router/types";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSearchStore } from "@/stores/search";
 import { useSessionsStore } from "@/stores/sessions";
+import { parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
 
 export interface NavAction {
   id: string;
@@ -30,7 +31,13 @@ export interface RecentEntry {
 export type ComboItem =
   | { kind: "nav"; data: NavAction }
   | { kind: "recent"; data: RecentEntry }
+  | { kind: "session"; data: RecentEntry }
   | { kind: "result"; data: SearchResult };
+
+/** Sessions matched by name, repository, folder, branch or ID while typing. */
+const MAX_SESSION_MATCHES = 5;
+/** An ID prefix this short would match unrelated sessions. */
+const MIN_ID_PREFIX = 4;
 
 const NAV_SECTION_ORDER: Record<SidebarSection, number> = {
   primary: 0,
@@ -54,6 +61,42 @@ function score(haystack: string, needle: string): number {
   if (h.split(/[\s/_-]+/).some((t) => t.startsWith(n))) return 60;
   const idx = h.indexOf(n);
   return idx >= 0 ? 40 - Math.min(idx, 30) : 0;
+}
+
+/** Last segment of a folder path, so a match on the drive or home folder is not counted. */
+function folderName(path: string | null | undefined): string {
+  return (
+    path
+      ?.split(/[\\/]+/)
+      .filter(Boolean)
+      .at(-1) ?? ""
+  );
+}
+
+/**
+ * How well a session matches typed text. Its name counts most; its
+ * repository, folder and branch count a little less, and an ID prefix of at
+ * least {@link MIN_ID_PREFIX} characters counts as a strong match.
+ */
+function scoreSession(s: SessionListItem, text: string): number {
+  const needle = text.trim().toLowerCase();
+  const idMatch = needle.length >= MIN_ID_PREFIX && s.id.toLowerCase().startsWith(needle) ? 70 : 0;
+  return Math.max(
+    score(s.summary ?? "", needle),
+    score(s.repository ?? "", needle) * 0.8,
+    score(folderName(s.cwd), needle) * 0.8,
+    score(s.branch ?? "", needle) * 0.7,
+    idMatch,
+  );
+}
+
+function sessionEntry(s: SessionListItem, prefix: string): RecentEntry {
+  return {
+    id: `${prefix}:${s.id}`,
+    label: s.summary || `Session ${s.id.slice(0, 8)}`,
+    hint: s.repository || s.branch || "",
+    sessionId: s.id,
+  };
 }
 
 export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInputElement | null>) {
@@ -114,23 +157,42 @@ export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInp
       if (recent.length === 5) break;
       if (!hideEmpty || (s.turnCount ?? 0) !== 0) recent.push(s);
     }
-    return recent.map((s) => ({
-      id: `recent:${s.id}`,
-      label: s.summary || `Session ${s.id.slice(0, 8)}`,
-      hint: s.repository || s.branch || "",
-      sessionId: s.id,
-    }));
+    return recent.map((s) => sessionEntry(s, "recent"));
+  });
+
+  // Content search does not index session names, so match them here. The
+  // `source:` qualifier filters (as it does for content) rather than matching.
+  const sessionMatches = computed<RecentEntry[]>(() => {
+    if (!search.hasQuery.value) return [];
+    const raw = search.query.value;
+    const text = parseQualifiers(raw).source ? stripQualifier(raw, "source") : raw;
+    if (!text.trim()) return [];
+    const source = search.source.value;
+    const hideEmpty = prefsStore.hideEmptySessions;
+    return sessionsStore.sessions
+      .filter(
+        (s) =>
+          (!hideEmpty || (s.turnCount ?? 0) !== 0) &&
+          (!source || (s.source ?? "copilot") === source),
+      )
+      .map((s) => ({ s, score: scoreSession(s, text) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_SESSION_MATCHES)
+      .map((x) => sessionEntry(x.s, "session"));
   });
 
   const allItems = computed<ComboItem[]>(() => [
     ...navMatches.value.map((data): ComboItem => ({ kind: "nav", data })),
     ...recentEntries.value.map((data): ComboItem => ({ kind: "recent", data })),
+    ...sessionMatches.value.map((data): ComboItem => ({ kind: "session", data })),
     ...search.flatResults.value.map((data): ComboItem => ({ kind: "result", data })),
   ]);
 
   const navOffset = computed(() => 0);
   const recentOffset = computed(() => navMatches.value.length);
-  const resultsOffset = computed(() => navMatches.value.length + recentEntries.value.length);
+  const sessionsOffset = computed(() => recentOffset.value + recentEntries.value.length);
+  const resultsOffset = computed(() => sessionsOffset.value + sessionMatches.value.length);
 
   watch(allItems, (items) => {
     selectedIndex.value = Math.min(selectedIndex.value, Math.max(0, items.length - 1));
@@ -162,7 +224,7 @@ export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInp
       pushRoute(router, item.data.route);
       return;
     }
-    if (item.kind === "recent") {
+    if (item.kind === "recent" || item.kind === "session") {
       close();
       pushRoute(router, ROUTE_NAMES.sessionConversation, { params: { id: item.data.sessionId } });
       return;
@@ -187,9 +249,11 @@ export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInp
     selectedIndex,
     navMatches,
     recentEntries,
+    sessionMatches,
     allItems,
     navOffset,
     recentOffset,
+    sessionsOffset,
     resultsOffset,
     open,
     close,

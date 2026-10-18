@@ -11,7 +11,8 @@ const query = ref("");
 const search = {
   query,
   hasQuery: computed(() => query.value.trim().length > 0),
-  flatResults: ref([]),
+  source: ref<string | null>(null),
+  flatResults: ref<{ sessionId: string; turnNumber: number }[]>([]),
   reset: () => {
     query.value = "";
   },
@@ -19,7 +20,15 @@ const search = {
 
 const prefs = reactive({ hideEmptySessions: true });
 const sessionsStore = reactive({
-  sessions: [] as { id: string; summary?: string; turnCount?: number }[],
+  sessions: [] as {
+    id: string;
+    summary?: string;
+    turnCount?: number;
+    repository?: string;
+    branch?: string;
+    cwd?: string;
+    source?: string;
+  }[],
 });
 
 vi.mock("@/stores/preferences", () => ({
@@ -44,6 +53,8 @@ beforeEach(() => {
   for (const flag of FEATURE_FLAGS) flags[flag] = false;
   prefs.hideEmptySessions = true;
   sessionsStore.sessions = [];
+  search.source.value = null;
+  search.flatResults.value = [];
   vi.mocked(pushRoute).mockClear();
 });
 
@@ -170,5 +181,95 @@ describe("command palette recent sessions", () => {
       "b",
       "c",
     ]);
+  });
+});
+
+describe("command palette session matches", () => {
+  const sessions = [
+    { id: "aaaa1111-0000", summary: "Map session pruning", turnCount: 4, branch: "main" },
+    {
+      id: "bbbb2222-0000",
+      summary: "Ship 2.4",
+      turnCount: 6,
+      branch: "release/2.4",
+      cwd: "C:\\work\\harbor",
+    },
+    {
+      id: "cccc3333-0000",
+      summary: "Add upload retries",
+      turnCount: 2,
+      repository: "example/orchard",
+    },
+    { id: "dddd4444-0000", summary: "Ship notes draft", turnCount: 0 },
+    { id: "eeee5555-0000", summary: "Claude ship log", turnCount: 3, source: "claudeCode" },
+  ];
+
+  it("finds a session by a word of its name and opens it from the combined list", () => {
+    sessionsStore.sessions = sessions;
+    const palette = controller();
+    query.value = "ship";
+
+    const sessionItems = palette.allItems.value.filter((item) => item.kind === "session");
+    expect(sessionItems.map((item) => item.data.label)).toEqual(["Ship 2.4", "Claude ship log"]);
+    palette.activateAt(palette.allItems.value.indexOf(sessionItems[0]!));
+    expect(pushRoute).toHaveBeenLastCalledWith(router, ROUTE_NAMES.sessionConversation, {
+      params: { id: "bbbb2222-0000" },
+    });
+  });
+
+  it("matches an exact title, repository, folder name, branch and ID prefix", () => {
+    sessionsStore.sessions = sessions;
+    const palette = controller();
+    const firstSession = () =>
+      palette.allItems.value.find((item) => item.kind === "session")?.data.label;
+
+    for (const [text, label] of [
+      ["Map session pruning", "Map session pruning"],
+      ["orchard", "Add upload retries"],
+      ["harbor", "Ship 2.4"],
+      ["release/2.4", "Ship 2.4"],
+      ["cccc3333", "Add upload retries"],
+    ] as const) {
+      query.value = text;
+      expect(firstSession()).toBe(label);
+    }
+    query.value = "C:";
+    expect(firstSession()).toBeUndefined();
+    query.value = "cc";
+    expect(firstSession()).toBeUndefined();
+  });
+
+  it("keeps hidden empty sessions out, honours source, caps the group and places it before content results", () => {
+    sessionsStore.sessions = [
+      ...sessions,
+      ...Array.from({ length: 6 }, (_, i) => ({
+        id: `ship-${i}`,
+        summary: `Ship extra ${i}`,
+        turnCount: 1,
+      })),
+    ];
+    search.flatResults.value = [{ sessionId: "content", turnNumber: 1 }];
+    const palette = controller();
+    query.value = "ship";
+
+    const kinds = palette.allItems.value.map((item) => item.kind);
+    expect(kinds.filter((kind) => kind === "session")).toHaveLength(5);
+    expect(kinds.lastIndexOf("session")).toBeLessThan(kinds.indexOf("result"));
+    expect(palette.resultsOffset.value).toBe(kinds.indexOf("result"));
+    const labels = palette.sessionMatches.value.map((entry) => entry.label);
+    expect(labels).not.toContain("Ship notes draft");
+
+    prefs.hideEmptySessions = false;
+    expect(palette.sessionMatches.value.map((entry) => entry.label)).toContain("Ship notes draft");
+
+    search.source.value = "claudeCode";
+    query.value = "source:claude ship";
+    expect(palette.sessionMatches.value.map((entry) => entry.label)).toEqual(["Claude ship log"]);
+  });
+
+  it("shows no session group without a query", () => {
+    sessionsStore.sessions = sessions;
+    const palette = controller();
+    expect(palette.allItems.value.some((item) => item.kind === "session")).toBe(false);
   });
 });
