@@ -100,6 +100,10 @@ export const useAlertsStore = defineStore("alerts", () => {
     drawerOpen.value = !drawerOpen.value;
   }
 
+  function closeDrawer() {
+    drawerOpen.value = false;
+  }
+
   return {
     alerts,
     drawerOpen,
@@ -111,5 +115,6 @@ export const useAlertsStore = defineStore("alerts", () => {
     dismiss,
     clearAll,
     toggleDrawer,
+    closeDrawer,
   };
 });

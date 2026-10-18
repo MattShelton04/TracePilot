@@ -110,9 +110,7 @@ useShortcut("Mod+Shift+A", () => alertsStore.toggleDrawer(), {
 
 // App mounts the drawer only while alerts are on. Close it when alerts are
 // turned off so turning them back on does not reopen it.
-onUnmounted(() => {
-  alertsStore.drawerOpen = false;
-});
+onUnmounted(() => alertsStore.closeDrawer());
 </script>
 
 <template>
