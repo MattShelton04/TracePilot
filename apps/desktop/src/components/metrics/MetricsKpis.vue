@@ -166,12 +166,14 @@ const modelShare = computed(() =>
   }
 }
 
+/* Wraps to a second line rather than cutting a fact off at the default width. */
 .kpi-note {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .kpi-note b {
