@@ -73,8 +73,11 @@ const stubs = {
 
 let wrapper: VueWrapper | null = null;
 
-async function mountApp(router: Router) {
-  wrapper = mount(App, { attachTo: document.body, global: { plugins: [router], stubs } });
+async function mountApp(router: Router, stubOverrides: Record<string, unknown> = {}) {
+  wrapper = mount(App, {
+    attachTo: document.body,
+    global: { plugins: [router], stubs: { ...stubs, ...stubOverrides } },
+  });
   await router.isReady();
   await flushPromises();
   return wrapper;
@@ -148,5 +151,25 @@ describe("App tab view and routed navigation", () => {
     expect(router.currentRoute.value.name).toBe(ROUTE_NAMES.sessions);
     expect(tabs.activeTabId).toBe("tab-session");
     expect(tabViewShown()).toBe(true);
+  });
+
+  it("marks All sessions current only on the session list, not on a routed session", async () => {
+    const router = makeRouter();
+    const tabs = useSessionTabsStore();
+    tabs.openTab("tab-session", "Tab session");
+    await mountApp(router, { SessionTabStrip: false });
+    const home = () => wrapper?.get<HTMLButtonElement>('button[aria-label="All sessions"]');
+
+    // A plain click on a session card routes to its detail page.
+    await router.push({ name: ROUTE_NAMES.sessionConversation, params: { id: "other" } });
+    await flushPromises();
+    expect(tabs.activeTabId).toBeNull();
+    expect(home()?.classes()).not.toContain("active");
+    expect(home()?.attributes("aria-current")).toBeUndefined();
+
+    await router.push({ name: ROUTE_NAMES.sessions });
+    await flushPromises();
+    expect(home()?.classes()).toContain("active");
+    expect(home()?.attributes("aria-current")).toBe("page");
   });
 });
