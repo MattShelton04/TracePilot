@@ -112,6 +112,26 @@ const filteredFiles = computed(() => {
   );
 });
 
+// Only a name filter narrows the tree; content search lists its matches
+// separately, so the tree keeps counting every session file.
+const treeTitle = computed(() =>
+  searchMode.value === "name" && searchQuery.value.trim() ? "Matching Files" : "Session Files",
+);
+
+function countOf(n: number, noun: string, plural = `${noun}s`): string {
+  return `${n} ${n === 1 ? noun : plural}`;
+}
+
+/** "1 match in 1 file · 3 files searched": matches, files they're in, files read. */
+const contentSearchSummary = computed(() => {
+  const result = contentSearch.value;
+  if (!result) return "";
+  const searched = `${countOf(result.scannedFiles, "file")} searched`;
+  if (!result.matches.length) return `0 matches · ${searched}`;
+  const files = new Set(result.matches.map((m) => m.path)).size;
+  return `${countOf(result.matches.length, "match", "matches")} in ${countOf(files, "file")} · ${searched}`;
+});
+
 async function onViewFile(path: string) {
   const entry = sessionFiles.files.find((f) => f.path === path);
   const fileType: SessionFileType = entry?.fileType ?? "text";
@@ -369,7 +389,7 @@ async function onOpenFolder() {
         :loading="sessionFiles.filesLoading"
         :selected-path="sessionFiles.selectedPath ?? undefined"
         :highlighted-paths="highlightedPaths"
-        :title="searchQuery.trim() ? 'Matching Files' : 'Session Files'"
+        :title="treeTitle"
         :auto-collapse-threshold="10"
         :force-expanded="Boolean(searchQuery.trim())"
         :hide-list="showSearchPanel && searchMode === 'content'"
@@ -502,8 +522,7 @@ async function onOpenFolder() {
             </div>
             <template v-else-if="contentSearch">
               <div class="explorer-results__meta">
-                {{ contentSearch.matches.length }} matches in {{ contentSearch.scannedFiles }} files
-                <span v-if="contentSearch.truncated"> · bounded results</span>
+                {{ contentSearchSummary }}<span v-if="contentSearch.truncated"> · bounded results</span>
               </div>
               <button
                 v-for="match in contentSearch.matches"

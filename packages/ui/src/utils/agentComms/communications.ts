@@ -14,6 +14,7 @@ import {
   type AgentRuntimeStatus,
   parseReadAgentResult,
   parseWriteAgentResult,
+  type WriteAgentDelivery,
   writeAgentTarget,
 } from "./parsers";
 
@@ -44,6 +45,12 @@ export interface AgentCommunication {
   kind: AgentCommKind;
   fromKey: string;
   toKeys: string[];
+  /**
+   * Recipients addressed by ID that the agent directory can't place (agents
+   * launched outside this session's recorded tool calls). Raw IDs: they have
+   * no lane or column, but views can still name them.
+   */
+  unresolvedTo?: string[];
   relation: AgentCommRelation;
   /** `siblings` / `children` for scoped broadcasts. */
   scope?: string;
@@ -55,11 +62,21 @@ export interface AgentCommunication {
   /** The tool call that carried the exchange, when one was recorded. */
   toolCallId?: string;
   deliveries: AgentCommDelivery[];
+  /**
+   * Messages only: each recipient's outcome as the `write_agent` result
+   * reported it. Confirms delivery when the recipient's log recorded none.
+   */
+  reported?: AgentCommReport[];
   failed: boolean;
   /** Reads only: whether the worker had output to return (not a timed-out poll). */
   returned?: boolean;
   /** Reads only: the worker's state when read. */
   readStatus?: AgentRuntimeStatus;
+}
+
+export interface AgentCommReport extends WriteAgentDelivery {
+  /** Directory key, when the directory knows the recipient. */
+  toKey?: string;
 }
 
 interface OrderedToolCall {
@@ -93,13 +110,22 @@ function messageSenderKey(directory: AgentDirectory, message: AgentMessage): str
   return directory.resolve(message.senderAgentId)?.key ?? MAIN_AGENT_KEY;
 }
 
-function resolveKeys(directory: AgentDirectory, ids: readonly string[]): string[] {
+/** Directory keys for the IDs, plus the IDs the directory doesn't know. */
+function resolveKeys(
+  directory: AgentDirectory,
+  ids: readonly string[],
+): { keys: string[]; unresolved: string[] } {
   const keys: string[] = [];
+  const unresolved: string[] = [];
   for (const id of ids) {
     const key = directory.resolve(id)?.key;
-    if (key && !keys.includes(key)) keys.push(key);
+    if (key) {
+      if (!keys.includes(key)) keys.push(key);
+    } else if (!unresolved.includes(id)) {
+      unresolved.push(id);
+    }
   }
-  return keys;
+  return { keys, unresolved };
 }
 
 /** Recipients a scope addressed, as the directory understands the tree. */
@@ -176,10 +202,13 @@ export function buildAgentCommunications(
       const content = toolArgString(args, "message");
       const target = writeAgentTarget(args);
       const result = parseWriteAgentResult(tc.resultContent);
-      let toKeys =
+      const addressed = resolveKeys(
+        directory,
         target.kind === "agents"
-          ? resolveKeys(directory, target.agentIds)
-          : resolveKeys(directory, result?.deliveries.map((d) => d.agentId) ?? []);
+          ? target.agentIds
+          : (result?.deliveries.map((d) => d.agentId) ?? []),
+      );
+      let toKeys = addressed.keys;
       if (!toKeys.length && target.kind === "scope") {
         toKeys = scopeRecipients(directory, fromKey, target.scope).map((e) => e.key);
       }
@@ -205,6 +234,7 @@ export function buildAgentCommunications(
         kind: "message",
         fromKey,
         toKeys,
+        unresolvedTo: addressed.unresolved.length ? addressed.unresolved : undefined,
         relation: classify(directory, fromKey, toKeys),
         scope: target.kind === "scope" ? target.scope : undefined,
         content,
@@ -212,6 +242,9 @@ export function buildAgentCommunications(
         order,
         toolCallId: tc.toolCallId,
         deliveries,
+        reported: result?.deliveries.length
+          ? result.deliveries.map((d) => ({ ...d, toKey: directory.resolve(d.agentId)?.key }))
+          : undefined,
         failed:
           tc.success === false ||
           (!!result?.deliveries.length && !result.deliveries.some((d) => d.delivered)),
@@ -305,11 +338,13 @@ export function summarizeAgentCommunications(log: readonly AgentCommunication[])
     if (c.kind !== "message") continue;
     stats.messages++;
     if (c.relation === "peer") stats.peerMessages++;
-    if (c.scope || c.toKeys.length > 1) stats.broadcasts++;
+    const unresolved = c.unresolvedTo ?? [];
+    if (c.scope || c.toKeys.length + unresolved.length > 1) stats.broadcasts++;
     if (c.failed) stats.failed++;
     stats.queued += c.deliveries.filter((d) => d.delivery === "queued").length;
     participants.add(c.fromKey);
     for (const to of c.toKeys) participants.add(to);
+    for (const id of unresolved) participants.add(id);
   }
   stats.participants = participants.size;
   return stats;
