@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RecordedCall } from "@tracepilot/types";
-import { EmptyState, formatDateMedium, formatNumberFull } from "@tracepilot/ui";
+import { EmptyState, formatNumberFull, formatShortDate, formatTime } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useClientPager } from "@/composables/useClientPager";
 import { recordedAgentLabel } from "./recordedRequests";
@@ -16,6 +16,13 @@ const PAGE_SIZE = 50;
 /** Latest first: the log keeps the latest calls. */
 const rows = computed(() => [...props.calls].reverse());
 const { page, pageCount, pageRows } = useClientPager(rows, PAGE_SIZE, [() => props.calls]);
+
+/** The call's prompt and tool set when its name adds to the agent's, and what made it. */
+function detail(call: RecordedCall): string {
+  const set = call.shapeHash ? (props.shapeLabels.get(call.shapeHash) ?? "Unrecorded set") : null;
+  const named = set && set !== recordedAgentLabel(call) ? set : null;
+  return [named, call.querySource].filter(Boolean).join(" · ");
+}
 
 function settings(call: RecordedCall): string {
   return [call.effort && `effort ${call.effort}`, call.thinking && `thinking ${call.thinking}`]
@@ -57,13 +64,12 @@ function settings(call: RecordedCall): string {
           class="recorded-calls__row"
           role="row"
         >
-          <span role="cell" class="recorded-calls__time">{{ formatDateMedium(call.timestamp) }}</span>
+          <span role="cell" class="recorded-calls__time">
+            {{ call.timestamp ? `${formatShortDate(call.timestamp)} ${formatTime(call.timestamp)}` : "—" }}
+          </span>
           <span role="cell" class="recorded-calls__agent">
             <span>{{ recordedAgentLabel(call) }}</span>
-            <small>
-              {{ call.shapeHash ? (shapeLabels.get(call.shapeHash) ?? "Unrecorded set") : "No set" }}
-              <template v-if="call.querySource"> · {{ call.querySource }}</template>
-            </small>
+            <small v-if="detail(call)">{{ detail(call) }}</small>
           </span>
           <span role="cell"><code>{{ call.model ?? "Unknown" }}</code></span>
           <span role="cell" class="recorded-calls__settings">

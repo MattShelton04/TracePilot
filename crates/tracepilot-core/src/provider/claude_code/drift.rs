@@ -23,6 +23,8 @@ pub const MISSING_NAME: &str = "(missing)";
 /// Record types without a mapping, shown on the Events tab only. The last
 /// four were first seen by the S3 probe (2.1.274–2.1.289).
 const BOOKKEEPING: &[&str] = &[
+    // A subagent file's `cost-state`, which only the main file's maps.
+    "cost-state",
     "custom-title",
     "ai-title",
     "agent-name",
@@ -37,8 +39,6 @@ const BOOKKEEPING: &[&str] = &[
     "frame-link",
     "artifact-autoreact-ledger",
     "artifact-comment-monitor",
-    // A subagent file's `cost-state`, which only the main file's maps.
-    "cost-state",
 ];
 
 /// Count a record type that reached no mapping, unless it is known

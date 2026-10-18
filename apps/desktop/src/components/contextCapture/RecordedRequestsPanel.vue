@@ -3,7 +3,7 @@ import {
   EmptyState,
   ErrorAlert,
   formatBytes,
-  formatDateMedium,
+  formatDate,
   formatNumberFull,
   LoadingSpinner,
   SectionPanel,
@@ -165,7 +165,7 @@ const composition = computed(() => {
             <dl class="recorded-requests__details">
               <div v-if="selectedShape">
                 <dt>First used</dt>
-                <dd>{{ formatDateMedium(selectedShape.firstUsed) }}</dd>
+                <dd>{{ formatDate(selectedShape.firstUsed) || "Unknown" }}</dd>
               </div>
               <div v-if="selectedShape">
                 <dt>Calls</dt>
