@@ -7,6 +7,11 @@ use tracepilot_core::provider::SourceFingerprint;
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v21: a Copilot session's `updated_at` is the later of `workspace.yaml`'s
+/// and its last event other than `session.shutdown`, since older CLIs write
+/// workspace times hours before the last turn. Re-read so list order,
+/// durations and day filters use the last activity.
+///
 /// v20: every error and rate limit keeps its `session_incidents` row; only
 /// warnings, compactions and truncations stop at
 /// [`MAX_INCIDENTS_PER_SESSION`], so a session past the cap no longer hides
@@ -56,7 +61,7 @@ use tracepilot_core::provider::SourceFingerprint;
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 20;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 21;
 
 /// The analytics version of Claude Code rows, bumped on its own so Copilot
 /// rows (and their golden snapshot) are not re-derived for a Claude-only

@@ -43,7 +43,13 @@ const hasAnyResults = computed(
   () => hasResults.value || navMatches.value.length > 0 || sessionMatches.value.length > 0,
 );
 
-useShortcut("Mod+K", toggle, { description: "Open command palette", group: "Global" });
+// A modifier chord isn't typing, so it also works from a text field or select;
+// pressed in the palette's own input, it closes the palette.
+useShortcut("Mod+K", toggle, {
+  description: "Open command palette",
+  group: "Global",
+  ignoreEditable: false,
+});
 
 function move(delta: number) {
   moveSelection(delta);

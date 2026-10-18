@@ -296,3 +296,59 @@ fn test_resumed_session_summary() {
     let opus = &metrics.model_metrics["claude-opus-4.6"];
     assert_eq!(opus.requests.as_ref().unwrap().count, Some(8));
 }
+
+/// Older CLIs write `workspace.yaml` `updated_at` hours before the last turn.
+/// Every Copilot load path takes the later of the two, ignoring the trailing
+/// `session.shutdown` (the CLI exiting, not session activity).
+#[test]
+fn updated_at_is_last_event_activity_when_workspace_lags() {
+    let dir = tempfile::tempdir().unwrap();
+    let session_dir = dir.path();
+    // workspace.yaml says 07:15; the resumed turn ends at 08:01:02 and the
+    // CLI shuts down at 08:10.
+    fs::write(session_dir.join("workspace.yaml"), full_workspace_yaml()).unwrap();
+    fs::write(session_dir.join("events.jsonl"), resumed_events_jsonl()).unwrap();
+    let last_turn_end = Some("2026-03-10T08:01:02+00:00".to_string());
+
+    let disk = load_session_summary(session_dir).unwrap();
+    assert_eq!(
+        disk.updated_at.map(|d| d.to_rfc3339()),
+        last_turn_end,
+        "load_session_summary"
+    );
+
+    let parsed =
+        crate::parsing::events::parse_typed_events(&session_dir.join("events.jsonl")).unwrap();
+    let detail = load_session_summary_from_events(session_dir, &parsed.events).unwrap();
+    assert_eq!(
+        detail.updated_at.map(|d| d.to_rfc3339()),
+        last_turn_end,
+        "detail path"
+    );
+
+    let (index, _) = load_session_snapshot(session_dir, &|| false).unwrap();
+    assert_eq!(
+        index.summary.updated_at.map(|d| d.to_rfc3339()),
+        last_turn_end,
+        "index snapshot"
+    );
+}
+
+/// A workspace `updated_at` later than every event is kept.
+#[test]
+fn updated_at_keeps_later_workspace_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let session_dir = dir.path();
+    fs::write(
+        session_dir.join("workspace.yaml"),
+        full_workspace_yaml().replace("2026-03-10T07:15:00Z", "2026-03-10T09:00:00Z"),
+    )
+    .unwrap();
+    fs::write(session_dir.join("events.jsonl"), resumed_events_jsonl()).unwrap();
+
+    let summary = load_session_summary(session_dir).unwrap();
+    assert_eq!(
+        summary.updated_at.map(|d| d.to_rfc3339()),
+        Some("2026-03-10T09:00:00+00:00".to_string())
+    );
+}

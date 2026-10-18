@@ -1,8 +1,9 @@
 import type { SearchResult, SessionListItem } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { defineComponent, h, ref } from "vue";
 import SearchPalette from "@/components/chrome/SearchPalette.vue";
+import { useSearchKeyboardNavigation } from "@/composables/useSearchKeyboardNavigation";
 import type { ResultGroup } from "@/composables/useSearchPaletteSearch";
 import { pushRoute } from "@/router/navigation";
 
@@ -354,6 +355,87 @@ describe("SearchPalette keyboard interaction", () => {
       expect(document.activeElement).toBe(input);
       expect(document.querySelector('[role="dialog"]')).not.toBeNull();
       expect(vi.mocked(pushRoute)).not.toHaveBeenCalled();
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it("opens with Ctrl+K from a text field or native select, and closes from its own input", async () => {
+    const field = document.createElement("input");
+    field.placeholder = "Search sessions…";
+    const select = document.createElement("select");
+    select.append(new Option("Newest"), new Option("Oldest"));
+    document.body.append(field, select);
+    const wrapper = mount(SearchPalette, { attachTo: document.body });
+    const ctrlK = async (target: HTMLElement) => {
+      const event = new KeyboardEvent("keydown", {
+        key: "k",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      target.dispatchEvent(event);
+      await flushPromises();
+      return event;
+    };
+    const dialog = () => document.querySelector('[role="dialog"]');
+    try {
+      field.focus();
+      expect((await ctrlK(field)).defaultPrevented).toBe(true);
+      expect(dialog()).not.toBeNull();
+      const paletteInput = document.querySelector<HTMLInputElement>(".palette-input")!;
+      expect(document.activeElement).toBe(paletteInput);
+
+      // Ctrl+K in the palette's own input closes it once, returning focus.
+      await ctrlK(paletteInput);
+      expect(dialog()).toBeNull();
+      expect(document.activeElement).toBe(field);
+
+      select.focus();
+      await ctrlK(select);
+      expect(dialog()).not.toBeNull();
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it("leaves Ctrl+K to the Search page's own capture-phase handler", async () => {
+    const Host = defineComponent({
+      setup() {
+        const searchInputRef = ref<HTMLInputElement | null>(null);
+        useSearchKeyboardNavigation({
+          searchInputRef,
+          results: ref([]),
+          hasQuery: ref(false),
+          onClearAll: () => {},
+          onToggleExpand: () => {},
+        });
+        return () =>
+          h("div", [
+            h("input", { ref: searchInputRef, class: "search-page-input" }),
+            h("button", { class: "elsewhere" }, "Elsewhere"),
+            h(SearchPalette),
+          ]);
+      },
+    });
+    const wrapper = mount(Host, { attachTo: document.body });
+    try {
+      await flushPromises();
+      const pageInput = document.querySelector<HTMLInputElement>(".search-page-input")!;
+      for (const target of [document.querySelector<HTMLElement>(".elsewhere")!, pageInput]) {
+        target.focus();
+        target.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "k",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await flushPromises();
+        expect(document.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(pageInput);
+      }
     } finally {
       wrapper.unmount();
     }

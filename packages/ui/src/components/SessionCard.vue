@@ -8,7 +8,7 @@ import {
   runStatusBadge,
   sourceLabel,
 } from "@tracepilot/types";
-import { Folder } from "lucide-vue-next";
+import { Folder, TriangleAlert } from "lucide-vue-next";
 import { computed } from "vue";
 import { projectLabelFromCwd } from "../utils/pathUtils";
 import Badge from "./Badge.vue";
@@ -30,6 +30,13 @@ const emit = defineEmits<{
 // A session without a repository is still identified by its working directory.
 const projectLabel = computed(() =>
   props.session.repository ? null : projectLabelFromCwd(props.session.cwd),
+);
+
+// The index counts each rate limit as an error too; the card shows them
+// apart, as a warning, the way the session's Overview and Analytics do.
+const rateLimitCount = computed(() => props.session.rateLimitCount ?? 0);
+const errorCount = computed(() =>
+  Math.max(0, (props.session.errorCount ?? 0) - rateLimitCount.value),
 );
 
 function isClaude(session: SessionListItem): boolean {
@@ -114,9 +121,18 @@ function activeTitle(): string {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           {{ session.turnCount ?? 0 }}
         </span>
-        <span v-if="session.errorCount" class="stat-item-inline error" :title="`${session.errorCount} error${session.errorCount !== 1 ? 's' : ''} encountered`">
+        <span v-if="errorCount" class="stat-item-inline error" :title="`${errorCount} error${errorCount !== 1 ? 's' : ''} encountered`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          {{ session.errorCount }}
+          {{ errorCount }}
+        </span>
+        <span
+          v-if="rateLimitCount"
+          class="stat-item-inline warning"
+          :title="`${rateLimitCount} rate limit${rateLimitCount !== 1 ? 's' : ''} hit`"
+          data-testid="session-rate-limits"
+        >
+          <TriangleAlert :size="14" aria-hidden="true" />
+          {{ rateLimitCount }}
         </span>
         <span v-if="session.compactionCount" class="stat-item-inline warning" :title="`${session.compactionCount} context compaction${session.compactionCount !== 1 ? 's' : ''} performed`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>

@@ -91,6 +91,9 @@ const isSessionRoute = computed(() => {
   return !name || name === "sessions" || name === "not-found" || route.path.startsWith("/session/");
 });
 
+/** The session list itself, where the tab strip's "All sessions" pill is current */
+const isSessionListRoute = computed(() => route.name === ROUTE_NAMES.sessions);
+
 /** Whether the tab view is currently displaying */
 const isTabViewActive = computed(
   () => tabStore.tabCount > 0 && tabStore.activeTab !== null && isSessionRoute.value,
@@ -161,7 +164,7 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
       <div class="page-header-bar">
         <BreadcrumbNav :items="breadcrumbs" />
       </div>
-      <SessionTabStrip :is-session-route="isSessionRoute" @go-home="onTabGoHome" />
+      <SessionTabStrip :is-session-list-route="isSessionListRoute" @go-home="onTabGoHome" />
       <ErrorBoundary>
         <SessionTabContent v-show="isTabViewActive" />
         <router-view v-show="!isTabViewActive" />

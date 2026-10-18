@@ -104,6 +104,8 @@ const visible = computed({
 useShortcut("Mod+Shift+A", () => alertsStore.toggleDrawer(), {
   description: "Toggle alert center",
   group: "Global",
+  // A modifier chord isn't typing, so it also works from a text field or select.
+  ignoreEditable: false,
 });
 
 // App mounts the drawer only while alerts are on. Close it when alerts are
