@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { ActionButton, Badge, Tooltip } from "@tracepilot/ui";
 import { ChevronLeft, Save, Sliders, Trash2, X } from "lucide-vue-next";
+import { computed } from "vue";
 import { scopeBadge } from "@/components/agents/agentBadges";
 import { useAgentEditorContext } from "@/composables/useAgentEditor";
 
 const ctx = useAgentEditorContext();
 const emit = defineEmits<{ override: [] }>();
+
+/** A built-in the CLI embeds has no file, but it is still a built-in. */
+const scope = computed(() =>
+  scopeBadge(ctx.detail?.summary.scope ?? (ctx.isEmbedded ? "builtin" : "unresolved")),
+);
 </script>
 
 <template>
@@ -17,9 +23,7 @@ const emit = defineEmits<{ override: [] }>();
     <div class="topbar-divider" />
     <div class="topbar-skill-name">{{ ctx.agentName || "Agent" }}</div>
     <div class="topbar-meta">
-      <Badge :variant="scopeBadge(ctx.detail?.summary.scope ?? 'unresolved').tone">
-        {{ scopeBadge(ctx.detail?.summary.scope ?? "unresolved").label }}
-      </Badge>
+      <Badge :variant="scope.tone">{{ scope.label }}</Badge>
       <Badge v-if="ctx.disabled" variant="danger">Disabled</Badge>
       <Badge v-if="ctx.override" variant="accent">Overridden</Badge>
       <Tooltip v-if="ctx.readOnlyReason" :text="ctx.readOnlyReason" position="bottom">

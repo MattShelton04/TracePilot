@@ -24,6 +24,7 @@ import type {
   FormatDiagnosticsList,
 } from "@/components/settings/formatDiagnosticsGroups";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
+import { plural } from "@/utils/format";
 
 const props = defineProps<{
   source: SessionSource;
@@ -63,10 +64,6 @@ onMounted(() => {
   void watchIndexUpdates();
   void load();
 });
-
-function plural(count: number, word: string) {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
-}
 
 const rowsOf = (list: FormatDiagnosticsList): FormatNameCountDto[] =>
   diagnostics.value?.[list] ?? [];

@@ -2,6 +2,7 @@ export {
   type AgentCommDelivery,
   type AgentCommKind,
   type AgentCommRelation,
+  type AgentCommReport,
   type AgentCommStats,
   type AgentCommunication,
   buildAgentCommunications,

@@ -190,7 +190,18 @@ describe("useAgentEditor", () => {
     expect(mocks.agentsGet).not.toHaveBeenCalled();
     expect(mocks.agentsUsageDetail).toHaveBeenCalledWith("ghost-agent", expect.anything());
     expect(editor.ctx.isSessionOnly).toBe(true);
+    expect(editor.ctx.isEmbedded).toBe(false);
     expect(editor.ctx.readOnlyReason).toContain("no definition file");
+  });
+
+  it("knows a built-in the CLI embeds from an agent whose file is gone", async () => {
+    mocks.route.query = { id: "name:explore" };
+    const editor = mountEditor();
+    await flushPromises();
+
+    expect(mocks.agentsGet).not.toHaveBeenCalled();
+    expect(editor.ctx.isEmbedded).toBe(true);
+    expect(editor.ctx.readOnlyReason).toContain("Built into the CLI");
   });
 
   it("surfaces a load failure instead of rendering an empty editor", async () => {

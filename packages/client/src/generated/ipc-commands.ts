@@ -80,6 +80,7 @@ export const IPC_COMMANDS = [
   "get_session_liveness",
   "get_session_plan",
   "get_session_prompt_cache",
+  "get_session_request_log",
   "get_session_sections",
   "get_session_todos",
   "get_session_turn_activity",

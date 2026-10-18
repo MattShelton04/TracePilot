@@ -28,6 +28,25 @@ const DUPLICATE_KEYS: &[&str] = &["wireToolInputs", "bashEditDiff"];
 /// tool list, and CLAUDE.md / AGENTS.md text.
 const PRIVATE_ATTACHMENTS: &[&str] = &["prompt_snapshot", "instructions", "nested_memory"];
 
+/// The bookkeeping a request record (`api-request*`) keeps in an export.
+/// Everything else is redacted: the system prompt and tool list (`shape`),
+/// request messages with their instruction text (`message`), parameters with
+/// the safeguard context (`params`), message hashes, and any body a later
+/// Claude Code version adds. The parser keeps none of these records; this
+/// covers any that still reach an export.
+const REQUEST_KEPT_KEYS: &[&str] = &[
+    "type",
+    "timestamp",
+    "version",
+    "uuid",
+    "id",
+    "hash",
+    "shapeHash",
+    "querySource",
+    "sessionId",
+    "agentId",
+];
+
 /// Redact one native record in place. `record_type` is the native type, with
 /// the subtype for `system` and `attachment` records.
 pub(crate) fn redact_record(record_type: &str, record: &mut Value) {
@@ -44,6 +63,13 @@ pub(crate) fn redact_record(record_type: &str, record: &mut Value) {
                 if key != "type" {
                     *value = Value::String(REDACTED.into());
                 }
+            }
+        }
+    }
+    if record_type.starts_with("api-request") {
+        for (key, value) in map.iter_mut() {
+            if !REQUEST_KEPT_KEYS.contains(&key.as_str()) {
+                *value = Value::String(REDACTED.into());
             }
         }
     }
@@ -182,6 +208,48 @@ mod tests {
             json!({"toolUseResult": {"url": "https://docs.example"}}),
         );
         assert_eq!(fetch["toolUseResult"]["url"], "https://docs.example");
+    }
+
+    #[test]
+    fn request_records_keep_only_their_bookkeeping() {
+        let shape = redacted(
+            "api-request-shape",
+            json!({"type": "api-request-shape", "shapeHash": "h1", "timestamp": "t",
+                "shape": {"system": [{"type": "text", "text": "You are Claude…"}], "tools": []}}),
+        );
+        assert_eq!(
+            shape,
+            json!({"type": "api-request-shape", "shapeHash": "h1", "timestamp": "t", "shape": REDACTED})
+        );
+        let blob = redacted(
+            "api-request-blob",
+            json!({"type": "api-request-blob", "hash": "b1",
+                "message": {"role": "user", "content": "<system-reminder>CLAUDE.md</system-reminder>"}}),
+        );
+        assert_eq!(blob["message"], REDACTED);
+        assert_eq!(blob["hash"], "b1");
+        let request = redacted(
+            "api-request",
+            json!({"type": "api-request", "id": "r2", "base": "r1", "tail": ["b1"], "querySource": "repl_main_thread",
+                "params": {"model": "claude-opus-5-5", "safeguards": [{"classifier_context": {"user_identity": "dev"}}]}}),
+        );
+        for key in ["params", "tail", "base"] {
+            assert_eq!(request[key], REDACTED, "{key}");
+        }
+        assert_eq!(request["querySource"], "repl_main_thread");
+    }
+
+    #[test]
+    fn a_later_request_record_type_keeps_only_its_bookkeeping() {
+        let record = json!({"type": "api-request-full", "timestamp": "t", "agentId": "a1",
+            "request": {"system": [{"type": "text", "text": "PRIVATE system prompt"}]},
+            "headers": ["x-private"]});
+        let out = redacted("api-request-full", record);
+        assert_eq!(
+            out,
+            json!({"type": "api-request-full", "timestamp": "t", "agentId": "a1",
+                "request": REDACTED, "headers": REDACTED})
+        );
     }
 
     #[test]

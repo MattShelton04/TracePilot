@@ -4,14 +4,24 @@
  * that launched the run, where the existing subagent panel takes over —
  * the Agents page never becomes a second agent browser.
  */
-import type { AgentRunOutcome, AgentRunRecord } from "@tracepilot/types";
+import { type AgentRunOutcome, type AgentRunRecord, modelDisplayName } from "@tracepilot/types";
 import { formatDuration, formatNumber, formatRelativeTime, StatusPill } from "@tracepilot/ui";
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { NO_FINAL_REPORT, NO_FINAL_REPORT_HINT } from "@/utils/agentEndState";
+import { plural } from "@/utils/format";
 
 defineProps<{ runs: AgentRunRecord[] }>();
+
+/**
+ * Runs don't record their session's source. The Claude Code registry renames
+ * only the ids it knows (`claude-opus-5-5` → `claude-opus-5.5`); other ids,
+ * Copilot's included, show as recorded.
+ */
+function modelLabel(model: string): string {
+  return modelDisplayName(model, "claudeCode");
+}
 
 const router = useRouter();
 
@@ -53,9 +63,9 @@ function open(run: AgentRunRecord) {
         </span>
         <span class="runs__meta">
           <span v-if="run.repository">{{ run.repository }}</span>
-          <span v-if="run.model" class="runs__model">{{ run.model }}</span>
+          <span v-if="run.model" class="runs__model" :title="run.model">{{ modelLabel(run.model) }}</span>
           <span v-if="run.durationMs != null">{{ formatDuration(run.durationMs) }}</span>
-          <span v-if="run.totalToolCalls != null">{{ formatNumber(run.totalToolCalls) }} tools</span>
+          <span v-if="run.totalToolCalls != null">{{ plural(run.totalToolCalls, "tool", undefined, formatNumber) }}</span>
           <span v-if="run.depth > 0">depth {{ run.depth }}</span>
           <span v-if="run.startedAt">{{ formatRelativeTime(run.startedAt) }}</span>
         </span>

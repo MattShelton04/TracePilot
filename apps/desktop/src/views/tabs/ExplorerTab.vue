@@ -28,6 +28,7 @@ import { useSessionFiles } from "@/composables/useSessionFiles";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
+import { plural } from "@/utils/format";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
@@ -110,6 +111,22 @@ const filteredFiles = computed(() => {
   return sessionFiles.files.filter(
     (entry) => !entry.isDirectory && entry.path.toLowerCase().includes(query),
   );
+});
+
+// Only a name filter narrows the tree; content search lists its matches
+// separately, so the tree keeps counting every session file.
+const treeTitle = computed(() =>
+  searchMode.value === "name" && searchQuery.value.trim() ? "Matching Files" : "Session Files",
+);
+
+/** "1 match in 1 file · 3 files searched": matches, files they're in, files read. */
+const contentSearchSummary = computed(() => {
+  const result = contentSearch.value;
+  if (!result) return "";
+  const searched = `${plural(result.scannedFiles, "file")} searched`;
+  if (!result.matches.length) return `0 matches · ${searched}`;
+  const files = new Set(result.matches.map((m) => m.path)).size;
+  return `${plural(result.matches.length, "match", "matches")} in ${plural(files, "file")} · ${searched}`;
 });
 
 async function onViewFile(path: string) {
@@ -369,7 +386,7 @@ async function onOpenFolder() {
         :loading="sessionFiles.filesLoading"
         :selected-path="sessionFiles.selectedPath ?? undefined"
         :highlighted-paths="highlightedPaths"
-        :title="searchQuery.trim() ? 'Matching Files' : 'Session Files'"
+        :title="treeTitle"
         :auto-collapse-threshold="10"
         :force-expanded="Boolean(searchQuery.trim())"
         :hide-list="showSearchPanel && searchMode === 'content'"
@@ -502,8 +519,7 @@ async function onOpenFolder() {
             </div>
             <template v-else-if="contentSearch">
               <div class="explorer-results__meta">
-                {{ contentSearch.matches.length }} matches in {{ contentSearch.scannedFiles }} files
-                <span v-if="contentSearch.truncated"> · bounded results</span>
+                {{ contentSearchSummary }}<span v-if="contentSearch.truncated"> · bounded results</span>
               </div>
               <button
                 v-for="match in contentSearch.matches"

@@ -16,6 +16,7 @@ import {
   SESSION_SOURCES,
   type SessionSource,
 } from "@tracepilot/types";
+import { repositoryFilterLabel } from "@/stores/sessions/filtering";
 import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
 
 const DAY_MS = 86_400_000;
@@ -99,6 +100,36 @@ export function rangeText(range: AnalyticsTimeRange): string {
   if (range === "month-to-date") return "this month";
   if (range === "custom") return "the selected period";
   return "any session";
+}
+
+/** The words an analytics subtitle scopes its noun with. */
+export interface AnalyticsScopeWords {
+  /** `"all "` only when no range, repository or source narrows the scope. */
+  all: string;
+  /** The repository, then the range: `" in harbor in the past 30 days"`, `" this month"`, or `""`. */
+  suffix: string;
+}
+
+/**
+ * Scope words for the active filters, so "across all tool invocations" is
+ * never said of one month or one repository. "This Month" is month-to-date.
+ */
+export function analyticsScopeWords(filters: {
+  selectedTimeRange: AnalyticsTimeRange;
+  selectedRepo: string | null;
+  selectedSource: SessionSource | null;
+}): AnalyticsScopeWords {
+  const range = filters.selectedTimeRange;
+  const repo = filters.selectedRepo;
+  const repoSuffix = repo ? ` in ${repositoryFilterLabel(repo)}` : "";
+  const rangeSuffix =
+    range === "all"
+      ? ""
+      : range === "month-to-date"
+        ? ` ${rangeText(range)}`
+        : ` in ${rangeText(range)}`;
+  const narrowed = Boolean(repo || filters.selectedSource) || range !== "all";
+  return { all: narrowed ? "" : "all ", suffix: `${repoSuffix}${rangeSuffix}` };
 }
 
 /**

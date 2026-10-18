@@ -7,6 +7,7 @@ import App from "@/App.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
+vi.mock("@/stores/preferences", () => ({ usePreferencesStore: () => ({ alertsEnabled: false }) }));
 vi.mock("@/composables/useWindowLifecycle", () => ({ useWindowLifecycle: vi.fn() }));
 vi.mock("@/composables/useWindowRole", () => ({ useWindowRole: () => ({ isMain: () => true }) }));
 vi.mock("@/composables/useBootstrapPhase", () => ({

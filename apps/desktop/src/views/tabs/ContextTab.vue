@@ -26,6 +26,7 @@ import ContextPointInspector from "@/components/context/ContextPointInspector.vu
 import ContextToolContribution from "@/components/context/ContextToolContribution.vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 import ContextCapturePanel from "@/components/contextCapture/ContextCapturePanel.vue";
+import RecordedRequestsPanel from "@/components/contextCapture/RecordedRequestsPanel.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
@@ -58,19 +59,26 @@ const showContextCapture = computed(
     capabilities.value.canResume &&
     (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
 );
-// A remembered "snapshots" shows the timeline where capture isn't offered,
-// and stays remembered for sessions that offer it.
+// Claude Code sessions show what Claude Code itself recorded of each request:
+// a passive read of the transcript, so it needs neither resume nor the flag.
+// It takes the same second slot; a Claude session never offers capture.
+const showRecordedRequests = computed(() => source.value === "claudeCode");
+const showSecondView = computed(() => showContextCapture.value || showRecordedRequests.value);
+// A remembered "snapshots" shows the timeline where no second view is
+// offered, and stays remembered for sessions that offer one.
 const tabViews = useSessionTabViews();
 const contextView = computed({
-  get: () => (showContextCapture.value ? tabViews.value.context : "timeline"),
+  get: () => (showSecondView.value ? tabViews.value.context : "timeline"),
   set: (view) => {
     tabViews.value.context = view;
   },
 });
-const contextViews = [
+const contextViews = computed(() => [
   { value: "timeline", label: "Context timeline" },
-  { value: "snapshots", label: "Request snapshots" },
-];
+  showRecordedRequests.value
+    ? { value: "snapshots", label: "Recorded requests" }
+    : { value: "snapshots", label: "Request snapshots" },
+]);
 const timeline = ref<ContextTimeline | null>(null);
 const loading = ref(false);
 const refreshing = ref(false);
@@ -465,7 +473,7 @@ function retryLoad() {
 
 <template>
   <div class="context-tab" :class="{ 'chart-reveal': revealing }">
-    <div v-if="showContextCapture" class="context-tab__view-nav">
+    <div v-if="showSecondView" class="context-tab__view-nav">
       <SegmentedControl v-model="contextView" :options="contextViews" />
     </div>
 
@@ -629,6 +637,11 @@ function retryLoad() {
     <ContextCapturePanel
       v-if="showContextCapture && contextView === 'snapshots' && store.sessionId"
       :session-id="store.sessionId"
+    />
+    <RecordedRequestsPanel
+      v-if="showRecordedRequests && contextView === 'snapshots' && store.sessionId"
+      :session-id="store.sessionId"
+      :refresh-key="store.detail"
     />
   </div>
 </template>

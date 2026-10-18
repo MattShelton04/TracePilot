@@ -15,8 +15,11 @@ import CodeKpis from "@/components/codeImpact/CodeKpis.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useValueTween } from "@/composables/useValueTween";
-import { repositoryFilterLabel } from "@/stores/sessions/filtering";
-import { rangeText as describeRange, rangeDays } from "@/utils/analyticsDashboard";
+import {
+  analyticsScopeWords,
+  rangeText as describeRange,
+  rangeDays,
+} from "@/utils/analyticsDashboard";
 import { codeDayRows } from "@/utils/codeImpact";
 import "@/styles/features/analytics-dashboard.css";
 
@@ -36,9 +39,8 @@ const { revealing } = useFirstReveal({
 useValueTween({ root: contentRoot, selector: ".kpi__value-num", source: data });
 
 const pageSubtitle = computed(() => {
-  const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";
-  const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
-  return `Code changes and file modifications across ${allPrefix}${store.sourcePrefix}sessions${repoSuffix}`;
+  const { all, suffix } = analyticsScopeWords(store);
+  return `Code changes and file modifications across ${all}${store.sourcePrefix}sessions${suffix}`;
 });
 
 const rows = computed(() => {

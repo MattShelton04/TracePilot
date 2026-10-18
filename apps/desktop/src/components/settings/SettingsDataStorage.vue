@@ -366,8 +366,8 @@ defineExpose({ databaseSize, indexedSessionCount });
             Directory containing Copilot settings, MCP config, versions, and global skills.
           </div>
         </div>
-        <div class="setting-control-group">
-          <FormInput id="settings-copilot-home" v-model="copilotHome" :disabled="pathControlsDisabled" class="input-medium-mono" />
+        <div class="setting-control-group setting-path-control">
+          <FormInput id="settings-copilot-home" v-model="copilotHome" :disabled="pathControlsDisabled" :title="copilotHome" class="setting-path-input" />
           <ActionButton size="sm" aria-label="Browse for Copilot home" :disabled="pathControlsDisabled" @click="browseCopilotHome">
             Browse…
           </ActionButton>
@@ -381,8 +381,8 @@ defineExpose({ databaseSize, indexedSessionCount });
             App-owned directory for the index database, task data, presets, and backups.
           </div>
         </div>
-        <div class="setting-control-group">
-          <FormInput id="settings-tracepilot-home" v-model="tracepilotHome" :disabled="pathControlsDisabled" class="input-medium-mono" />
+        <div class="setting-control-group setting-path-control">
+          <FormInput id="settings-tracepilot-home" v-model="tracepilotHome" :disabled="pathControlsDisabled" :title="tracepilotHome" class="setting-path-input" />
           <ActionButton size="sm" aria-label="Browse for TracePilot data directory" :disabled="pathControlsDisabled" @click="browseTracePilotHome">
             Browse…
           </ActionButton>
@@ -396,7 +396,7 @@ defineExpose({ databaseSize, indexedSessionCount });
             Preview of the database path that will be saved when you apply changes.
           </div>
         </div>
-        <span class="setting-value-display setting-value-path">{{ databasePath }}</span>
+        <span class="setting-value-display setting-value-path" :title="databasePath">{{ databasePath }}</span>
       </div>
 
       <div class="setting-row setting-row-compact">
@@ -513,6 +513,33 @@ defineExpose({ databaseSize, indexedSessionCount });
 </template>
 
 <style scoped>
+/* Long paths: the field takes the row's spare width instead of a fixed 240px. */
+.setting-path-control {
+  flex: 0 1 65%;
+  max-width: 560px;
+  min-width: 0;
+  margin-left: 16px;
+}
+
+.setting-path-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 160px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* A path without spaces must wrap instead of squeezing the label column. */
+.setting-value-path {
+  max-width: 60%;
+  min-width: 0;
+  margin-left: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 .indexing-progress-row {
   padding-top: 4px;
   padding-bottom: 4px;

@@ -97,6 +97,11 @@ pub(super) fn summarize(
             }
         }
     }
+    // Request records make no event but still date the session.
+    for (_, ts) in &parsed.request_times {
+        summary.created_at = Some(summary.created_at.map_or(*ts, |old| old.min(*ts)));
+        summary.updated_at = Some(summary.updated_at.map_or(*ts, |old| old.max(*ts)));
+    }
     // A session of slash commands only, with no prompt and no model call, is
     // empty, like a Copilot session nobody typed into: "hide empty" hides it,
     // and it is untitled unless renamed. One whose command ran the model

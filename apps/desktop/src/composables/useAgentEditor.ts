@@ -27,6 +27,7 @@ import { useUnsavedChangesGuard } from "@/composables/definitionEditor/useUnsave
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAgentsStore } from "@/stores/agents";
+import { KNOWN_BUILTIN_AGENTS } from "@/utils/agents/agentMeta";
 import { resolveEffectiveConfig } from "@/utils/agents/effective";
 import { findOverride, isDisabled } from "@/utils/agents/entries";
 import { describeOverrideChange } from "@/utils/agents/overrideSummary";
@@ -91,6 +92,14 @@ export function useAgentEditor() {
     if (isSessionOnly.value) return routeId.value.slice(SESSION_ONLY_PREFIX.length);
     return detail.value?.summary.name ?? usage.value?.stats.name ?? "";
   });
+  /**
+   * A built-in the CLI embeds, so it has no file to find: the Agents list
+   * shows these as built-in, and so does this page. Other names with no
+   * file stay unresolved.
+   */
+  const isEmbedded = computed(
+    () => isSessionOnly.value && KNOWN_BUILTIN_AGENTS.has(agentName.value.toLowerCase()),
+  );
   /** Settings key the CLI matches on: the agent type, else the name. */
   const agentType = computed(() => usage.value?.stats.agentType || agentName.value);
   const names = computed(() =>
@@ -107,6 +116,7 @@ export function useAgentEditor() {
   );
 
   const readOnlyReason = computed(() => {
+    if (isEmbedded.value) return "Built into the CLI, which ships no definition file for it.";
     if (isSessionOnly.value) return "Seen in sessions; no definition file was found.";
     return detail.value?.summary.readOnlyReason ?? null;
   });
@@ -357,6 +367,7 @@ export function useAgentEditor() {
     onResizeKeyDown,
     routeId,
     isSessionOnly,
+    isEmbedded,
     definitionPath,
     agentName,
     agentType,

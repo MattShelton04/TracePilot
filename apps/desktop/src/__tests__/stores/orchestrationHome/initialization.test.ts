@@ -152,10 +152,8 @@ describe("useOrchestrationHomeStore - initialization", () => {
       await store.initialize();
 
       expect(store.activityFeed).toHaveLength(3);
-      expect(store.activityFeed[0].type).toBe("session_launched"); // isRunning=true
-      expect(store.activityFeed[0].message).toContain("TracePilot");
-      expect(store.activityFeed[1].type).toBe("batch_completed"); // isRunning=false
-      expect(store.activityFeed[1].message).toContain("MyProject");
+      expect(store.activityFeed[0]).toMatchObject({ location: "TracePilot", isRunning: true });
+      expect(store.activityFeed[1]).toMatchObject({ location: "MyProject", isRunning: false });
     });
   });
 

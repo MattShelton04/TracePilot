@@ -11,7 +11,7 @@ import {
   OctagonX,
   Pause,
 } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, onUnmounted } from "vue";
 import { useShortcut } from "@/composables/useShortcut";
 import { type AlertEvent, type AlertSeverity, useAlertsStore } from "@/stores/alerts";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -107,6 +107,10 @@ useShortcut("Mod+Shift+A", () => alertsStore.toggleDrawer(), {
   // A modifier chord isn't typing, so it also works from a text field or select.
   ignoreEditable: false,
 });
+
+// App mounts the drawer only while alerts are on. Close it when alerts are
+// turned off so turning them back on does not reopen it.
+onUnmounted(() => alertsStore.closeDrawer());
 </script>
 
 <template>

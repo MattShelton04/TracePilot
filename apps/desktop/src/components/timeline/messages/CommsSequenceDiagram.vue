@@ -13,7 +13,7 @@ import { formatTimelineOffset, getAgentColor, packAgentLanes } from "@tracepilot
 import { computed, ref, useId } from "vue";
 import { useElementWidth } from "@/composables/useElementWidth";
 import CommsMarkers from "./CommsMarkers.vue";
-import { clipText, edgeDash, eventSummary } from "./commsVisuals";
+import { clipText, edgeDash, eventSummary, unresolvedLabel } from "./commsVisuals";
 
 const props = defineProps<{
   timeline: CommsTimeline;
@@ -183,12 +183,24 @@ const edges = computed<SequenceEdge[]>(() =>
     }
     const firstTo = colX.value.get(ev.toKeys[0] ?? "") ?? fromX;
     const rightward = firstTo >= fromX;
+    const unresolved = ev.comm.unresolvedTo?.length ?? 0;
     let label: SequenceEdge["label"];
-    if (ev.comm.scope || ev.toKeys.length > 1) {
+    if (!ev.comm.scope && !ev.toKeys.length && unresolved) {
+      // Recipients with no column: no arrow to invent, so say who it went to.
+      const text = unresolvedLabel(ev);
+      // Beside the sender's bar, on whichever side has room (about 6px a character).
+      const fitsRight = fromX + 10 + text.length * 6 <= width.value;
+      label = fitsRight
+        ? { x: fromX + 10, y: y + 3, text, anchor: "start" }
+        : { x: fromX - 10, y: y + 3, text, anchor: "end" };
+    } else if (ev.comm.scope || ev.toKeys.length + unresolved > 1) {
+      const count = ev.toKeys.length + unresolved;
       label = {
         x: fromX + (rightward ? 8 : -8),
         y: y - 6,
-        text: ev.comm.scope ? `all ${ev.comm.scope}` : `${ev.toKeys.length} agents`,
+        text: ev.comm.scope
+          ? `all ${ev.comm.scope}`
+          : `${count} agents${unresolved ? ` (${unresolved} unrecorded)` : ""}`,
         anchor: rightward ? "start" : "end",
       };
     } else {

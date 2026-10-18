@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Banner, EmptyState, TabNav, type TabNavItem } from "@tracepilot/ui";
-import { FileQuestion } from "lucide-vue-next";
+import { FileQuestion, Package } from "lucide-vue-next";
 import { computed, provide, ref, useId } from "vue";
 import AgentEditorTopBar from "@/components/agentEditor/AgentEditorTopBar.vue";
 import AgentEffectiveTab from "@/components/agentEditor/AgentEffectiveTab.vue";
@@ -33,6 +33,15 @@ const tabs = computed<TabNavItem[]>(() => [
   },
   { name: "effective", routeName: "effective", label: "Effective config" },
 ]);
+
+/** Override is offered only when settings.json can take it. */
+const embeddedDescription = computed(
+  () =>
+    "The CLI ships this agent inside its own binary, with no definition file, so there is no prompt to edit here." +
+    (ctx.canOverride
+      ? " Override can still set its model, reasoning effort and context tier, or turn it off."
+      : ""),
+);
 
 const fileLabel = computed(() => {
   const path = ctx.detail?.summary.path ?? "";
@@ -78,7 +87,16 @@ const fileLabel = computed(() => {
             <!-- Nothing else can go in this pane for a session-only agent, so
                  it fills it rather than leaving a banner above empty space. -->
             <EmptyState
-              v-if="ctx.isSessionOnly"
+              v-if="ctx.isEmbedded"
+              class="agent-editor__missing"
+              title="Built into the CLI"
+              :description="embeddedDescription"
+              :primary-action="{ label: 'See how it was used', onClick: () => (ctx.activeTab = 'usage') }"
+            >
+              <template #icon><Package :size="32" :stroke-width="1.5" /></template>
+            </EmptyState>
+            <EmptyState
+              v-else-if="ctx.isSessionOnly"
               class="agent-editor__missing"
               title="No definition found"
               description="This agent ran in your sessions but has no definition file. It may have been renamed or deleted, come from an --add-dir directory, or belong to a plugin that is no longer installed."

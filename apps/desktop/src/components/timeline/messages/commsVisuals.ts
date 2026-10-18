@@ -34,8 +34,19 @@ export function agentName(timeline: CommsTimeline, key: string): string {
 
 /** Recipients as a reader would say them: "all children (a, b)" or "a, b". */
 export function recipientsLabel(timeline: CommsTimeline, ev: CommsTimelineEvent): string {
-  const names = ev.toKeys.map((k) => agentName(timeline, k)).join(", ");
+  const unresolved = ev.comm.unresolvedTo ?? [];
+  const names = [
+    ...ev.toKeys.map((k) => agentName(timeline, k)),
+    ...(unresolved.length ? [`${unresolved.join(", ")} (not recorded in this session)`] : []),
+  ].join(", ");
   return ev.comm.scope ? `all ${ev.comm.scope}${names ? ` (${names})` : ""}` : names;
+}
+
+/** Recipients with no column in the diagrams: "to 2 unrecorded agents". */
+export function unresolvedLabel(ev: CommsTimelineEvent): string {
+  const n = ev.comm.unresolvedTo?.length ?? 0;
+  if (!n) return "";
+  return `to ${n} unrecorded ${n === 1 ? "agent" : "agents"}`;
 }
 
 /** One-line summary for hover titles and screen readers. */

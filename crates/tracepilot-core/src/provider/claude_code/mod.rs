@@ -28,6 +28,8 @@ mod prompts;
 mod provider;
 mod reader;
 mod records;
+mod request_log;
+mod request_records;
 mod resume;
 mod segments;
 mod subagents;
@@ -48,6 +50,8 @@ mod tests;
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use chrono::{DateTime, Utc};
+
 use crate::error::Result;
 use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::TypedEvent;
@@ -61,6 +65,10 @@ pub use prompt_images::{PromptImage, read_prompt_image};
 pub use prompts::without_paste_tags;
 pub(super) use provider::CAPABILITIES;
 pub use provider::ClaudeCodeProvider;
+pub use request_log::{
+    MAX_RECORDED_CALLS, MAX_RECORDED_SHAPE_BYTES, MAX_RECORDED_SHAPES, RecordedAgent, RecordedCall,
+    RecordedCount, RecordedShape, RequestLog, read_request_log,
+};
 pub use usage::{ClaudeCallUsage, CostModelUsage, CostSnapshot, TokenTotals, sum_calls_by_model};
 
 /// Everything parsed from one Claude Code session.
@@ -79,6 +87,10 @@ pub struct ClaudeParse {
     /// it does not cover ([`ClaudeParse::uncovered_calls`]) is the current
     /// total.
     pub cost_snapshots: Vec<CostSnapshot>,
+    /// The line and time of each main-file request record (`api-request*`),
+    /// in file order. Those records make no event, but their times still
+    /// date the session and its runs.
+    pub request_times: Vec<(usize, DateTime<Utc>)>,
     pub diagnostics: ClaudeDiagnostics,
 }
 
@@ -156,6 +168,9 @@ pub struct ClaudeDiagnostics {
     pub persisted_outputs: usize,
     /// `cost-state` records read, including repeats of the same totals.
     pub cost_state_records: usize,
+    /// Request records (`api-request*`, Claude Code 2.1.301+) read. They make
+    /// no event; the Context tab reads them on demand.
+    pub request_records: usize,
     /// Record types with no mapping, by safe name (`drift::safe_type_name`).
     pub unknown_record_types: BTreeMap<String, usize>,
     /// Attachment types not seen before, by safe name.

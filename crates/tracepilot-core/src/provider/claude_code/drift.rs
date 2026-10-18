@@ -20,6 +20,35 @@ pub const OTHER_VERSION: &str = "(unrecognized version)";
 /// Counted for a record or attachment with no type at all.
 pub const MISSING_NAME: &str = "(missing)";
 
+/// Record types without a mapping, shown on the Events tab only. The last
+/// four were first seen by the S3 probe (2.1.274–2.1.289).
+const BOOKKEEPING: &[&str] = &[
+    // A subagent file's `cost-state`, which only the main file's maps.
+    "cost-state",
+    "custom-title",
+    "ai-title",
+    "agent-name",
+    "pr-link",
+    "last-prompt",
+    "mode",
+    "permission-mode",
+    "atis-latch",
+    "file-history-snapshot",
+    "file-history-delta",
+    "bridge-session",
+    "frame-link",
+    "artifact-autoreact-ledger",
+    "artifact-comment-monitor",
+];
+
+/// Count a record type that reached no mapping, unless it is known
+/// bookkeeping.
+pub(super) fn count_unmapped_type(counts: &mut BTreeMap<String, usize>, kind: &str) {
+    if !BOOKKEEPING.contains(&kind) {
+        count_type(counts, kind);
+    }
+}
+
 /// Count `raw` under its safe name in `counts`.
 pub(super) fn count_type(counts: &mut BTreeMap<String, usize>, raw: &str) {
     *counts.entry(safe_type_name(raw).to_string()).or_default() += 1;

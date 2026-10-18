@@ -15,8 +15,11 @@ import ToolRankPanel from "@/components/toolAnalysis/ToolRankPanel.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useValueTween } from "@/composables/useValueTween";
-import { repositoryFilterLabel } from "@/stores/sessions/filtering";
-import { rangeText as describeRange, rangeDays } from "@/utils/analyticsDashboard";
+import {
+  analyticsScopeWords,
+  rangeText as describeRange,
+  rangeDays,
+} from "@/utils/analyticsDashboard";
 import { toolDayRows } from "@/utils/toolAnalysis";
 import "@/styles/features/analytics-dashboard.css";
 
@@ -36,8 +39,8 @@ const { revealing } = useFirstReveal({
 useValueTween({ root: contentRoot, selector: ".kpi__value-num", source: data });
 
 const pageSubtitle = computed(() => {
-  const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
-  return `Performance and usage metrics across all ${store.sourcePrefix}tool invocations${repoSuffix}`;
+  const { all, suffix } = analyticsScopeWords(store);
+  return `Performance and usage metrics across ${all}${store.sourcePrefix}tool invocations${suffix}`;
 });
 
 const days = computed(() =>

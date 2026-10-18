@@ -244,6 +244,41 @@ Their keys come from the Claude Code client and are not yet confirmed on recorde
   It is written after a compaction so the model keeps the skills the session already ran.
   Skill invocations come from `Skill` tool calls, so counting these would double them.
 
+## Request records (2.1.301+)
+
+Claude Code 2.1.301 and later log what each model call sent, in the main file and in each
+subagent file. They are a third to well over half of a recent transcript. None has `uuid` or
+`parentUuid`; subagent files' copies carry `agentId` but not `isSidechain`.
+
+| Record | Shape | Use |
+| --- | --- | --- |
+| `api-request-shape` | `{ "type": "api-request-shape", "shapeHash": "…", "shape": { "system": [{ "type": "text", "text": "<system prompt block>" }], "tools": [{ "name": "Read", "description": "…", "input_schema": { … } }] }, "agentId"?: "…", "timestamp": "…", "version": "2.1.302" }` | Written once per distinct system prompt and tool list, before the first call that uses it |
+| `api-request` | `{ "type": "api-request", "id": "…", "base"?: "<earlier request id>", "shapeHash": "…", "params": { "model", "max_tokens", "thinking", "betas", "context_management", "output_config", "safeguards" }, "keep": 2, "tail": ["<blob hash>"], "cacheControl": [{ "path": ["system", 0], "value": { "type": "ephemeral" } }], "requestDigest": "…", "querySource": "repl_main_thread" \| "agent:builtin:<type>", "timestamp": "…", "version": "…" }` | One per model call, just before its `assistant` records |
+| `api-request-blob` | `{ "type": "api-request-blob", "hash": "…", "message": { "role": "user", "content": … } }`. No `timestamp` | A request message by hash, including `<system-reminder>` and instruction text |
+
+The parser keeps only `type`, `timestamp` and `version` of these records and makes no event
+from them: the timestamp still sets the next call's `requested_at` and dates the session
+(`ClaudeParse::request_times`). They are counted in `request_records`, never as unmapped
+types. The Context tab's "Recorded requests" view reads the shapes and calls on demand
+(`get_session_request_log`); it never reads `params.safeguards`, which holds the safety
+classifier's context (identity, home directory, rules). It returns the most recently used
+shapes (at most 24 and about 2 MB) and the latest 2,000 calls, and names the shapes it left
+out. Exports keep only an `api-request*` record's bookkeeping keys (`type`, `timestamp`,
+`version`, `uuid`, `id`, `hash`, `shapeHash`, `querySource`, `sessionId`, `agentId`) and
+replace every other key with the redaction marker, so a body a later version adds is covered.
+
+Earlier builds made an event of each record. A session indexed by one stored those types as
+unmapped format observations, and its search rows, agent runs and skill invocations point at
+event indexes that now belong to other events. The indexer treats a Claude Code session whose
+observations list an `api-request*` type as stale: its metadata is re-indexed, which marks its
+search content stale too, and the new rows no longer list those types, so this happens once
+per session and needs no analytics or extractor version bump.
+
+Real-data probe (October 2026): every `api-request`'s `shapeHash` names a shape recorded
+earlier in the same file, and `base` names an earlier request 98.5% of the time. About half
+of the `tail` hashes have no blob in any file, and a hash is not the plain SHA-256 of the
+message JSON, so a request's messages cannot be rebuilt reliably.
+
 ## Task notification (subagent or background shell finished)
 
 ```text
