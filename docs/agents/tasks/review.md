@@ -16,7 +16,7 @@ Read docs/agents/tasks/review.md and follow it. Target: #123.
 | Setting | Default |
 | --- | --- |
 | Target | A PR number, or a branch with its worktree path. For `report` mode only, if no target is given, use the newest open PR by the maintainer (`gh pr list --state open --author MattShelton04`), and stop if there is none. |
-| Mode | `report`: publish nothing and change nothing. Write your findings in your reply, or to the file the launcher names. Other modes: `comment` posts one PR comment; `fix` pushes fix commits. Both of those require an **explicit Target** from the launch message. |
+| Mode | `report`: publish nothing and change nothing. Write your findings in your final reply; the launcher saves it. (Claude Code refuses report files written by subagents, so don't try.) Other modes: `comment` posts one PR comment; `fix` pushes fix commits. Both of those require an **explicit Target** from the launch message. |
 
 Never comment on or push to a PR from an outside contributor or a bot unless the launch message names that exact PR *and* the mode.
 

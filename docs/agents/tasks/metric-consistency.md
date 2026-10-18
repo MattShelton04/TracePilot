@@ -35,7 +35,7 @@ PR #881 (`gh pr view 881`) set the conventions:
    - a day-boundary or time-zone difference.
 2. Trace both values to their source, then:
    - If the two values *should* match, fix it at the source of truth or in the shared formatter.
-   - If they legitimately differ (session versus time range), fix the label instead.
+   - If one of them is a time-range figure built from whole sessions, make the range figure correct (count only the part inside the range) rather than labelling the difference. A label or info icon is a last resort for differences that are genuinely intended, and it needs the maintainer's agreement (see [focus.md](../focus.md)).
 3. Pin the agreement on a fixture. Extend the Rust contract tests (`crates/tracepilot-core/tests/session_accounting_contract.rs`), the indexer tests, or a formatter test.
 4. If a summary or analytics version has to change, copy how #876 and #881 bumped it so existing indexes refresh.
 

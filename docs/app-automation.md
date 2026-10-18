@@ -126,6 +126,19 @@ mode, release executable path, timestamp, and size so benchmark tooling can
 reject an accidental development comparison. Without `-DataRoot`, desktop
 interactions retain their usual real effects on configured application data.
 
+A start holds its mode's lifecycle lock until the app is ready, so `app:status`
+during a start reports "Another … lifecycle command is running". To block on a
+start launched in the background (a cold Rust build takes 10+ minutes), run
+`pnpm app:wait -Instance <slug>` (add `-Mode ui` for `app:ui`). It never takes
+that lock: it reads the start's registry claim and lifecycle state, and returns
+once the start ends. It exits 0 after the same readiness check as `app:status`
+(last line `Ready: <slug> (desktop) - attach with pnpm pw <slug> <command>`),
+1 when the start failed, or no start appears within 10 seconds and the instance
+is not running or ready (stale state from a crash counts as no start yet, so a
+restart launched alongside it is waited for; it prints the `<mode>-*.log`
+paths; build errors are in `desktop-tauri.err.log`), and 2 when `-TimeoutSeconds` (default 540, inside a
+10-minute tool call) passes while still starting; run it again.
+
 Desktop readiness checks the existing rendered TracePilot webview and makes a
 read-only `get_install_type` Rust IPC call, which also works before setup. The
 launcher also passes a per-start instance nonce (`TRACEPILOT_AUTOMATION_INSTANCE`)

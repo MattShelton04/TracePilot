@@ -1,7 +1,7 @@
 <# Starts/stops only this checkout's development processes. Browser interaction is
    handled by the upstream Playwright CLI, not by this lifecycle helper. #>
 param(
-    [ValidateSet('start', 'stop', 'status')][string]$Action = 'start',
+    [ValidateSet('start', 'stop', 'status', 'wait')][string]$Action = 'start',
     [ValidateSet('desktop', 'ui')][string]$Mode = 'desktop',
     [ValidateSet('development', 'production')][string]$Runtime = 'development',
     [string]$DataRoot = '',
@@ -57,7 +57,8 @@ if ($Action -eq 'start' -and $Fixtures -and ($Mode -ne 'desktop' -or -not $DataR
 if ($Action -eq 'start' -and $FirstRun -and -not $Fixtures) {
     throw '-FirstRun requires -Fixtures; a data root without fixtures already opens the setup wizard.'
 }
-New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+# wait only reads; it must not create a directory for an instance that never started.
+if ($Action -ne 'wait') { New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null }
 if ($Action -eq 'start' -and $SkipBuild -and $Runtime -ne 'production') {
     throw "-SkipBuild is valid only with -Runtime production."
 }
@@ -326,6 +327,115 @@ function Show-Connection($State) {
     Write-Host "Drive it (attaches on first use): pnpm pw $target snapshot --filename=.playwright-cli/current.yml"
 }
 
+function Show-StartLogs {
+    $logs = @(Get-ChildItem -LiteralPath $runtimeDir -Filter "$Mode-*.log" -File -ErrorAction SilentlyContinue | Sort-Object Name)
+    if ($logs.Count -eq 0) { Write-Host "No launcher logs under $runtimeDir; the start command's own output has the error."; return }
+    Write-Host 'Logs (compiler and app errors are in the .err.log files):'
+    foreach ($log in $logs) { Write-Host "  $($log.FullName)" }
+}
+
+# The registry claims for this state file. A claim exists from port allocation until
+# the start fails or the instance is stopped, and its launcher record is the start's
+# own PowerShell process, so a live launcher means that start is still running. The
+# registry lock is held only for this read; starts retry it rather than failing.
+function Get-StartClaims {
+    $claimsDir = Join-Path (Get-RegistryDirectory) 'claims'
+    $registryLock = Enter-RegistryLock
+    try {
+        foreach ($file in Get-ChildItem -LiteralPath $claimsDir -Filter '*.json' -File) {
+            $claim = $null
+            try { $claim = Get-Content -Raw -LiteralPath $file.FullName | ConvertFrom-Json } catch { }
+            if ($claim -and (Test-SamePath $claim.statePath $statePath)) { $claim }
+        }
+    } finally { $registryLock.Dispose() }
+}
+
+# Shares write and delete so a start rewriting or removing the state is never blocked.
+function Read-StateFile {
+    if (-not (Test-Path -LiteralPath $statePath)) { return $null }
+    try {
+        $stream = [IO.File]::Open($statePath, 'Open', 'Read', 'ReadWrite, Delete')
+        try { $text = [IO.StreamReader]::new($stream).ReadToEnd() } finally { $stream.Dispose() }
+        return $text | ConvertFrom-Json
+    } catch { return $null }
+}
+
+# Blocks until a start running elsewhere (an agent's background `pnpm app:start`)
+# finishes. Read-only: it never opens the per-mode lifecycle lock, which a start holds
+# for its whole run and which fails fast for any other opener. Exit 0 ready, 1 failed
+# or not started, 2 still starting at the timeout.
+function Wait-ForStart([int]$Seconds) {
+    $name = if ($Instance) { $Instance } else { 'default' }
+    $target = "$name$(if ($Mode -eq 'ui') { ':ui' })"
+    $label = "$name ($Mode)"
+    $instanceArgs = "$(if ($Instance) { " -Instance $Instance" })$(if ($Mode -eq 'ui') { ' -Mode ui' })"
+    $begin = [DateTime]::UtcNow
+    $deadline = $begin.AddSeconds($Seconds)
+    # pnpm and PowerShell take a few seconds before a just-launched start registers.
+    $graceEnd = $begin.AddSeconds([Math]::Min(10, $Seconds))
+    $nextProgress = $begin.AddSeconds(60)
+    $sawStart = $false
+    while ($true) {
+        $claims = @(Get-StartClaims)
+        $starting = @($claims | Where-Object { $_.launcher -and (Get-OwnedProcess $_.launcher) }).Count -gt 0
+        if ($starting) {
+            if (-not $sawStart) { Write-Host "Waiting for the start of $label to finish. Logs: $runtimeDir" }
+            $sawStart = $true
+        } else {
+            $state = Read-StateFile
+            # Before any start is seen, dead or unready state may be what a restart
+            # after a crash is about to replace, so it counts as no claim yet until the
+            # grace period ends. Once a start was seen and has ended, it is final.
+            $settled = $sawStart -or [DateTime]::UtcNow -ge $graceEnd
+            if ($state) {
+                $records = @($state.processes)
+                $alive = @($records | Where-Object { Get-OwnedProcess $_ })
+                $problem = $null
+                if ($records.Count -eq 0 -or $alive.Count -ne $records.Count) {
+                    $problem = "A tracked $label process has exited. Run pnpm app:stop$instanceArgs, then start again."
+                } else {
+                    $ready = if ($Mode -eq 'desktop') { Invoke-Readiness $state.endpoint $state.instanceId } else {
+                        try { (Invoke-WebRequest -UseBasicParsing -Uri $state.url -TimeoutSec 5).StatusCode -eq 200 } catch { $false }
+                    }
+                    if (-not $ready) {
+                        $problem = "$label is running but not ready, and no start is in progress (was the start interrupted?). Run pnpm app:stop$instanceArgs, then start again."
+                    }
+                }
+                if (-not $problem) {
+                    Show-Connection $state
+                    Write-Host "Ready: $label - attach with pnpm pw $target <command>"
+                    exit 0
+                }
+                if ($settled) {
+                    Write-Host $problem
+                    Show-StartLogs
+                    exit 1
+                }
+            } elseif ($sawStart) {
+                Write-Host "The start of $label failed: it ended without a running instance. Its own output has the error."
+                Show-StartLogs
+                exit 1
+            } elseif ([DateTime]::UtcNow -ge $graceEnd) {
+                Write-Host "No start is in progress for $label and it is not running. Start it with $(if ($Mode -eq 'ui') { "pnpm app:ui -Instance $name" } else { "pnpm app:start -Instance $name -Fixtures" })."
+                exit 1
+            }
+        }
+        if ([DateTime]::UtcNow -ge $deadline) {
+            Write-Host "Still starting: $label after ${Seconds}s; run pnpm app:wait$instanceArgs again. Logs: $runtimeDir"
+            exit 2
+        }
+        if ($sawStart -and [DateTime]::UtcNow -ge $nextProgress) {
+            Write-Host "Still starting ($([int]([DateTime]::UtcNow - $begin).TotalSeconds)s). Logs: $runtimeDir"
+            $nextProgress = [DateTime]::UtcNow.AddSeconds(60)
+        }
+        Start-Sleep -Seconds 2
+    }
+}
+
+if ($Action -eq 'wait') {
+    # 540s fits one 10-minute agent tool call; -TimeoutSeconds still applies when given.
+    Wait-ForStart $(if ($PSBoundParameters.ContainsKey('TimeoutSeconds')) { $TimeoutSeconds } else { 540 })
+}
 if ($Action -eq 'status' -and $All) { Show-AllInstances; exit 0 }
 
 # Serialize start/stop/status for this mode, including slow first builds.

@@ -1,21 +1,80 @@
 /** Shared helpers for `pnpm worktree:new` and `pnpm worktree:clean`. */
 import { execFileSync, spawnSync } from "node:child_process";
-import { lstatSync, readdirSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, statfsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+
+/** A worktree touched within this window may belong to a run that is still going. */
+export const RECENT_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Newest mtime (ms) of a worktree folder and of its admin dir's HEAD, index and
+ * logs/HEAD (commits, checkouts and staging); undefined if none can be read.
+ */
+export function lastActivity(path, gitDir) {
+  const files = [path];
+  if (gitDir) files.push(join(gitDir, "HEAD"), join(gitDir, "index"), join(gitDir, "logs", "HEAD"));
+  let newest;
+  for (const file of files) {
+    try {
+      const time = statSync(file).mtimeMs;
+      if (newest === undefined || time > newest) newest = time;
+    } catch {
+      // Missing files (no commits yet, no index) don't count.
+    }
+  }
+  return newest;
+}
+
+/** Whether a process id is running; EPERM means it exists but belongs to someone else. */
+export function pidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+/**
+ * Whether an app instance state file (`pnpm app:start`) records a running
+ * process. Unreadable state counts as running, so it is never removed blindly.
+ */
+export function stateIsLive(file) {
+  let state;
+  try {
+    state = JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, ""));
+  } catch {
+    return true;
+  }
+  // PowerShell's ConvertTo-Json writes a one-element array as a bare object.
+  const processes = [state?.processes ?? []].flat();
+  return processes.some((record) => {
+    const pid = Number(record?.pid);
+    return Number.isInteger(pid) && pid > 0 && pidAlive(pid);
+  });
+}
 
 /** Same rule as `pnpm app:start -Instance`, so the slug doubles as the instance name. */
 export const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
 /** Agent worktrees live here, relative to the main checkout. */
 export const AGENT_DIR = ".agent/worktrees";
-/** Claude Code manages these; they are reported, and only leftovers are removed. */
+/**
+ * Claude Code manages these. Desktop sessions are only reported; Agent tool
+ * ones (`isolation: worktree`) are cleaned like agent worktrees.
+ */
 export const CLAUDE_DIR = ".claude/worktrees";
+/**
+ * How the Agent tool names its worktrees (`agent-a04ced92...`, branch
+ * `worktree-agent-...`), so a desktop session titled `agent-notes` never matches.
+ */
+export const AGENT_TOOL_NAME = /^agent-[0-9a-f]{8,}$/;
 
 export function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
-export function tryGit(args, cwd) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8", windowsHide: true });
+export function tryGit(args, cwd, input) {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", windowsHide: true, input });
   const err = result.error?.message ?? result.stderr ?? "";
   return { ok: result.status === 0, out: result.stdout ?? "", err: err.trim() };
 }
@@ -80,6 +139,19 @@ export function folderSize(path) {
     }
   }
   return total;
+}
+
+/** Warn below this much free disk: one worktree's Rust target/ can reach tens of GB. */
+export const LOW_DISK_BYTES = 50 * 1024 ** 3;
+
+/** Free bytes on the volume holding `path`, or undefined when it can't be read. */
+export function freeDiskBytes(path) {
+  try {
+    const stats = statfsSync(path);
+    return Number(stats.bavail) * Number(stats.bsize);
+  } catch {
+    return undefined;
+  }
 }
 
 export function formatBytes(bytes) {

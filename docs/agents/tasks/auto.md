@@ -18,7 +18,7 @@ Spend about 15% of your effort choosing. Stop as soon as you have one strong can
 Pick **one or two** of these sources and look for evidence:
 - **Open issues** (`gh issue list --state open --limit 30`). A clear reproduction makes for a strong candidate.
 - **Recent churn** (`git log --since=30.days --stat origin/main`). Look for complex logic in heavily changed areas that has thin tests. Parsing for new Copilot CLI versions, accounting and metrics, live sessions and renderers have all changed recently.
-- **CI history** (`gh run list --workflow ci.yml --status failure --limit 20`). Look for failures that keep recurring.
+- **CI history** (`gh run list --workflow ci.yml --status failure --limit 20`), **only when the launch message asks for CI work.** The maintainer wants app improvements by default, not flake hunting.
 - **A short smoke pass of the app** at 1440×960 on synthetic data, covering only the main routes. See *Running the app*.
 - **Quality pressure.** Look for files at their size budget, rules duplicated between Rust and TypeScript, and stale commands in the docs.
 

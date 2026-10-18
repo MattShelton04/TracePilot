@@ -8,12 +8,16 @@
  * back to main), plus staged, unstaged and untracked files. Each path is mapped
  * to the rows of the "Verify proportionately" table in docs/agents/protocol.md
  * by RULES below. Every step prints one PASS/FAIL line; a failing step also
- * prints the tail of its output. Exits 1 when any step fails.
+ * prints the tail of its output. Exits 1 when any step fails. Advisory HINT
+ * lines (check-changed-hints.mjs) name slower checks a change likely affects.
  */
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { collectHints, NOTES } from "./check-changed-hints.mjs";
+
+export { NOTES };
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TAIL_LINES = 40;
@@ -87,8 +91,9 @@ const NODE_TEST_GROUPS = {
     hint: "npm ci --prefix scripts/visual --ignore-scripts",
   },
 };
-const RUST_CONFIG =
-  /^(?:Cargo\.(?:toml|lock)|rust-toolchain\.toml|\.cargo\/|\.config\/hakari\.toml)/;
+// The CI change classifier's tests read crate sources and the shared frontend
+// files crates embed (`include_str!`), so they run when either changes.
+const CI_TEST_INPUTS = /^(?:crates|packages\/types)\//;
 
 const node = (...args) => ({ cmd: "node", args });
 const pnpm = (...args) => ({ cmd: "pnpm", args });
@@ -156,7 +161,9 @@ export const RULES = [
     id: "node-tests",
     match: (f) =>
       NOT_DOCS(f.path) &&
-      (/^scripts\//.test(f.path) || /^packages\/ui\/src\/components\/renderers\//.test(f.path)),
+      (/^scripts\//.test(f.path) ||
+        /^packages\/ui\/src\/components\/renderers\//.test(f.path) ||
+        CI_TEST_INPUTS.test(f.path)),
     steps: (files, ctx) => nodeTestSteps(files, ctx),
   },
   {
@@ -245,26 +252,6 @@ export const RULES = [
   },
 ];
 
-/** Advice for changes the targeted checks can't cover. */
-export const NOTES = [
-  {
-    match: (f) => RUST_CONFIG.test(f.path),
-    text: "Rust build or dependency configuration changed: the PR's CI runs the full gate; run `just ci` locally only if you aren't confident it passes.",
-  },
-  {
-    match: (f) => f.path.startsWith("crates/tracepilot-tauri-bindings/"),
-    text: "IPC crate changed: if a command or type crosses IPC, run `pnpm gen:bindings` and commit the output.",
-  },
-  {
-    match: (f) => /^packages\/(?:ui|client|types)\/src\//.test(f.path),
-    text: "Shared package changed: if its public API changed for other workspaces, the PR's CI runs the full gate; run `just ci` locally only if you aren't confident it passes.",
-  },
-  {
-    match: (f) => f.path.startsWith("site/"),
-    text: "Site changed: for layout changes also run `pnpm site:build` and `pnpm site:check` (docs/landing-page.md).",
-  },
-];
-
 /** `crates/<dir>/...` and the desktop crate map to a Cargo package name. */
 export function crateFor(path, crates) {
   const match = /^(crates\/[^/]+|apps\/desktop\/src-tauri)\//.exec(path);
@@ -276,6 +263,10 @@ function nodeTestSteps(files, ctx) {
   const groups = new Set();
   const topLevel = new Set();
   for (const { path } of files) {
+    if (CI_TEST_INPUTS.test(path)) {
+      groups.add("ci");
+      continue;
+    }
     if (
       path.startsWith("packages/ui/src/components/renderers/") ||
       path.startsWith("scripts/fixtures/")
@@ -466,7 +457,12 @@ async function main() {
       console.log(`  note  ${step.name}: ${step.skip}`);
   }
   for (const note of notes) console.log(`  note  ${note}`);
-  if (opts.dryRun) return;
+  // Advisory only: hints never fail the run. Printed last so they stay visible.
+  const hints = await collectHints({ root: ROOT, mergeBase, files });
+  const printHints = () => {
+    for (const hint of hints) console.log(`HINT  ${hint}`);
+  };
+  if (opts.dryRun) return printHints();
 
   let failed = 0;
   for (const step of steps) {
@@ -489,6 +485,7 @@ async function main() {
   } else if (steps.length === 0) {
     console.log("Nothing to check.");
   }
+  printHints();
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

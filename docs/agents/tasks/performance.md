@@ -20,14 +20,15 @@ Read the [performance playbook](../../performance-playbook.md), including its qu
 - `EXPLAIN QUERY PLAN` for indexer queries, and the `scripts/perf/` probes.
 - **The `benchmark-compare` workflow**, which runs automatically on PRs that touch Rust and can also be dispatched manually. Its results on your PR are useful extra evidence.
 
-Build synthetic corpora with the bench builders (`crates/tracepilot-bench/src/{builder,profiles}.rs`) or the fixture generators. **Never use private sessions.**
+Build synthetic corpora with the bench builders (`crates/tracepilot-bench/src/{builder,profiles}.rs`) or the fixture generators, and use them to prove output is identical before and after. Synthetic corpora understate real load, so when the maintainer asks for it, also measure on their real sessions: read them in place, read-only, write only to scratch databases under `.agent/`, and report aggregate numbers only. Never copy private sessions or put anything from them in commits, fixtures or PRs.
 
 ## Do
 
-1. **Measure a baseline.** Record the workload, its size, debug or release, cold or warm, and enough repeats to know the noise.
-2. **Find the bottleneck** with a profiler, call counts, IPC logs or query plans, not by guessing.
+1. **Measure a baseline.** Record the workload, its size, debug or release, cold or warm, and enough repeats to know the noise. Note the machine load first, because other agents' builds skew timings; discard runs taken under load.
+2. **Find the bottleneck** with a profiler, call counts, IPC logs or query plans, not by guessing. **Bound the gain before you build:** estimate what removing the step entirely would save (its profile share, or an ideal-case run). If the ceiling is small, stop and report it rather than shipping a marginal change.
 3. **Make the simplest fix.** Preserve correctness, ordering, freshness, cancellation and memory bounds. Keep the indexing budgets documented in the playbook. A new cache or new concurrency must show a benefit and have a clear invalidation story.
 4. **Measure again the same way.** Report before and after numbers with their spread, and check memory where you might be trading one cost for another. **If there's no demonstrated gain, revert it.**
+5. **Look for what users would notice.** When you defer, batch or render work progressively, check first paint, returning to a list (scroll position and flashes) and refresh in the app. List any visible side effect in the PR.
 
 Don't hide rows, reduce fidelity, add stale caches, virtualize lists without a separate decision (see `docs/perf/desktop-virtualization-audit.md`), or extrapolate from a microbenchmark.
 

@@ -100,6 +100,16 @@ test("crate changes run fmt, clippy and tests for exactly those crates", () => {
   ]);
 });
 
+test("crate and shared-types changes also run the CI change-classifier tests", () => {
+  for (const path of ["crates/tracepilot-core/src/lib.rs", "packages/types/src/defaults.ts"]) {
+    const step = plan([path]).steps.find((s) => s.name === "node --test scripts/ci");
+    assert.ok(step, path);
+    assert.deepEqual(step.args, ["--test", "scripts/ci/a.test.mjs", "scripts/ci/b.test.mjs"]);
+    assert.ok(!names([path]).includes("node --test scripts/tracepilot-core"), path);
+  }
+  assert.ok(!names(["packages/ui/src/a.ts"]).includes("node --test scripts/ci"));
+});
+
 test("crate READMEs don't trigger Rust checks", () => {
   assert.deepEqual(names(["crates/tracepilot-core/README.md"]), ["doc links"]);
 });

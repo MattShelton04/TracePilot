@@ -61,7 +61,10 @@ pnpm install --frozen-lockfile --prefer-offline
 ```
 
 Or run `pnpm worktree:new <slug>`, which creates the worktree, installs and prints
-the instance command; `pnpm worktree:clean --merged` lists what to remove.
+the instance command, ending with `worktree: <path>` and `branch: <branch>` lines.
+`pnpm worktree:clean --merged` lists what to remove (including Claude Code's
+`.claude/worktrees/agent-*`), and `pnpm worktree:clean <slug>...` targets your own;
+add `--yes` to remove.
 
 pnpm hard-links packages from its global store, so `node_modules` costs little
 disk per worktree as long as the store and the checkout are on the same volume.

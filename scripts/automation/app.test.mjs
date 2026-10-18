@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
@@ -340,5 +341,101 @@ test("Windows lifecycle owns only its recorded process trees", {
       /-FirstRun requires -Fixtures/,
     );
     assert.deepEqual(claimIds(), []);
+  });
+
+  // wait exits 0 ready, 1 failed or never started, 2 still starting at its timeout.
+  const waitFails = (code, pattern) => (error) => {
+    assert.equal(error.code, code, error.stdout);
+    assert.match(error.stdout, pattern);
+    return true;
+  };
+
+  await t.test("wait on a never-started instance fails fast and creates nothing", async () => {
+    const began = Date.now();
+    await assert.rejects(
+      run("wait", "ui", ["-Instance", "nobody", "-TimeoutSeconds", "3"]),
+      waitFails(1, /No start is in progress for nobody \(ui\)/),
+    );
+    assert.ok(Date.now() - began < 30_000);
+    assert.equal(existsSync(join(root, ".tracepilot/instances/nobody")), false);
+  });
+
+  await t.test("wait returns Ready once a concurrent start finishes", async () => {
+    const starting = run("start", "ui", ["-Instance", "waiter"]);
+    try {
+      const { stdout } = await run("wait", "ui", ["-Instance", "waiter", "-TimeoutSeconds", "60"]);
+      assert.match(stdout, /Ready: waiter \(ui\) - attach with pnpm pw waiter:ui/);
+      await starting; // Waiting never made the start fail.
+      assert.equal(await (await fetch(instanceState("waiter").url)).text(), "fixture");
+    } finally {
+      await starting.catch(() => {});
+      await run("stop", "ui", ["-Instance", "waiter"]);
+    }
+  });
+
+  await t.test(
+    "wait does not block a start, times out with 2, then reports its failure",
+    async () => {
+      const env = { ...testEnv, TRACEPILOT_TEST_STALL: "1" };
+      const starting = run("start", "ui", ["-Instance", "stall", "-TimeoutSeconds", "15"], env);
+      const failed = assert.rejects(starting, /Startup timed out/);
+      try {
+        const deadline = Date.now() + 30_000;
+        while (claimIds().length === 0 && Date.now() < deadline)
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        await assert.rejects(
+          run("wait", "ui", ["-Instance", "stall", "-TimeoutSeconds", "2"]),
+          waitFails(
+            2,
+            /Still starting: stall \(ui\)[\s\S]*app:wait -Instance stall -Mode ui again/,
+          ),
+        );
+        await assert.rejects(
+          run("wait", "ui", ["-Instance", "stall", "-TimeoutSeconds", "60"]),
+          waitFails(1, /start of stall \(ui\) failed[\s\S]*ui-vite\.err\.log/),
+        );
+      } finally {
+        await failed;
+      }
+      assert.deepEqual(claimIds(), []);
+    },
+  );
+
+  await t.test("wait reports a tracked process that has exited", async () => {
+    await run("start", "ui", ["-Instance", "exited"]);
+    try {
+      const pid = String(instanceState("exited").processes[0].pid);
+      execFileSync("taskkill", ["/PID", pid, "/T", "/F"], { stdio: "ignore" });
+      await assert.rejects(
+        run("wait", "ui", ["-Instance", "exited", "-TimeoutSeconds", "5"]),
+        waitFails(1, /tracked exited \(ui\) process has exited/),
+      );
+    } finally {
+      await run("stop", "ui", ["-Instance", "exited"]);
+    }
+  });
+
+  await t.test("wait outlasts stale state while a restart after a crash registers", async () => {
+    await run("start", "ui", ["-Instance", "restart"]);
+    const crashed = instanceState("restart");
+    execFileSync("taskkill", ["/PID", String(crashed.processes[0].pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
+    // wait polls first and sees the dead state before the new start claims it.
+    const waiting = run("wait", "ui", ["-Instance", "restart", "-TimeoutSeconds", "60"]);
+    waiting.catch(() => {}); // Asserted below; an early exit must not go unhandled.
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const starting = run("start", "ui", ["-Instance", "restart"]);
+    try {
+      const { stdout } = await waiting;
+      assert.match(stdout, /Ready: restart \(ui\)/);
+      await starting;
+      const restarted = instanceState("restart");
+      assert.notEqual(restarted.processes[0].pid, crashed.processes[0].pid);
+      assert.equal(await (await fetch(restarted.url)).text(), "fixture");
+    } finally {
+      await Promise.allSettled([waiting, starting]);
+      await run("stop", "ui", ["-Instance", "restart"]);
+    }
   });
 });
