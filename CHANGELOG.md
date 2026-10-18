@@ -7,15 +7,33 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-18
+
+### Added
+
+- **Recorded requests** — For Claude Code 2.1.301 and later, a session's Context tab shows each request's system prompt, tool list and settings for the main agent and each subagent. Those sessions also open several times faster (#1064, #1066).
+- **More of Claude Code sessions** — A Todos tab rebuilt from the session's task list, `ExitPlanMode` plans shown as Markdown with their approval, prompts typed mid-turn with their pasted images, and the session scratchpad in the Explorer (#1031, #1038, #1053, #1054).
+- **Event payloads and message copy** — Events tab rows open to show their JSON, and each chat prompt and reply has a copy button (#1046, #1052).
+
 ### Changed
 
-- **New data folder** — New installs keep TracePilot's data in `~/.tracepilot`. Existing installs keep using `~/.copilot/tracepilot`, and nothing is moved.
-- **Costs in dollars everywhere** — Copilot costs show in USD (AI Credits at $0.01 each) like Claude Code, with AI Credits kept as secondary detail.
+- **Costs in dollars everywhere** — Copilot costs show in USD (AI Credits at $0.01 each) like Claude Code, with AI Credits kept as secondary detail (#1033).
+- **New data folder** — New installs keep TracePilot's data in `~/.tracepilot`. Existing installs keep using `~/.copilot/tracepilot`, and nothing is moved (#1032).
+- **Redesigned Metrics tab** — Headline numbers, cost by token kind and model, ranked model and agent breakdowns, a prompt-cache plot and a changed-files tree (#1055).
+- **Remembers where you were** — Session tabs keep their views, Analytics its filters and Export its options across restarts, and going back returns the session list and Search to the same scroll position (#1046, #1060).
+- **Better search** — Ctrl+K finds sessions by name, repository, folder, branch or ID; terms like `index.ts` match as written; `and`, `or` and `not` in lowercase are searched as words; whole long replies are indexed; and Ctrl+Enter opens a result at its turn (#1046, #1052, #1061, #1062, #1064).
+- **Faster** — The session list appears straight away with hundreds of sessions, and indexing, search and export do less repeated work (#1027, #1059).
 
 ### Fixed
 
-- **Setup without Copilot CLI** — First-run setup no longer stops at the Copilot step when Copilot CLI isn't installed, so Claude Code users can finish it.
-- **Line chart hover** — The Analytics Activity chart's hover dot sits on the line again, and partly priced model costs stay aligned.
+- **Costs and credits** — Claude Code sessions closed before saving their totals, resumed runs and 1M-context models are priced fully, with `≥` marking lower bounds. Running Copilot sessions show the AI Credits already recorded (#1034, #1051, #1056, #1067).
+- **Analytics accuracy** — Date ranges count only usage inside them, presets cover exact UTC days, resumed sessions fill their days, errors count apart from rate limits, and small day-chart bars reach their value (#1043, #1045, #1049, #1058, #1063).
+- **One repository filter** — Every page offers the same repositories and folders as the session list, including Claude Code sessions that record only their folder, and the filter keeps one width (#1053, #1056, #1061, #1066).
+- **Sessions with a cut-off line** — A session whose last line was cut off by a crash or closed terminal is listed, searchable and counted again (#1047, #1048, #1050, #1058).
+- **Session detail** — Unfinished tool calls in ended sessions read "Did not finish", events sit in turn order, Timeline opens on a view with data, and tabs no longer show zeros before loading (#1035, #1043, #1057, #1058, #1061, #1062).
+- **Export and Compare** — Markdown exports keep code fences and tables intact and include Claude Code cost, presets apply their full options, failures say why, and Compare shows unknown values as "—" (#1039, #1045, #1052, #1057, #1061, #1062).
+- **Smaller fixes** — Setup finishes without Copilot CLI, Escape and arrow keys act on the dialog on top, Copy Resume Command starts in the session's folder, worktree clean-up asks first, and the app stays usable at the 960×640 minimum (#1028, #1036, #1056, #1057, #1063, #1067).
+- **Security updates** — Updated rustls and quinn-proto to fix published advisories (#1027, #1068).
 
 ## [0.9.2] - 2026-10-11
 

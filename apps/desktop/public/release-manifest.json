@@ -9,6 +9,32 @@
   },
   "versions": [
     {
+      "version": "0.9.3",
+      "date": "2026-10-18",
+      "notes": {
+        "added": [
+          "Recorded requests: Claude Code 2.1.301+ sessions show each request's system prompt, tools and settings in the Context tab",
+          "More of Claude Code sessions: A Todos tab, readable plans, mid-turn prompts with pasted images, and the scratchpad in the Explorer",
+          "Event payloads and message copy: Events rows open to show their JSON, and chat messages have a copy button"
+        ],
+        "changed": [
+          "Costs in dollars everywhere: Copilot costs show in USD, with AI Credits as secondary detail",
+          "Redesigned Metrics tab: Headline numbers, cost breakdowns, a prompt-cache plot and a changed-files tree",
+          "Remembers where you were: Tab views, Analytics filters, Export options and list positions are kept",
+          "Better search: Ctrl+K finds sessions by name, repository, folder or branch, and searches read as you type them",
+          "Faster: The session list appears straight away, and indexing, search and export are quicker"
+        ],
+        "fixed": [
+          "Costs and credits: Claude Code costs cover every run and model, and running Copilot sessions show their credits",
+          "Analytics accuracy: Date ranges count only usage inside them, and errors count apart from rate limits",
+          "One repository filter: Every page offers the same repositories and folders as the session list",
+          "Sessions with a cut-off line: Sessions interrupted by a crash or closed terminal are listed and counted again",
+          "Smaller fixes: Clearer session detail, Export and Compare, and Setup works without Copilot CLI"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.9.2",
       "date": "2026-10-11",
       "notes": {
