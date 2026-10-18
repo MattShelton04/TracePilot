@@ -410,3 +410,41 @@ it("shows loaded incidents in the tile and the incidents card", () => {
   expect(shown.card).not.toContain("Loading incidents");
   wrapper.unmount();
 });
+
+it("badges a rate limit as a rate limit, not an error, and dates times on a multi-day session", () => {
+  // Noon on Jan 1 to noon on Jan 3 (UTC): different days in every time zone.
+  store.detail = {
+    id: "s1",
+    source: "copilot",
+    hasPlan: false,
+    hasCheckpoints: true,
+    createdAt: "2026-01-01T12:00:00Z",
+    updatedAt: "2026-01-03T12:00:00Z",
+  };
+  store.loaded = new Set(ALL_SECTIONS);
+  const at = "2026-01-02T12:00:00Z";
+  store.incidents = [
+    {
+      eventType: "error",
+      sourceEventType: "session.error",
+      severity: "error",
+      timestamp: at,
+      summary: "Rate limit hit",
+      detailJson: { errorType: "rate_limit" },
+    },
+    { eventType: "error", sourceEventType: "session.error", severity: "error", summary: "boom" },
+  ];
+  const { wrapper } = mountOverview();
+  const rows = wrapper.findAll(".incident-row");
+  const limit = rows[0].get(".badge");
+  expect(limit.text()).toBe("Rate limit");
+  expect(limit.classes()).toContain("badge-warning");
+  expect(rows[1].get(".badge").text()).toBe("Error");
+  expect(rows[1].get(".badge").classes()).toContain("badge-danger");
+
+  const time = rows[0].get(".incident-time");
+  const day = new Date(at).toLocaleDateString([], { month: "short", day: "numeric" });
+  expect(time.text()).toContain(day);
+  expect(time.attributes("title")).toBe(new Date(at).toLocaleString());
+  wrapper.unmount();
+});

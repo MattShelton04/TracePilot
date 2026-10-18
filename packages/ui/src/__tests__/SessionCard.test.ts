@@ -231,4 +231,28 @@ describe("SessionCard", () => {
     expect(withRepo.find('[data-testid="session-project-chip"]').exists()).toBe(false);
     expect(withRepo.findAll(".badge").map((b) => b.text())).toEqual(["Copilot", "org/app", "cli"]);
   });
+
+  it("counts rate limits apart from errors, in a warning tone", () => {
+    const stats = (session: Partial<SessionListItem>) =>
+      mount(SessionCard, { props: { session: makeSession({ id: "s", ...session }) } });
+
+    // The index counts a rate limit as an error too; the card does not.
+    const rateLimited = stats({ errorCount: 1, rateLimitCount: 1 });
+    expect(rateLimited.find(".stat-item-inline.error").exists()).toBe(false);
+    const limit = rateLimited.get('[data-testid="session-rate-limits"]');
+    expect(limit.classes()).toContain("warning");
+    expect(limit.text()).toBe("1");
+    expect(limit.attributes("title")).toBe("1 rate limit hit");
+
+    const both = stats({ errorCount: 3, rateLimitCount: 1 });
+    const errors = both.get(".stat-item-inline.error");
+    expect(errors.text()).toBe("2");
+    expect(errors.attributes("title")).toBe("2 errors encountered");
+    expect(both.get('[data-testid="session-rate-limits"]').text()).toBe("1");
+
+    // Without a rate-limit count, errors show as recorded.
+    const unsplit = stats({ errorCount: 2 });
+    expect(unsplit.get(".stat-item-inline.error").text()).toBe("2");
+    expect(unsplit.find('[data-testid="session-rate-limits"]').exists()).toBe(false);
+  });
 });
