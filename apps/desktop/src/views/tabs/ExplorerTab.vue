@@ -28,6 +28,7 @@ import { useSessionFiles } from "@/composables/useSessionFiles";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
+import { plural } from "@/utils/format";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
@@ -118,18 +119,14 @@ const treeTitle = computed(() =>
   searchMode.value === "name" && searchQuery.value.trim() ? "Matching Files" : "Session Files",
 );
 
-function countOf(n: number, noun: string, plural = `${noun}s`): string {
-  return `${n} ${n === 1 ? noun : plural}`;
-}
-
 /** "1 match in 1 file · 3 files searched": matches, files they're in, files read. */
 const contentSearchSummary = computed(() => {
   const result = contentSearch.value;
   if (!result) return "";
-  const searched = `${countOf(result.scannedFiles, "file")} searched`;
+  const searched = `${plural(result.scannedFiles, "file")} searched`;
   if (!result.matches.length) return `0 matches · ${searched}`;
   const files = new Set(result.matches.map((m) => m.path)).size;
-  return `${countOf(result.matches.length, "match", "matches")} in ${countOf(files, "file")} · ${searched}`;
+  return `${plural(result.matches.length, "match", "matches")} in ${plural(files, "file")} · ${searched}`;
 });
 
 async function onViewFile(path: string) {
