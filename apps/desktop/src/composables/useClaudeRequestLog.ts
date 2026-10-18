@@ -5,10 +5,10 @@ import { computed, type MaybeRefOrGetter, ref, toValue, watch } from "vue";
 
 /**
  * What Claude Code recorded of a session's API requests, loaded when the
- * "Recorded requests" view opens, again for each session, and again when
- * `refreshKey` changes (the session's data was refreshed), keeping the
- * current log on screen meanwhile. A late answer for an earlier load is
- * dropped.
+ * Context tab opens (it offers the view only when there are records), again
+ * for each session, and again when `refreshKey` changes (the session's data
+ * was refreshed), keeping the current log on screen meanwhile. A late answer
+ * for an earlier load is dropped.
  */
 export function useClaudeRequestLog(
   sessionId: MaybeRefOrGetter<string | null | undefined>,
@@ -70,3 +70,5 @@ export function useClaudeRequestLog(
 
   return { log, loading, error, selectedHash, selectedShape, isEmpty, reload: load };
 }
+
+export type ClaudeRequestLog = ReturnType<typeof useClaudeRequestLog>;

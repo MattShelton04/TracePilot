@@ -13,7 +13,7 @@ import {
 } from "@tracepilot/ui";
 import { FileClock } from "lucide-vue-next";
 import { computed, ref } from "vue";
-import { useClaudeRequestLog } from "@/composables/useClaudeRequestLog";
+import type { ClaudeRequestLog } from "@/composables/useClaudeRequestLog";
 import ContextCaptureSystem from "./ContextCaptureSystem.vue";
 import ContextCaptureTools from "./ContextCaptureTools.vue";
 import RecordedRequestCalls from "./RecordedRequestCalls.vue";
@@ -24,14 +24,11 @@ import {
 } from "./recordedRequests";
 
 const props = defineProps<{
-  sessionId: string;
-  /** Changes when the session's data was refreshed; the log reloads then. */
-  refreshKey?: unknown;
+  /** The session's log, which the Context tab reads to decide whether to offer this view. */
+  requestLog: ClaudeRequestLog;
 }>();
-const { log, loading, error, selectedHash, selectedShape, isEmpty, reload } = useClaudeRequestLog(
-  () => props.sessionId,
-  () => props.refreshKey,
-);
+// The tab keeps one log for its lifetime, so its refs can be taken once.
+const { log, loading, error, selectedHash, selectedShape, isEmpty, reload } = props.requestLog;
 const omittedHashes = computed(() => new Set(log.value?.omittedShapeHashes ?? []));
 const selectedTools = computed(() =>
   selectedShape.value ? recordedToolDefinitions(selectedShape.value) : [],

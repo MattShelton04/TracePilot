@@ -72,6 +72,48 @@
   color: var(--text-secondary);
 }
 
+/* A mixed cost total's sources, a line each: swatch, name, amount at the end. */
+.ad-kpi-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ad-kpi-sources > li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.ad-kpi-sources__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ad-kpi-sources b {
+  font-weight: 500;
+  font-feature-settings: "tnum" 1;
+  color: var(--text-secondary);
+}
+
+/* The partial mark hangs past the amount, as in Model mix, so amounts stay aligned. */
+.ad-kpi-sources__value {
+  position: relative;
+}
+
+.ad-kpi-sources__partial {
+  position: absolute;
+  left: 100%;
+  margin-left: 1px;
+}
+
 /* A KPI footer item wrapped in the shared Tooltip still fills the footer. */
 .kpi__footer > span.tooltip {
   display: flex;

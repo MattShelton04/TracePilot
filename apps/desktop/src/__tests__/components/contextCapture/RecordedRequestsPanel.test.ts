@@ -2,7 +2,9 @@ import { getSessionRequestLog } from "@tracepilot/client";
 import type { RequestLog } from "@tracepilot/types";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h } from "vue";
 import RecordedRequestsPanel from "@/components/contextCapture/RecordedRequestsPanel.vue";
+import { useClaudeRequestLog } from "@/composables/useClaudeRequestLog";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
@@ -88,8 +90,20 @@ function log(overrides: Partial<RequestLog> = {}): RequestLog {
   };
 }
 
-function mountPanel(sessionId = "session-a", refreshKey: unknown = 1) {
-  return mount(RecordedRequestsPanel, { props: { sessionId, refreshKey } });
+/** Owns the log as the Context tab does, so props drive its session and refresh. */
+const Host = defineComponent({
+  props: { sessionId: { type: String, required: true }, refreshKey: { default: 1 } },
+  setup(props) {
+    const requestLog = useClaudeRequestLog(
+      () => props.sessionId,
+      () => props.refreshKey,
+    );
+    return () => h(RecordedRequestsPanel, { requestLog });
+  },
+});
+
+function mountPanel(sessionId = "session-a", refreshKey = 1) {
+  return mount(Host, { props: { sessionId, refreshKey } });
 }
 
 const call = log().calls[0];

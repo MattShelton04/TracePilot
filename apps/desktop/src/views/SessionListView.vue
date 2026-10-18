@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { IndexingProgressPayload } from "@tracepilot/types";
 import {
-  ActionButton,
   Badge,
   EmptyState,
   ErrorAlert,
@@ -198,14 +197,10 @@ const hasSessionFilters = computed(
   () => !!store.searchQuery || !!store.filterRepo || !!store.filterSource,
 );
 
-/** "12 sessions", or "12 of 340 sessions" while a search or filter narrows the list. */
+/** The sessions the list shows. A plain count keeps the toolbar one width as filters change. */
 const sessionCountLabel = computed(() => {
   const shown = store.filteredSessions.length;
-  const total = store.visibleSessionCount;
-  const noun = (n: number) => `session${n === 1 ? "" : "s"}`;
-  return hasSessionFilters.value
-    ? `${shown} of ${total} ${noun(total)}`
-    : `${shown} ${noun(shown)}`;
+  return `${shown} session${shown === 1 ? "" : "s"}`;
 });
 
 // Coming back from a session lands where the user left the list, as long as
@@ -337,19 +332,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           </select>
         </div>
         <div class="toolbar-actions">
-          <span class="session-count">
-            <span class="session-count-label" data-testid="session-count">{{ sessionCountLabel }}</span>
-            <ActionButton
-              v-if="hasSessionFilters"
-              size="sm"
-              variant="ghost"
-              aria-label="Clear search and filters"
-              data-testid="session-clear-filters"
-              @click="clearFilters"
-            >
-              Clear
-            </ActionButton>
-          </span>
+          <span class="session-count-label" data-testid="session-count">{{ sessionCountLabel }}</span>
           <RefreshToolbar
             :refreshing="refreshing"
             :auto-refresh-enabled="prefs.autoRefreshEnabled"
@@ -494,12 +477,6 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
   gap: 16px;
   margin-inline-start: auto;
   max-width: 100%;
-}
-
-.session-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .session-count-label {
