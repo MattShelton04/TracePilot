@@ -1,0 +1,20 @@
+# cargo-audit configuration, read from the workspace root by `cargo audit`.
+#
+# Every ignore needs a row in docs/dependencies/security.md ("Accepted RustSec
+# advisories") with its reachability evidence and the upgrade that removes it.
+# Keep this list in sync with `[advisories].ignore` in deny.toml.
+
+[advisories]
+ignore = [
+    # zip < 9: `ZipArchive::extract` / `ZipStreamReader::extract` preserve
+    # SUID/SGID bits (0367), follow attacker symlink targets (0368) and apply
+    # Unix permissions through symlinks (0369). No zip >= 9 is reachable yet:
+    # tauri-plugin-updater 2.x needs zip ^4 and github-copilot-sdk needs zip ^2
+    # (^7 in newer releases). TracePilot only writes archives; the SDK reads
+    # entries with `by_index` at build time and never unpacks with
+    # COPILOT_SKIP_CLI_DOWNLOAD; the updater calls `extract()` only on Windows,
+    # after minisign verification of a release we signed.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+]
