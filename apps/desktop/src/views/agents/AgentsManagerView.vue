@@ -20,6 +20,7 @@ import {
   type AgentSortKey,
   agentRouteId,
 } from "@/utils/agents/entries";
+import { plural } from "@/utils/format";
 import { USAGE_RANGE_LABELS } from "@/utils/usage/range";
 
 const store = useAgentsStore();
@@ -112,7 +113,7 @@ function onCreated(path: string) {
       <DefinitionLoading v-if="!store.initialized" noun="agents" />
       <template v-else>
       <div class="stats-strip">
-        <span class="stat-chip">{{ store.entries.length }} agents</span>
+        <span class="stat-chip">{{ plural(store.entries.length, "agent") }}</span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">{{ store.scopeCounts.builtin }} built-in</span>
         <span class="stat-sep">&middot;</span>
@@ -129,7 +130,7 @@ function onCreated(path: string) {
         </template>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          {{ store.usage ? formatNumber(store.usage.totalRuns) : "—" }} runs
+          {{ store.usage ? plural(store.usage.totalRuns, "run", undefined, formatNumber) : "— runs" }}
           <span class="stat-chip__muted">in {{ USAGE_RANGE_LABELS[store.range] }}</span>
         </span>
         <span class="stat-sep">&middot;</span>

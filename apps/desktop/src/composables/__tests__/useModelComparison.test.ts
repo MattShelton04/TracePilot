@@ -22,6 +22,8 @@ const analyticsStoreMock: {
   analyticsLoading: boolean;
   analyticsError: string | null;
   selectedRepo: string | null;
+  selectedSource: string | null;
+  selectedTimeRange: string;
   sourcePrefix: string;
   fetchAnalytics: ReturnType<typeof vi.fn>;
   fetchAvailableRepos: ReturnType<typeof vi.fn>;
@@ -30,6 +32,8 @@ const analyticsStoreMock: {
   analyticsLoading: false,
   analyticsError: null,
   selectedRepo: null,
+  selectedSource: null,
+  selectedTimeRange: "all",
   sourcePrefix: "",
   fetchAnalytics: vi.fn(),
   fetchAvailableRepos: vi.fn(),
@@ -78,6 +82,8 @@ describe("useModelComparison", () => {
     analyticsStoreMock.analyticsLoading = false;
     analyticsStoreMock.analyticsError = null;
     analyticsStoreMock.selectedRepo = null;
+    analyticsStoreMock.selectedSource = null;
+    analyticsStoreMock.selectedTimeRange = "all";
     analyticsStoreMock.sourcePrefix = "";
     analyticsStoreMock.fetchAnalytics = vi.fn();
     analyticsStoreMock.fetchAvailableRepos = vi.fn();
@@ -261,13 +267,22 @@ describe("useModelComparison", () => {
   it("pageSubtitle names a folder-only project by its folder, as the filter lists it", () => {
     analyticsStoreMock.selectedRepo = "project:harbor";
     const { comp } = mountHook();
-    expect(comp.pageSubtitle).toBe("Performance and cost metrics across all models in harbor");
+    expect(comp.pageSubtitle).toBe("Performance and cost metrics across models in harbor");
   });
 
   it("pageSubtitle names the selected source", () => {
+    analyticsStoreMock.selectedSource = "claudeCode";
     analyticsStoreMock.sourcePrefix = "Claude Code ";
     const { comp } = mountHook();
-    expect(comp.pageSubtitle).toBe("Performance and cost metrics across all Claude Code models");
+    expect(comp.pageSubtitle).toBe("Performance and cost metrics across Claude Code models");
+  });
+
+  it("pageSubtitle names a time range instead of claiming every model", () => {
+    analyticsStoreMock.selectedTimeRange = "30d";
+    const { comp } = mountHook();
+    expect(comp.pageSubtitle).toBe(
+      "Performance and cost metrics across models in the past 30 days",
+    );
   });
 
   it("passes cacheWriteTokens through to computeWholesaleCost (regression)", () => {

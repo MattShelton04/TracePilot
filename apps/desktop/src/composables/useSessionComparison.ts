@@ -225,10 +225,8 @@ export function exitLabel(m: ShutdownMetrics | null, source?: SessionSource | nu
   return isNonCopilotSource(source) ? null : exitTitle(null);
 }
 
-/** "1 turn", "2 turns". */
-export function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
+// Comparison components take the shared helper from here with the rest of the page's helpers.
+export { plural } from "@/utils/format";
 
 export function useSessionComparison() {
   const sessionsStore = useSessionsStore();

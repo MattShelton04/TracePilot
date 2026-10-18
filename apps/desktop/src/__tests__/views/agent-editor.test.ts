@@ -55,6 +55,7 @@ function mountView(overrides: Record<string, unknown> = {}) {
     onResizeKeyDown: vi.fn(),
     routeId: "/defs/reviewer.agent.md",
     isSessionOnly: false,
+    isEmbedded: false,
     definitionPath: "/defs/reviewer.agent.md",
     agentName: "reviewer",
     agentType: "reviewer",
@@ -146,8 +147,31 @@ describe("AgentEditorView", () => {
     });
     await flushPromises();
     expect(wrapper.text()).toContain("No definition found");
+    expect(wrapper.get(".topbar-meta").text()).toContain("Unresolved");
     expect(wrapper.find("#agent-name").exists()).toBe(false);
     expect(wrapper.find(".raw-toggle").exists()).toBe(false);
+  });
+
+  it("presents a built-in the CLI embeds as built-in, not as a deleted file", async () => {
+    const { wrapper } = mountView({
+      detail: null,
+      fields: null,
+      isSessionOnly: true,
+      isEmbedded: true,
+      isReadOnly: true,
+      readOnlyReason: "Built into the CLI, which ships no definition file for it.",
+      definitionPath: "",
+      routeId: "name:explore",
+      agentName: "explore",
+    });
+    await flushPromises();
+    const badges = wrapper.get(".topbar-meta").text();
+    expect(badges).toContain("Built-in");
+    expect(badges).not.toContain("Unresolved");
+    expect(wrapper.text()).toContain("Built into the CLI");
+    expect(wrapper.text()).toContain("Override");
+    expect(wrapper.text()).not.toContain("renamed or deleted");
+    expect(wrapper.text()).not.toContain("No definition found");
   });
 
   it("disables the override action when settings.json cannot be understood", async () => {

@@ -14,6 +14,7 @@ import {
 import { Camera, FileJson2 } from "lucide-vue-next";
 import { computed, onMounted } from "vue";
 import { useContextCapture } from "@/composables/useContextCapture";
+import { plural } from "@/utils/format";
 import ContextCapturePreflight from "./ContextCapturePreflight.vue";
 import ContextCaptureProgress from "./ContextCaptureProgress.vue";
 import ContextCaptureViewer from "./ContextCaptureViewer.vue";
@@ -121,10 +122,10 @@ onMounted(capture.setup);
             </span>
             <span class="capture-list__metrics">
               <span>{{ formatBytes(item.rawBodyBytes) }}</span>
-              <span>{{ item.messageCount }} items</span>
-              <span>{{ item.toolCount }} tools</span>
+              <span>{{ plural(item.messageCount, "item") }}</span>
+              <span>{{ plural(item.toolCount, "tool") }}</span>
               <Badge v-if="item.warningCount" variant="warning">
-                {{ item.warningCount }} notes
+                {{ plural(item.warningCount, "note") }}
               </Badge>
             </span>
           </button>

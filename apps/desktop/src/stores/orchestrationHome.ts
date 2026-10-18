@@ -5,30 +5,71 @@ import {
   listRegisteredRepos,
   listSessions,
 } from "@tracepilot/client";
-import type { CopilotVersion, RegisteredRepo, SystemDependencies } from "@tracepilot/types";
-import { type AsyncGuardToken, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
+import type {
+  CopilotVersion,
+  RegisteredRepo,
+  RunStatus,
+  SessionListItem,
+  SessionSource,
+  SystemDependencies,
+} from "@tracepilot/types";
+import {
+  type AsyncGuardToken,
+  projectLabelFromCwd,
+  toErrorMessage,
+  useAsyncGuard,
+} from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useWorktreesStore } from "@/stores/worktrees";
 import { logWarn } from "@/utils/logger";
 import { allSettledRecord } from "@/utils/settledRecord";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
+/** One recently active session in the Command Centre's feed. */
 export interface ActivityEvent {
-  id: string;
-  type:
-    | "session_launched"
-    | "session_error"
-    | "batch_completed"
-    | "budget_alert"
-    | "config_changed";
-  message: string;
-  timestamp: string;
+  sessionId: string;
+  /** The session's summary; null when it has none yet. */
+  title: string | null;
+  /** The repository, else the working directory's folder. */
+  location: string | null;
+  isRunning: boolean;
+  runStatus?: RunStatus;
+  source?: SessionSource;
+  /** When it was last active; null when the session records no time. */
+  timestamp: string | null;
+}
+
+const FEED_SIZE = 6;
+
+function lastActive(s: SessionListItem): string | null {
+  return s.updatedAt ?? s.createdAt ?? null;
+}
+
+/** Sorting key; a session with no readable time sorts last. */
+function activeMs(s: SessionListItem): number {
+  const ms = Date.parse(lastActive(s) ?? "");
+  return Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+}
+
+function toActivityEvent(s: SessionListItem): ActivityEvent {
+  return {
+    sessionId: s.id,
+    title: s.summary || null,
+    location: s.repository || projectLabelFromCwd(s.cwd),
+    isRunning: s.isRunning,
+    runStatus: s.runStatus,
+    source: s.source,
+    timestamp: lastActive(s),
+  };
 }
 
 export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => {
   const systemDeps = ref<SystemDependencies | null>(null);
-  const totalSessions = ref(0);
+  const sessions = ref<SessionListItem[]>([]);
+  /** Sessions arrive after the page renders; until then their counts are unknown. */
+  const sessionsLoaded = ref(false);
   const activeSessions = ref(0);
   /** Running sessions whose process reports it is working, or waiting for input. */
   const workingSessions = ref(0);
@@ -39,7 +80,6 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const loading = ref(false);
   const refreshing = ref(false);
   const error = ref<string | null>(null);
-  const activityFeed = ref<ActivityEvent[]>([]);
   const lastInitialized = ref(0);
   const loadGuard = useAsyncGuard();
 
@@ -48,6 +88,22 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const worktreeCount = computed(() => worktreesStore.worktreeCount);
   const staleWorktreeCount = computed(() => worktreesStore.staleCount);
   const totalDiskUsage = computed(() => worktreesStore.totalDiskUsage);
+
+  // The sessions the session list shows, so the counts here match the sidebar's.
+  const prefs = usePreferencesStore();
+  const visibleSessions = computed(() =>
+    prefs.hideEmptySessions
+      ? sessions.value.filter((s) => (s.turnCount ?? 0) !== 0)
+      : sessions.value,
+  );
+  const totalSessions = computed(() => visibleSessions.value.length);
+  const hiddenEmptySessions = computed(() => sessions.value.length - visibleSessions.value.length);
+  const activityFeed = computed<ActivityEvent[]>(() =>
+    [...visibleSessions.value]
+      .sort((a, b) => activeMs(b) - activeMs(a))
+      .slice(0, FEED_SIZE)
+      .map(toActivityEvent),
+  );
 
   const isHealthy = computed(() => {
     if (!systemDeps.value) return false;
@@ -119,29 +175,22 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
 
       if (!loadGuard.isValid(token)) return;
 
-      const sessions = bgSettled.sessions.status === "fulfilled" ? bgSettled.sessions.value : [];
       const versionsData =
         bgSettled.versions.status === "fulfilled" ? bgSettled.versions.value : [];
 
       // Surface background loading errors
       error.value = aggregateSettledErrors(Object.values(bgSettled));
 
-      totalSessions.value = sessions.length;
-      const running = sessions.filter((s) => s.isRunning);
+      // A failed refresh keeps the sessions already on screen.
+      if (bgSettled.sessions.status === "fulfilled") {
+        sessions.value = bgSettled.sessions.value;
+        sessionsLoaded.value = true;
+      }
+      const running = sessions.value.filter((s) => s.isRunning);
       activeSessions.value = running.length;
       workingSessions.value = running.filter((s) => s.runStatus === "busy").length;
       waitingSessions.value = running.filter((s) => s.runStatus === "waiting").length;
       versions.value = versionsData;
-
-      // Generate activity feed from recent sessions
-      activityFeed.value = sessions.slice(0, 6).map((s, i) => ({
-        id: `feed-${i}`,
-        type: s.isRunning ? ("session_launched" as const) : ("batch_completed" as const),
-        message: s.isRunning
-          ? `Session started in ${s.repository ?? "unknown"}`
-          : `Session completed in ${s.repository ?? "unknown"}`,
-        timestamp: s.updatedAt ?? s.createdAt ?? new Date().toISOString(),
-      }));
 
       // Load worktree stats from all registered repos
       await doLoadWorktreeStatsFromRegistry(token);
@@ -185,7 +234,9 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
 
   return {
     systemDeps,
+    sessionsLoaded,
     totalSessions,
+    hiddenEmptySessions,
     activeSessions,
     workingSessions,
     waitingSessions,

@@ -54,9 +54,10 @@ describe("useOrchestrationHomeStore - errors and edge cases", () => {
 
       await store.initialize();
 
-      // Error should be set, but data resets to defaults (store design)
+      // The error is surfaced, and the sessions already loaded stay rather than reading as none.
       expect(store.error).toContain("Refresh failed");
-      expect(store.totalSessions).toBe(0); // Promise.allSettled returns empty array on failure
+      expect(store.totalSessions).toBe(3);
+      expect(store.sessionsLoaded).toBe(true);
     });
 
     it("handles network errors in background path", async () => {
@@ -139,7 +140,9 @@ describe("useOrchestrationHomeStore - errors and edge cases", () => {
       const store = useOrchestrationHomeStore();
       await store.initialize();
 
-      expect(store.activityFeed[0].message).toContain("unknown");
+      // No repository and no folder: the row names neither, rather than "unknown".
+      expect(store.activityFeed[0].location).toBeNull();
+      expect(store.activityFeed[0].sessionId).toBe("session-1");
     });
   });
 });

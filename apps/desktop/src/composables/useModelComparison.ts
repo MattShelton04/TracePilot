@@ -1,8 +1,8 @@
 import { computed, type InjectionKey, inject, reactive, ref, watch } from "vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
-import { repositoryFilterLabel } from "@/stores/sessions/filtering";
 import { analyticsTotalCostUsd } from "@/utils/analyticsCostSeries";
+import { analyticsScopeWords } from "@/utils/analyticsDashboard";
 import { MODEL_PALETTE, MODEL_TAIL_COLOR } from "@/utils/chartColors";
 import {
   bestCostIndex,
@@ -44,8 +44,8 @@ export function useModelComparison() {
   const data = computed(() => store.analytics);
 
   const pageSubtitle = computed(() => {
-    const repoSuffix = store.selectedRepo ? ` in ${repositoryFilterLabel(store.selectedRepo)}` : "";
-    return `Performance and cost metrics across all ${store.sourcePrefix}models${repoSuffix}`;
+    const { all, suffix } = analyticsScopeWords(store);
+    return `Performance and cost metrics across ${all}${store.sourcePrefix}models${suffix}`;
   });
 
   const modelRows = computed<ModelRow[]>(() => {

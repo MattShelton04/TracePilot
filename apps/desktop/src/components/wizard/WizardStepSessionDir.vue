@@ -3,6 +3,7 @@ import type { ValidateSessionDirResult } from "@tracepilot/client";
 import { COPILOT_HOME_PLACEHOLDER } from "@tracepilot/types";
 import { FormSwitch } from "@tracepilot/ui";
 import { AlertTriangle, FolderOpen, Info } from "lucide-vue-next";
+import { plural } from "@/utils/format";
 
 defineProps<{
   copilotHome: string;
@@ -82,7 +83,7 @@ const emit = defineEmits<{
           v-else-if="validationResult?.valid && validationResult.sessionCount > 0"
           class="validation-msg success"
         >
-          ✓ Found {{ validationResult.sessionCount }} sessions
+          ✓ Found {{ plural(validationResult.sessionCount, "session") }}
         </div>
         <div
           v-else-if="validationResult && validationResult.sessionCount === 0"

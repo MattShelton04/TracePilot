@@ -4,6 +4,7 @@ import { isNonCopilotSource, modelDisplayName, sourceLabel } from "@tracepilot/t
 import { Badge, projectLabelFromCwd } from "@tracepilot/ui";
 import { computed } from "vue";
 import SessionPicker from "@/components/SessionPicker.vue";
+import { plural } from "@/utils/format";
 
 const props = defineProps<{
   sessions: readonly SessionListItem[];
@@ -43,8 +44,8 @@ const folderProject = computed(() =>
         <Badge v-if="selectedSession.currentModel" variant="neutral" :title="selectedSession.currentModel">{{ modelDisplayName(selectedSession.currentModel, selectedSession.source) }}</Badge>
       </div>
       <div v-if="sectionsInfo" class="session-info-stats">
-        <span v-if="sectionsInfo.turnCount != null">{{ sectionsInfo.turnCount }} turns</span>
-        <span v-if="sectionsInfo.eventCount != null">· {{ sectionsInfo.eventCount }} events</span>
+        <span v-if="sectionsInfo.turnCount != null">{{ plural(sectionsInfo.turnCount, "turn") }}</span>
+        <span v-if="sectionsInfo.eventCount != null">· {{ plural(sectionsInfo.eventCount, "event") }}</span>
       </div>
     </div>
   </section>

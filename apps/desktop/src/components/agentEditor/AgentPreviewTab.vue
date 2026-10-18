@@ -12,6 +12,7 @@ import {
   renderPromptPreview,
   resolvePlaceholderText,
 } from "@/utils/agents/placeholders";
+import { plural } from "@/utils/format";
 
 const ctx = useAgentEditorContext();
 
@@ -41,7 +42,7 @@ const placeholders = computed(() => {
           effort: {{ ctx.fields.reasoningEffort }}
         </span>
         <span class="badge badge-neutral">
-          {{ ctx.fields.tools ? `${ctx.fields.tools.length} tools` : "all tools" }}
+          {{ ctx.fields.tools ? plural(ctx.fields.tools.length, "tool") : "all tools" }}
         </span>
       </div>
     </div>
@@ -56,6 +57,8 @@ const placeholders = computed(() => {
     </ul>
 
     <MarkdownContent v-if="rendered.trim()" class="preview-markdown" :content="rendered" />
+    <p v-else-if="ctx.isEmbedded" class="preview-empty">The CLI keeps this agent's prompt inside its binary, so there is none to preview.</p>
+    <p v-else-if="ctx.isSessionOnly" class="preview-empty">With no definition file, there is no prompt to preview.</p>
     <p v-else class="preview-empty">This agent has no prompt body.</p>
   </div>
 </template>

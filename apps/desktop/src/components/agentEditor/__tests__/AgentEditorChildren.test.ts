@@ -13,6 +13,7 @@ import AgentMetadataForm from "../AgentMetadataForm.vue";
 import AgentModelList from "../AgentModelList.vue";
 import AgentOverrideDialog from "../AgentOverrideDialog.vue";
 import AgentPreviewTab from "../AgentPreviewTab.vue";
+import AgentRecentRuns from "../AgentRecentRuns.vue";
 import AgentUsageTab from "../AgentUsageTab.vue";
 
 enableAutoUnmount(afterEach);
@@ -298,5 +299,46 @@ describe("AgentOverrideDialog", () => {
     await toggleDisabledAndApply(wrapper);
     expect(wrapper.find('[role="alert"]').exists()).toBe(false);
     expect(wrapper.getComponent(AgentOverrideDialog).emitted("update:visible")).toEqual([[false]]);
+  });
+});
+
+describe("AgentRecentRuns", () => {
+  const run = {
+    sessionId: "s-1",
+    sessionSummary: "Map the parser",
+    repository: null,
+    runKey: "r-1",
+    toolCallId: null,
+    displayName: null,
+    description: null,
+    startedAt: null,
+    outcome: "completed" as const,
+    errorText: null,
+    model: "claude-opus-5-5",
+    durationMs: null,
+    totalTokens: null,
+    totalToolCalls: 1,
+    ownNanoAiu: null,
+    depth: 0,
+    parentAgentName: null,
+    turnIndex: 0,
+    eventIndex: null,
+  };
+
+  it("names the model the way the rest of the app does, and agrees the noun", () => {
+    const wrapper = mount(AgentRecentRuns, { props: { runs: [run] } });
+    const model = wrapper.get(".runs__model");
+    expect(model.text()).toBe("claude-opus-5.5");
+    expect(model.attributes("title")).toBe("claude-opus-5-5");
+    expect(wrapper.text()).toContain("1 tool");
+    expect(wrapper.text()).not.toContain("1 tools");
+  });
+
+  it("keeps a Copilot model id as recorded", () => {
+    const wrapper = mount(AgentRecentRuns, {
+      props: { runs: [{ ...run, model: "gpt-5.4-mini", totalToolCalls: 3 }] },
+    });
+    expect(wrapper.get(".runs__model").text()).toBe("gpt-5.4-mini");
+    expect(wrapper.text()).toContain("3 tools");
   });
 });

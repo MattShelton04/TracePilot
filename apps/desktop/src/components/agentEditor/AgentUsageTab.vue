@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { calculateObservedAiCredits } from "@tracepilot/types";
+import { calculateObservedAiCredits, modelDisplayName } from "@tracepilot/types";
 import {
   formatAiCreditsUsd,
   formatDuration,
@@ -126,7 +126,8 @@ const models = computed<BreakdownRow[]>(() => {
   if (!value) return [];
   const rows = value.topModels.map((model) => ({
     key: model.label,
-    label: model.label,
+    // Named as Recent runs name it: a known Claude Code id by its family.
+    label: modelDisplayName(model.label, "claudeCode"),
     value: model.runs,
   }));
   const missing = value.runs - rows.reduce((sum, row) => sum + row.value, 0);
