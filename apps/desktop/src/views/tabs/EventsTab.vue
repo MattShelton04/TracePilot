@@ -5,12 +5,12 @@ import {
   ErrorAlert,
   ExpandChevron,
   FilterSelect,
-  formatTime,
   useSessionTabLoader,
 } from "@tracepilot/ui";
 import { computed, ref, useId, watch } from "vue";
 import EventPayload from "@/components/events/EventPayload.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { eventTimeLabel, timestampsSpanDays } from "@/utils/sessionOverview";
 
 const store = useSessionDetailContext();
 const filterType = ref<string | null>(null);
@@ -101,11 +101,22 @@ function eventBadgeVariant(
   return "neutral";
 }
 
+// A session that crosses midnight (or was resumed another day) dates every
+// row, on every page, so clock times alone never look out of order.
+const withDates = computed(() =>
+  timestampsSpanDays([
+    store.detail?.createdAt,
+    store.detail?.updatedAt,
+    ...displayEvents.value.map((e) => e.timestamp),
+  ]),
+);
+
 const tableRows = computed(() =>
   displayEvents.value.map((e, idx) => {
     const rowNum = currentPage.value * pageSize + idx + 1;
     // Stable across a refresh of the same page, since events only append.
-    return { ...e, rowNum, key: `${rowNum}:${e.id ?? ""}` };
+    const time = eventTimeLabel(e.timestamp, withDates.value);
+    return { ...e, rowNum, time, key: `${rowNum}:${e.id ?? ""}` };
   }),
 );
 
@@ -206,7 +217,7 @@ function retryLoadEvents() {
               <td><span class="text-xs text-[var(--text-tertiary)]">{{ row.rowNum }}</span></td>
               <td><Badge :variant="eventBadgeVariant(row.eventType)">{{ row.eventType }}</Badge></td>
               <td>
-                <span class="text-xs text-[var(--text-secondary)]">{{ formatTime(row.timestamp) }}</span>
+                <span class="text-xs text-[var(--text-secondary)]" :title="row.time.title">{{ row.time.text }}</span>
               </td>
               <td>
                 <span class="max-w-[200px] truncate font-mono text-xs text-[var(--text-tertiary)] block">

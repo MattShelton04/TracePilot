@@ -46,8 +46,9 @@ function projectOf(session: SessionListItem): string | null {
   return session.repository || projectLabelFromCwd(session.cwd);
 }
 
+/** The summary, else "Session <short id>" as the breadcrumb and palette name it. */
 function sessionName(session: SessionListItem): string {
-  return session.summary || session.id.slice(0, 12);
+  return session.summary || `Session ${session.id.slice(0, 8)}`;
 }
 
 /** "Name — project", or just the name when nothing identifies the project. */
