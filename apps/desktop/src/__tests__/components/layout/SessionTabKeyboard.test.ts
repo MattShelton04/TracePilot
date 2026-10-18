@@ -24,7 +24,7 @@ async function setup() {
       setup: () => () =>
         h("div", [
           h("a", { href: "#/", "data-nav-id": "sessions" }, "Sessions"),
-          h(SessionTabStrip, { isSessionRoute: true, onGoHome: () => store.deactivateAll() }),
+          h(SessionTabStrip, { isSessionListRoute: true, onGoHome: () => store.deactivateAll() }),
         ]),
     }),
     { attachTo: document.body },

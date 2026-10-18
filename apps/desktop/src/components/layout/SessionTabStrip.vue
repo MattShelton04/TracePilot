@@ -27,8 +27,8 @@ import SessionTab from "./SessionTab.vue";
 import SessionTabContextMenu from "./SessionTabContextMenu.vue";
 
 const props = defineProps<{
-  /** Whether the current route is a session-compatible route (home, session list, session detail) */
-  isSessionRoute?: boolean;
+  /** Whether the session list route is showing (not a session detail page or another view) */
+  isSessionListRoute?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -56,8 +56,10 @@ watch(
   },
 );
 
-/** Home pill is "active" only when no tab is selected AND we're on a session route */
-const isHomeActive = computed(() => activeTabId.value === null && (props.isSessionRoute ?? true));
+/** Home pill is "active" only when no tab is selected AND the session list is showing */
+const isHomeActive = computed(
+  () => activeTabId.value === null && (props.isSessionListRoute ?? true),
+);
 
 watch(
   () => [activeTabId.value, ...tabs.value.map((tab) => tab.sessionId)],
