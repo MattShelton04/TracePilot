@@ -204,7 +204,9 @@ export function buildAgentCommunications(
       const result = parseWriteAgentResult(tc.resultContent);
       const addressed = resolveKeys(
         directory,
-        target.kind === "agents" ? target.agentIds : (result?.deliveries.map((d) => d.agentId) ?? []),
+        target.kind === "agents"
+          ? target.agentIds
+          : (result?.deliveries.map((d) => d.agentId) ?? []),
       );
       let toKeys = addressed.keys;
       if (!toKeys.length && target.kind === "scope") {

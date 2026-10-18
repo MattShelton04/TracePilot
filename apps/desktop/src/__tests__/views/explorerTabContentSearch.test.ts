@@ -25,7 +25,13 @@ vi.mock("@/composables/useSessionDetailContext", () => ({
 }));
 
 const entries: SessionFileEntry[] = [
-  { path: "events.jsonl", name: "events.jsonl", sizeBytes: 90, isDirectory: false, fileType: "jsonl" },
+  {
+    path: "events.jsonl",
+    name: "events.jsonl",
+    sizeBytes: 90,
+    isDirectory: false,
+    fileType: "jsonl",
+  },
   {
     path: "workspace.yaml",
     name: "workspace.yaml",
@@ -57,7 +63,10 @@ async function searchContent(query: string) {
   });
   await flushPromises();
   await wrapper.get('[aria-label="Search files"]').trigger("click");
-  await wrapper.findAll('[role="radio"]').find((b) => b.text() === "Content")?.trigger("click");
+  await wrapper
+    .findAll('[role="radio"]')
+    .find((b) => b.text() === "Content")
+    ?.trigger("click");
   await wrapper.get('input[aria-label="Search file contents"]').setValue(query);
   await vi.advanceTimersByTimeAsync(400);
   await flushPromises();
