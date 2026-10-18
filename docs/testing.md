@@ -100,7 +100,10 @@ The security job verifies the checksum of RustSec's pinned cargo-audit binary
 before installation and still refreshes the advisory database on every run.
 It runs the CLI directly rather than `rustsec/audit-check`, which needed to
 publish a check run and failed on read-only (Dependabot and fork) tokens.
-Vulnerabilities fail the job; informational notices stay in its log.
+Vulnerabilities fail the job; informational notices stay in its log. The
+only exceptions are the ignores in `.cargo/audit.toml`. Each one needs a row in
+the [accepted advisories](dependencies/security.md#accepted-rustsec-advisories)
+table that gives its reachability evidence and the upgrade that removes it.
 
 The policy job checks workflow syntax, expressions and embedded Bash with
 checksum-pinned actionlint 1.7.12 and the runner's ShellCheck, in addition to

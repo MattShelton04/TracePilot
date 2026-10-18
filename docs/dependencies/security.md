@@ -19,6 +19,21 @@ The baseline is commit `e3ff0935641de98b96da49f9c2c9fb5b83e3cbf1`, scanned on 20
 
 The final lock selects `anyhow 1.0.104`, `event-listener 5.4.2`, and `lru 0.18.5`, clearing four RustSec warning instances. It selects Vite 6.4.3, Vitest and `@vitest/mocker` 4.1.11, brace-expansion 2.1.7 and 5.0.12, picomatch 4.0.7, js-cookie 3.0.8, undici 7.30.0, and esbuild 0.28.2 for the nine pnpm groups; the final full audit reports zero findings. `tsx 4.23.15` also refreshes its build-tool path. The pnpm executable itself is separately pinned to 10.34.5 in the root package, setup action, and CI, addressing [GHSA-vx52-2968-3vc6](https://github.com/advisories/GHSA-vx52-2968-3vc6); `pnpm audit` cannot audit its own executable outside the project lock graph. The root declares Lefthook 2.1.14, blocks its automatic install script, and exposes explicit `pnpm hooks:install` for opt-in hook installation.
 
+## Accepted RustSec advisories
+
+`.cargo/audit.toml` (mirrored in `deny.toml`) ignores the advisories below
+because no fixed version is reachable through the dependents. Each row says why
+the affected API isn't exposed and what removes the ignore. Delete the ignore
+once the lock no longer contains an affected version.
+
+On 2026-10-18 the same `cargo audit` run also raised four `rustls 0.23.45`
+advisories (RUSTSEC-2026-0346 to 0349). The lock now selects 0.23.46, which
+clears them without an ignore.
+
+| Advisory | Affected path and exposure | Removal |
+| --- | --- | --- |
+| [RUSTSEC-2026-0367](https://rustsec.org/advisories/RUSTSEC-2026-0367.html), [RUSTSEC-2026-0368](https://rustsec.org/advisories/RUSTSEC-2026-0368.html), [RUSTSEC-2026-0369](https://rustsec.org/advisories/RUSTSEC-2026-0369.html) `zip 2.4.2`, `zip 4.6.1` | `ZipArchive::extract`/`ZipStreamReader::extract` keep SUID/SGID bits, follow symlink targets out of the destination, and apply Unix permissions through symlinks; the fix is in `>=9.0.0`. Three paths include zip. **zip 2**: a build dependency of `github-copilot-sdk 1.0.14`, whose build script reads entries with `by_index` and never calls `extract()`; `COPILOT_SKIP_CLI_DOWNLOAD` also stops it from unpacking anything. **zip 4, updater**: `tauri-plugin-updater 2.x`, which calls `extract()` only in the Windows installer path and only after minisign verification against the app's public key; `createUpdaterArtifacts: true` ships signed `.exe`/`.msi` files, not zips. **zip 4, export**: TracePilot's own export uses `ZipWriter` only. | Upgrade once `tauri-plugin-updater` and `github-copilot-sdk` accept zip `>=9`. The SDK's 1.0.22 still uses zip ^7 and the updater's 2.14.0 still uses zip ^4. |
+
 ## RustSec warning disposition
 
 The table covers all **14 baseline warning instances**, including both distinct `lru` advisories. RustSec classifies these as `unsound` or `unmaintained`, rather than scored vulnerabilities; severity and exploitability are not interchangeable. “Cleared” means the warning no longer appears in the final lock scan. “Retained” means the graph still contains the warning and needs an upstream ecosystem migration or further exposure evidence. No first-party callsite found is narrower than proof that transitive code cannot call an affected API.

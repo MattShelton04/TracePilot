@@ -4,7 +4,12 @@
 
 [advisories]
 version = 2
-ignore = []
+# Keep in sync with .cargo/audit.toml; evidence in docs/dependencies/security.md.
+ignore = [
+    { id = "RUSTSEC-2026-0367", reason = "zip < 9 extract(); no first-party or reachable unsigned extraction" },
+    { id = "RUSTSEC-2026-0368", reason = "zip < 9 extract(); no first-party or reachable unsigned extraction" },
+    { id = "RUSTSEC-2026-0369", reason = "zip < 9 extract(); no first-party or reachable unsigned extraction" },
+]
 
 [bans]
 multiple-versions = "warn"
