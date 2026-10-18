@@ -261,8 +261,18 @@ from them: the timestamp still sets the next call's `requested_at` and dates the
 (`ClaudeParse::request_times`). They are counted in `request_records`, never as unmapped
 types. The Context tab's "Recorded requests" view reads the shapes and calls on demand
 (`get_session_request_log`); it never reads `params.safeguards`, which holds the safety
-classifier's context (identity, home directory, rules). Exports replace `shape`, `message`,
-`params`, `tail` and `base` with the redaction marker.
+classifier's context (identity, home directory, rules). It returns the most recently used
+shapes (at most 24 and about 2 MB) and the latest 2,000 calls, and names the shapes it left
+out. Exports keep only an `api-request*` record's bookkeeping keys (`type`, `timestamp`,
+`version`, `uuid`, `id`, `hash`, `shapeHash`, `querySource`, `sessionId`, `agentId`) and
+replace every other key with the redaction marker, so a body a later version adds is covered.
+
+Earlier builds made an event of each record. A session indexed by one stored those types as
+unmapped format observations, and its search rows, agent runs and skill invocations point at
+event indexes that now belong to other events. The indexer treats a Claude Code session whose
+observations list an `api-request*` type as stale: its metadata is re-indexed, which marks its
+search content stale too, and the new rows no longer list those types, so this happens once
+per session and needs no analytics or extractor version bump.
 
 Real-data probe (October 2026): every `api-request`'s `shapeHash` names a shape recorded
 earlier in the same file, and `base` names an earlier request 98.5% of the time. About half

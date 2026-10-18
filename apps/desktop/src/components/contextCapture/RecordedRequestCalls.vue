@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import type { RecordedCall } from "@tracepilot/types";
-import { EmptyState, formatNumberFull, formatShortDate, formatTime } from "@tracepilot/ui";
+import { modelDisplayName } from "@tracepilot/types";
+import { EmptyState, formatNumberFull, formatShortDate, formatTime, Tooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useClientPager } from "@/composables/useClientPager";
-import { recordedAgentLabel } from "./recordedRequests";
+import { recordedAgentLabel, recordedCallSetLabel } from "./recordedRequests";
 
 const props = defineProps<{
   calls: RecordedCall[];
   totalCalls: number;
   /** Shape hash → its label, to name each call's prompt and tool set. */
   shapeLabels: Map<string, string>;
+  /** Hashes of recorded sets the log left out. */
+  omittedHashes: ReadonlySet<string>;
 }>();
 
 const PAGE_SIZE = 50;
@@ -19,7 +22,7 @@ const { page, pageCount, pageRows } = useClientPager(rows, PAGE_SIZE, [() => pro
 
 /** The call's prompt and tool set when its name adds to the agent's, and what made it. */
 function detail(call: RecordedCall): string {
-  const set = call.shapeHash ? (props.shapeLabels.get(call.shapeHash) ?? "Unrecorded set") : null;
+  const set = recordedCallSetLabel(call, props.shapeLabels, props.omittedHashes);
   const named = set && set !== recordedAgentLabel(call) ? set : null;
   return [named, call.querySource].filter(Boolean).join(" · ");
 }
@@ -71,12 +74,16 @@ function settings(call: RecordedCall): string {
             <span>{{ recordedAgentLabel(call) }}</span>
             <small v-if="detail(call)">{{ detail(call) }}</small>
           </span>
-          <span role="cell"><code>{{ call.model ?? "Unknown" }}</code></span>
+          <span role="cell" :title="call.model ?? undefined">
+            {{ call.model ? modelDisplayName(call.model, "claudeCode") : "Unknown" }}
+          </span>
           <span role="cell" class="recorded-calls__settings">
             <span>{{ settings(call) || "Default" }}</span>
-            <small v-if="call.betas.length">
-              {{ call.betas.length }} beta{{ call.betas.length === 1 ? "" : "s" }}
-            </small>
+            <Tooltip v-if="call.betas.length" :text="call.betas.join(', ')" position="bottom">
+              <small tabindex="0">
+                {{ call.betas.length }} beta{{ call.betas.length === 1 ? "" : "s" }}
+              </small>
+            </Tooltip>
           </span>
           <span role="cell" class="recorded-calls__number">
             {{ call.maxTokens == null ? "—" : formatNumberFull(call.maxTokens) }}
@@ -163,11 +170,6 @@ function settings(call: RecordedCall): string {
   font-size: 0.6875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.recorded-calls code {
-  font-size: inherit;
-  overflow-wrap: anywhere;
 }
 
 .recorded-calls__pager {

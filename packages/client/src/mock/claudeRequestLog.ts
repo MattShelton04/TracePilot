@@ -92,6 +92,7 @@ export const MOCK_CLAUDE_REQUEST_LOG: RequestLog = {
     },
   ],
   omittedShapes: 0,
+  omittedShapeHashes: [],
   calls: [
     call(-30, "mock-shape-main", null, false),
     call(-28, "mock-shape-main", null, true),
@@ -110,12 +111,14 @@ export const MOCK_CLAUDE_REQUEST_LOG: RequestLog = {
   records: 14,
   unreadableRecords: 0,
   files: 2,
+  unreadableFiles: 0,
 };
 
 /** A session written before Claude Code recorded requests. */
 export const MOCK_EMPTY_REQUEST_LOG: RequestLog = {
   shapes: [],
   omittedShapes: 0,
+  omittedShapeHashes: [],
   calls: [],
   totalCalls: 0,
   callsWithoutShape: 0,
@@ -124,4 +127,5 @@ export const MOCK_EMPTY_REQUEST_LOG: RequestLog = {
   records: 0,
   unreadableRecords: 0,
   files: 1,
+  unreadableFiles: 0,
 };

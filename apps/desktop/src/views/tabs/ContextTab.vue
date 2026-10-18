@@ -641,6 +641,7 @@ function retryLoad() {
     <RecordedRequestsPanel
       v-if="showRecordedRequests && contextView === 'snapshots' && store.sessionId"
       :session-id="store.sessionId"
+      :refresh-key="store.detail"
     />
   </div>
 </template>

@@ -5,10 +5,15 @@ import { computed, type MaybeRefOrGetter, ref, toValue, watch } from "vue";
 
 /**
  * What Claude Code recorded of a session's API requests, loaded when the
- * "Recorded requests" view opens and again for each session. A late answer
- * for an earlier session is dropped.
+ * "Recorded requests" view opens, again for each session, and again when
+ * `refreshKey` changes (the session's data was refreshed), keeping the
+ * current log on screen meanwhile. A late answer for an earlier load is
+ * dropped.
  */
-export function useClaudeRequestLog(sessionId: MaybeRefOrGetter<string | null | undefined>) {
+export function useClaudeRequestLog(
+  sessionId: MaybeRefOrGetter<string | null | undefined>,
+  refreshKey?: MaybeRefOrGetter<unknown>,
+) {
   const guard = useAsyncGuard();
   const log = ref<RequestLog | null>(null);
   const loading = ref(false);
@@ -47,6 +52,14 @@ export function useClaudeRequestLog(sessionId: MaybeRefOrGetter<string | null | 
       void load();
     },
     { immediate: true },
+  );
+
+  // A load already under way for this session answers with fresh data.
+  watch(
+    () => toValue(refreshKey),
+    () => {
+      if (log.value && !loading.value) void load();
+    },
   );
 
   const selectedShape = computed<RecordedShape | null>(

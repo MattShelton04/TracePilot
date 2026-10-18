@@ -4,7 +4,19 @@ import { EmptyState, formatBytes } from "@tracepilot/ui";
 import { ref } from "vue";
 import ContextCaptureJsonViewer from "./ContextCaptureJsonViewer.vue";
 
-defineProps<{ tools: NormalizedToolDefinition[] }>();
+withDefaults(
+  defineProps<{
+    tools: NormalizedToolDefinition[];
+    /** The line under the heading; captured requests use the default. */
+    description?: string;
+    /** The empty state's text. */
+    emptyDescription?: string;
+  }>(),
+  {
+    description: "Tools advertised to the model by this request.",
+    emptyDescription: "This request did not advertise any tools to the model.",
+  },
+);
 const expanded = ref(new Set<number>());
 
 interface InputField {
@@ -59,13 +71,13 @@ function inputFields(tool: NormalizedToolDefinition): InputField[] {
   <div class="capture-tools">
     <div class="capture-tools__header">
       <strong>Tool definitions</strong>
-      <p>Tools advertised to the model by this request.</p>
+      <p>{{ description }}</p>
     </div>
 
     <EmptyState
       v-if="tools.length === 0"
       title="No tool definitions"
-      description="This request did not advertise any tools to the model."
+      :description="emptyDescription"
     />
 
     <div v-else class="capture-tools__list">

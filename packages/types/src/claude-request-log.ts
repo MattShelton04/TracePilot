@@ -6,9 +6,14 @@ import type { NormalizedSection, NormalizedToolDefinition } from "./context-capt
  * and each call's parameters. Not a capture of the wire request.
  */
 export interface RequestLog {
-  /** Distinct system prompt and tool sets, by first use (at most 24). */
+  /**
+   * Distinct system prompt and tool sets, by first use: the most recently
+   * used, at most 24 and about 2 MB of prompt and tool text.
+   */
   shapes: RecordedShape[];
   omittedShapes: number;
+  /** The hashes of sets left out, so their calls aren't taken for unrecorded. */
+  omittedShapeHashes: string[];
   /** The latest calls, oldest first (at most 2,000). */
   calls: RecordedCall[];
   totalCalls: number;
@@ -22,6 +27,8 @@ export interface RequestLog {
   records: number;
   unreadableRecords: number;
   files: number;
+  /** Subagent files that couldn't be read; the rest are listed. */
+  unreadableFiles: number;
 }
 
 export interface RecordedShape {
@@ -30,6 +37,10 @@ export interface RecordedShape {
   calls: number;
   agents: RecordedAgent[];
   system: NormalizedSection[];
+  /**
+   * Each tool's `raw` holds only its fields other than `name`, `description`
+   * and `input_schema`; `recordedToolDefinitions` rebuilds the definition.
+   */
   tools: NormalizedToolDefinition[];
   systemBytes: number;
   toolBytes: number;

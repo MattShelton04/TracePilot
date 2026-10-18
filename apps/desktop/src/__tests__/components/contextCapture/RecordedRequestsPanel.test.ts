@@ -55,6 +55,7 @@ function log(overrides: Partial<RequestLog> = {}): RequestLog {
       },
     ],
     omittedShapes: 0,
+    omittedShapeHashes: [],
     calls: [
       {
         timestamp: "2026-10-17T00:00:00Z",
@@ -82,13 +83,16 @@ function log(overrides: Partial<RequestLog> = {}): RequestLog {
     records: 9,
     unreadableRecords: 0,
     files: 2,
+    unreadableFiles: 0,
     ...overrides,
   };
 }
 
-function mountPanel(sessionId = "session-a") {
-  return mount(RecordedRequestsPanel, { props: { sessionId } });
+function mountPanel(sessionId = "session-a", refreshKey: unknown = 1) {
+  return mount(RecordedRequestsPanel, { props: { sessionId, refreshKey } });
 }
+
+const call = log().calls[0];
 
 async function open(wrapper: ReturnType<typeof mountPanel>, label: string) {
   await wrapper
@@ -102,14 +106,14 @@ describe("RecordedRequestsPanel", () => {
     vi.mocked(getSessionRequestLog).mockReset();
   });
 
-  it("says plainly that sessions from older Claude Code versions recorded nothing", async () => {
+  it("says plainly when a session has no request records", async () => {
     vi.mocked(getSessionRequestLog).mockResolvedValue(
       log({ shapes: [], calls: [], totalCalls: 0, models: [], agents: [], records: 0 }),
     );
     const wrapper = mountPanel();
     await flushPromises();
     expect(getSessionRequestLog).toHaveBeenCalledWith("session-a");
-    expect(wrapper.text()).toContain("This Claude Code version didn't record requests.");
+    expect(wrapper.text()).toContain("No request records in this session.");
     expect(wrapper.find(".recorded-requests__tabs").exists()).toBe(false);
   });
 
@@ -139,6 +143,68 @@ describe("RecordedRequestsPanel", () => {
     expect(wrapper.text()).toContain("The latest 1 of 4 calls");
     expect(wrapper.text()).toContain("repl_main_thread");
     expect(wrapper.text()).toContain("effort high");
+    expect(wrapper.text()).toContain("claude-opus-5.5");
+    expect(wrapper.text()).not.toContain("claude-opus-5-5");
+  });
+
+  it("reloads when the session's data is refreshed, keeping the log on screen", async () => {
+    let resolveReload: (value: RequestLog) => void = () => {};
+    vi.mocked(getSessionRequestLog)
+      .mockResolvedValueOnce(log())
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveReload = resolve)));
+    const wrapper = mountPanel("session-a", 1);
+    await flushPromises();
+    await open(wrapper, "Calls");
+    expect(wrapper.text()).toContain("The latest 1 of 4 calls");
+
+    await wrapper.setProps({ refreshKey: 2 });
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).toContain("The latest 1 of 4 calls");
+    expect(wrapper.text()).not.toContain("Reading recorded requests");
+
+    resolveReload(
+      log({ calls: [call, { ...call, timestamp: "2026-10-17T00:02:00Z" }], totalCalls: 5 }),
+    );
+    await flushPromises();
+    expect(wrapper.text()).toContain("The latest 2 of 5 calls");
+  });
+
+  it("tells a call whose set was left out from one whose set was never recorded", async () => {
+    vi.mocked(getSessionRequestLog).mockResolvedValue(
+      log({
+        omittedShapes: 1,
+        omittedShapeHashes: ["old"],
+        calls: [
+          { ...call, shapeHash: "old" },
+          { ...call, shapeHash: "missing", timestamp: "2026-10-17T00:01:00Z" },
+        ],
+        callsWithoutShape: 1,
+        unreadableFiles: 1,
+      }),
+    );
+    const wrapper = mountPanel();
+    await flushPromises();
+    expect(wrapper.text()).toContain("1 unreadable subagent file");
+    await open(wrapper, "Calls");
+    expect(wrapper.text()).toContain("Set not shown");
+    expect(wrapper.text()).toContain("Unrecorded set");
+  });
+
+  it("rebuilds each tool's raw definition and uses recorded wording", async () => {
+    vi.mocked(getSessionRequestLog).mockResolvedValue(log());
+    const wrapper = mountPanel();
+    await flushPromises();
+    await open(wrapper, "System");
+    expect(wrapper.text()).toContain("in the order Claude Code recorded them");
+    expect(wrapper.text()).not.toContain("captured API request");
+    await open(wrapper, "Tools");
+    expect(wrapper.text()).toContain("Tools Claude Code recorded");
+    const tools = wrapper.findComponent({ name: "ContextCaptureTools" });
+    expect(tools.props("tools")[0].raw).toEqual({
+      name: "Read",
+      description: "Read a file.",
+      input_schema: { type: "object", properties: {} },
+    });
   });
 
   it("drops a late answer for the previous session", async () => {
@@ -153,7 +219,7 @@ describe("RecordedRequestsPanel", () => {
     await flushPromises();
     resolveFirst(log());
     await flushPromises();
-    expect(wrapper.text()).toContain("This Claude Code version didn't record requests.");
+    expect(wrapper.text()).toContain("No request records in this session.");
   });
 
   it("offers a retry when the log cannot be read", async () => {

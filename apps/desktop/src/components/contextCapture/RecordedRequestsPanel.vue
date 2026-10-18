@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { modelDisplayName } from "@tracepilot/types";
 import {
   EmptyState,
   ErrorAlert,
@@ -16,11 +17,24 @@ import { useClaudeRequestLog } from "@/composables/useClaudeRequestLog";
 import ContextCaptureSystem from "./ContextCaptureSystem.vue";
 import ContextCaptureTools from "./ContextCaptureTools.vue";
 import RecordedRequestCalls from "./RecordedRequestCalls.vue";
-import { recordedAgentLabel, recordedShapeLabels } from "./recordedRequests";
+import {
+  recordedAgentLabel,
+  recordedShapeLabels,
+  recordedToolDefinitions,
+} from "./recordedRequests";
 
-const props = defineProps<{ sessionId: string }>();
+const props = defineProps<{
+  sessionId: string;
+  /** Changes when the session's data was refreshed; the log reloads then. */
+  refreshKey?: unknown;
+}>();
 const { log, loading, error, selectedHash, selectedShape, isEmpty, reload } = useClaudeRequestLog(
   () => props.sessionId,
+  () => props.refreshKey,
+);
+const omittedHashes = computed(() => new Set(log.value?.omittedShapeHashes ?? []));
+const selectedTools = computed(() =>
+  selectedShape.value ? recordedToolDefinitions(selectedShape.value) : [],
 );
 
 type View = "overview" | "system" | "tools" | "calls";
@@ -90,7 +104,7 @@ const composition = computed(() => {
     <EmptyState
       v-else-if="isEmpty"
       title="No recorded requests"
-      description="This Claude Code version didn't record requests. Sessions from Claude Code 2.1.301 and later include each request's system prompt, tools and settings."
+      description="No request records in this session. Claude Code 2.1.301 and later write each request's system prompt, tools and settings to the transcript."
     >
       <template #icon><FileClock /></template>
     </EmptyState>
@@ -175,8 +189,13 @@ const composition = computed(() => {
                 <dt>Models</dt>
                 <dd>
                   <span v-if="log.models.length === 0">None recorded</span>
-                  <span v-for="model in log.models" :key="model.name" class="recorded-requests__item">
-                    <code>{{ model.name }}</code> · {{ formatNumberFull(model.calls) }}
+                  <span
+                    v-for="model in log.models"
+                    :key="model.name"
+                    class="recorded-requests__item"
+                    :title="model.name"
+                  >
+                    {{ modelDisplayName(model.name, "claudeCode") }} · {{ formatNumberFull(model.calls) }}
                   </span>
                 </dd>
               </div>
@@ -193,7 +212,14 @@ const composition = computed(() => {
                   </span>
                 </dd>
               </div>
-              <div v-if="log.omittedShapes || log.callsWithoutShape || log.unreadableRecords">
+              <div
+                v-if="
+                  log.omittedShapes ||
+                  log.callsWithoutShape ||
+                  log.unreadableRecords ||
+                  log.unreadableFiles
+                "
+              >
                 <dt>Not shown</dt>
                 <dd>
                   <span v-if="log.omittedShapes" class="recorded-requests__item">
@@ -205,6 +231,10 @@ const composition = computed(() => {
                   <span v-if="log.unreadableRecords" class="recorded-requests__item">
                     {{ formatNumberFull(log.unreadableRecords) }} unreadable records
                   </span>
+                  <span v-if="log.unreadableFiles" class="recorded-requests__item">
+                    {{ log.unreadableFiles }} unreadable subagent
+                    {{ log.unreadableFiles === 1 ? "file" : "files" }}
+                  </span>
                 </dd>
               </div>
             </dl>
@@ -213,11 +243,21 @@ const composition = computed(() => {
       </div>
 
       <template v-else-if="view === 'system'">
-        <ContextCaptureSystem v-if="selectedShape" :blocks="selectedShape.system" />
+        <ContextCaptureSystem
+          v-if="selectedShape"
+          :blocks="selectedShape.system"
+          description="Blocks are shown in the order Claude Code recorded them for this prompt and tool set."
+          empty-description="Claude Code recorded no system prompt for this prompt and tool set."
+        />
         <EmptyState v-else title="No prompt and tool set" description="Claude Code recorded calls but no system prompt for them." />
       </template>
       <template v-else-if="view === 'tools'">
-        <ContextCaptureTools v-if="selectedShape" :tools="selectedShape.tools" />
+        <ContextCaptureTools
+          v-if="selectedShape"
+          :tools="selectedTools"
+          description="Tools Claude Code recorded for this prompt and tool set."
+          empty-description="Claude Code recorded no tools for this prompt and tool set."
+        />
         <EmptyState v-else title="No prompt and tool set" description="Claude Code recorded calls but no tool list for them." />
       </template>
       <RecordedRequestCalls
@@ -225,6 +265,7 @@ const composition = computed(() => {
         :calls="log.calls"
         :total-calls="log.totalCalls"
         :shape-labels="shapeLabels"
+        :omitted-hashes="omittedHashes"
       />
     </template>
   </div>
@@ -396,10 +437,6 @@ const composition = computed(() => {
   margin: 0;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
-}
-
-.recorded-requests__item code {
-  font-size: inherit;
 }
 
 @media (max-width: 1100px) {
