@@ -65,7 +65,7 @@
       "shutdownMetrics": null,
       "summary": "Sparse session",
       "turnCount": 1,
-      "updatedAt": null
+      "updatedAt": "2026-03-10T07:14:51Z"
     },
     "turns": [
       {
@@ -113,6 +113,6 @@
     "shutdownMetrics": null,
     "summary": "Sparse session",
     "turnCount": 1,
-    "updatedAt": null
+    "updatedAt": "2026-03-10T07:14:51Z"
   }
 }

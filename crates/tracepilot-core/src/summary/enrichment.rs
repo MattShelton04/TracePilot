@@ -1,4 +1,5 @@
 use crate::ids::SessionId;
+use crate::models::SessionEventType;
 use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
@@ -41,6 +42,29 @@ pub fn summary_from_events(
     };
     let turns = apply_event_enrichment(&mut summary, events);
     (summary, turns)
+}
+
+/// [`apply_event_enrichment`] for a summary seeded from Copilot's
+/// `workspace.yaml`, whose `updated_at` can trail the event log (by hours on
+/// older CLIs): `updated_at` becomes the later of the two.
+///
+/// `session.shutdown` does not count. It records the CLI exiting, which can
+/// come long after the last turn, so it would stretch durations with idle
+/// time. Claude Code likewise takes the latest record timestamp.
+pub(super) fn apply_workspace_event_enrichment(
+    summary: &mut SessionSummary,
+    typed_events: &[TypedEvent],
+) -> Vec<ConversationTurn> {
+    let turns = apply_event_enrichment(summary, typed_events);
+    let last_activity = typed_events
+        .iter()
+        .filter(|e| e.event_type != SessionEventType::SessionShutdown)
+        .filter_map(|e| e.raw.timestamp)
+        .max();
+    if let Some(ts) = last_activity {
+        summary.updated_at = Some(summary.updated_at.map_or(ts, |old| old.max(ts)));
+    }
+    turns
 }
 
 /// Enrich summary fields derivable from parsed events.
