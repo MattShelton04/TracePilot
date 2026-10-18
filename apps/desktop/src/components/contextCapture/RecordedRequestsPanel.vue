@@ -186,7 +186,7 @@ const composition = computed(() => {
                 <dd>{{ formatNumberFull(selectedShape.calls) }} with this set</dd>
               </div>
               <div>
-                <dt>Models</dt>
+                <dt>Models in session</dt>
                 <dd>
                   <span v-if="log.models.length === 0">None recorded</span>
                   <span
@@ -200,7 +200,7 @@ const composition = computed(() => {
                 </dd>
               </div>
               <div>
-                <dt>Agents</dt>
+                <dt>Agents in session</dt>
                 <dd>
                   <span v-if="log.agents.length === 0">None recorded</span>
                   <span
