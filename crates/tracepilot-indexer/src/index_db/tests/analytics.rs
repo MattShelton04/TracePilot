@@ -212,6 +212,40 @@ fn test_query_code_impact_groups_paths_across_separators() {
     assert_eq!(rs.count, 2, "one per session");
 }
 
+/// `.MD` and `.md` rows (as already indexed) are one file type, `md`.
+#[test]
+fn test_query_code_impact_groups_extensions_case_insensitively() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let id = "ext-aaaa-1111-1111-1111-111111111111";
+    let s = write_session_with_tools(tmp.path(), id, "org/repo", "2026-03-10T07:15:00Z");
+    db.upsert_session(&s).unwrap();
+    db.conn
+        .execute_batch(&format!(
+            r"DELETE FROM session_modified_files;
+            INSERT INTO session_modified_files (session_id, file_path, extension) VALUES
+                ('{id}', 'README.MD', 'MD'), ('{id}', 'docs/notes.md', 'md'),
+                ('{id}', 'img/Logo.PNG', 'PNG'), ('{id}', 'img/icon.png', 'png');"
+        ))
+        .unwrap();
+
+    let result = db.query_code_impact(None, None, None, false, None).unwrap();
+    let types: Vec<(&str, u32)> = result
+        .file_type_breakdown
+        .iter()
+        .map(|e| (e.extension.as_str(), e.count))
+        .collect();
+    assert_eq!(types.len(), 2, "{types:?}");
+    assert!(types.contains(&("md", 2)), "{types:?}");
+    assert!(types.contains(&("png", 2)), "{types:?}");
+    assert!(
+        result
+            .file_type_breakdown
+            .iter()
+            .all(|e| (e.percentage - 50.0).abs() < 1e-9)
+    );
+}
+
 #[test]
 fn test_query_analytics_date_filtering() {
     let tmp = tempfile::tempdir().unwrap();

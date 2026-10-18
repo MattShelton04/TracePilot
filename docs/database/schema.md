@@ -34,7 +34,7 @@ holds session-lifetime totals that lists and KPI cards can read without joins.
 | `branch` | TEXT | Git branch, if recorded. |
 | `cwd` | TEXT | Working directory recorded by the source. |
 | `created_at` | TEXT | When the source says the session started. |
-| `updated_at` | TEXT | Last source activity. The date filter `date(COALESCE(updated_at, created_at))` selects sessions for lists and KPIs. |
+| `updated_at` | TEXT | Last source activity. For Copilot, the later of `workspace.yaml`'s `updated_at` and the last event other than `session.shutdown`; for Claude Code, the last main-transcript record. The date filter `date(COALESCE(updated_at, created_at))` selects sessions for lists and KPIs. |
 | `event_count` | INTEGER | Number of source events or records, counted per provider. Not comparable across sources. |
 | `indexed_at` | TEXT NOT NULL | SQLite `datetime('now')` of the last successful metadata write. **Not read.** |
 | `host_type` | TEXT | Host label from the source (for example `cli`). |

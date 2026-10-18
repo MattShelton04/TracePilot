@@ -92,7 +92,8 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
 
 /**
  * How a user resumes a source's session in their own terminal, as
- * `<cli> --resume <id>`, with the CLI used when none is configured. A `null`
+ * `<cli> --resume <id>` run from the session's directory (see
+ * {@link resumeCommand}), with the CLI used when none is configured. A `null`
  * entry means the source has no such command. Mirrors the Rust resume launch
  * for display; the backend builds the command it runs itself.
  */
@@ -117,19 +118,64 @@ export function sourceCapabilities(source: SessionSource | null | undefined): So
 }
 
 /**
+ * The shell a copied resume command is written for: PowerShell on Windows
+ * (5.1 has no `&&`), a POSIX shell elsewhere.
+ */
+export type ResumeShell = "powershell" | "posix";
+
+/** Where a copied resume command starts, and the shell it is pasted into. */
+export interface ResumeCommandOptions {
+  /** The session's working directory; the command changes to it first. */
+  cwd?: string | null;
+  shell?: ResumeShell;
+}
+
+// A local absolute path each shell can enter: a drive (`C:\`, `\\?\C:\`) or
+// a WSL share for PowerShell, as the backend's resume accepts; `/…` for POSIX.
+const POWERSHELL_LOCAL_DIR =
+  /^(?:[A-Za-z]:[\\/]|\\\\\?\\[A-Za-z]:\\|\\\\(?:wsl\.localhost|wsl\$)\\)/i;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point.
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/;
+
+/**
+ * The step that enters `cwd` in `shell`, or `null` when `cwd` is not a local
+ * absolute directory that shell can enter. The directory comes from the
+ * session's own files, so it is quoted literally and refused when it holds a
+ * control character (a pasted line break would run a second command).
+ */
+function enterDirectory(cwd: string | null | undefined, shell: ResumeShell): string | null {
+  if (!cwd?.trim() || CONTROL_CHARACTER.test(cwd)) return null;
+  if (shell === "powershell") {
+    if (!POWERSHELL_LOCAL_DIR.test(cwd)) return null;
+    // PowerShell also ends a single-quoted string at the typographic quotes.
+    return `Set-Location -LiteralPath '${cwd.replace(/['\u2018\u2019\u201A\u201B]/g, "$&$&")}'`;
+  }
+  if (!cwd.startsWith("/")) return null;
+  return `cd '${cwd.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * The command a user copies to resume a session in their own terminal, or
  * `null` when the source has none. `configuredCli` holds each source's CLI
  * command setting; a missing or blank one uses the source's default.
+ *
+ * With a `cwd`, the command first changes to it, as Resume in Terminal
+ * starts there: Claude Code finds a session only from its project directory.
+ * Without one it is the bare `<cli> --resume <id>`.
  */
 export function resumeCommand(
   source: SessionSource | null | undefined,
   sessionId: string,
   configuredCli: Partial<Record<SessionSource, string>>,
+  { cwd, shell = "powershell" }: ResumeCommandOptions = {},
 ): string | null {
   const resolved = resolveSessionSource(source);
   const cli = RESUME_CLI[resolved];
   if (!cli) return null;
-  return `${configuredCli[resolved]?.trim() || cli.defaultCli} --resume ${sessionId}`;
+  const resume = `${configuredCli[resolved]?.trim() || cli.defaultCli} --resume ${sessionId}`;
+  const enter = enterDirectory(cwd, shell);
+  if (!enter) return resume;
+  return shell === "powershell" ? `${enter}; ${resume}` : `${enter} && ${resume}`;
 }
 
 /** Display name for a source; also the main agent's label in a conversation. */

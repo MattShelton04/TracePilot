@@ -289,6 +289,7 @@ watch(
         :source="source"
         :capabilities="capabilities"
         :folder="sessionFolder"
+        :cwd="store.detail.cwd ?? null"
         :active="isSessionActive"
         :refreshing="refreshing"
         :show-prompt-cache="showPromptCache"

@@ -5,9 +5,11 @@ import {
   binTurnStarts,
   clusterMarkers,
   countIncidents,
+  eventTimeLabel,
   groupByFolder,
   relativeToRoot,
   splitSessionTime,
+  timestampsSpanDays,
 } from "../sessionOverview";
 
 describe("activityWindow", () => {
@@ -128,6 +130,34 @@ describe("splitSessionTime", () => {
 
   it("is null without model time", () => {
     expect(splitSessionTime(1_000, null, 200)).toBeNull();
+  });
+});
+
+describe("timestampsSpanDays", () => {
+  it("is true only when the timestamps fall on different days", () => {
+    // Noon on Jan 1 and Jan 3 (UTC) are different days in every time zone.
+    expect(timestampsSpanDays(["2026-01-01T12:00:00Z", null, "2026-01-03T12:00:00Z"])).toBe(true);
+    expect(timestampsSpanDays(["2026-01-01T12:00:00Z", "2026-01-01T12:05:00Z"])).toBe(false);
+    expect(timestampsSpanDays(["2026-01-01T12:00:00Z", "not a time", undefined])).toBe(false);
+    expect(timestampsSpanDays([])).toBe(false);
+  });
+});
+
+describe("eventTimeLabel", () => {
+  const at = "2026-01-02T12:00:00Z";
+  const day = new Date(at).toLocaleDateString([], { month: "short", day: "numeric" });
+
+  it("keeps the clock alone within a day, and adds the date across days", () => {
+    const clock = eventTimeLabel(at, false);
+    expect(clock.text).not.toContain(day);
+    expect(clock.title).toBe(new Date(at).toLocaleString());
+    const dated = eventTimeLabel(at, true);
+    expect(dated.text).toBe(`${day}, ${clock.text}`);
+    expect(dated.title).toBe(clock.title);
+  });
+
+  it("has no tooltip or date for a missing time", () => {
+    expect(eventTimeLabel(null, true)).toEqual({ text: "" });
   });
 });
 

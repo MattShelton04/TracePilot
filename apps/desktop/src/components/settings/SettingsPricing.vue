@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import type { ModelPriceEntry } from "@tracepilot/types";
-import { ActionButton, FormInput, SearchInput, SectionPanel } from "@tracepilot/ui";
+import {
+  ActionButton,
+  FormInput,
+  SearchInput,
+  SectionPanel,
+  useConfirmDialog,
+} from "@tracepilot/ui";
 import { computed, reactive, ref } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
@@ -9,6 +15,19 @@ import {
 } from "@/stores/preferences/pricingValidation";
 
 const preferences = usePreferencesStore();
+const { confirm } = useConfirmDialog();
+
+// Reset replaces every edited and added rate, and the change autosaves.
+async function confirmResetRates() {
+  const { confirmed } = await confirm({
+    title: "Reset fallback rates to defaults?",
+    message:
+      "This replaces every edited rate, removes the models you added and brings back removed defaults. Your custom rates can't be recovered afterwards.",
+    variant: "danger",
+    confirmLabel: "Reset rates",
+  });
+  if (confirmed) preferences.resetWholesalePrices();
+}
 
 const newModelName = ref("");
 type RateDraft = string | number;
@@ -183,7 +202,7 @@ function commitRate(price: ModelPriceEntry, field: RateField) {
 
     <SectionPanel title="AIC Estimate Fallback Rates">
       <template #actions>
-        <ActionButton size="sm" @click="preferences.resetWholesalePrices()">
+        <ActionButton size="sm" @click="confirmResetRates">
           Reset defaults
         </ActionButton>
       </template>
