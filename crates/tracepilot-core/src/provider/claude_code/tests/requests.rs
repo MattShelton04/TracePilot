@@ -5,12 +5,19 @@ use serde_json::{Value, json};
 use tracepilot_test_support::claude::{OPUS, SESSION_ID, Transcript, Usage, text, write_session};
 use tracepilot_test_support::claude_scenarios as fixtures;
 
+use std::collections::{BTreeMap, HashMap};
+
 use super::{all_fixtures, parse};
 use crate::SessionId;
+use crate::parsing::events::TypedEvent;
+use crate::provider::claude_code::ClaudeParse;
+use crate::provider::claude_code::request_records::AS_UNKNOWN;
+use crate::provider::claude_code::summary::summarize;
 use crate::provider::claude_code::{
-    ClaudeCodeProvider, MAX_RECORDED_CALLS, RecordedCount, read_request_log,
+    ClaudeCodeProvider, MAX_RECORDED_CALLS, MAX_RECORDED_SHAPE_BYTES, MAX_RECORDED_SHAPES,
+    RecordedCount, read_request_log,
 };
-use crate::provider::{ProviderSnapshot, SessionProvider};
+use crate::provider::{ProviderSnapshot, SessionMetrics, SessionProvider};
 
 fn snapshot(files: &tracepilot_test_support::claude::SessionFiles) -> ProviderSnapshot {
     let provider = ClaudeCodeProvider::new(files.root.path());
@@ -33,20 +40,89 @@ fn without_line_number(id: &str) -> String {
     }
 }
 
-/// Event indices shift when events are left out; everything else must not.
-fn without_event_indices(mut value: Value) -> Value {
-    fn strip(value: &mut Value) {
-        match value {
-            Value::Object(map) => {
-                map.remove("eventIndex");
-                map.values_mut().for_each(strip);
-            }
-            Value::Array(items) => items.iter_mut().for_each(strip),
-            _ => {}
+/// Parse `files` as the parser did before it handled request records: each
+/// one read in full and kept as an Unknown event.
+fn parse_as_before(files: &tracepilot_test_support::claude::SessionFiles) -> ClaudeParse {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            AS_UNKNOWN.with(|on| on.set(false));
         }
     }
-    strip(&mut value);
-    value
+    AS_UNKNOWN.with(|on| on.set(true));
+    let _reset = Reset;
+    parse(files)
+}
+
+/// Rewrite every `eventIndex` through `map`.
+fn map_event_indices(value: &mut Value, map: &dyn Fn(u64) -> u64) {
+    match value {
+        Value::Object(fields) => {
+            for (key, field) in fields.iter_mut() {
+                match field.as_u64() {
+                    Some(index) if key == "eventIndex" => *field = json!(map(index)),
+                    _ => map_event_indices(field, map),
+                }
+            }
+        }
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| map_event_indices(item, map)),
+        _ => {}
+    }
+}
+
+/// The session as it shows: summary, turns and metrics.
+fn shown(parsed: &ClaudeParse) -> (Value, Value, String) {
+    let (summary, turns, metrics) = summarize(&SessionId::from_validated(SESSION_ID), parsed);
+    (
+        serde_json::to_value(&summary).unwrap(),
+        serde_json::to_value(&turns).unwrap(),
+        metrics.as_ref().map_or_else(String::new, metrics_text),
+    )
+}
+
+fn sorted<V: std::fmt::Debug>(map: &HashMap<String, V>) -> BTreeMap<&str, String> {
+    map.iter()
+        .map(|(k, v)| (k.as_str(), format!("{v:?}")))
+        .collect()
+}
+
+/// The whole parse, with maps in key order.
+fn parse_text(parsed: &ClaudeParse) -> String {
+    let mut parsed = parsed.clone();
+    let unknown = std::mem::take(&mut parsed.diagnostics.events.unknown_event_types);
+    let failures = std::mem::take(&mut parsed.diagnostics.events.deserialization_failures);
+    format!("{parsed:?} {:?} {:?}", sorted(&unknown), sorted(&failures))
+}
+
+/// Every metric, with maps in key order.
+fn metrics_text(m: &SessionMetrics) -> String {
+    let segments: Vec<_> = m
+        .segments
+        .iter()
+        .map(|s| {
+            let models = sorted(&s.model_metrics);
+            format!(
+                "{:?} {:?} {} {:?} {models:?} {:?} {}",
+                s.start, s.end, s.requests, s.api_duration_ms, s.cost, s.partial
+            )
+        })
+        .collect();
+    format!(
+        "{:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {segments:?}",
+        m.total_api_duration_ms,
+        m.total_api_duration_without_retries_ms,
+        m.total_tool_duration_ms,
+        m.total_duration_ms,
+        m.session_start_time,
+        m.current_model,
+        sorted(&m.model_metrics),
+        m.code_changes,
+        m.cost,
+        m.coverage,
+        sorted(&m.model_costs),
+    )
 }
 
 #[test]
@@ -105,9 +181,8 @@ fn request_records_parse_to_the_same_session_as_without_them() {
         sa.summary.event_count, sb.summary.event_count,
         "event count"
     );
-    let turns =
-        |s: &ProviderSnapshot| without_event_indices(serde_json::to_value(&s.turns).unwrap());
-    assert_eq!(turns(&sa), turns(&sb), "turns");
+    let turns = |s: &ProviderSnapshot| serde_json::to_value(&s.turns).unwrap();
+    assert_eq!(turns(&sa), turns(&sb), "turns, event indexes included");
     let metrics = |s: &ProviderSnapshot| {
         let m = s.metrics.as_ref().unwrap();
         let mut coverage = m.coverage.clone();
@@ -163,6 +238,67 @@ fn request_records_parse_to_the_same_session_as_without_them() {
     );
 }
 
+/// Against the parser before request records were handled: the same events
+/// less the request events, so an event's index drops by the request events
+/// before it, and turns point at the same events by their new indexes.
+#[test]
+fn leaving_request_events_out_moves_later_indexes_back_by_the_records_before_them() {
+    let files = fixtures::request_records(true);
+    let (before, after) = (parse_as_before(&files), parse(&files));
+    let is_request = |e: &TypedEvent| e.raw.event_type.starts_with("api-request");
+    let requests: Vec<u64> = (0u64..)
+        .zip(&before.events)
+        .filter(|(_, e)| is_request(e))
+        .map(|(index, _)| index)
+        .collect();
+    assert!(!requests.is_empty(), "the old parser made request events");
+    let moved = |index: u64| index - requests.iter().filter(|&&r| r < index).count() as u64;
+
+    // A request event's parent is passed on to the events that named it.
+    let parents: HashMap<&str, Option<&str>> = before
+        .events
+        .iter()
+        .filter(|e| is_request(e))
+        .filter_map(|e| Some((e.raw.id.as_deref()?, e.raw.parent_id.as_deref())))
+        .collect();
+    fn canonical_parent<'a>(
+        parents: &HashMap<&'a str, Option<&'a str>>,
+        mut parent: Option<&'a str>,
+    ) -> Option<String> {
+        while let Some(next) = parent.and_then(|id| parents.get(id)) {
+            parent = *next;
+        }
+        parent.map(str::to_string)
+    }
+    let kept: Vec<_> = before.events.iter().filter(|e| !is_request(e)).collect();
+    assert_eq!(kept.len(), after.events.len());
+    for (index, (old, new)) in kept.iter().zip(&after.events).enumerate() {
+        let mut old_raw = serde_json::to_value(&old.raw).unwrap();
+        old_raw["parentId"] = json!(canonical_parent(&parents, old.raw.parent_id.as_deref()));
+        assert_eq!(
+            old_raw,
+            serde_json::to_value(&new.raw).unwrap(),
+            "event {index}"
+        );
+    }
+
+    let (old_summary, mut old_turns, old_metrics) = shown(&before);
+    let (new_summary, new_turns, new_metrics) = shown(&after);
+    map_event_indices(&mut old_turns, &moved);
+    assert_eq!(old_turns, new_turns, "turns at the moved indexes");
+    assert_eq!(old_metrics, new_metrics, "metrics");
+    let without_count = |mut summary: Value| {
+        summary.as_object_mut().unwrap().remove("eventCount");
+        summary
+    };
+    assert_eq!(without_count(old_summary), without_count(new_summary));
+    assert_eq!(
+        after.diagnostics.request_records,
+        requests.len(),
+        "each one counted"
+    );
+}
+
 #[test]
 fn a_request_record_still_marks_when_the_call_was_sent() {
     let mut t = Transcript::main();
@@ -204,9 +340,18 @@ fn a_request_record_still_marks_when_the_call_was_sent() {
 #[test]
 fn sessions_from_before_request_records_are_parsed_as_before() {
     for (name, files) in all_fixtures() {
-        let parsed = parse(&files);
-        assert_eq!(parsed.diagnostics.request_records, 0, "{name}");
-        assert!(parsed.request_times.is_empty(), "{name}");
+        let (before, after) = (parse_as_before(&files), parse(&files));
+        assert_eq!(
+            parse_text(&after),
+            parse_text(&before),
+            "{name}: the whole parse"
+        );
+        assert_eq!(
+            shown(&after),
+            shown(&before),
+            "{name}: summary, turns, metrics"
+        );
+        assert_eq!(after.diagnostics.request_records, 0, "{name}");
     }
     // A prompt quoting a request record is still an ordinary prompt.
     let mut t = Transcript::main();
@@ -219,7 +364,9 @@ fn sessions_from_before_request_records_are_parsed_as_before() {
         Usage::new(1, 1, 0, 1),
         "end_turn",
     );
-    let parsed = parse(&write_session(&t, &[]));
+    let files = write_session(&t, &[]);
+    let parsed = parse(&files);
+    assert_eq!(parse_text(&parsed), parse_text(&parse_as_before(&files)));
     let prompt = parsed
         .events
         .iter()
@@ -324,4 +471,65 @@ fn the_request_log_keeps_the_latest_calls_and_counts_cut_records() {
         log.unreadable_records, 1,
         "the cut-off line, not the prompt"
     );
+}
+
+#[test]
+fn the_request_log_keeps_the_shapes_its_latest_calls_used() {
+    let mut t = Transcript::main();
+    t.prompt("Hi.");
+    let total = MAX_RECORDED_SHAPES + 2;
+    for n in 0..total {
+        let hash = format!("shape-{n:02}");
+        t.at(10 + 2 * n as u64).api_request_shape(
+            &hash,
+            &["System."],
+            vec![json!({"name": "Read"})],
+        );
+        t.at(11 + 2 * n as u64)
+            .api_request(&format!("req-{n}"), None, &hash, OPUS, &[]);
+    }
+    let log = read_request_log(&write_session(&t, &[]).main, &|| false).unwrap();
+    let hashes: Vec<_> = log.shapes.iter().map(|s| s.hash.clone()).collect();
+    let expected: Vec<_> = (2..total).map(|n| format!("shape-{n:02}")).collect();
+    assert_eq!(hashes, expected, "the latest used, by first use");
+    assert_eq!(log.omitted_shapes, 2);
+    assert_eq!(log.omitted_shape_hashes, ["shape-01", "shape-00"]);
+    assert_eq!(log.calls_without_shape, 0, "omitted is not unrecorded");
+}
+
+#[test]
+fn the_request_log_caps_the_bytes_of_its_shapes() {
+    let big = "x".repeat(usize::try_from(MAX_RECORDED_SHAPE_BYTES).unwrap() / 2 + 1);
+    let mut t = Transcript::main();
+    t.prompt("Hi.");
+    for n in 0..3u64 {
+        let hash = format!("shape-{n}");
+        t.at(10 + 2 * n)
+            .api_request_shape(&hash, &[&big], Vec::new());
+        t.at(11 + 2 * n)
+            .api_request(&format!("req-{n}"), None, &hash, OPUS, &[]);
+    }
+    let log = read_request_log(&write_session(&t, &[]).main, &|| false).unwrap();
+    let hashes: Vec<_> = log.shapes.iter().map(|s| s.hash.as_str()).collect();
+    assert_eq!(hashes, ["shape-2"], "a second one would pass the cap");
+    assert_eq!(log.omitted_shape_hashes, ["shape-1", "shape-0"]);
+}
+
+#[test]
+fn recorded_tools_do_not_repeat_their_fields_in_raw() {
+    let files = fixtures::request_records(true);
+    let log = read_request_log(&files.main, &|| false).unwrap();
+    let tool = &log.shapes[0].tools[0];
+    assert!(tool.description.is_some() && tool.schema.is_some());
+    assert_eq!(tool.raw, json!({}));
+}
+
+#[test]
+fn an_unreadable_subagent_file_leaves_the_rest_of_the_log() {
+    let files = fixtures::request_records(true);
+    let subagents = files.main.with_extension("").join("subagents");
+    std::fs::create_dir(subagents.join("agent-broken.jsonl")).unwrap();
+    let log = read_request_log(&files.main, &|| false).unwrap();
+    assert_eq!((log.files, log.unreadable_files), (3, 1));
+    assert_eq!(log.total_calls, 4);
 }

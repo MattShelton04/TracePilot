@@ -532,3 +532,44 @@ fn request_records_stay_out_of_exports() {
         );
     }
 }
+
+/// A request record type a later Claude Code version adds reaches the export
+/// as an unknown record, but only with its bookkeeping: any body is redacted.
+#[test]
+fn a_later_request_record_type_keeps_its_body_out_of_exports() {
+    let mut t = Transcript::main();
+    t.bookkeeping(
+        json!({"type": "api-request-full", "timestamp": "2026-10-17T00:00:00.000Z",
+        "request": {"system": [{"type": "text", "text": "PRIVATE-FUTURE system prompt"}]}}),
+    );
+    t.prompt("Add a retry.");
+    t.call(
+        "msg_01",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(10, 100, 20, 5),
+        "end_turn",
+    );
+    let files = write_session(&t, &[]);
+
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    let input = ExportInput::Provider(ProviderSession {
+        source: locator.source,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    let options = ExportOptions::all(ExportFormat::Json);
+    let output = export_inputs(std::slice::from_ref(&input), &options).unwrap();
+    let output = output[0].as_text().unwrap();
+    assert!(
+        output.contains("api-request-full"),
+        "the record is exported"
+    );
+    assert!(!output.contains("PRIVATE-FUTURE"), "its body leaked");
+}

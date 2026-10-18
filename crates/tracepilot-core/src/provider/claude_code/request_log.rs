@@ -31,6 +31,9 @@ use crate::parsing::snapshot::check_cancelled;
 /// Shapes returned with their bodies. A real session has a handful; each
 /// is up to ~100 KB of system prompt and tool definitions.
 pub const MAX_RECORDED_SHAPES: usize = 24;
+/// The system prompt and tool bytes returned across shapes. The most recently
+/// used shape is always returned, whatever its size.
+pub const MAX_RECORDED_SHAPE_BYTES: u64 = 2 * 1024 * 1024;
 /// Calls returned, the latest ones. A long session records a few thousand.
 pub const MAX_RECORDED_CALLS: usize = 2_000;
 /// Beta and context-edit names kept per call.
@@ -40,10 +43,14 @@ const MAX_NAMES: usize = 16;
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestLog {
-    /// Distinct system prompt and tool sets, by first use.
+    /// Distinct system prompt and tool sets, by first use: the most recently
+    /// used ones, within [`MAX_RECORDED_SHAPES`] and
+    /// [`MAX_RECORDED_SHAPE_BYTES`].
     pub shapes: Vec<RecordedShape>,
-    /// Shapes left out past [`MAX_RECORDED_SHAPES`].
+    /// Recorded shapes left out by those limits.
     pub omitted_shapes: usize,
+    /// Their hashes, so a call that used one is not taken for unrecorded.
+    pub omitted_shape_hashes: Vec<String>,
     /// The latest [`MAX_RECORDED_CALLS`] calls, oldest first.
     pub calls: Vec<RecordedCall>,
     pub total_calls: usize,
@@ -59,6 +66,8 @@ pub struct RequestLog {
     pub unreadable_records: usize,
     /// Files read: the main transcript plus each subagent file.
     pub files: usize,
+    /// Subagent files that could not be read; the rest are still listed.
+    pub unreadable_files: usize,
 }
 
 /// One distinct system prompt and tool list.
@@ -73,6 +82,8 @@ pub struct RecordedShape {
     /// Who used it, with their call counts.
     pub agents: Vec<RecordedAgent>,
     pub system: Vec<NormalizedSection>,
+    /// Each tool's `raw` holds only the fields other than its `name`,
+    /// `description` and `input_schema`, which are not sent twice.
     pub tools: Vec<NormalizedToolDefinition>,
     pub system_bytes: u64,
     pub tool_bytes: u64,
@@ -137,6 +148,7 @@ struct Scan {
     calls: Vec<RecordedCall>,
     records: usize,
     unreadable: usize,
+    unreadable_files: usize,
 }
 
 /// Read the request records of the session whose main transcript is `main`.
@@ -154,7 +166,12 @@ pub fn read_request_log(main: &Path, is_cancelled: &impl Fn() -> bool) -> Result
             id: Some(child.agent_id.clone()),
             kind: child.meta.as_ref().and_then(|m| m.agent_type.clone()),
         };
-        scan_file(&child.path, &agent, is_cancelled, &mut scan)?;
+        // One unreadable subagent file leaves the others listed.
+        if let Err(error) = scan_file(&child.path, &agent, is_cancelled, &mut scan) {
+            check_cancelled(is_cancelled)?;
+            tracing::warn!(%error, "Skipped an unreadable subagent transcript");
+            scan.unreadable_files += 1;
+        }
     }
     Ok(build(scan, children.len() + 1))
 }
@@ -272,6 +289,7 @@ fn call(record: &Value, agent: &Agent) -> RecordedCall {
 struct Usage {
     calls: usize,
     first_used: Option<DateTime<Utc>>,
+    last_used: Option<DateTime<Utc>>,
     agents: Vec<RecordedAgent>,
 }
 
@@ -301,24 +319,23 @@ fn build(mut scan: Scan, files: usize) -> RequestLog {
             let entry = usage.entry(hash).or_default();
             entry.calls += 1;
             entry.first_used = entry.first_used.or(call.timestamp);
+            entry.last_used = call.timestamp.or(entry.last_used);
             count_agent(&mut entry.agents, call);
         }
     }
     // The main agent leads; subagents follow by first call.
     agents.sort_by_key(|agent| agent.agent_id.is_some());
     let mut seen = HashMap::new();
-    let mut shapes: Vec<RecordedShape> = Vec::new();
+    let mut recorded = Vec::new();
     for (hash, recorded_at, body) in scan.shapes {
         if seen.insert(hash.clone(), ()).is_some() {
             continue;
         }
         let used = usage.remove(hash.as_str()).unwrap_or_default();
-        shapes.push(shape(hash, used, recorded_at, &body));
+        recorded.push((hash, used, recorded_at, body));
     }
     let calls_without_shape = usage.values().map(|u| u.calls).sum();
-    shapes.sort_by_key(|shape| shape.first_used);
-    let omitted_shapes = shapes.len().saturating_sub(MAX_RECORDED_SHAPES);
-    shapes.truncate(MAX_RECORDED_SHAPES);
+    let (shapes, omitted_shape_hashes) = select_shapes(recorded);
     let mut models: Vec<_> = models
         .into_iter()
         .map(|(name, calls)| RecordedCount {
@@ -333,7 +350,8 @@ fn build(mut scan: Scan, files: usize) -> RequestLog {
         .split_off(total_calls.saturating_sub(MAX_RECORDED_CALLS));
     RequestLog {
         shapes,
-        omitted_shapes,
+        omitted_shapes: omitted_shape_hashes.len(),
+        omitted_shape_hashes,
         calls,
         total_calls,
         calls_without_shape,
@@ -342,7 +360,38 @@ fn build(mut scan: Scan, files: usize) -> RequestLog {
         records: scan.records,
         unreadable_records: scan.unreadable,
         files,
+        unreadable_files: scan.unreadable_files,
     }
+}
+
+/// The shapes to return, by first use, and the hashes of those left out.
+/// The calls returned are the latest, so the most recently used shapes are
+/// kept first; shapes no call used come last, by when they were recorded.
+fn select_shapes(
+    mut recorded: Vec<(String, Usage, Option<DateTime<Utc>>, Value)>,
+) -> (Vec<RecordedShape>, Vec<String>) {
+    recorded.sort_by_key(|(_, used, recorded_at, _)| {
+        std::cmp::Reverse((used.last_used.is_some(), used.last_used.or(*recorded_at)))
+    });
+    let mut shapes: Vec<RecordedShape> = Vec::new();
+    let mut omitted = Vec::new();
+    let mut bytes = 0;
+    for (hash, used, recorded_at, body) in recorded {
+        if shapes.len() >= MAX_RECORDED_SHAPES {
+            omitted.push(hash);
+            continue;
+        }
+        let shape = shape(hash, used, recorded_at, &body);
+        let size = shape.system_bytes + shape.tool_bytes;
+        if !shapes.is_empty() && bytes + size > MAX_RECORDED_SHAPE_BYTES {
+            omitted.push(shape.hash);
+            continue;
+        }
+        bytes += size;
+        shapes.push(shape);
+    }
+    shapes.sort_by_key(|shape| shape.first_used);
+    (shapes, omitted)
 }
 
 fn shape(
@@ -356,7 +405,7 @@ fn shape(
     let parsed = serde_json::to_vec(&request).ok().and_then(|bytes| {
         parse_context_request(CaptureProtocol::AnthropicMessages, &bytes, "\u{0}").ok()
     });
-    let (mut system, tools) = parsed.map_or_else(
+    let (mut system, mut tools) = parsed.map_or_else(
         || (Vec::new(), Vec::new()),
         |p| (p.system_blocks, p.tool_definitions),
     );
@@ -369,6 +418,13 @@ fn shape(
             && let Some(text) = block.content["text"].as_str()
         {
             block.content = Value::String(text.to_string());
+        }
+    }
+    for tool in &mut tools {
+        if let Value::Object(raw) = &mut tool.raw {
+            for key in ["name", "description", "input_schema"] {
+                raw.remove(key);
+            }
         }
     }
     let system_bytes = system.iter().map(|block| block.bytes).sum();

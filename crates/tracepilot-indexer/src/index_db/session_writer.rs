@@ -348,7 +348,9 @@ impl IndexDb {
     }
 
     /// Whether the source fingerprint changed since the session was indexed,
-    /// or the analytics version was bumped.
+    /// the analytics version was bumped, or the session was indexed before
+    /// Claude Code's request records were left out of its events
+    /// ([`format_observations::lists_request_records`]).
     pub(crate) fn session_is_stale(
         &self,
         provider: &dyn SessionProvider,
@@ -367,6 +369,11 @@ impl IndexDb {
             return true;
         };
         if version.unwrap_or(0) < analytics_version(locator.source) {
+            return true;
+        }
+        if locator.source == SessionSource::ClaudeCode
+            && format_observations::lists_request_records(&self.conn, locator.id.as_str())
+        {
             return true;
         }
         provider

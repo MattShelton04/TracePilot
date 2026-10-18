@@ -66,8 +66,8 @@ pub use prompts::without_paste_tags;
 pub(super) use provider::CAPABILITIES;
 pub use provider::ClaudeCodeProvider;
 pub use request_log::{
-    MAX_RECORDED_CALLS, MAX_RECORDED_SHAPES, RecordedAgent, RecordedCall, RecordedCount,
-    RecordedShape, RequestLog, read_request_log,
+    MAX_RECORDED_CALLS, MAX_RECORDED_SHAPE_BYTES, MAX_RECORDED_SHAPES, RecordedAgent, RecordedCall,
+    RecordedCount, RecordedShape, RequestLog, read_request_log,
 };
 pub use usage::{ClaudeCallUsage, CostModelUsage, CostSnapshot, TokenTotals, sum_calls_by_model};
 

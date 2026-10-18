@@ -28,12 +28,24 @@ const DUPLICATE_KEYS: &[&str] = &["wireToolInputs", "bashEditDiff"];
 /// tool list, and CLAUDE.md / AGENTS.md text.
 const PRIVATE_ATTACHMENTS: &[&str] = &["prompt_snapshot", "instructions", "nested_memory"];
 
-/// The payload of a request record (`api-request*`): the system prompt and
-/// tool list (`shape`), a request message with its instruction text
-/// (`message`), and a request's parameters, which carry the safeguard
-/// context, and message hashes. The parser keeps none of these records;
-/// this covers any that still reach an export.
-const REQUEST_PAYLOAD_KEYS: &[&str] = &["shape", "message", "params", "tail", "base"];
+/// The bookkeeping a request record (`api-request*`) keeps in an export.
+/// Everything else is redacted: the system prompt and tool list (`shape`),
+/// request messages with their instruction text (`message`), parameters with
+/// the safeguard context (`params`), message hashes, and any body a later
+/// Claude Code version adds. The parser keeps none of these records; this
+/// covers any that still reach an export.
+const REQUEST_KEPT_KEYS: &[&str] = &[
+    "type",
+    "timestamp",
+    "version",
+    "uuid",
+    "id",
+    "hash",
+    "shapeHash",
+    "querySource",
+    "sessionId",
+    "agentId",
+];
 
 /// Redact one native record in place. `record_type` is the native type, with
 /// the subtype for `system` and `attachment` records.
@@ -55,8 +67,10 @@ pub(crate) fn redact_record(record_type: &str, record: &mut Value) {
         }
     }
     if record_type.starts_with("api-request") {
-        for key in REQUEST_PAYLOAD_KEYS {
-            redact_member(map, key, REDACTED);
+        for (key, value) in map.iter_mut() {
+            if !REQUEST_KEPT_KEYS.contains(&key.as_str()) {
+                *value = Value::String(REDACTED.into());
+            }
         }
     }
     if record_type == "system:bridge_status" {
@@ -223,6 +237,19 @@ mod tests {
             assert_eq!(request[key], REDACTED, "{key}");
         }
         assert_eq!(request["querySource"], "repl_main_thread");
+    }
+
+    #[test]
+    fn a_later_request_record_type_keeps_only_its_bookkeeping() {
+        let record = json!({"type": "api-request-full", "timestamp": "t", "agentId": "a1",
+            "request": {"system": [{"type": "text", "text": "PRIVATE system prompt"}]},
+            "headers": ["x-private"]});
+        let out = redacted("api-request-full", record);
+        assert_eq!(
+            out,
+            json!({"type": "api-request-full", "timestamp": "t", "agentId": "a1",
+                "request": REDACTED, "headers": REDACTED})
+        );
     }
 
     #[test]

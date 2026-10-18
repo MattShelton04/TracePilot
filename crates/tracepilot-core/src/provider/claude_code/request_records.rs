@@ -24,7 +24,25 @@ pub(super) const REQUEST_TYPES: &[&str] = &["api-request", "api-request-blob", "
 pub(super) const MARKER: &str = "\"api-request";
 
 pub(super) fn is_request_type(kind: &str) -> bool {
-    REQUEST_TYPES.contains(&kind)
+    handled() && REQUEST_TYPES.contains(&kind)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Set by tests to parse a session as the parser did before request
+    /// records were handled: each one read in full and kept as an Unknown
+    /// event.
+    pub(super) static AS_UNKNOWN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn handled() -> bool {
+    !AS_UNKNOWN.with(std::cell::Cell::get)
+}
+
+#[cfg(not(test))]
+const fn handled() -> bool {
+    true
 }
 
 /// The top-level fields the parser reads from a request record. Unknown
