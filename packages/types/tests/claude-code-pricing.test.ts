@@ -79,6 +79,26 @@ describe("isolated Claude Code pricing", () => {
     }
   });
 
+  it("prices a 1M-context selection at its model's rates, as its calls are", () => {
+    // A cost snapshot keys usage by the selection (`claude-opus-5-5[1m]`);
+    // the calls record the API id, which the Rust estimate prices.
+    const usage = {
+      inputTokens: 130,
+      cacheReadTokens: 100,
+      cacheWriteTokens: 20,
+      cacheWriteByTtl: { "300": 5, "3600": 15 },
+      outputTokens: 5,
+    };
+    const base = calculateClaudeCodeTokenCost("claude-opus-5-5", usage);
+    const selection = calculateClaudeCodeTokenCost("claude-opus-5-5[1m]", usage);
+    expect(selection.totalCost).toBe(base.totalCost);
+    expect(selection.cacheWriteCost).toBe(base.cacheWriteCost);
+    expect(
+      calculateClaudeCodeTokenCost("claude-unpublished-9[1m]", { inputTokens: 10, outputTokens: 5 })
+        .totalCost,
+    ).toBeNull();
+  });
+
   it("prices the historical Haiku native alias and keeps estimates out of AI Credits", () => {
     const cost = calculateClaudeCodeTokenCost("claude-3-5-haiku-20241022", {
       inputTokens: 10,

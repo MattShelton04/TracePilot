@@ -15,7 +15,14 @@ const base = {
   codeChanges: undefined,
   calls: null,
   fileSnapshots: 0,
-  cost: { label: "AI credits", value: "—", basis: "Not recorded", partial: false, perTurn: null },
+  cost: {
+    label: "AI credits",
+    value: "—",
+    basis: "Not recorded",
+    partial: false,
+    lowerBound: false,
+    perTurn: null,
+  },
 };
 
 function mountKpis(props: Partial<Props> & { checkpoints: number | null }) {
@@ -97,5 +104,28 @@ describe("SessionOverviewKpis code changes", () => {
     });
     expect(kpi("Code changes")?.text()).toContain("2 files changed");
     expect(kpi("Code changes")?.text()).not.toContain("No file list recorded");
+  });
+});
+
+describe("SessionOverviewKpis cost", () => {
+  const estimate = {
+    label: "Est. cost",
+    value: "≥ $26.73",
+    basis: "TracePilot estimate",
+    partial: true,
+    lowerBound: true,
+    perTurn: "$0.10",
+  };
+
+  it("calls a floor a lower bound, as the Metrics tab does", () => {
+    const { kpi } = mountKpis({ checkpoints: null, metricsStatus: "ready", cost: estimate });
+    expect(kpi("Est. cost")?.text()).toContain("lower bound");
+    expect(kpi("Est. cost")?.text()).not.toContain("partial");
+  });
+
+  it("still marks a partial estimate that is not a floor", () => {
+    const cost = { ...estimate, value: "$26.73", lowerBound: false };
+    const { kpi } = mountKpis({ checkpoints: null, metricsStatus: "ready", cost });
+    expect(kpi("Est. cost")?.text()).toContain("partial");
   });
 });

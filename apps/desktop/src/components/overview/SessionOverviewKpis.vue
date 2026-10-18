@@ -20,6 +20,8 @@ export interface OverviewCost {
   /** Where the figure comes from: `Observed billing`, `Claude Code estimate`. */
   basis: string;
   partial: boolean;
+  /** The value is a floor (`≥`), labelled as the Metrics tab labels it. */
+  lowerBound: boolean;
   /** Cost per turn, already formatted. */
   perTurn: string | null;
   tooltip?: string;
@@ -174,7 +176,8 @@ const hasLineCounts = computed(
         <span v-if="metricsUnknown" class="kpi-note">{{ metricsUnknown.note }}</span>
         <span v-else class="kpi-note">
           <b>{{ cost.basis }}</b>
-          <template v-if="cost.partial"> · <span class="partial">partial</span></template>
+          <template v-if="cost.lowerBound"> · <span class="partial">lower bound</span></template>
+          <template v-else-if="cost.partial"> · <span class="partial">partial</span></template>
           <template v-else-if="cost.perTurn"> · {{ cost.perTurn }}/turn</template>
         </span>
       </template>
