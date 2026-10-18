@@ -10,7 +10,7 @@ Every launch is a one-line message to an agent started at the repository root:
 Read docs/agents/tasks/<card>.md and follow it. [Preset: <preset>.] [Focus: <area>.] [Delivery: pr|draft|local|report.]
 ```
 
-You can leave out Preset and Focus, and the agent will choose using evidence. It skips the deprioritized areas listed in [focus.md](focus.md); see *Steering what agents work on* below. Use `Delivery: report` to get findings without any code changes, which is a cheap way to scout. Use `local` to review the result before anything is pushed.
+You can leave out Preset and Focus, and the agent will choose using evidence. It skips the deprioritized areas listed in [focus.md](focus.md); see *Steering what agents work on* below. Use `Delivery: report` to get findings without any code changes, which is a cheap way to scout. Use `local` to review the result before anything is pushed. `orchestrate` also accepts `Delivery: combined`, its default.
 
 ## Cards
 
@@ -31,7 +31,7 @@ You can leave out Preset and Focus, and the agent will choose using evidence. It
 | [cli-compat](tasks/cli-compat.md) | – | A new Copilot CLI version has shipped, or parsing complaints come in. | On each CLI release |
 | [trust-boundary](tasks/trust-boundary.md) | – | A security-minded pass is due on one input boundary. | Quarterly, or after boundary changes |
 | [dev-experience](tasks/dev-experience.md) | `doc`, `ci`, `flaky-test`, `tooling` | Docs drift, CI hurts, a test is flaky, or setup is painful. | When noticed; use `flaky-test` only with evidence |
-| [orchestrate](tasks/orchestrate.md) | – | You want several PRs from one hands-off run. | Weekly batch |
+| [orchestrate](tasks/orchestrate.md) | – | You want several improvements from one run, shipped as one tested PR (or as independent PRs). | Weekly batch |
 | [review](tasks/review.md) | modes `report`, `comment`, `fix` | You want a second opinion on a PR, ideally from a different model. | After each agent PR |
 
 Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsystem`, `tooling`, `dead-code`, and the workflow-hardening, performance, qa-pass, cli-compat and trust-boundary cards) explore and verify more. Every card runs the checks that match its change and leaves the full gate to the PR's CI.
@@ -42,23 +42,23 @@ Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsys
 
 1. Start one agent at the repository root on a clean `main`, with permission to use `git`, `gh`, `pnpm`, `cargo` and `node`:
    ```text
-   Read docs/agents/tasks/orchestrate.md and follow it. Workstreams: 3.
+   Read docs/agents/tasks/orchestrate.md and follow it. Workstreams: 4.
    ```
-   Add `Approve plan first: Yes` the first few times, so you can see what it picks before any code is written. Add `Theme: …` or `Tasks: …` to steer it.
+   In Claude Code, `/orchestrate Workstreams: 4.` does the same. Add `Theme: …` or `Tasks: …` to steer it. By default the lead stops for your approval of the plan and ships one combined PR. Add `Delivery: pr` for independent PRs, or `Approve plan first: No` for an unattended run.
 2. The lead then works through these steps:
-   1. Chooses candidates backed by evidence.
-   2. Plans workstreams that don't touch the same files.
-   3. Runs workers in isolated worktrees under `.agent/worktrees/`, each with a named app instance (`-Instance`) that has its own ports and synthetic data.
+   1. Sends read-only scouts and chooses candidates backed by evidence, avoiding work another run already has in flight.
+   2. Plans workstreams that don't touch the same files, and waits for your approval.
+   3. Runs fresh workers in isolated worktrees, each with a named app instance (`-Instance`) that has its own ports and synthetic data.
    4. Reviews every diff itself, and adds one fresh reviewer only for risky changes (concurrency, deletion, trust boundaries, migrations, IPC, widely shared code). Only demonstrated failures block a workstream.
-   5. Lets the PR's CI run the full gate, and runs it locally on the merged work only when it isn't confident the PRs will pass.
-   6. Opens one PR per workstream, each with a **Review** section and, for user-facing changes, a `changelog.d/` fragment.
+   5. Merges the approved branches into one integration branch, checks them together in the native app, and merges the latest `main` in before pushing.
+   6. Opens one PR with a **Review** section and, for user-facing changes, `changelog.d/` fragments. It watches CI and triages the visual report before its final report.
 3. Afterwards, you:
-   - Read the final report.
-   - Optionally run `review` with a *different* model on each PR (`Target: #N`, default `report` mode).
-   - Merge in any order. Fragments are merged into `CHANGELOG.md` at release (`pnpm changelog:collect`).
-4. If a run is interrupted, launch the same message again. The lead resumes from its ledger in `.agent/orchestration/`.
+   - Read the final report and its handover.
+   - Optionally run `review` with a *different* model on the PR (`Target: #N`, default `report` mode).
+   - Merge. Fragments are merged into `CHANGELOG.md` at release (`pnpm changelog:collect`).
+4. If a run is interrupted, ask the lead to resume it. It continues from its ledger in `.agent/orchestration/`.
 
-The orchestrator can't merge, release or touch your real Copilot data, and every PR it opens is independent of the others.
+The orchestrator can't merge, release or touch your real Copilot data. Lasting preferences you state during a run belong in [focus.md](focus.md), where every checkout and agent will see them.
 
 ### Quick win
 
@@ -93,7 +93,7 @@ Run `Read docs/agents/tasks/review.md and follow it. Target: #N.` It reports in 
 ## Harness notes
 
 - **Any harness:** the one-line launch message above works wherever the agent can read files. Nothing else is required.
-- **Claude Code:** `CLAUDE.md` imports `AGENTS.md`. Each card has a slash command (`/orchestrate Workstreams: 3.`) in `.claude/commands/`, and `.claude/skills/` points at the app automation skill. `.claude/settings.json` allows safe, high-volume commands (tests, lint, typecheck, `check:*`, `app:*`, cargo builds and checks, read-only git and gh, commit) without prompting; push, merge and anything destructive still prompt. Parallel runs map onto its subagents and worktree isolation. Machine-specific settings go in the ignored `.claude/settings.local.json`.
+- **Claude Code:** `CLAUDE.md` imports `AGENTS.md`. Each card has a slash command (`/orchestrate Workstreams: 4.`) in `.claude/commands/`, and `.claude/skills/` points at the app automation skill. `.claude/settings.json` allows safe, high-volume commands (tests, lint, typecheck, `check:*`, `app:*`, `worktree:*`, cargo builds and checks, read-only git and gh, commit) without prompting. Push, merge, `git stash` and anything destructive still prompt. Parallel runs map onto its subagents and worktree isolation. Subagents return their reports as text, because Claude Code refuses report files written by subagents. A session in a desktop-app worktree dispatches workers with `isolation: "worktree"`; [orchestrate](tasks/orchestrate.md#claude-code) has the details. Machine-specific settings go in the ignored `.claude/settings.local.json`. Claude's own memory is per checkout, so lasting preferences go in [focus.md](focus.md).
 - **Codex:** it reads `AGENTS.md`. Codex cloud runs on Linux, so native app automation is unavailable there. The cards fall back to the visual harness and crate-scoped tests, and say so in the PR. Prefer non-UI cards in the cloud. Locally, rules let common commands run outside the sandbox, which also avoids `spawn EPERM` and read-only `.git`. Copy what you want into `~/.codex/rules/default.rules`:
 
   ```python

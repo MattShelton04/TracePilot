@@ -8,12 +8,29 @@
  * (default `agent/<slug>`; an existing local branch is checked out instead),
  * runs `pnpm install --frozen-lockfile --prefer-offline` there, and prints the
  * matching app instance command. The slug is also the app instance name.
+ *
+ * On success the last two lines are `worktree: <absolute path>` and
+ * `branch: <branch>`, so `| tail -2` shows them; on any failure they are not
+ * printed and the exit code is non-zero. Warns when the disk is nearly full.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { AGENT_DIR, mainCheckout, pnpmCommand, refExists, SLUG, tryGit } from "./lib.mjs";
+import {
+  AGENT_DIR,
+  formatBytes,
+  freeDiskBytes,
+  git,
+  LOW_DISK_BYTES,
+  mainCheckout,
+  parseWorktreeList,
+  pathKey,
+  pnpmCommand,
+  refExists,
+  SLUG,
+  tryGit,
+} from "./lib.mjs";
 
 const USAGE =
   "Usage: pnpm worktree:new <slug> [--base origin/main] [--branch <type>/<slug>] [--no-install]";
@@ -44,6 +61,38 @@ export function parseArgs(argv) {
   }
   opts.branch ??= `agent/${opts.slug}`;
   return opts;
+}
+
+/**
+ * Why an existing folder blocks the slug. `entry` is its `git worktree list`
+ * record when registered; `hasGit` says whether the folder has a `.git` file.
+ */
+export function existingFolderMessage(path, entry, hasGit) {
+  const slug = basename(path);
+  if (entry) {
+    const on = entry.branch ? `branch ${entry.branch}` : `a detached HEAD (${entry.head})`;
+    return [
+      `${path} is already a registered worktree on ${on}.`,
+      `Reuse it (cd ${path}), or pick another slug.`,
+    ].join("\n");
+  }
+  if (hasGit) {
+    return [
+      `${path} exists, but git no longer tracks it. It has a .git file, so it may hold uncommitted work.`,
+      `Check it, then remove it with pnpm worktree:clean ${slug} --yes --force, or pick another slug.`,
+    ].join("\n");
+  }
+  return [
+    `${path} is a leftover folder, not a worktree: git no longer tracks it and it has no .git file.`,
+    "Don't use it: git -C on it would act on the main checkout instead.",
+    `Remove it with pnpm worktree:clean ${slug} --yes (or pnpm worktree:clean --yes), or pick another slug.`,
+  ].join("\n");
+}
+
+/** A warning when the checkout's disk is nearly full, else undefined. */
+export function lowDiskWarning(freeBytes) {
+  if (freeBytes === undefined || freeBytes >= LOW_DISK_BYTES) return undefined;
+  return `warning: only ${formatBytes(freeBytes)} free on this disk; a worktree's Rust target/ can grow to tens of GB. Free space with pnpm worktree:clean --merged.`;
 }
 
 /** Pick the base ref, fetching origin first; fall back to what exists locally. */
@@ -82,10 +131,12 @@ function main() {
   const root = mainCheckout(process.cwd());
   const path = join(root, AGENT_DIR, opts.slug);
   if (existsSync(path)) {
-    throw new Error(
-      `${path} already exists. Reuse it, or pick another slug (pnpm worktree:clean lists leftovers).`,
-    );
+    const worktrees = parseWorktreeList(git(["worktree", "list", "--porcelain"], root));
+    const entry = worktrees.find((wt) => pathKey(wt.path) === pathKey(path));
+    throw new Error(existingFolderMessage(path, entry, existsSync(join(path, ".git"))));
   }
+  const warning = lowDiskWarning(freeDiskBytes(root));
+  if (warning) console.warn(warning);
   if (!tryGit(["check-ref-format", "--branch", opts.branch], root).ok) {
     throw new Error(`Invalid branch name: ${opts.branch}`);
   }
@@ -98,6 +149,14 @@ function main() {
     : ["worktree", "add", "-b", opts.branch, path, base];
   const added = tryGit(add, root);
   if (!added.ok) throw new Error(`git ${add.join(" ")} failed:\n${added.err}`);
+  // A folder that isn't really a worktree lets git walk up and act on the main checkout.
+  const top = tryGit(["rev-parse", "--show-toplevel"], path);
+  if (!top.ok || pathKey(top.out.trim()) !== pathKey(path)) {
+    const found = top.ok ? top.out.trim() : `an error (${top.err})`;
+    throw new Error(
+      `git in ${path} resolves to ${found}, not the new worktree. Don't use it; run pnpm worktree:clean ${opts.slug} and retry.`,
+    );
+  }
   const head = tryGit(["rev-parse", "--short", "HEAD"], path).out.trim();
   console.log(
     branchExists
@@ -133,6 +192,9 @@ function main() {
       "Build notes: this worktree has its own Rust target/, so its first build compiles every",
       "dependency (sccache turns most of that into cache hits). Don't share CARGO_TARGET_DIR",
       "between worktrees. See docs/local-builds.md.",
+      "",
+      `worktree: ${path}`,
+      `branch: ${opts.branch}`,
     ].join("\n"),
   );
 }

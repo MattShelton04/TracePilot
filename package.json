@@ -23,6 +23,7 @@
     "app:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 start -Mode ui",
     "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 stop",
     "app:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 status",
+    "app:wait": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 wait",
     "pw": "node scripts/automation/pw.mjs",
     "test:automation": "node --test --test-concurrency=1 scripts/automation/*.test.mjs",
     "pricing:fetch": "node scripts/pricing/cli.mjs fetch",

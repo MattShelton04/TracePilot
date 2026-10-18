@@ -108,6 +108,7 @@ and documenting the policy in an ADR.
 | Schema additions         | Allowed within a new migration                   |
 | Column removals          | Two-phase (deprecate-read, then drop)            |
 | Breaking semantic change | Requires UI-level export step (not auto)         |
+| Migrations per branch    | One; fold drafts into it before the first push   |
 
 ## Consequences
 

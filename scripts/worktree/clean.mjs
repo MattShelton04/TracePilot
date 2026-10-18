@@ -2,19 +2,28 @@
 /**
  * List, and with --yes remove, agent worktrees that are no longer needed.
  *
- * Usage: pnpm worktree:clean [--dry-run] [--merged] [--yes] [--force]
+ * Usage: pnpm worktree:clean [--dry-run] [--merged] [--include-recent] [--yes] [--force]
+ *        pnpm worktree:clean <slug>... [--dry-run] [--yes] [--force]
  *
  * Without --yes nothing changes; the plan is printed. With --yes it:
  * - removes leftover folders under `.agent/worktrees/` and `.claude/worktrees/`
  *   that git no longer tracks and that have no `.git` file (what a Windows
  *   "Directory not empty" removal leaves behind, often with a large target/);
- * - with --merged, removes registered `.agent/worktrees/` worktrees whose HEAD
- *   is in origin/main or is the head of a merged PR (via gh), if they have no
- *   uncommitted changes or unpushed commits (--force overrides both);
+ * - with --merged, removes registered `.agent/worktrees/*` and
+ *   `.claude/worktrees/agent-*` worktrees (Claude Code's Agent tool isolation)
+ *   whose HEAD is in origin/main or is the head of a merged PR (via gh), if
+ *   they have no uncommitted changes or unpushed commits (--force overrides both).
+ *   Because another run may still be using one, it also keeps any with a running
+ *   app instance recorded inside, or whose folder or git HEAD/index/reflog
+ *   changed in the last 12 hours (--include-recent drops this recency guard);
+ *   --force overrides neither;
+ * - with slugs, removes only `.agent/worktrees/<slug>` for each slug, registered
+ *   or leftover, merged or not, under the same uncommitted/unpushed checks and
+ *   with no recency or running-app guard (it is the caller's own choice);
  * - stops app instances recorded inside each removed folder first;
  * - prunes stale worktree registrations and reports the disk freed.
- * Registered `.claude/worktrees/` and worktrees elsewhere are only reported.
- * Branches are kept.
+ * Other registered `.claude/worktrees/` (desktop sessions) and worktrees
+ * elsewhere are only reported. Branches are kept.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, rmSync } from "node:fs";
@@ -26,25 +35,45 @@ import {
   folderSize,
   formatBytes,
   git,
+  lastActivity,
   mainCheckout,
   parseWorktreeList,
   pathKey,
+  RECENT_MS,
   refExists,
+  SLUG,
+  stateIsLive,
   tryGit,
 } from "./lib.mjs";
 
 const SCRIPT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const USAGE = "Usage: pnpm worktree:clean [--dry-run] [--merged] [--yes] [--force]";
+const USAGE = [
+  "Usage: pnpm worktree:clean [--dry-run] [--merged] [--include-recent] [--yes] [--force]",
+  "       pnpm worktree:clean <slug>... [--dry-run] [--yes] [--force]",
+].join("\n");
 
 export function parseArgs(argv) {
-  const opts = { yes: false, dryRun: false, merged: false, force: false };
+  const opts = {
+    yes: false,
+    dryRun: false,
+    merged: false,
+    force: false,
+    includeRecent: false,
+    slugs: [],
+  };
   for (const arg of argv) {
     if (arg === "--yes" || arg === "-y") opts.yes = true;
     else if (arg === "--dry-run") opts.dryRun = true;
     else if (arg === "--merged") opts.merged = true;
     else if (arg === "--force") opts.force = true;
+    else if (arg === "--include-recent") opts.includeRecent = true;
     else if (arg === "--help" || arg === "-h") opts.help = true;
-    else throw new Error(`Unknown argument: ${arg}\n${USAGE}`);
+    else if (arg.startsWith("-")) throw new Error(`Unknown argument: ${arg}\n${USAGE}`);
+    else if (!SLUG.test(arg)) throw new Error(`Not a worktree slug: ${arg}\n${USAGE}`);
+    else if (!opts.slugs.includes(arg)) opts.slugs.push(arg);
+  }
+  if (opts.merged && opts.slugs.length) {
+    throw new Error(`Pass slugs or --merged, not both.\n${USAGE}`);
   }
   // Deleting needs an explicit --yes, and --dry-run always wins.
   opts.apply = opts.yes && !opts.dryRun;
@@ -52,13 +81,34 @@ export function parseArgs(argv) {
 }
 
 /**
+ * What a folder directly under AGENT_DIR or CLAUDE_DIR is. `entry` is its
+ * `git worktree list` record, if registered. Claude Code's Agent tool names its
+ * isolated worktrees `agent-<id>`; --merged cleans those like agent worktrees.
+ * Other `.claude/worktrees/` entries are desktop sessions and only reported.
+ */
+export function classify(area, name, entry, opts) {
+  if (!entry) return "leftover";
+  if (area === AGENT_DIR) return "agent";
+  return opts.merged && name.startsWith("agent-") ? "agent" : "claude";
+}
+
+/**
  * Decide what to do with one folder or worktree.
- * item: { kind: "leftover" | "agent" | "claude" | "other", hasGit?, current?,
- *         locked?, dirty?, statusError?, merged?, unpushed? }
+ * item: { kind: "leftover" | "agent" | "claude" | "missing" | "other", hasGit?,
+ *         targeted?, current?, locked?, dirty?, statusError?, merged?, unpushed?,
+ *         liveApps?, recent? }
+ * `targeted` items were named on the command line, so they need not be merged
+ * and skip the guards for worktrees another run may still be using.
  */
 export function decide(item, opts) {
   const keep = (reason) => ({ action: "keep", reason });
   const remove = (reason) => ({ action: "remove", reason });
+  if (item.kind === "missing") {
+    return {
+      action: "skip",
+      reason: item.registered ? "folder is gone; prune clears its registration" : "no such folder",
+    };
+  }
   if (item.kind === "leftover") {
     if (!item.hasGit) return remove("leftover folder; git no longer tracks it");
     return opts.force
@@ -72,15 +122,27 @@ export function decide(item, opts) {
   if (item.current) return keep("current checkout");
   if (item.locked) return keep("locked (git worktree unlock it first)");
   if (item.statusError) return keep(`can't read its status: ${item.statusError}`);
-  if (!opts.merged)
-    return keep(item.dirty ? "uncommitted changes" : "clean; --merged checks whether it merged");
-  if (!item.merged) return keep("not merged into the base branch");
-  if (item.dirty && !opts.force)
-    return keep("merged, but has uncommitted changes (--force removes it)");
-  if (item.unpushed > 0 && !opts.force) {
-    return keep(`merged, but ${item.unpushed} commit(s) are on no remote (--force removes it)`);
+  if (!item.targeted) {
+    if (!opts.merged)
+      return keep(item.dirty ? "uncommitted changes" : "clean; --merged checks whether it merged");
+    if (!item.merged) return keep("not merged into the base branch");
+    // Another run may still be using it, so --force overrides neither guard.
+    if (item.liveApps?.length) {
+      return keep(`app instance ${item.liveApps.join(", ")} is running in it`);
+    }
+    if (item.recent && !opts.includeRecent) {
+      return keep(
+        "active in the last 12 hours, maybe by another run (--include-recent removes it)",
+      );
+    }
   }
-  return remove(item.dirty || item.unpushed > 0 ? "merged (--force)" : "merged and clean");
+  const what = item.targeted ? "named" : "merged";
+  if (item.dirty && !opts.force)
+    return keep(`${what}, but has uncommitted changes (--force removes it)`);
+  if (item.unpushed > 0 && !opts.force) {
+    return keep(`${what}, but ${item.unpushed} commit(s) are on no remote (--force removes it)`);
+  }
+  return remove(item.dirty || item.unpushed > 0 ? `${what} (--force)` : `${what} and clean`);
 }
 
 /** Heads of merged PRs, so squash-merged branches count as merged. */
@@ -98,21 +160,32 @@ function mergedPrHeads(root) {
   }
 }
 
-function inspectWorktree(entry, ctx) {
+function inspectWorktree(entry, ctx, targeted = false) {
   const item = {
     kind: "agent",
     path: entry.path,
     branch: entry.branch ?? "(detached)",
     locked: entry.locked,
+    targeted,
   };
   item.current = pathKey(entry.path) === ctx.current;
-  const status = tryGit(["status", "--porcelain"], entry.path);
+  if (ctx.opts.merged && !targeted) {
+    // Read activity before anything here could touch the index.
+    const gitDir = tryGit(["rev-parse", "--absolute-git-dir"], entry.path);
+    const last = lastActivity(entry.path, gitDir.ok ? gitDir.out.trim() : undefined);
+    item.recent = last === undefined || ctx.now - last < RECENT_MS;
+    item.liveApps = recordedInstances(entry.path)
+      .filter((instance) => stateIsLive(join(instance.state, `${instance.mode}.json`)))
+      .map((instance) => `${instance.name} (${instance.mode})`);
+  }
+  // --no-optional-locks keeps status from rewriting the index, which would look like activity.
+  const status = tryGit(["--no-optional-locks", "status", "--porcelain"], entry.path);
   if (!status.ok) {
     item.statusError = status.err.split("\n")[0] || "git status failed";
     return item;
   }
   item.dirty = status.out.trim() !== "";
-  if (ctx.opts.merged) {
+  if (ctx.opts.merged || targeted) {
     const prMerged = ctx.prHeads?.has(entry.head) ?? false;
     item.merged =
       prMerged || tryGit(["merge-base", "--is-ancestor", entry.head, ctx.base], ctx.root).ok;
@@ -198,6 +271,41 @@ function removeItem(item, ctx) {
   return { problem, freed };
 }
 
+/**
+ * Everything to decide on: the named `.agent/worktrees/<slug>` folders, or
+ * every folder in both areas. `claudeKept` counts registered `.claude/worktrees/`
+ * entries that are only reported.
+ */
+function collectItems(worktrees, ctx) {
+  const registered = new Map(worktrees.map((entry) => [pathKey(entry.path), entry]));
+  const items = [];
+  let claudeKept = 0;
+  if (ctx.opts.slugs.length) {
+    for (const slug of ctx.opts.slugs) {
+      const path = join(ctx.root, AGENT_DIR, slug);
+      const entry = registered.get(pathKey(path));
+      if (!existsSync(path)) items.push({ kind: "missing", path, registered: Boolean(entry) });
+      else if (entry) items.push(inspectWorktree(entry, ctx, true));
+      else items.push({ kind: "leftover", path, hasGit: existsSync(join(path, ".git")) });
+    }
+    return { items, claudeKept };
+  }
+  for (const area of [AGENT_DIR, CLAUDE_DIR]) {
+    const dir = join(ctx.root, area);
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir, { withFileTypes: true })) {
+      if (!name.isDirectory()) continue;
+      const path = join(dir, name.name);
+      const entry = registered.get(pathKey(path));
+      const kind = classify(area, name.name, entry, ctx.opts);
+      if (kind === "leftover") items.push({ kind, path, hasGit: existsSync(join(path, ".git")) });
+      else if (kind === "agent") items.push(inspectWorktree(entry, ctx));
+      else claudeKept++;
+    }
+  }
+  return { items, claudeKept };
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
@@ -209,29 +317,20 @@ function main() {
   const base = refExists("origin/main", root) ? "origin/main" : "main";
   if (opts.merged) tryGit(["fetch", "--quiet", "--prune", "origin"], root);
   const prHeads = opts.merged ? mergedPrHeads(root) : undefined;
-  const ctx = { opts, root, current, base, prHeads };
+  const ctx = { opts, root, current, base, prHeads, now: Date.now() };
 
   const worktrees = parseWorktreeList(git(["worktree", "list", "--porcelain"], root));
-  const registered = new Map(worktrees.map((entry) => [pathKey(entry.path), entry]));
-  const items = [];
-  const claude = { registered: 0 };
-  for (const area of [AGENT_DIR, CLAUDE_DIR]) {
-    const dir = join(root, area);
-    if (!existsSync(dir)) continue;
-    for (const name of readdirSync(dir, { withFileTypes: true })) {
-      if (!name.isDirectory()) continue;
-      const path = join(dir, name.name);
-      const entry = registered.get(pathKey(path));
-      if (!entry) items.push({ kind: "leftover", path, hasGit: existsSync(join(path, ".git")) });
-      else if (area === AGENT_DIR) items.push(inspectWorktree(entry, ctx));
-      else claude.registered++;
-    }
-  }
+  const { items, claudeKept } = collectItems(worktrees, ctx);
   const areas = [AGENT_DIR, CLAUDE_DIR].map((area) => `${pathKey(join(root, area))}/`);
-  const others = worktrees.filter(
-    (entry, index) =>
-      index > 0 && !entry.prunable && !areas.some((area) => pathKey(entry.path).startsWith(area)),
-  );
+  const named = opts.slugs.length > 0;
+  const others = named
+    ? []
+    : worktrees.filter(
+        (entry, index) =>
+          index > 0 &&
+          !entry.prunable &&
+          !areas.some((area) => pathKey(entry.path).startsWith(area)),
+      );
   const pruneRun = tryGit(["worktree", "prune", "--dry-run", "--verbose"], root);
   const prune = `${pruneRun.out}\n${pruneRun.err}`
     .split(/\r?\n/)
@@ -249,7 +348,7 @@ function main() {
     const decision = decide(item, opts);
     const label = item.branch ? `${show(item.path)} [${item.branch}]` : show(item.path);
     if (decision.action !== "remove") {
-      console.log(`  keep    ${label}: ${decision.reason}`);
+      console.log(`  ${decision.action.padEnd(7)} ${label}: ${decision.reason}`);
       continue;
     }
     item.size = folderSize(item.path);
@@ -269,9 +368,11 @@ function main() {
   }
   for (const line of prune) console.log(`  prune   ${line.replace(/^Removing /, "")}`);
   if (opts.apply && prune.length) tryGit(["worktree", "prune"], root);
-  if (claude.registered) {
+  if (claudeKept) {
+    const which = opts.merged ? "desktop session" : "registered";
+    const hint = opts.merged ? "" : " (--merged also checks agent-* ones)";
     console.log(
-      `  report  ${CLAUDE_DIR}: ${claude.registered} registered worktree(s), managed by Claude Code; left alone`,
+      `  report  ${CLAUDE_DIR}: ${claudeKept} ${which} worktree(s), managed by Claude Code; left alone${hint}`,
     );
   }
   for (const entry of others) {

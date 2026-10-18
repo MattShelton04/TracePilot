@@ -21,7 +21,7 @@ Reusable task cards for autonomous agents live in [docs/agents](docs/agents/READ
 Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rules
 (isolated named app instances, proportionate verification, PR format) are in
 [docs/agents/protocol.md](docs/agents/protocol.md). When choosing what to improve, skip the experimental areas listed in
-[focus.md](docs/agents/focus.md) unless you're asked to work on them.
+[focus.md](docs/agents/focus.md) unless you're asked to work on them, and respect its product decisions.
 
 # Working here as an agent
 
@@ -38,13 +38,23 @@ Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rul
   maintainer asks you to check their own sessions. That's pre-authorized for local
   verification only; real data never goes into commits, PRs or screenshots.
 - **Editing:** prefer the Edit tool. Put scripted edits in a script file, not an
-  inline heredoc. Set `PYTHONUTF8=1` for Python. `jq` isn't installed; use `node -e`.
-- **Windows shells:** PowerShell doesn't expand globs, so use `rg -g '<glob>'`.
-  Single-quote patterns. Use `pwsh -NoProfile`, and check `$LASTEXITCODE` after
-  native commands.
+  inline heredoc, and never leave a bare `cat >` waiting on input. Set `PYTHONUTF8=1`
+  for Python and write with `newline=''` to keep line endings. `jq` isn't installed;
+  use `node -e`.
+- **Windows shells:** `rg` may not be on PATH. Search with your harness's search tool
+  or `git grep -n '<pattern>' -- '<glob>'`. PowerShell doesn't expand globs, and
+  shell variables don't persist between tool calls. Single-quote patterns. Use
+  `pwsh -NoProfile`, and check `$LASTEXITCODE` after native commands.
+- **Tools:** run repo tools with `pnpm exec` (or a `pnpm` script), never `npx`, which
+  can download a different version.
 - **Worktrees:** stay inside yours and don't `cd` to other absolute paths. Create
   one with `pnpm worktree:new <slug>`, remove finished ones with
-  `pnpm worktree:clean`. Build setup and sccache: [local builds](docs/local-builds.md).
+  `pnpm worktree:clean`. A worktree your harness created (including Claude desktop
+  worktrees) needs `pnpm install --frozen-lockfile --prefer-offline` first.
+  Build setup and sccache: [local builds](docs/local-builds.md).
+- **Git:** never use `git stash`; every worktree shares one stash stack. To run old
+  code, see [running old code](docs/agents/protocol.md#running-old-code). Never
+  merge on your own initiative.
 - **Generated-file conflicts** (`bindings.ts`, `ipc-commands.json`): re-run
   `pnpm gen:bindings` instead of resolving by hand.
 

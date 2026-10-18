@@ -345,17 +345,12 @@ Each PR keeps Copilot behaviour identical; the golden tests are the gate.
 - **Private data.** Fixtures are synthetic, built from [record-shapes.md](record-shapes.md).
   Real-data checks run only through the S3 ignored test, and print aggregates only.
 
-- **Validation.** `just ci` ignores failures from `cargo fmt`, `cargo clippy` and Biome (the
-  `-` prefixes in the `justfile`). Every package therefore runs these explicitly and reports
-  each one passing:
-  - `cargo fmt --all -- --check`
-  - `cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings`
-  - `cargo test --workspace --exclude tracepilot-desktop`
-  - `node scripts/check-file-sizes.mjs`
-  - When TypeScript, Vue or generated types change: `pnpm typecheck`, `pnpm test` and
-    `pnpm biome check --error-on-warnings .`
-  - When a specta-exported type changes: `pnpm gen:bindings`, then commit the result and show
-    that a second run leaves `git status` clean.
+- **Validation.** Follow the [protocol's verification table](../../agents/protocol.md#verify-proportionately):
+  run `pnpm check:changed` (crate-scoped `cargo test`, `clippy` and `fmt`, plus the frontend
+  checks that match the diff), then push and let the PR's CI run the full gate. When a
+  specta-exported type changes, run `pnpm gen:bindings` and commit the result. _(This section
+  originally required workspace-wide gates on every package; the protocol has since replaced
+  that.)_
 
 ### First work packages
 

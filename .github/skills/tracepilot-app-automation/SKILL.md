@@ -29,8 +29,14 @@ pnpm app:stop -Instance <slug>
   (copies for SQLite sidecars). The real TracePilot config and index are never
   opened. Use it for local checks only: never commit, publish or paste what it shows.
 - Startup waits for the rendered app and a read-only Rust IPC call. The first Rust
-  build in a worktree takes minutes; let it finish. Logs are in
+  build in a worktree takes minutes (10+ for a cold build); let it finish. Logs are in
   `.tracepilot/instances/<slug>/`.
+- If your tool calls time out before that, start it in the background and block with
+  `pnpm app:wait -Instance <slug>` (add `-Mode ui` for `app:ui`). It returns when the
+  instance is ready, fails fast with the log paths if the start failed, and exits non-zero
+  on its timeout, so you can simply run it again. Never poll with `sleep` loops.
+- Extra synthetic sessions go in new files under the instance's data root. Don't edit
+  generated fixture files: the next start refuses changed fixtures.
 - Only one development desktop instance runs per checkout. Use another worktree for a second one.
 - A human's bare `pnpm app:start` uses their configured data, with real effects.
 
@@ -53,6 +59,10 @@ pnpm pw <slug> run-file .playwright-cli/flow.js     # file: async page => { ... 
 - Use `<slug>:ui` for `pnpm app:ui -Instance <slug>`. Use `default` for an unnamed instance.
 - Put JavaScript in a file under `.playwright-cli/` (ignored by Git). Inline JS
   passed through the pnpm/cmd shims loses its quotes.
+- **`run-file` contract:** the file is a single expression, `async page => { … }`,
+  with no trailing `;`. It runs in Node, not in the page, so reach `location`,
+  `document` and app state through `page.evaluate(() => …)`. `eval-file` runs its
+  function in the page.
 - Every other command is the upstream CLI: `pnpm pw <slug> --help`.
 
 ## Observe, act, verify
@@ -60,8 +70,12 @@ pnpm pw <slug> run-file .playwright-cli/flow.js     # file: async page => { ... 
 - Read the snapshot file and use refs from the **current** snapshot. `e12` above is illustrative.
 - Re-snapshot after navigation or layout changes. `find 'text'` returns a focused excerpt.
 - Wait on a visible result, or use a locator in `run-file`. Don't use fixed sleeps.
-- TracePilot uses hash routing. Follow sidebar links, and don't open or close
-  webview tabs. For detached windows use `tab-list` and `tab-select`.
+- TracePilot uses hash routing. Follow sidebar links, or jump straight to a route in
+  `run-file` with `await page.evaluate(() => { location.hash = '#/…' })`. Don't open or
+  close webview tabs. For detached windows use `tab-list` and `tab-select`.
+- Every open session tab stays mounted (hidden with `v-show`), so text can match hidden duplicates.
+  Scope locators to the visible container, or add `:visible` (`page.locator('button:visible', { hasText: 'Jump to' })`),
+  and prefer `data-testid`s where they exist.
 - Open screenshots with your image viewer: writing a file is not visual verification.
 - Keep route, viewport, theme and data the same for before/after captures.
 - Viewports: 1440×960 (default), then 960×640 (minimum) and 2560×1440.

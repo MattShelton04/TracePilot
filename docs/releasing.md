@@ -57,7 +57,8 @@ Match the style of the previous release in each file.
 - **Audience.** Write for users, not reviewers. Lead with the visible effect;
   skip refactors, tests and internal renames.
 - **CHANGELOG entries** are `- **Title** — One to three sentences (#PR, #PR).`
-  Merge related PRs into one entry. Site, CI and developer-tooling changes may
+  Merge related PRs into one entry. Entries are flat: no nested sub-points and no
+  internal detail. Site, CI and developer-tooling changes may
   get one short entry each (for example "Website" or "Development workflow").
 - **Manifest entries** are `"Title: One sentence"` with no trailing period and
   no PR numbers. Use the same titles as the changelog, shorter, and only for

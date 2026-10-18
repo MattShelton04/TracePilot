@@ -16,6 +16,8 @@
       "PowerShell(pnpm pw *)",
       "Bash(pnpm worktree:new *)",
       "PowerShell(pnpm worktree:new *)",
+      "Bash(pnpm worktree:clean*)",
+      "PowerShell(pnpm worktree:clean*)",
       "Bash(pnpm install --frozen-lockfile *)",
       "PowerShell(pnpm install --frozen-lockfile *)",
       "Bash(pnpm --filter @tracepilot/cli test *)",
@@ -115,7 +117,9 @@
       "Bash(git worktree add -f *)",
       "PowerShell(git worktree add -f *)",
       "Bash(git worktree add --force *)",
-      "PowerShell(git worktree add --force *)"
+      "PowerShell(git worktree add --force *)",
+      "Bash(git stash*)",
+      "PowerShell(git stash*)"
     ]
   }
 }
