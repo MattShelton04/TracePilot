@@ -27,7 +27,8 @@ struct Row<'a> {
 /// would re-index every session.
 pub(super) fn lists_request_records(conn: &Connection, session_id: &str) -> bool {
     conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM session_format_observations          WHERE session_id = ?1 AND kind = ?2 AND name LIKE 'api-request%')",
+        "SELECT EXISTS (SELECT 1 FROM session_format_observations
+         WHERE session_id = ?1 AND kind = ?2 AND name LIKE 'api-request%')",
         (session_id, KIND_RECORD),
         |row| row.get(0),
     )
