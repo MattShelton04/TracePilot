@@ -36,6 +36,16 @@ const repositoryGroups = computed(() =>
 const showSourceFilter = computed(
   () => store.availableSources.length > 1 || store.selectedSource !== null,
 );
+// A native select is as wide as its longest option, so it would resize with
+// each source's names; it keeps one width and names the cut-off pick here.
+const selectedRepoLabel = computed(() => {
+  const value = store.selectedRepo;
+  if (!value) return "All Repositories";
+  const option = repositoryGroups.value
+    .flatMap((group) => group.options)
+    .find((opt) => opt.value === value);
+  return option?.label ?? value;
+});
 </script>
 
 <template>
@@ -43,8 +53,9 @@ const showSourceFilter = computed(
     <template #actions>
       <select
         :value="store.selectedRepo ?? ''"
-        class="filter-select"
+        class="filter-select analytics-repo-filter"
         aria-label="Filter by repository"
+        :title="selectedRepoLabel"
         @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
       >
         <option value="">All Repositories</option>
@@ -70,3 +81,12 @@ const showSourceFilter = computed(
     <TimeRangeFilter />
   </PageHeader>
 </template>
+
+<style scoped>
+.analytics-repo-filter {
+  width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

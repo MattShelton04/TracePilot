@@ -28,6 +28,7 @@ import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
 import ContextCapturePanel from "@/components/contextCapture/ContextCapturePanel.vue";
 import RecordedRequestsPanel from "@/components/contextCapture/RecordedRequestsPanel.vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
+import { useClaudeRequestLog } from "@/composables/useClaudeRequestLog";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
 import { useFirstReveal } from "@/composables/useFirstReveal";
@@ -62,13 +63,29 @@ const showContextCapture = computed(
 // Claude Code sessions show what Claude Code itself recorded of each request:
 // a passive read of the transcript, so it needs neither resume nor the flag.
 // It takes the same second slot; a Claude session never offers capture.
-const showRecordedRequests = computed(() => source.value === "claudeCode");
+// The log is read up front and the view offered only when it holds records:
+// sessions from before 2.1.301, or from the desktop app, have none. The
+// panel shows this same log.
+const isClaudeCode = computed(() => source.value === "claudeCode");
+const requestLog = useClaudeRequestLog(
+  () => (isClaudeCode.value ? store.sessionId : null),
+  () => store.detail,
+);
+const showRecordedRequests = computed(
+  () => isClaudeCode.value && requestLog.log.value != null && !requestLog.isEmpty.value,
+);
+// Not yet known; a remembered "Recorded requests" waits on its own loading
+// state rather than flashing the timeline first.
+const requestLogPending = computed(
+  () => isClaudeCode.value && requestLog.log.value == null && !requestLog.error.value,
+);
 const showSecondView = computed(() => showContextCapture.value || showRecordedRequests.value);
 // A remembered "snapshots" shows the timeline where no second view is
 // offered, and stays remembered for sessions that offer one.
 const tabViews = useSessionTabViews();
 const contextView = computed({
-  get: () => (showSecondView.value ? tabViews.value.context : "timeline"),
+  get: () =>
+    showSecondView.value || requestLogPending.value ? tabViews.value.context : "timeline",
   set: (view) => {
     tabViews.value.context = view;
   },
@@ -639,9 +656,8 @@ function retryLoad() {
       :session-id="store.sessionId"
     />
     <RecordedRequestsPanel
-      v-if="showRecordedRequests && contextView === 'snapshots' && store.sessionId"
-      :session-id="store.sessionId"
-      :refresh-key="store.detail"
+      v-if="(showRecordedRequests || requestLogPending) && contextView === 'snapshots' && store.sessionId"
+      :request-log="requestLog"
     />
   </div>
 </template>

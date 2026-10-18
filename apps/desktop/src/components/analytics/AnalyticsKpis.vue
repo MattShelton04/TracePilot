@@ -72,6 +72,8 @@ interface CostKpi {
   partial: boolean;
   tooltip: string;
   meter: { key: string; color: string; width: number; title: string }[];
+  /** Each source's share of a mixed total, one line each so none is cut off. */
+  sources: { key: string; label: string; color: string; value: string; partial: boolean }[];
 }
 
 /**
@@ -89,6 +91,7 @@ const cost = computed<CostKpi>(() => {
       partial: false,
       tooltip: "",
       meter: [],
+      sources: [],
     };
   }
   if (rows.length === 1 && rows[0].unit === "aic") {
@@ -104,6 +107,7 @@ const cost = computed<CostKpi>(() => {
       partial: credits.isPartial,
       tooltip: `${aiCreditBasis(credits)}${credits.credits == null ? "" : ` ${formatAiCredits(credits.credits)} at $0.01 each.`}`,
       meter: [],
+      sources: [],
     };
   }
   if (rows.length === 1) {
@@ -118,18 +122,14 @@ const cost = computed<CostKpi>(() => {
       partial: rows[0].partial,
       tooltip: `API-equivalent USD from ${sourceLabel(rows[0].source)} usage.${rows[0].partial ? " Partial: some sessions could not be priced." : ""}`,
       meter: [],
+      sources: [],
     };
   }
   const total = summary.costTotal;
   return {
     label: "Cost",
     value: total.usd == null ? "—" : formatUsd(total.usd),
-    note: rows
-      .map(
-        (row) =>
-          `${sourceLabel(row.source)} ${row.usdEquivalent == null ? "unpriced" : formatUsd(row.usdEquivalent)}`,
-      )
-      .join(" · "),
+    note: "",
     partial: total.partial,
     tooltip: `${costBreakdown(rows)}. AI Credits count at $0.01 each.${total.partial ? " Partial: some usage could not be priced." : ""}`,
     meter:
@@ -143,6 +143,13 @@ const cost = computed<CostKpi>(() => {
               title: `${sourceLabel(row.source)}: ${formatUsd(row.usdEquivalent ?? 0)}`,
             }))
         : [],
+    sources: rows.map((row) => ({
+      key: row.source,
+      label: sourceLabel(row.source),
+      color: SOURCE_COLORS[row.source],
+      value: row.usdEquivalent == null ? "unpriced" : formatUsd(row.usdEquivalent),
+      partial: row.partial,
+    })),
   };
 });
 
@@ -213,7 +220,18 @@ const pace = computed(() => {
             data-reveal="grow-x"
           />
         </div>
-        <span class="ad-kpi-note" :title="cost.note">
+        <ul v-if="cost.sources.length" class="ad-kpi-sources">
+          <li v-for="part in cost.sources" :key="part.key">
+            <i class="ad-sw" :style="{ background: part.color }" aria-hidden="true" />
+            <span class="ad-kpi-sources__name">{{ part.label }}</span>
+            <span class="ad-kpi-sources__value"><b>{{ part.value }}</b><span
+              v-if="part.partial"
+              class="ad-partial ad-kpi-sources__partial"
+              title="Partly priced: some usage could not be priced"
+            >*</span></span>
+          </li>
+        </ul>
+        <span v-else class="ad-kpi-note" :title="cost.note">
           {{ cost.note }}<template v-if="cost.partial"> · <span class="ad-partial">partial</span></template>
         </span>
       </template>

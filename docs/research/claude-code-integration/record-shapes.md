@@ -259,8 +259,9 @@ subagent file. They are a third to well over half of a recent transcript. None h
 The parser keeps only `type`, `timestamp` and `version` of these records and makes no event
 from them: the timestamp still sets the next call's `requested_at` and dates the session
 (`ClaudeParse::request_times`). They are counted in `request_records`, never as unmapped
-types. The Context tab's "Recorded requests" view reads the shapes and calls on demand
-(`get_session_request_log`); it never reads `params.safeguards`, which holds the safety
+types. The Context tab reads the shapes and calls when it opens on a Claude Code session
+(`get_session_request_log`) and offers its "Recorded requests" view only when there are
+records; it never reads `params.safeguards`, which holds the safety
 classifier's context (identity, home directory, rules). It returns the most recently used
 shapes (at most 24 and about 2 MB) and the latest 2,000 calls, and names the shapes it left
 out. Exports keep only an `api-request*` record's bookkeeping keys (`type`, `timestamp`,
