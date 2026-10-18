@@ -119,7 +119,9 @@
       "Bash(git worktree add --force *)",
       "PowerShell(git worktree add --force *)",
       "Bash(git stash*)",
-      "PowerShell(git stash*)"
+      "PowerShell(git stash*)",
+      "Bash(pnpm worktree:clean * --force*)",
+      "PowerShell(pnpm worktree:clean * --force*)"
     ]
   }
 }

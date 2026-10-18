@@ -133,9 +133,10 @@ start launched in the background (a cold Rust build takes 10+ minutes), run
 that lock: it reads the start's registry claim and lifecycle state, and returns
 once the start ends. It exits 0 after the same readiness check as `app:status`
 (last line `Ready: <slug> (desktop) - attach with pnpm pw <slug> <command>`),
-1 when the start failed, a tracked process exited, or no start appears within
-10 seconds (it prints the `<mode>-*.log` paths; build errors are in
-`desktop-tauri.err.log`), and 2 when `-TimeoutSeconds` (default 540, inside a
+1 when the start failed, or no start appears within 10 seconds and the instance
+is not running or ready (stale state from a crash counts as no start yet, so a
+restart launched alongside it is waited for; it prints the `<mode>-*.log`
+paths; build errors are in `desktop-tauri.err.log`), and 2 when `-TimeoutSeconds` (default 540, inside a
 10-minute tool call) passes while still starting; run it again.
 
 Desktop readiness checks the existing rendered TracePilot webview and makes a

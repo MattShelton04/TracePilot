@@ -383,32 +383,39 @@ function Wait-ForStart([int]$Seconds) {
             $sawStart = $true
         } else {
             $state = Read-StateFile
+            # Before any start is seen, dead or unready state may be what a restart
+            # after a crash is about to replace, so it counts as no claim yet until the
+            # grace period ends. Once a start was seen and has ended, it is final.
+            $settled = $sawStart -or [DateTime]::UtcNow -ge $graceEnd
             if ($state) {
                 $records = @($state.processes)
                 $alive = @($records | Where-Object { Get-OwnedProcess $_ })
+                $problem = $null
                 if ($records.Count -eq 0 -or $alive.Count -ne $records.Count) {
-                    Write-Host "A tracked $label process has exited. Run pnpm app:stop$instanceArgs, then start again."
+                    $problem = "A tracked $label process has exited. Run pnpm app:stop$instanceArgs, then start again."
+                } else {
+                    $ready = if ($Mode -eq 'desktop') { Invoke-Readiness $state.endpoint $state.instanceId } else {
+                        try { (Invoke-WebRequest -UseBasicParsing -Uri $state.url -TimeoutSec 5).StatusCode -eq 200 } catch { $false }
+                    }
+                    if (-not $ready) {
+                        $problem = "$label is running but not ready, and no start is in progress (was the start interrupted?). Run pnpm app:stop$instanceArgs, then start again."
+                    }
+                }
+                if (-not $problem) {
+                    Show-Connection $state
+                    Write-Host "Ready: $label - attach with pnpm pw $target <command>"
+                    exit 0
+                }
+                if ($settled) {
+                    Write-Host $problem
                     Show-StartLogs
                     exit 1
                 }
-                $ready = if ($Mode -eq 'desktop') { Invoke-Readiness $state.endpoint $state.instanceId } else {
-                    try { (Invoke-WebRequest -UseBasicParsing -Uri $state.url -TimeoutSec 5).StatusCode -eq 200 } catch { $false }
-                }
-                if (-not $ready) {
-                    Write-Host "$label is running but not ready, and no start is in progress (was the start interrupted?). Run pnpm app:stop$instanceArgs, then start again."
-                    Show-StartLogs
-                    exit 1
-                }
-                Show-Connection $state
-                Write-Host "Ready: $label - attach with pnpm pw $target <command>"
-                exit 0
-            }
-            if ($sawStart) {
+            } elseif ($sawStart) {
                 Write-Host "The start of $label failed: it ended without a running instance. Its own output has the error."
                 Show-StartLogs
                 exit 1
-            }
-            if ([DateTime]::UtcNow -ge $graceEnd) {
+            } elseif ([DateTime]::UtcNow -ge $graceEnd) {
                 Write-Host "No start is in progress for $label and it is not running. Start it with $(if ($Mode -eq 'ui') { "pnpm app:ui -Instance $name" } else { "pnpm app:start -Instance $name -Fixtures" })."
                 exit 1
             }

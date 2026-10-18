@@ -414,4 +414,28 @@ test("Windows lifecycle owns only its recorded process trees", {
       await run("stop", "ui", ["-Instance", "exited"]);
     }
   });
+
+  await t.test("wait outlasts stale state while a restart after a crash registers", async () => {
+    await run("start", "ui", ["-Instance", "restart"]);
+    const crashed = instanceState("restart");
+    execFileSync("taskkill", ["/PID", String(crashed.processes[0].pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
+    // wait polls first and sees the dead state before the new start claims it.
+    const waiting = run("wait", "ui", ["-Instance", "restart", "-TimeoutSeconds", "60"]);
+    waiting.catch(() => {}); // Asserted below; an early exit must not go unhandled.
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const starting = run("start", "ui", ["-Instance", "restart"]);
+    try {
+      const { stdout } = await waiting;
+      assert.match(stdout, /Ready: restart \(ui\)/);
+      await starting;
+      const restarted = instanceState("restart");
+      assert.notEqual(restarted.processes[0].pid, crashed.processes[0].pid);
+      assert.equal(await (await fetch(restarted.url)).text(), "fixture");
+    } finally {
+      await Promise.allSettled([waiting, starting]);
+      await run("stop", "ui", ["-Instance", "restart"]);
+    }
+  });
 });

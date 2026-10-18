@@ -59,17 +59,22 @@ export const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
 /** Agent worktrees live here, relative to the main checkout. */
 export const AGENT_DIR = ".agent/worktrees";
 /**
- * Claude Code manages these. Desktop sessions are only reported; `agent-*` ones
- * (the Agent tool's `isolation: worktree`) are cleaned like agent worktrees.
+ * Claude Code manages these. Desktop sessions are only reported; Agent tool
+ * ones (`isolation: worktree`) are cleaned like agent worktrees.
  */
 export const CLAUDE_DIR = ".claude/worktrees";
+/**
+ * How the Agent tool names its worktrees (`agent-a04ced92...`, branch
+ * `worktree-agent-...`), so a desktop session titled `agent-notes` never matches.
+ */
+export const AGENT_TOOL_NAME = /^agent-[0-9a-f]{8,}$/;
 
 export function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
-export function tryGit(args, cwd) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8", windowsHide: true });
+export function tryGit(args, cwd, input) {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", windowsHide: true, input });
   const err = result.error?.message ?? result.stderr ?? "";
   return { ok: result.status === 0, out: result.stdout ?? "", err: err.trim() };
 }

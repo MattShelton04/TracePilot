@@ -43,7 +43,7 @@ You are accountable for every PR, and you read every final diff yourself. If you
 ### Claude Code
 
 - **Reports come back as the agent's final message.** Claude Code refuses report files written by subagents, so never ask a worker, reviewer or scout to write `report.md`. Save each final message to `<run>/<slug>/report.md` yourself.
-- **Isolation.** If your session runs in a desktop-app worktree (under `.claude/worktrees/`), its edit guard blocks `.agent/worktrees/`. Dispatch workers with the Agent tool's `isolation: "worktree"` instead of `pnpm worktree:new`. In a main checkout, use `pnpm worktree:new`.
+- **Isolation.** If your session runs in a desktop-app worktree (under `.claude/worktrees/`), its edit guard blocks `.agent/worktrees/`. Dispatch workers and scouts with the Agent tool's `isolation: "worktree"` instead of `pnpm worktree:new`. **Your own worktree is the integration worktree:** start it from `origin/main` and rename its branch (`git branch -m <type>/<run-slug>`), then merge the workers' branches into it. In a main checkout, use `pnpm worktree:new` for everything.
 - **Commands inside an isolated worktree.** Run each git command on its own, from the worktree root. Chains such as `cd X && git …`, `git -C`, loops and subshells get refused as "too complex to verify".
 - **Fresh isolated worktrees have no dependencies.** The worker's first command is `pnpm install --frozen-lockfile --prefer-offline`.
 - **Task lists.** Workers don't use the app's task-list or plan tools.
@@ -59,7 +59,7 @@ You are accountable for every PR, and you read every final diff yourself. If you
 
 If you were given Tasks, use them. Otherwise collect up to Workstreams + 2 candidates with the method from [auto.md](auto.md), skipping the deprioritized areas and respecting the product decisions in [focus.md](../focus.md). Recurring CI failures and flaky tests aren't candidates unless the launch message asks for them.
 
-Use fresh, read-only scout agents, each in its own worktree. Scouts write nothing in the main checkout. Give each one an area (for example a native tour on fixtures, frontend states, Rust data correctness). For `combined`, create the integration worktree now (`pnpm worktree:new <run-slug> --branch <type>/<run-slug>`) and prebuild the native app there while scouts work. Check each scout's top claims in the code yourself before planning.
+Use fresh, read-only scout agents, each in its own worktree. Scouts write nothing in the main checkout. Give each one an area (for example a native tour on fixtures, frontend states, Rust data correctness). For `combined`, create the integration worktree now (`pnpm worktree:new <run-slug> --branch <type>/<run-slug>`, or your own worktree in a desktop session; see **Claude Code**) and prebuild the native app there while scouts work. Check each scout's top claims in the code yourself before planning.
 
 Each candidate needs:
 - its card and preset;
@@ -90,7 +90,7 @@ For `combined`, once the plan is approved, claim it so concurrent runs can see i
 
 ## 4. Dispatch
 
-For workstream *i*, create its worktree with `pnpm worktree:new <slug>`, or let the harness isolate it (see **Claude Code**). Check that `git -C <worktree> rev-parse --show-toplevel` prints the worktree itself before any git command that changes something. Then start a fresh worker with this launch message:
+For workstream *i*, create its worktree with `pnpm worktree:new <slug>`, or let the harness isolate it (see **Claude Code**). Before any git command that changes something, check that `git rev-parse --show-toplevel`, run from the worktree, prints the worktree itself. Then start a fresh worker with this launch message:
 
 ```text
 Read docs/agents/tasks/<card>.md and follow it. Preset: <preset>. Focus: <focus + evidence>.
@@ -113,7 +113,7 @@ Named instances take their ports from a machine-wide registry, so workers don't 
 
 ## 5. Review
 
-When a worker reports, save its report and read its diff (`git diff origin/main...<branch>`) yourself. Trust the recorded check results; don't re-run them unless something looks wrong. Run `git fetch origin`. If `origin/main` has moved over a workstream's owned paths, merge it into that branch now, not at the end.
+When a worker reports, save its report and read its diff (`git diff origin/main...<branch>`) yourself. Trust the recorded check results; don't re-run them unless something looks wrong. Run `git fetch origin`. If `origin/main` has moved over a workstream's owned paths, merge it into the integration branch now, so conflicts surface early rather than at the end (in `pr` mode, the fixing agent merges it into that workstream's branch).
 
 - **Not risky:** your review is the review. If something substantive is wrong, send it to a **fresh** agent with the worker's report, the branch and what to fix. In an isolated harness worktree, the fresh agent starts by merging the worker's branch into its own worktree.
 - **Risky:** also start one **fresh reviewer** with [review.md](review.md), using
@@ -144,7 +144,7 @@ Only **blockers and majors** hold up a workstream, and review.md defines those s
 - **`local`:** skip pushing and keep the worktrees of approved branches.
 - **Watch CI to the end** with `gh pr checks <n> --watch --fail-fast`, run in the background (never `sleep` first). Fix a failure your run caused in the integration worktree, or route it to a fresh agent, then re-run `pnpm check:changed` before pushing again.
 - **Triage the Desktop Visual Report comment** once CI posts it. Every changed view must be intended and named in the PR body, or fixed. Existing chrome, spacing and effects are deliberate; don't ship an unrequested visual change.
-- Stop only your own instances (`pnpm app:status -All`, then `pnpm app:stop -Instance <slug>` in their worktree). Then remove your run's worktrees with `pnpm worktree:clean <slug>… --yes`. Worktrees the harness created (`.claude/worktrees/agent-*`) are swept by a later run's `--merged` once their branch is merged and they've been idle for 12 hours. Keep any worktree that has unpushed commits (all approved ones under `local`), and report it. If Windows refuses to delete a locked folder, leave it and mention it. Don't hunt for the process holding it.
+- Stop only your own instances (`pnpm app:status -All`, then `pnpm app:stop -Instance <slug>` in their worktree). Then remove your run's worktrees with `pnpm worktree:clean <slug>… --yes`. Harness worktrees take their folder name (`agent-<id>`) as the slug. Anything left over is swept by a later run's `--merged` once its branch, or the integration branch that contains it, is merged and it has been idle for 12 hours. Keep any worktree that has unpushed commits (all approved ones under `local`), and report it. If Windows refuses to delete a locked folder, leave it and mention it. Don't hunt for the process holding it.
 
 ## Final report (in your reply, not in a file)
 

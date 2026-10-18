@@ -14,7 +14,14 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { classify, decide, parseArgs as parseCleanArgs } from "./clean.mjs";
+import {
+  classify,
+  decide,
+  mergedPrCommits,
+  mergeState,
+  parseArgs as parseCleanArgs,
+  slugPath,
+} from "./clean.mjs";
 import {
   AGENT_DIR,
   CLAUDE_DIR,
@@ -72,24 +79,98 @@ test("clean: named worktrees need not be merged but keep uncommitted and unpushe
   assert.equal(decide({ kind: "missing", registered: false }, opts).action, "skip");
 });
 
-test("clean: --merged selects only .claude/worktrees/agent-* that are merged, clean and pushed", () => {
+test("clean: --merged selects only .claude/worktrees/agent-<hex> that are merged, clean and pushed", () => {
   const entry = { path: "x", head: "abc" };
   const merged = { merged: true, force: false };
-  assert.equal(classify(CLAUDE_DIR, "agent-a1b2", entry, merged), "agent");
-  assert.equal(classify(CLAUDE_DIR, "agent-a1b2", entry, { merged: false }), "claude");
+  assert.equal(classify(CLAUDE_DIR, "agent-a1b2c3d4", entry, merged), "agent");
+  assert.equal(classify(CLAUDE_DIR, "agent-a04ced92437b2f2a1", entry, merged), "agent");
+  assert.equal(classify(CLAUDE_DIR, "agent-notes", entry, merged), "claude", "user-titled session");
+  assert.equal(classify(CLAUDE_DIR, "agent-a1b2", entry, merged), "claude", "too short for an id");
+  assert.equal(classify(CLAUDE_DIR, "agent-a1b2c3d4", entry, { merged: false }), "claude");
   assert.equal(classify(CLAUDE_DIR, "tracepilot-desktop-1", entry, merged), "claude");
-  assert.equal(classify(CLAUDE_DIR, "agent-a1b2", undefined, merged), "leftover");
+  assert.equal(classify(CLAUDE_DIR, "agent-a1b2c3d4", undefined, merged), "leftover");
   assert.equal(classify(AGENT_DIR, "fix-x", entry, { merged: false }), "agent");
 
   const select = (name, state) => {
     const kind = classify(CLAUDE_DIR, name, entry, merged);
     return decide({ kind, merged: true, dirty: false, unpushed: 0, ...state }, merged).action;
   };
-  assert.equal(select("agent-a1"), "remove");
-  assert.equal(select("agent-a1", { dirty: true }), "keep");
-  assert.equal(select("agent-a1", { unpushed: 3 }), "keep");
-  assert.equal(select("agent-a1", { merged: false }), "keep");
+  assert.equal(select("agent-a1b2c3d4"), "remove");
+  assert.equal(select("agent-a1b2c3d4", { dirty: true }), "keep");
+  assert.equal(select("agent-a1b2c3d4", { unpushed: 3 }), "keep");
+  assert.equal(select("agent-a1b2c3d4", { merged: false }), "keep");
   assert.equal(select("my-session"), "report");
+  assert.equal(select("agent-notes"), "report");
+});
+
+test("clean: a slug names .agent/worktrees, or .claude/worktrees only for an Agent tool name", () => {
+  const root = join("C:", "repo");
+  const none = () => false;
+  assert.equal(slugPath(root, "fix-x", none), join(root, AGENT_DIR, "fix-x"));
+  assert.equal(slugPath(root, "agent-notes", none), join(root, AGENT_DIR, "agent-notes"));
+  assert.equal(slugPath(root, "agent-a1b2c3d4", none), join(root, CLAUDE_DIR, "agent-a1b2c3d4"));
+  const agentFolder = (path) => path === join(root, AGENT_DIR, "agent-a1b2c3d4");
+  assert.equal(
+    slugPath(root, "agent-a1b2c3d4", agentFolder),
+    join(root, AGENT_DIR, "agent-a1b2c3d4"),
+    "an existing .agent folder of that name wins",
+  );
+  assert.deepEqual(parseCleanArgs(["agent-a04ced92437b2f2a1", "--yes"]).slugs, [
+    "agent-a04ced92437b2f2a1",
+  ]);
+});
+
+test("clean: a worker merged into a squash-merged integration branch is merged via its PR", () => {
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), "wt-squash-")));
+  const config = [
+    "-c",
+    "user.name=t",
+    "-c",
+    "user.email=t@example.com",
+    "-c",
+    "commit.gpgsign=false",
+  ];
+  const run = (...args) =>
+    execFileSync("git", [...config, ...args], { cwd: repo, encoding: "utf8" }).trim();
+  const commit = (file, message) => {
+    writeFileSync(join(repo, file), message);
+    run("add", file);
+    run("commit", "--quiet", "-m", message);
+    return run("rev-parse", "HEAD");
+  };
+  try {
+    run("init", "--quiet", "-b", "main");
+    const init = commit("readme.txt", "init");
+    run("checkout", "--quiet", "-b", "integration");
+    run("checkout", "--quiet", "-b", "worker");
+    const worker = commit("a.txt", "worker change");
+    run("checkout", "--quiet", "-b", "late");
+    const late = commit("b.txt", "worker follow-up that never merged");
+    run("checkout", "--quiet", "integration");
+    run("merge", "--quiet", "--no-ff", "-m", "merge worker", "worker");
+    const integration = run("rev-parse", "HEAD");
+    run("checkout", "--quiet", "main");
+    run("merge", "--quiet", "--squash", "integration");
+    run("commit", "--quiet", "-m", "integration (#7)");
+
+    // Stands in for gh pr list; PR #8's head was never fetched, so it is skipped.
+    const prs = [
+      { number: 8, oid: "f".repeat(40) },
+      { number: 7, oid: integration },
+    ];
+    const ctx = { root: repo, base: "main", prCommits: mergedPrCommits(prs, "main", repo) };
+    assert.deepEqual(mergeState(worker, { ...ctx, prCommits: undefined }), { merged: false });
+    assert.deepEqual(mergeState(worker, ctx), { merged: true, via: "merged via PR #7" });
+    assert.deepEqual(mergeState(integration, ctx), { merged: true, via: "merged via PR #7" });
+    assert.deepEqual(mergeState(late, ctx), { merged: false });
+    assert.deepEqual(mergeState(init, ctx), { merged: true });
+    assert.equal(mergedPrCommits([], "main", repo).size, 0);
+    const item = { kind: "agent", merged: true, mergedVia: "merged via PR #7", unpushed: 0 };
+    assert.equal(decide(item, { merged: true }).reason, "merged via PR #7 and clean");
+    assert.match(decide({ ...item, dirty: true }, { merged: true }).reason, /PR #7, but has/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true, maxRetries: 3 });
+  }
 });
 
 test("clean: --merged keeps worktrees another run may still use; --force doesn't override", () => {
@@ -269,45 +350,73 @@ test("new and clean work end to end in a scratch repository", () => {
     writeFileSync(join(worktree, "wip.txt"), "uncommitted");
     age(worktree);
     const claudeDir = join(repo, ".claude", "worktrees");
-    const names = ["agent-a1", "agent-b2", "agent-d4", "agent-e5", "desktop-c3"];
+    const names = [
+      "agent-a1a1a1a1",
+      "agent-b2b2b2b2",
+      "agent-d4d4d4d4",
+      "agent-e5e5e5e5",
+      "desktop-c3",
+      "agent-notes",
+    ];
     for (const name of names) {
       run(["worktree", "add", "--quiet", "-b", `worktree-${name}`, join(claudeDir, name), "main"]);
     }
-    writeFileSync(join(claudeDir, "agent-b2", "wip.txt"), "uncommitted");
-    const appState = join(claudeDir, "agent-e5", ".tracepilot", "instances", "e5");
+    writeFileSync(join(claudeDir, "agent-b2b2b2b2", "wip.txt"), "uncommitted");
+    const appState = join(claudeDir, "agent-e5e5e5e5", ".tracepilot", "instances", "e5");
     mkdirSync(appState, { recursive: true });
     writeFileSync(
       join(appState, "desktop.json"),
       JSON.stringify({ processes: { pid: process.pid } }),
     );
-    // agent-d4 stays fresh, like a worker another run has only just created.
-    for (const name of names.filter((n) => n !== "agent-d4")) age(join(claudeDir, name));
+    // agent-d4d4d4d4 stays fresh, like a worker another run has only just created.
+    for (const name of names.filter((n) => n !== "agent-d4d4d4d4")) age(join(claudeDir, name));
 
     const forced = node("clean.mjs", ["--merged", "--force"]);
     assert.match(
       forced.stdout,
-      /keep {4}\.claude\/worktrees\/agent-d4 .*active in the last 12 hours/,
+      /keep {4}\.claude\/worktrees\/agent-d4d4d4d4 .*active in the last 12 hours/,
     );
     assert.match(
       forced.stdout,
-      /keep {4}\.claude\/worktrees\/agent-e5 .*e5 \(desktop\) is running/,
+      /keep {4}\.claude\/worktrees\/agent-e5e5e5e5 .*e5 \(desktop\) is running/,
     );
 
     const claudeRun = node("clean.mjs", ["--merged", "--yes"]);
     assert.equal(claudeRun.status, 0, claudeRun.stdout + claudeRun.stderr);
-    assert.match(claudeRun.stdout, /remove {2}\.claude\/worktrees\/agent-a1 \[worktree-agent-a1\]/);
-    assert.match(claudeRun.stdout, /keep {4}\.claude\/worktrees\/agent-b2 .*uncommitted/);
-    assert.match(claudeRun.stdout, /1 desktop session worktree\(s\)/);
-    assert.ok(!existsSync(join(claudeDir, "agent-a1")));
-    assert.ok(existsSync(join(claudeDir, "agent-b2", "wip.txt")));
-    assert.ok(existsSync(join(claudeDir, "agent-d4")), "recent worktree kept");
+    assert.match(
+      claudeRun.stdout,
+      /remove {2}\.claude\/worktrees\/agent-a1a1a1a1 \[worktree-agent-a1a1a1a1\]/,
+    );
+    assert.match(claudeRun.stdout, /keep {4}\.claude\/worktrees\/agent-b2b2b2b2 .*uncommitted/);
+    assert.match(claudeRun.stdout, /2 desktop session worktree\(s\)/);
+    assert.ok(!existsSync(join(claudeDir, "agent-a1a1a1a1")));
+    assert.ok(existsSync(join(claudeDir, "agent-b2b2b2b2", "wip.txt")));
+    assert.ok(existsSync(join(claudeDir, "agent-d4d4d4d4")), "recent worktree kept");
     assert.ok(existsSync(join(claudeDir, "desktop-c3")));
+    assert.ok(existsSync(join(claudeDir, "agent-notes")), "user-titled session left alone");
 
     const recent = node("clean.mjs", ["--merged", "--yes", "--include-recent"]);
     assert.equal(recent.status, 0, recent.stdout + recent.stderr);
-    assert.ok(!existsSync(join(claudeDir, "agent-d4")), "--include-recent removes it");
-    assert.ok(existsSync(join(claudeDir, "agent-e5")), "running app still keeps it");
-    for (const name of ["agent-b2", "agent-e5", "desktop-c3"]) {
+    assert.ok(!existsSync(join(claudeDir, "agent-d4d4d4d4")), "--include-recent removes it");
+    assert.ok(existsSync(join(claudeDir, "agent-e5e5e5e5")), "running app still keeps it");
+    // A lead names its own Agent tool workers; a desktop session can't be named.
+    const namedDirty = node("clean.mjs", ["agent-b2b2b2b2", "agent-notes"]);
+    assert.equal(namedDirty.status, 0, namedDirty.stderr);
+    assert.match(
+      namedDirty.stdout,
+      /keep {4}\.claude\/worktrees\/agent-b2b2b2b2 .*named, but has uncommitted/,
+    );
+    assert.match(namedDirty.stdout, /skip {4}\.agent\/worktrees\/agent-notes: no such folder/);
+    rmSync(join(claudeDir, "agent-b2b2b2b2", "wip.txt"));
+    const namedRun = node("clean.mjs", ["agent-b2b2b2b2", "agent-notes", "--yes"]);
+    assert.equal(namedRun.status, 0, namedRun.stdout + namedRun.stderr);
+    assert.match(
+      namedRun.stdout,
+      /remove {2}\.claude\/worktrees\/agent-b2b2b2b2 .*named and clean/,
+    );
+    assert.ok(!existsSync(join(claudeDir, "agent-b2b2b2b2")));
+    assert.ok(existsSync(join(claudeDir, "agent-notes")));
+    for (const name of ["agent-e5e5e5e5", "desktop-c3", "agent-notes"]) {
       run(["worktree", "remove", "--force", join(claudeDir, name)]);
     }
 

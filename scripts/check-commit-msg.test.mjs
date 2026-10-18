@@ -25,7 +25,9 @@ test("git's default merge and revert messages are accepted", () => {
     "Merge remote-tracking branch 'origin/main'",
     "Merge commit 'abc1234'",
     "Merge branches 'a' and 'b'",
+    "Merge tag 'v0.9.2'",
     'Revert "feat: add search"\n\nThis reverts commit abc1234.',
+    'Reapply "feat: add search"',
     "Merge branch 'main'\n\n# Please enter a commit message to explain why this merge is necessary,",
   ])
     assert.ok(isValidCommitMessage(message), message);
@@ -44,6 +46,9 @@ test("everything else is still rejected", () => {
     "Merged the branch",
     "Revert the search change",
     'Revert ""',
+    "Merge fixes from today",
+    "Merge resume-and-picker workstream",
+    'Revert "x" and also a bunch of new stuff',
     "wip",
   ])
     assert.ok(!isValidCommitMessage(message), JSON.stringify(message));

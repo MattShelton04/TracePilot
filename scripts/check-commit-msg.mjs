@@ -26,12 +26,15 @@ const TYPES = [
   "build",
 ];
 const PATTERN = new RegExp(`^(${TYPES.join("|")})(\\(.+\\))?:\\s.+`);
-const GIT_DEFAULT = /^Merge \S|^Revert ".+"/;
+// Only the subjects git itself writes, so "Merge fixes from today" still fails.
+const GIT_DEFAULT =
+  /^(?:Merge (?:branch(?:es)?|remote-tracking branch(?:es)?|pull request|commit|tag) \S.*|(?:Revert|Reapply) ".+")$/;
 
 /** Whether a commit message is accepted; only its first line has to match. */
 export function isValidCommitMessage(message) {
   const msg = message.trim();
-  return PATTERN.test(msg) || GIT_DEFAULT.test(msg);
+  const subject = msg.split(/\r?\n/, 1)[0];
+  return PATTERN.test(msg) || GIT_DEFAULT.test(subject);
 }
 
 function main() {
