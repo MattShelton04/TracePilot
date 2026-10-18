@@ -1,7 +1,7 @@
 //! Subagent files: `<session>/subagents/agent-<agentId>.jsonl` + `.meta.json`.
 
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -35,36 +35,55 @@ pub(super) fn load(
     is_cancelled: &impl Fn() -> bool,
     diagnostics: &mut ClaudeDiagnostics,
 ) -> Result<Vec<ChildStream>> {
+    let mut children = Vec::new();
+    for file in files(main) {
+        let lines = read_jsonl(&file.path, is_cancelled, diagnostics)?;
+        children.push(ChildStream {
+            agent_id: file.agent_id,
+            meta: file.meta,
+            lines,
+        });
+    }
+    Ok(children)
+}
+
+/// One subagent transcript, not yet read.
+pub(super) struct SubagentFile {
+    pub(super) agent_id: String,
+    pub(super) path: PathBuf,
+    /// `None` when `meta.json` is missing or unreadable.
+    pub(super) meta: Option<SubagentMeta>,
+}
+
+/// The subagent transcripts of the session at `main`, sorted by path.
+pub(super) fn files(main: &Path) -> Vec<SubagentFile> {
     let dir = main.with_extension("").join("subagents");
     let Ok(entries) = std::fs::read_dir(&dir) else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
     let mut paths: Vec<_> = entries
         .filter_map(|entry| entry.ok().map(|e| e.path()))
         .filter(|path| path.extension().is_some_and(|ext| ext == "jsonl"))
         .collect();
     paths.sort();
-    let mut children = Vec::new();
-    for path in paths {
-        let Some(agent_id) = path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .and_then(|stem| stem.strip_prefix("agent-"))
-            .map(str::to_string)
-        else {
-            continue;
-        };
-        let meta = std::fs::read(path.with_extension("meta.json"))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<SubagentMeta>(&bytes).ok());
-        let lines = read_jsonl(&path, is_cancelled, diagnostics)?;
-        children.push(ChildStream {
-            agent_id,
-            meta,
-            lines,
-        });
-    }
-    Ok(children)
+    paths
+        .into_iter()
+        .filter_map(|path| {
+            let agent_id = path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(|stem| stem.strip_prefix("agent-"))?
+                .to_string();
+            let meta = std::fs::read(path.with_extension("meta.json"))
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<SubagentMeta>(&bytes).ok());
+            Some(SubagentFile {
+                agent_id,
+                path,
+                meta,
+            })
+        })
+        .collect()
 }
 
 /// How subagents attach to the calls that launched them (mapping.md §1.3).

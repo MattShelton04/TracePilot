@@ -10,6 +10,7 @@ mod model_calls;
 mod notifications;
 mod notify;
 mod provider;
+mod requests;
 mod scenarios;
 mod summary;
 mod todos;

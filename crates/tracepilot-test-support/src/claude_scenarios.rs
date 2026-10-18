@@ -4,10 +4,12 @@
 
 mod agents;
 mod follow_ups;
+mod requests;
 mod tools;
 
 pub use agents::{foreground_agents, meta_records, notification_wake, subagents};
 pub use follow_ups::{agent_follow_ups, agent_resumed_after_session_resume};
+pub use requests::{AGENT_SHAPE, MAIN_SHAPE, request_records};
 pub use tools::{PERSISTED_PATH, tool_catalog};
 
 use serde_json::json;
