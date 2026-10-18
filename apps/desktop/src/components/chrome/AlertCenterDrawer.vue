@@ -11,7 +11,7 @@ import {
   OctagonX,
   Pause,
 } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, onUnmounted } from "vue";
 import { useShortcut } from "@/composables/useShortcut";
 import { type AlertEvent, type AlertSeverity, useAlertsStore } from "@/stores/alerts";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
@@ -104,6 +104,12 @@ const visible = computed({
 useShortcut("Mod+Shift+A", () => alertsStore.toggleDrawer(), {
   description: "Toggle alert center",
   group: "Global",
+});
+
+// App mounts the drawer only while alerts are on. Close it when alerts are
+// turned off so turning them back on does not reopen it.
+onUnmounted(() => {
+  alertsStore.drawerOpen = false;
 });
 </script>
 

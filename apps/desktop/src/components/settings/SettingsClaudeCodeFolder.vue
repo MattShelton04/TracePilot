@@ -86,12 +86,13 @@ async function apply() {
         <code>CLAUDE_CONFIG_DIR</code>, else <code>~/.claude</code>.
       </div>
     </div>
-    <div class="setting-control-group">
+    <div class="setting-control-group setting-path-control">
       <FormInput
         id="settings-claude-code-folder"
         v-model="folder"
         :disabled="controlsDisabled"
-        class="input-medium-mono"
+        :title="folder"
+        class="setting-path-input"
       />
       <ActionButton
         size="sm"
@@ -107,3 +108,21 @@ async function apply() {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Long paths: the field takes the row's spare width instead of a fixed 240px. */
+.setting-path-control {
+  flex: 0 1 65%;
+  max-width: 560px;
+  min-width: 0;
+  margin-left: 16px;
+}
+
+.setting-path-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 160px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+</style>

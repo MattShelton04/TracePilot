@@ -213,6 +213,62 @@ describe("SearchPalette keyboard interaction", () => {
     }
   });
 
+  it("lists a session matched by name instead of saying there are no results, and opens it with Enter", async () => {
+    sessionsState.sessions = [
+      {
+        id: "ship-session",
+        summary: "Ship 2.4",
+        branch: "release/2.4",
+        turnCount: 3,
+        isRunning: false,
+      },
+      { id: "other-session", summary: "Map session pruning", turnCount: 2, isRunning: false },
+    ];
+    const wrapper = mount(SearchPalette, { attachTo: document.body });
+    try {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+      await flushPromises();
+      // Content search finds nothing for a word that is only in the title.
+      paletteState.query.value = "ship";
+      paletteState.hasQuery.value = true;
+      paletteState.hasResults.value = false;
+      await flushPromises();
+
+      expect(document.querySelector(".palette-no-results")).toBeNull();
+      const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+      expect(options.map((option) => option.textContent?.trim())).toEqual(["Ship 2.4release/2.4"]);
+      expect(document.querySelector('[aria-selected="true"]')).toBe(options[0]);
+
+      const input = document.querySelector<HTMLInputElement>(".palette-input")!;
+      await press(input, "Enter");
+      expect(pushRoute).toHaveBeenCalledWith(expect.anything(), "session-conversation", {
+        params: { id: "ship-session" },
+      });
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it("still says there are no results when no view, session or content matches", async () => {
+    sessionsState.sessions = [{ id: "ship-session", summary: "Ship 2.4", isRunning: false }];
+    const wrapper = mount(SearchPalette, { attachTo: document.body });
+    try {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+      await flushPromises();
+      paletteState.query.value = "zzqx";
+      paletteState.hasQuery.value = true;
+      await flushPromises();
+
+      expect(document.querySelectorAll('[role="option"]')).toHaveLength(0);
+      expect(document.querySelector(".palette-no-results")?.textContent).toContain(
+        'No results for "zzqx"',
+      );
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it("Tab key cycles focus from input to clear button when the palette is open", async () => {
     const wrapper = mount(SearchPalette, { attachTo: document.body });
     try {

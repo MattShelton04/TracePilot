@@ -28,12 +28,14 @@ import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { openExternal } from "@/utils/openExternal";
 
 const route = useRoute();
 const router = useRouter();
 const tabStore = useSessionTabsStore();
+const prefsStore = usePreferencesStore();
 const { isMain } = useWindowRole();
 
 // Window + event listener ownership lives in a dedicated composable so HMR
@@ -193,7 +195,8 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
   <ToastContainer />
   <ConfirmDialog />
   <SearchPalette />
-  <AlertCenterDrawer />
+  <!-- Mounted only while alerts are on, so Ctrl+Shift+A and its `?` help row follow the setting. -->
+  <AlertCenterDrawer v-if="prefsStore.alertsEnabled" />
   <KbdHelpOverlay />
 </template>
 

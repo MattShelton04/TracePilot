@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { type SearchResult } from "@tracepilot/types";
 import { Heading, ModalDialog } from "@tracepilot/ui";
-import { ArrowRight, Clock, Search } from "lucide-vue-next";
-import { nextTick, onUnmounted, ref } from "vue";
+import { ArrowRight, Clock, MessageSquare, Search } from "lucide-vue-next";
+import { computed, nextTick, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import SearchPaletteResults from "@/components/search/SearchPaletteResults.vue";
 import { useSearchPaletteController } from "@/composables/useSearchPaletteController";
@@ -19,9 +19,11 @@ const {
   selectedIndex,
   navMatches,
   recentEntries,
+  sessionMatches,
   allItems,
   navOffset,
   recentOffset,
+  sessionsOffset,
   resultsOffset,
   open,
   close,
@@ -36,6 +38,10 @@ const hasResults = search.hasResults;
 const searchError = search.searchError;
 const groupedResults = search.groupedResults;
 const flatResults = search.flatResults;
+// "No results" only when no view, session or content matches the query.
+const hasAnyResults = computed(
+  () => hasResults.value || navMatches.value.length > 0 || sessionMatches.value.length > 0,
+);
 
 useShortcut("Mod+K", toggle, { description: "Open command palette", group: "Global" });
 
@@ -167,6 +173,26 @@ onUnmounted(() => search.dispose());
           </ul>
         </section>
 
+        <section v-if="sessionMatches.length" class="palette-section">
+          <Heading :level="3" size="sm" class="palette-section-label">Sessions</Heading>
+          <ul class="palette-list">
+            <li
+              v-for="(r, i) in sessionMatches"
+              :id="`palette-item-${sessionsOffset + i}`"
+              :key="r.id"
+              class="palette-row"
+              role="option"
+              :aria-selected="selectedIndex === sessionsOffset + i"
+              @mouseenter="selectedIndex = sessionsOffset + i"
+              @click="activateAt(sessionsOffset + i)"
+            >
+              <MessageSquare :size="16" :stroke-width="1.5" aria-hidden="true" />
+              <span class="palette-row-label">{{ r.label }}</span>
+              <span class="palette-row-hint">{{ r.hint }}</span>
+            </li>
+          </ul>
+        </section>
+
         <SearchPaletteResults
           v-if="hasQuery"
           :grouped-results="groupedResults"
@@ -175,7 +201,7 @@ onUnmounted(() => search.dispose());
           :results-offset="resultsOffset"
           :loading="loading"
           :has-query="hasQuery"
-          :has-results="hasResults"
+          :has-results="hasAnyResults"
           :search-error="searchError"
           :query="query"
           :source="search.source.value"
