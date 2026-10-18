@@ -68,8 +68,8 @@ describe("SettingsPricing", () => {
       reset.element.focus();
       await reset.trigger("click");
       await flushPromises();
-      expect(dialog()?.textContent).toContain("Reset fallback rates to defaults?");
       expect(models()).toContain("custom-model");
+      expect(dialog()?.textContent).toContain("Reset fallback rates to defaults?");
 
       dialog()?.querySelector<HTMLButtonElement>(".btn-secondary")?.click();
       await flushPromises();
