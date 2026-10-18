@@ -261,7 +261,7 @@ watch(
 </script>
 
 <template>
-  <PageShell :class="{ 'explorer-mode': fillContent }">
+  <PageShell class="session-detail-page" :class="{ 'explorer-mode': fillContent }">
     <!-- Loading state -->
     <div v-if="store.loading" style="padding-top: 8px;">
       <SkeletonLoader variant="text" :count="1" />
@@ -316,6 +316,15 @@ watch(
 </template>
 
 <style scoped>
+/*
+ * Short tabs (Todos, Explorer) and long ones keep one width, so the header
+ * and tabs don't shift when switching between them. Scoped to session detail:
+ * other pages don't switch like this and keep their full width.
+ */
+.session-detail-page {
+  scrollbar-gutter: stable;
+}
+
 /*
  * The action bar's root: pinned under the breadcrumb as the page scrolls.
  * Intentional styling, keep it: `top: 0` pins the bar inside .page-content's

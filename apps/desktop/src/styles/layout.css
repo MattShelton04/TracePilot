@@ -495,8 +495,6 @@
 .page-content {
   flex: 1;
   overflow-y: auto;
-  /* Short and long pages keep one width, so switching tabs doesn't shift the layout. */
-  scrollbar-gutter: stable;
   padding: 28px;
 }
 .page-content-inner {
