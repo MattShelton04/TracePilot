@@ -2,6 +2,7 @@
  * Pure helpers behind the session Overview: the activity chart's bins and
  * markers, where file changes landed, and how the session's time divides.
  */
+import { formatTime } from "@tracepilot/types";
 
 /** A time window in Unix milliseconds. */
 export interface TimeWindow {
@@ -220,6 +221,37 @@ export function spansDays(window: TimeWindow): boolean {
     window.end - window.start >= DAY_MS ||
     new Date(window.start).toDateString() !== new Date(window.end).toDateString()
   );
+}
+
+/** Whether ISO timestamps fall on more than one day, so a list of them needs dates. */
+export function timestampsSpanDays(values: readonly (string | null | undefined)[]): boolean {
+  let start = Number.POSITIVE_INFINITY;
+  let end = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    const ms = value ? Date.parse(value) : Number.NaN;
+    if (Number.isNaN(ms)) continue;
+    start = Math.min(start, ms);
+    end = Math.max(end, ms);
+  }
+  return end > start && spansDays({ start, end });
+}
+
+/**
+ * An event's time as `HH:MM:SS`, after its date (`Jan 2, …`) when the list
+ * spans days, with the full date and time as its tooltip.
+ */
+export function eventTimeLabel(
+  iso: string | null | undefined,
+  withDate: boolean,
+): { text: string; title?: string } {
+  const ms = iso ? Date.parse(iso) : Number.NaN;
+  if (!iso || Number.isNaN(ms)) return { text: formatTime(iso) };
+  const date = new Date(ms);
+  const time = formatTime(iso);
+  const text = withDate
+    ? `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`
+    : time;
+  return { text, title: date.toLocaleString() };
 }
 
 /** Reasoning effort as a 0–4 meter level; `null` for a value it can't place. */

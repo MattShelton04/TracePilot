@@ -1,16 +1,26 @@
 <script setup lang="ts">
 /** Overview: the session's errors, warnings, compactions and truncations. */
-import { Badge, formatTime, truncateText } from "@tracepilot/ui";
+import { Badge, truncateText } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import type { SectionStatus } from "@/components/overview/SessionOutcomeTiles.vue";
 import { formatObjectResult } from "@/utils/formatResult";
+import { eventTimeLabel, isRateLimit, timestampsSpanDays } from "@/utils/sessionOverview";
 import { useOverviewModel } from "./overviewModel";
 
-const { incidents, outcomeStatus, anchor } = useOverviewModel();
+const { incidents, detail, outcomeStatus, anchor } = useOverviewModel();
 const root = anchor("incidents");
 
 const incidentsStatus = computed<SectionStatus>(() =>
   incidents.value.length ? "ready" : outcomeStatus.value.incidents,
+);
+
+// Clock times alone can't place incidents in a session that crosses midnight.
+const withDates = computed(() =>
+  timestampsSpanDays([
+    detail.value?.createdAt,
+    detail.value?.updatedAt,
+    ...incidents.value.map((incident) => incident.timestamp),
+  ]),
 );
 
 const expandedIncidents = ref<Set<number>>(new Set());
@@ -27,13 +37,20 @@ function isLongSummary(summary: string): boolean {
   return summary.length > 80;
 }
 
-function incidentSeverityVariant(severity: string): "danger" | "warning" | "neutral" {
-  if (severity === "error") return "danger";
-  if (severity === "warning") return "warning";
+type Incident = (typeof incidents.value)[number];
+
+// The index records a rate limit as an error; it reads as a warning here, as
+// in the outcome tile and the activity chart.
+function incidentSeverityVariant(incident: Incident): "danger" | "warning" | "neutral" {
+  if (isRateLimit(incident)) return "warning";
+  if (incident.severity === "error") return "danger";
+  if (incident.severity === "warning") return "warning";
   return "neutral";
 }
 
-function incidentTypeLabel(eventType: string): string {
+function incidentTypeLabel(incident: Incident): string {
+  if (isRateLimit(incident)) return "Rate limit";
+  const { eventType } = incident;
   const labels: Record<string, string> = {
     error: "Error",
     warning: "Warning",
@@ -68,8 +85,8 @@ function hasDetail(incident: { detailJson?: unknown }): boolean {
       <div v-for="(incident, idx) in incidents" :key="idx" class="incident-row">
         <div class="incident-item">
           <span class="incident-badge-col">
-            <Badge :variant="incidentSeverityVariant(incident.severity)" size="sm">
-              {{ incidentTypeLabel(incident.eventType) }}
+            <Badge :variant="incidentSeverityVariant(incident)" size="sm">
+              {{ incidentTypeLabel(incident) }}
             </Badge>
           </span>
           <span class="incident-summary">
@@ -95,8 +112,12 @@ function hasDetail(incident: { detailJson?: unknown }): boolean {
               {{ expandedDetails.has(idx) ? '▾' : '▸' }} Detail
             </button>
           </span>
-          <span v-if="incident.timestamp" class="incident-time text-muted">
-            {{ formatTime(incident.timestamp) }}
+          <span
+            v-if="incident.timestamp"
+            class="incident-time text-muted"
+            :title="eventTimeLabel(incident.timestamp, withDates).title"
+          >
+            {{ eventTimeLabel(incident.timestamp, withDates).text }}
           </span>
         </div>
         <div v-if="expandedDetails.has(idx) && hasDetail(incident)" class="incident-detail">

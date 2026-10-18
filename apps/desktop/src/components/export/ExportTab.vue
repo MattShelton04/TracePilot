@@ -13,6 +13,7 @@ import { runUiAction } from "@/composables/useAsyncAction";
 import { browseForSavePath } from "@/composables/useBrowseDirectory";
 import { sourceSupportsSection, useExportConfig } from "@/composables/useExportConfig";
 import { useExportPreview } from "@/composables/useExportPreview";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { buildExportFilename, type ExportExtension } from "@/utils/exportFilename";
 import { logInfo } from "@/utils/logger";
@@ -26,6 +27,7 @@ import ExportSessionPicker from "./ExportSessionPicker.vue";
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
+const prefs = usePreferencesStore();
 const { success: toastSuccess } = useToast();
 
 const {
@@ -51,6 +53,16 @@ const {
 const selectedSession = computed(() =>
   sessionsStore.sessions.find((s) => s.id === selectedSessionId.value),
 );
+
+// The sessions the list shows: with "Hide empty sessions" on, sessions
+// without turns are left out, unless one is already chosen (Export opened
+// from it). Compare offers the same.
+const sessionOptions = computed(() => {
+  if (!prefs.hideEmptySessions) return sessionsStore.sessions;
+  return sessionsStore.sessions.filter(
+    (s) => (s.turnCount ?? 0) > 0 || s.id === selectedSessionId.value,
+  );
+});
 
 // Sections the selected session's source cannot supply are neither offered
 // nor requested, whatever the preset enabled.
@@ -259,7 +271,7 @@ onUnmounted(() => sectionsGuard.invalidate());
       />
 
       <ExportSessionPicker
-        :sessions="sessionsStore.sessions"
+        :sessions="sessionOptions"
         :selected-session-id="selectedSessionId"
         :selected-session="selectedSession"
         :sections-info="sectionsInfo"

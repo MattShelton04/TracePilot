@@ -8,6 +8,7 @@ import { openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
 import {
   resumeCommand as buildResumeCommand,
   type PromptCacheTimeline,
+  type ResumeShell,
   type SessionSource,
   type SourceCapabilities,
 } from "@tracepilot/types";
@@ -39,6 +40,8 @@ const props = defineProps<{
   capabilities: SourceCapabilities;
   /** The session's folder as its provider reports it. */
   folder: string | null;
+  /** The session's working directory, where the copied resume command starts. */
+  cwd: string | null;
   /** The session's process is running, so resuming asks first. */
   active: boolean;
   refreshing: boolean;
@@ -67,12 +70,25 @@ async function openSessionFolder() {
   }
 }
 
-/** The command the user copies to resume in their own terminal, if the source has one. */
+/** Windows terminals open PowerShell, as Resume in Terminal does; others a POSIX shell. */
+function resumeShell(): ResumeShell {
+  return typeof navigator !== "undefined" && /^win/i.test(navigator.platform)
+    ? "powershell"
+    : "posix";
+}
+
+/**
+ * The command the user copies to resume in their own terminal, if the source
+ * has one. It starts in the session's directory, as Resume in Terminal does
+ * (Claude Code finds the session only from there).
+ */
 const resumeCommand = computed(() =>
-  buildResumeCommand(props.source, props.resolvedSessionId, {
-    copilot: prefs.cliCommand,
-    claudeCode: prefs.claudeCliCommand,
-  }),
+  buildResumeCommand(
+    props.source,
+    props.resolvedSessionId,
+    { copilot: prefs.cliCommand, claudeCode: prefs.claudeCliCommand },
+    { cwd: props.cwd, shell: resumeShell() },
+  ),
 );
 
 async function copyResumeCommand() {

@@ -239,3 +239,43 @@ it("keeps payloads open across a refresh and closes them on another page", async
   expect(wrapper.text()).not.toContain('"content": "message 0"');
   wrapper.unmount();
 });
+
+it("dates event times when the session spans days, with the full time as a tooltip", async () => {
+  // Noon on Jan 1 and noon on Jan 3 (UTC): different days in every time zone.
+  const times = ["2026-01-01T12:00:00Z", "2026-01-03T12:00:00Z"];
+  const load = (timestamps: string[]) =>
+    store.loadEvents.mockImplementation(async () => {
+      store.events = {
+        events: timestamps.map((timestamp, i) => ({
+          eventType: "user.message",
+          timestamp,
+          id: `e${i}`,
+          data: {},
+        })),
+        totalCount: timestamps.length,
+        hasMore: false,
+        allEventTypes: ["user.message"],
+      };
+      store.loaded.add("events");
+    });
+  const timeCell = (wrapper: ReturnType<typeof mountTab>, row: number) =>
+    wrapper.findAll("tbody tr")[row].findAll("td")[3].get("span");
+  const day = (iso: string) =>
+    new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
+
+  load(times);
+  const wrapper = mountTab();
+  await flushPromises();
+  expect(timeCell(wrapper, 0).text()).toContain(day(times[0]));
+  expect(timeCell(wrapper, 1).text()).toContain(day(times[1]));
+  expect(timeCell(wrapper, 1).attributes("title")).toBe(new Date(times[1]).toLocaleString());
+  wrapper.unmount();
+
+  // Within one day, the clock alone places each row.
+  load([times[0], times[0]]);
+  const sameDay = mountTab();
+  await flushPromises();
+  expect(timeCell(sameDay, 0).text()).not.toContain(day(times[0]));
+  expect(timeCell(sameDay, 0).attributes("title")).toBe(new Date(times[0]).toLocaleString());
+  sameDay.unmount();
+});
