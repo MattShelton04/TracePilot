@@ -18,6 +18,7 @@ import {
   claudeUnreportedAgentSessionId,
   claudeUntieredCacheSessionId,
 } from "./claude-gallery.mjs";
+import { claudeRequestLogSessionId, REQUEST_RECORDS_VERSION } from "./claude-requests.mjs";
 import {
   buildReportIntentSession,
   buildRichToolsSession,
@@ -215,9 +216,10 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeCommandsSessionId,
       claudeNotificationSessionId,
       claudeUnreportedAgentSessionId,
+      claudeRequestLogSessionId,
     ],
   );
-  assert.equal(generated.files.length, 23);
+  assert.equal(generated.files.length, 26);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),
@@ -302,7 +304,10 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line));
-      assert(agent.every((r) => r.isSidechain && r.agentId && r.sessionId === session.id));
+      // Request records carry the agent and session but no envelope.
+      const enveloped = agent.filter((r) => !r.type.startsWith("api-request"));
+      assert(enveloped.every((r) => r.isSidechain && r.agentId && r.sessionId === session.id));
+      assert(agent.every((r) => r.agentId && r.sessionId === session.id));
       const meta = JSON.parse(rest.find((f) => f.path.endsWith(".meta.json")).content);
       assert(uses.some((u) => u.name === "Agent" && u.id === meta.toolUseId));
     }
@@ -319,4 +324,28 @@ test("generation refuses either unowned session before writing the other", (t) =
     assert(!existsSync(join(root, "copilot/session-state", otherId)));
     assert(!existsSync(join(root, "synthetic-fixtures.json")));
   }
+});
+
+test("the recorded-requests session writes Claude Code 2.1.301+ request records", () => {
+  const session = buildClaudeCodeSessions().find((s) => s.id === claudeRequestLogSessionId);
+  const records = session.files
+    .filter((file) => file.path.endsWith(".jsonl"))
+    .flatMap((file) => file.content.trimEnd().split("\n"))
+    .map((line) => JSON.parse(line));
+  const count = (type) => records.filter((r) => r.type === type).length;
+  assert.deepEqual(
+    [count("api-request-shape"), count("api-request"), count("api-request-blob")],
+    [2, 4, 3],
+  );
+  const shapes = new Set(
+    records.filter((r) => r.type === "api-request-shape").map((r) => r.shapeHash),
+  );
+  for (const request of records.filter((r) => r.type === "api-request")) {
+    assert(shapes.has(request.shapeHash), "every request names a recorded shape");
+    assert.equal(request.version, REQUEST_RECORDS_VERSION);
+    assert(!Number.isNaN(Date.parse(request.timestamp)));
+  }
+  // Older fixtures stay without request records, for the empty state.
+  const others = buildClaudeCodeSessions().filter((s) => s.id !== claudeRequestLogSessionId);
+  assert(others.every((s) => s.files.every((file) => !file.content.includes('"api-request'))));
 });

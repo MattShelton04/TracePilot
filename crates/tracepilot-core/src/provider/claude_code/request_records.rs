@@ -1,5 +1,6 @@
 //! Claude Code's request records (2.1.301+): `api-request`,
-//! `api-request-blob` and `api-request-shape` (record-shapes.md §3.2).
+//! `api-request-blob` and `api-request-shape` (record-shapes.md, "Request
+//! records").
 //!
 //! They log what Claude Code sent the API: the system prompt and tool list
 //! once per distinct set, each request's parameters, and the messages by

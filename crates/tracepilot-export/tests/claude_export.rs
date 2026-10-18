@@ -466,3 +466,69 @@ fn inline_plans_are_capped_in_export() {
     let exported = archive.sessions[0].plan.as_deref().expect("plan section");
     assert!(exported.starts_with("# Plan") && exported.len() == 50 * 1024);
 }
+
+/// Claude Code 2.1.301+ request records hold the system prompt and tool list
+/// (`api-request-shape`), instruction text (`api-request-blob`) and the
+/// safety classifier's context (`api-request` params). None of it reaches an
+/// export, in either format, whatever the user's redaction options.
+#[test]
+fn request_records_stay_out_of_exports() {
+    let mut t = Transcript::main();
+    t.api_request_shape(
+        "shape-1",
+        &["PRIVATE system prompt"],
+        vec![json!({"name": "Bash", "description": "PRIVATE tool list", "input_schema": {}})],
+    );
+    t.api_request_blob(
+        "blob-1",
+        "user",
+        json!("<system-reminder>PRIVATE CLAUDE.md instructions</system-reminder>"),
+    );
+    t.prompt("Add a retry.");
+    t.api_request("req-1", None, "shape-1", OPUS, &["blob-1"]);
+    t.call(
+        "msg_01",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(10, 100, 20, 5),
+        "end_turn",
+    );
+    let files = write_session(&t, &[]);
+
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    let input = ExportInput::Provider(ProviderSession {
+        source: locator.source,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    for format in [ExportFormat::Json, ExportFormat::Markdown] {
+        let options = ExportOptions::all(format);
+        let output = export_inputs(std::slice::from_ref(&input), &options).unwrap();
+        let output = output[0].as_text().unwrap();
+        let preview = preview_export_input(&input, &options, None).unwrap();
+        for text in [output, preview.as_str()] {
+            assert!(
+                !text.contains(PRIVATE),
+                "{format:?}: request record text leaked"
+            );
+            assert!(
+                !text.contains("dev@example.com"),
+                "{format:?}: classifier context leaked"
+            );
+            assert!(
+                !text.contains("api-request"),
+                "{format:?}: a request record was exported"
+            );
+        }
+        assert!(
+            output.contains("Add a retry."),
+            "{format:?}: the conversation is kept"
+        );
+    }
+}

@@ -4,6 +4,7 @@ import type {
   EventsResponse,
   FreshnessResponse,
   PromptCacheResponse,
+  RequestLog,
   SessionDbTable,
   SessionDetail,
   SessionFileArea,
@@ -64,6 +65,11 @@ export async function getSessionContextTimeline(
   sessionId: string,
 ): Promise<ContextTimelineResponse> {
   return invoke<ContextTimelineResponse>("get_session_context_timeline", { sessionId });
+}
+
+/** What Claude Code recorded of a Claude Code session's API requests. */
+export async function getSessionRequestLog(sessionId: string): Promise<RequestLog> {
+  return invoke<RequestLog>("get_session_request_log", { sessionId });
 }
 
 /** Prompt-cache idle windows, predicted expiries and prefix changes. */

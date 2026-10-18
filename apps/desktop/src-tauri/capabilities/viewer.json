@@ -26,6 +26,7 @@
     "tracepilot:allow-get-session-file-version",
     "tracepilot:allow-get-shutdown-metrics",
     "tracepilot:allow-get-session-prompt-cache",
+    "tracepilot:allow-get-session-request-log",
     "tracepilot:allow-check-session-freshness",
     "tracepilot:allow-get-session-liveness",
     "tracepilot:allow-get-tool-result",

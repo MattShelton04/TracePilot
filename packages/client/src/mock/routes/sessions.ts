@@ -7,6 +7,7 @@ import type {
   TurnsResponse,
 } from "@tracepilot/types";
 import { mockFileVersion } from "../claudeArtifacts.js";
+import { MOCK_EMPTY_REQUEST_LOG } from "../claudeRequestLog.js";
 import { MOCK_EVENTS_MTIME } from "../common.js";
 import { MOCK_CONTEXT_TIMELINE } from "../contextTimeline.js";
 import { MOCK_PROMPT_CACHE } from "../promptCache.js";
@@ -58,6 +59,7 @@ export const SESSION_ROUTES: MockRoutes = {
     eventsFileSize: 1024,
     eventsFileMtime: MOCK_EVENTS_MTIME,
   }),
+  get_session_request_log: () => MOCK_EMPTY_REQUEST_LOG,
   check_session_freshness: (): FreshnessResponse => ({
     eventsFileSize: 1024,
     eventsFileMtime: MOCK_EVENTS_MTIME,

@@ -427,12 +427,9 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
 
     fn finish(mut self) -> (ClaudeParse, Vec<Option<Arc<Value>>>) {
         super::usage::fill_model_calls(&mut self.events, &self.model_calls, &self.calls.calls);
-        let times = (
-            &self.events[..],
-            &self.positions[..],
-            &self.request_times[..],
-        );
-        super::usage::set_coverage_starts(&mut self.snapshots, times);
+        let (events, positions) = (&self.events, &self.positions);
+        let times = &self.request_times;
+        super::usage::set_coverage_starts(&mut self.snapshots, events, positions, times);
         let mut diagnostics = self.diagnostics;
         let events = self
             .events

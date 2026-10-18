@@ -1,6 +1,7 @@
-//! Claude Code 2.1.301+ request records (`record-shapes.md` §3.2): the
-//! system prompt and tool list once per distinct set, each request's
-//! parameters, and request messages by hash. Every text is invented.
+//! Claude Code 2.1.301+ request records (`record-shapes.md`, "Request
+//! records"): the system prompt and tool list once per distinct set, each
+//! request's parameters, and request messages by hash. Every text is
+//! invented.
 
 use serde_json::{Value, json};
 

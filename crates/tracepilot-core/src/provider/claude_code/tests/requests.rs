@@ -7,7 +7,9 @@ use tracepilot_test_support::claude_scenarios as fixtures;
 
 use super::{all_fixtures, parse};
 use crate::SessionId;
-use crate::provider::claude_code::ClaudeCodeProvider;
+use crate::provider::claude_code::{
+    ClaudeCodeProvider, MAX_RECORDED_CALLS, RecordedCount, read_request_log,
+};
 use crate::provider::{ProviderSnapshot, SessionProvider};
 
 fn snapshot(files: &tracepilot_test_support::claude::SessionFiles) -> ProviderSnapshot {
@@ -225,4 +227,101 @@ fn sessions_from_before_request_records_are_parsed_as_before() {
         .unwrap();
     assert_eq!(prompt.raw.data["content"], quoted);
     assert_eq!(parsed.diagnostics.request_records, 0);
+}
+
+#[test]
+fn the_request_log_lists_each_shape_once_with_its_calls() {
+    let files = fixtures::request_records(true);
+    let log = read_request_log(&files.main, &|| false).unwrap();
+    assert_eq!((log.records, log.files, log.unreadable_records), (9, 2, 0));
+    assert_eq!(log.total_calls, 4);
+    assert_eq!(log.calls_without_shape, 0);
+    assert_eq!(
+        log.models,
+        [RecordedCount {
+            name: OPUS.into(),
+            calls: 4
+        }]
+    );
+    let agents: Vec<_> = log
+        .agents
+        .iter()
+        .map(|a| (a.agent_id.as_deref(), a.agent_type.as_deref(), a.calls))
+        .collect();
+    assert_eq!(
+        agents,
+        [(None, None, 3), (Some("agentQ"), Some("Explore"), 1)]
+    );
+
+    let hashes: Vec<_> = log.shapes.iter().map(|s| s.hash.as_str()).collect();
+    assert_eq!(hashes, [fixtures::MAIN_SHAPE, fixtures::AGENT_SHAPE]);
+    let main = &log.shapes[0];
+    assert_eq!(main.calls, 3);
+    assert_eq!(main.system[0].content, "You are a synthetic coding agent.");
+    assert_eq!(main.system.len(), 2);
+    let tools: Vec<_> = main.tools.iter().map(|t| t.name.as_deref()).collect();
+    assert_eq!(tools, [Some("Agent"), Some("Read")]);
+    assert!(main.tools[0].schema.is_some());
+    assert_eq!(
+        main.system_bytes,
+        main.system.iter().map(|b| b.bytes).sum::<u64>()
+    );
+    assert!(main.tool_bytes > 0);
+    assert_eq!(
+        log.shapes[1].agents[0].agent_type.as_deref(),
+        Some("Explore")
+    );
+
+    // Calls in time order, with their settings and nothing of the safeguards.
+    let first = &log.calls[0];
+    assert_eq!(first.query_source.as_deref(), Some("repl_main_thread"));
+    assert_eq!(first.max_tokens, Some(64000));
+    assert_eq!(first.effort.as_deref(), Some("high"));
+    assert_eq!(first.thinking.as_deref(), Some("adaptive"));
+    assert_eq!(first.context_edits, ["clear_thinking"]);
+    assert_eq!(first.cache_breakpoints, 2);
+    assert!(!first.extends_previous);
+    assert_eq!(log.calls[1].agent_id.as_deref(), Some("agentQ"));
+    assert!(log.calls[2].extends_previous);
+    let wire = serde_json::to_string(&log).unwrap();
+    assert!(
+        !wire.contains("dev@example.com"),
+        "classifier context left out"
+    );
+    assert!(
+        !wire.contains("Synthetic CLAUDE.md"),
+        "request messages left out"
+    );
+}
+
+#[test]
+fn a_session_from_before_request_records_has_an_empty_log() {
+    let files = fixtures::request_records(false);
+    let log = read_request_log(&files.main, &|| false).unwrap();
+    assert_eq!((log.records, log.total_calls, log.files), (0, 0, 2));
+    assert!(log.shapes.is_empty() && log.calls.is_empty());
+}
+
+#[test]
+fn the_request_log_keeps_the_latest_calls_and_counts_cut_records() {
+    let mut t = Transcript::main();
+    t.prompt("Hi.");
+    let total = MAX_RECORDED_CALLS + 5;
+    for n in 0..total {
+        t.at(10 + n as u64)
+            .api_request(&format!("req-{n}"), None, "shape-missing", OPUS, &[]);
+    }
+    let quoted = r#"Why does {"type":"api-request"} appear?"#;
+    t.prompt(quoted);
+    t.raw_line(r#"{"type":"api-request","timestamp":"2026-09-20T"#);
+    let log = read_request_log(&write_session(&t, &[]).main, &|| false).unwrap();
+    assert_eq!(log.total_calls, total);
+    assert_eq!(log.calls.len(), MAX_RECORDED_CALLS);
+    let last = log.calls.last().unwrap().timestamp.unwrap();
+    assert_eq!(last.to_rfc3339(), "2026-09-20T10:33:34+00:00");
+    assert_eq!(log.calls_without_shape, total, "no shape record for them");
+    assert_eq!(
+        log.unreadable_records, 1,
+        "the cut-off line, not the prompt"
+    );
 }

@@ -211,11 +211,9 @@ impl CostSnapshot {
 /// and the request records ([`super::ClaudeParse::request_times`]).
 pub(super) fn set_coverage_starts(
     snapshots: &mut [CostSnapshot],
-    (events, positions, request_times): (
-        &[RawEvent],
-        &[Option<NativePosition>],
-        &[(usize, DateTime<Utc>)],
-    ),
+    events: &[RawEvent],
+    positions: &[Option<NativePosition>],
+    request_times: &[(usize, DateTime<Utc>)],
 ) {
     let times: Vec<(usize, DateTime<Utc>)> = events
         .iter()

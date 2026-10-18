@@ -1,5 +1,6 @@
 //! The requests Claude Code recorded (2.1.301+), read on demand for the
-//! Context tab's "Recorded requests" view (record-shapes.md §3.2).
+//! Context tab's "Recorded requests" view (record-shapes.md, "Request
+//! records").
 //!
 //! Only lines holding `"api-request` are parsed, in the main transcript and
 //! each subagent file. `api-request-shape` records give each distinct system
@@ -325,7 +326,7 @@ fn build(mut scan: Scan, files: usize) -> RequestLog {
             calls,
         })
         .collect();
-    models.sort_by(|a, b| b.calls.cmp(&a.calls));
+    models.sort_by_key(|model| std::cmp::Reverse(model.calls));
     let total_calls = scan.calls.len();
     let calls = scan
         .calls
@@ -363,6 +364,12 @@ fn shape(
     system.retain(|block| !block.content.is_null());
     for block in &mut system {
         block.contains_probe = false;
+        // A text block reads as its text; its size stays the block's.
+        if block.content["type"] == "text"
+            && let Some(text) = block.content["text"].as_str()
+        {
+            block.content = Value::String(text.to_string());
+        }
     }
     let system_bytes = system.iter().map(|block| block.bytes).sum();
     let tool_bytes = tools.iter().map(|tool| tool.bytes).sum();

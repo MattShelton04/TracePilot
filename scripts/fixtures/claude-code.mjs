@@ -13,6 +13,7 @@ import {
   buildClaudeNotificationSession,
   buildClaudeUnreportedAgentSession,
 } from "./claude-gallery.mjs";
+import { buildClaudeRequestLogSession } from "./claude-requests.mjs";
 import { Transcript, text, thinking, toolUse } from "./claude-transcript.mjs";
 
 export const claudeOrchardSessionId = "c1a0de00-0000-4000-8000-000000000001";
@@ -407,5 +408,6 @@ export function buildClaudeCodeSessions() {
     buildClaudeCommandSession(),
     buildClaudeNotificationSession(),
     buildClaudeUnreportedAgentSession(),
+    buildClaudeRequestLogSession(),
   ];
 }
