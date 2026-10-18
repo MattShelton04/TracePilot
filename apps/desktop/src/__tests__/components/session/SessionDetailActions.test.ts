@@ -137,6 +137,28 @@ describe("SessionDetailActions", () => {
     wrapper.unmount();
   });
 
+  it.each([
+    [
+      "Win32",
+      "C:\\work\\o'hare",
+      "Set-Location -LiteralPath 'C:\\work\\o''hare'; claude --resume session-1",
+    ],
+    ["MacIntel", "/Users/me/o'hare", "cd '/Users/me/o'\\''hare' && claude --resume session-1"],
+  ])("copies a command that starts in the session's directory on %s", async (platform, cwd, command) => {
+    const platformSpy = vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+    const wrapper = mountForSource(pinia, "claudeCode");
+    const store = wrapper.props("store");
+    await wrapper.setProps({ store: { ...store, detail: { ...store.detail!, cwd } } });
+    await flushPromises();
+
+    const copyButton = wrapper.findAll("button").find((b) => b.text() === "Copy Resume Command");
+    expect(copyButton!.attributes("title")).toBe(`Copy: ${command}`);
+    await copyButton!.trigger("click");
+    expect(mocks.copy).toHaveBeenCalledWith(command);
+    platformSpy.mockRestore();
+    wrapper.unmount();
+  });
+
   it("asks before resuming a Claude Code session that is running elsewhere", async () => {
     mocks.getSessionLiveness.mockResolvedValue({ state: "running", pid: 7, status: "waiting" });
     const wrapper = mountForSource(pinia, "claudeCode");

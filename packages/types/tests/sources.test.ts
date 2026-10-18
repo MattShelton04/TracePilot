@@ -64,4 +64,46 @@ describe("session sources", () => {
     );
     expect(resumeCommand("claudeCode", "s-1", { claudeCode: "  " })).toBe("claude --resume s-1");
   });
+
+  // Claude Code finds a session only from its project directory, so the
+  // copied command starts there, as Resume in Terminal does.
+  it("changes to the session's directory first in PowerShell", () => {
+    const options = { cwd: "C:\\work\\it's ‘here’", shell: "powershell" } as const;
+    expect(resumeCommand("claudeCode", "s-1", {}, options)).toBe(
+      "Set-Location -LiteralPath 'C:\\work\\it''s ‘‘here’’'; claude --resume s-1",
+    );
+    expect(resumeCommand("copilot", "s-1", {}, { ...options, cwd: "D:/repo" })).toBe(
+      "Set-Location -LiteralPath 'D:/repo'; copilot --resume s-1",
+    );
+    expect(
+      resumeCommand(
+        "claudeCode",
+        "s-1",
+        {},
+        { cwd: "\\\\wsl.localhost\\U\\a", shell: "powershell" },
+      ),
+    ).toBe("Set-Location -LiteralPath '\\\\wsl.localhost\\U\\a'; claude --resume s-1");
+  });
+
+  it("changes to the session's directory first in a POSIX shell", () => {
+    expect(resumeCommand("claudeCode", "s-1", {}, { cwd: "/home/me/it's", shell: "posix" })).toBe(
+      "cd '/home/me/it'\\''s' && claude --resume s-1",
+    );
+  });
+
+  it.each([
+    [null, "powershell"],
+    ["   ", "powershell"],
+    // Not a path this shell can enter, or not a local one.
+    ["/home/me/app", "powershell"],
+    ["\\\\fileserver\\share", "powershell"],
+    ["relative\\dir", "powershell"],
+    ["C:\\work\\app", "posix"],
+    ["relative/dir", "posix"],
+    // A pasted control character could run a second command.
+    ["C:\\work\napp", "powershell"],
+    ["/home/me\n/app", "posix"],
+  ] as const)("keeps the bare command for directory %j in %s", (cwd, shell) => {
+    expect(resumeCommand("claudeCode", "s-1", {}, { cwd, shell })).toBe("claude --resume s-1");
+  });
 });
