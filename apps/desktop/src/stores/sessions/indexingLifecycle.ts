@@ -18,6 +18,8 @@ export interface IndexingLifecycleDeps {
 export interface IndexingLifecycle {
   fetchSessions: () => Promise<void>;
   refreshSessions: () => Promise<void>;
+  /** Reload after an index pass, never settling for a read that predates it. */
+  refreshAfterIndexPass: () => Promise<void>;
   reindex: () => Promise<void>;
   ensureIndex: (opts?: { force?: boolean }) => Promise<void>;
 }
@@ -68,6 +70,23 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
         logError("[sessions] Silent refresh failed:", e);
       }
     });
+  }
+
+  /**
+   * Reload the list after an index pass finished elsewhere. A read already in
+   * flight may predate the pass, so wait for it and read once more; reads that
+   * start in the meantime coalesce onto that one trailing read.
+   */
+  async function refreshAfterIndexPass() {
+    const existing = fetchInflight.current();
+    if (existing) {
+      try {
+        await existing;
+      } catch {
+        // The earlier read reports its own failure; the trailing read still runs.
+      }
+    }
+    return refreshSessions();
   }
 
   async function refreshSessionsAfterIndex() {
@@ -157,6 +176,7 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
   return {
     fetchSessions,
     refreshSessions,
+    refreshAfterIndexPass,
     reindex,
     ensureIndex,
   };
