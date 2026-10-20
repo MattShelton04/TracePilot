@@ -59,6 +59,7 @@ const linkedAtTitle = computed(() =>
           <Badge v-for="role in pr.roles" :key="role" variant="neutral">{{ pullRequestRoleLabel(role) }}</Badge>
         </span>
         <span v-if="linkedAt" class="pr-row__time" :title="linkedAtTitle">Linked {{ linkedAt }}</span>
+        <slot name="related" />
       </div>
     </div>
     <div class="pr-row__actions">

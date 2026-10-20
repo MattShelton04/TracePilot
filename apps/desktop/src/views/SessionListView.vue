@@ -33,6 +33,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
+import { handlePullRequestPaste } from "@/utils/pullRequestUrl";
 import { prefetchRecentSessions } from "@/utils/sessionPrefetch";
 
 const router = useRouter();
@@ -188,6 +189,13 @@ function clearFilters() {
   focusSearch();
 }
 
+/** A pasted pull request URL searches for the sessions linked to it (see `pullRequestUrl`). */
+function pastePullRequestUrl(event: ClipboardEvent) {
+  handlePullRequestPaste(event, (value) => {
+    store.searchQuery = value;
+  });
+}
+
 function showEmptySessions() {
   prefs.hideEmptySessions = false;
   focusSearch();
@@ -311,7 +319,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       <!-- Toolbar -->
       <div class="enhanced-toolbar" data-testid="session-toolbar">
         <div class="toolbar-search">
-          <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" data-testid="session-search" />
+          <SearchInput
+            v-model="store.searchQuery"
+            placeholder="Search sessions…"
+            data-testid="session-search"
+            @paste="pastePullRequestUrl"
+          />
         </div>
         <div class="toolbar-filters">
           <FilterSelect v-model="store.filterRepo" :options="store.repositoryOptions" placeholder="All Repos" />

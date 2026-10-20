@@ -1,4 +1,6 @@
+// biome-ignore-all assist/source/organizeImports: mocks must register before the component import.
 import type { ConversationTurn, SessionPullRequest } from "@tracepilot/types";
+import { setupPinia } from "@tracepilot/test-utils";
 import { EXTERNAL_LINK_HANDLER_KEY } from "@tracepilot/ui";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +10,20 @@ import { NAVIGATE_CONVERSATION_KEY } from "@/composables/useConversationNavigati
 import { OVERVIEW_MODEL_KEY } from "../overview/overviewModel";
 import PullRequestsSection from "../overview/PullRequestsSection.vue";
 
-const mocks = vi.hoisted(() => ({ copy: vi.fn(), success: vi.fn(), warning: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  copy: vi.fn(),
+  success: vi.fn(),
+  warning: vi.fn(),
+  relatedCounts: vi.fn(),
+}));
+
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("@/__tests__/mocks/client");
+  return createClientMock({
+    getSessionPullRequestRelatedCounts: (...args: unknown[]) => mocks.relatedCounts(...args),
+  });
+});
+vi.mock("vue-router", () => ({ useRouter: () => ({}) }));
 
 vi.mock("@tracepilot/ui", async (original) => {
   const module = await original<typeof import("@tracepilot/ui")>();
@@ -44,7 +59,9 @@ const rowNumbers = (wrapper: ReturnType<typeof mountSection>) =>
 
 describe("PullRequestsSection", () => {
   beforeEach(() => {
+    setupPinia();
     vi.clearAllMocks();
+    mocks.relatedCounts.mockResolvedValue([]);
     mocks.copy.mockResolvedValue(true);
     store.pullRequests = [];
     store.turns = [];
@@ -135,6 +152,28 @@ describe("PullRequestsSection", () => {
     await flushPromises();
     expect(navigate).not.toHaveBeenCalled();
     expect(mocks.warning).toHaveBeenCalled();
+  });
+
+  it("counts other sessions once per loaded list and offers them on the row", async () => {
+    const pr = makePullRequest(1046, ["created"], { primary: true });
+    mocks.relatedCounts.mockResolvedValue([
+      { host: pr.host, owner: pr.owner, repo: pr.repo, number: pr.number, otherSessionCount: 2 },
+    ]);
+    store.pullRequests = [pr, makePullRequest(1012, ["reviewed"])];
+    const wrapper = mountSection();
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledWith("s1");
+    const [row, other] = wrapper.findAll('[data-testid="pull-request-row"]');
+    expect(row.get('[data-testid="pull-request-related"]').text()).toBe("Also in 2 other sessions");
+    expect(other.find('[data-testid="pull-request-related"]').exists()).toBe(false);
+
+    // The same list doesn't count again; a reloaded one does.
+    mountSection();
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(1);
+    store.pullRequests = [...store.pullRequests];
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(2);
   });
 
   it("offers only Copy link in a pop-out window", () => {
