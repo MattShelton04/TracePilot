@@ -27,12 +27,13 @@ const emit = defineEmits<{
     <span v-if="noSearchableTerms" class="results-summary-text">
       No searchable terms
     </span>
-    <span v-else-if="hasResults" class="results-summary-text">
+    <!-- A count with no rows means the page is past the last one: keep the count. -->
+    <span v-else-if="hasResults || totalCount > 0" class="results-summary-text">
       {{ isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ formatNumberFull(totalCount) }}</strong>
       result{{ totalCount !== 1 ? 's' : '' }}
       <span v-if="resultViewMode === 'grouped' && groupedCount !== null"> across <strong>{{ groupedCount }}</strong> session{{ groupedCount !== 1 ? 's' : '' }}</span>
       <span class="summary-speed"> ({{ formatDuration(latencyMs) }})</span>
-      <template v-if="totalPages > 1">
+      <template v-if="totalPages > 1 && page <= totalPages">
         — page {{ page }} of {{ totalPages }}
       </template>
     </span>
