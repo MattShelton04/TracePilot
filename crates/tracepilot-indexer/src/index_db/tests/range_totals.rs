@@ -12,7 +12,7 @@ use crate::index_db::IndexDb;
 
 const NANO: u64 = 1_000_000_000;
 
-fn resume(id: &str, at: &str) -> String {
+pub(super) fn resume(id: &str, at: &str) -> String {
     format!(r#"{{"type":"session.resume","data":{{}},"id":"{id}","timestamp":"{at}"}}"#)
 }
 
@@ -170,11 +170,20 @@ fn sessions_without_dated_segments_keep_their_totals_on_their_last_active_day() 
     assert_eq!(copilot_entry(&data), (2, 80));
     assert_eq!(data.total_nano_aiu, 2 * NANO);
     assert_eq!(data.total_premium_requests, 2.0);
-    // Neither has a dated segment in the range, so no day chart shows them.
+    // Neither has a dated segment in the range, so no token chart shows them.
     assert_eq!(chart_tokens(&data), 0);
+    // Their AI Credits are on the daily model series, on the last-active day.
+    let day_aiu = |data: &AnalyticsData| -> u64 {
+        data.model_usage_by_day
+            .iter()
+            .filter_map(|d| d.total_nano_aiu)
+            .sum()
+    };
+    assert_eq!(day_aiu(&data), data.total_nano_aiu);
 
     let all = db.query_analytics(None, None, None, false, None).unwrap();
     assert_eq!(all.total_tokens, 50 + 70 + 30);
+    assert_eq!((all.total_nano_aiu, day_aiu(&all)), (3 * NANO, 3 * NANO));
 }
 
 fn close(a: f64, b: f64) -> bool {
@@ -225,7 +234,7 @@ fn claude_runs_before_the_range_leave_its_tokens_and_usd() {
     assert!(close(usd, usd_by_day(&ranged)), "{usd}");
 }
 
-fn checkpoint(id: &str, at: &str, nano: u64, premium: f64) -> String {
+pub(super) fn checkpoint(id: &str, at: &str, nano: u64, premium: f64) -> String {
     format!(
         r#"{{"type":"session.usage_checkpoint","data":{{"totalNanoAiu":{nano},"totalPremiumRequests":{premium}}},"id":"{id}","timestamp":"{at}"}}"#
     )

@@ -1,7 +1,7 @@
 //! Per-day model usage for the cost trend, kept per source so AI Credits
 //! are never estimated from another source's usage.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::Result;
 use rusqlite::{Connection, params_from_iter};
@@ -56,6 +56,8 @@ pub(super) fn query_model_usage_by_day(
     filters: DayFilters<'_>,
 ) -> Result<Vec<DayModelUsage>> {
     let mut totals: BTreeMap<UsageKey, DayModelUsageTotals> = BTreeMap::new();
+    // AI Credits each session already has on a day, to find what is left.
+    let mut counted_nano: HashMap<String, u64> = HashMap::new();
 
     let (run_where, run_values) = filters.runs;
     let (segment_where, segment_values) = append_segment_date_filter(
@@ -66,7 +68,7 @@ pub(super) fn query_model_usage_by_day(
         "m.end_timestamp",
     );
     let segment_sql = format!(
-        "SELECT date(m.end_timestamp) as d, m.model_metrics_json, s.source
+        "SELECT date(m.end_timestamp) as d, m.model_metrics_json, s.source, s.id
              FROM session_segments m
              JOIN sessions s ON s.id = m.session_id
              {} AND d IS NOT NULL AND m.model_metrics_json IS NOT NULL
@@ -80,17 +82,18 @@ pub(super) fn query_model_usage_by_day(
             row.get::<_, String>(0)?,
             row.get::<_, String>(1)?,
             row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
         ))
     })?;
     for row in rows {
-        let (date, json, source_name) = row?;
+        let (date, json, source_name, session_id) = row?;
         let Some(source) = source(&source_name) else {
             continue;
         };
-        let model_metrics: std::collections::HashMap<String, ModelMetricDetail> =
-            serde_json::from_str(&json)?;
+        let model_metrics: HashMap<String, ModelMetricDetail> = serde_json::from_str(&json)?;
+        let counted = counted_nano.entry(session_id).or_default();
         for (model, detail) in model_metrics {
-            add_model_usage(&mut totals, (date.clone(), model, source), &detail);
+            *counted += add_model_usage(&mut totals, (date.clone(), model, source), &detail);
         }
     }
 
@@ -100,6 +103,7 @@ pub(super) fn query_model_usage_by_day(
         "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,
                     m.model_name,
                     s.source,
+                    s.id,
                     COALESCE(SUM(m.input_tokens), 0),
                     COALESCE(SUM(m.output_tokens), 0),
                     COALESCE(SUM(m.cache_read_tokens), 0),
@@ -118,7 +122,7 @@ pub(super) fn query_model_usage_by_day(
              AND NOT EXISTS (
                  SELECT 1 FROM session_segments seg WHERE seg.session_id = s.id
              )
-             GROUP BY d, m.model_name, s.source
+             GROUP BY d, m.model_name, s.source, s.id
              ORDER BY d, m.model_name, s.source",
         where_clause
     );
@@ -130,8 +134,8 @@ pub(super) fn query_model_usage_by_day(
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
             ),
-            row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
             row.get::<_, i64>(5)?,
             row.get::<_, i64>(6)?,
@@ -143,11 +147,12 @@ pub(super) fn query_model_usage_by_day(
             row.get::<_, i64>(12)?,
             row.get::<_, i64>(13)?,
             row.get::<_, i64>(14)?,
+            row.get::<_, i64>(15)?,
         ))
     })?;
     for row in fallback_rows {
         let (
-            (date, model, source_name),
+            (date, model, source_name, session_id),
             input,
             output,
             cache_read,
@@ -175,11 +180,14 @@ pub(super) fn query_model_usage_by_day(
         }
         entry.total_nano_aiu += total_nano_aiu.max(0) as u64;
         entry.has_observed_ai_credits |= has_observed != 0;
+        *counted_nano.entry(session_id).or_default() += total_nano_aiu.max(0) as u64;
         entry.unobserved_input_tokens += unobserved_input.max(0) as u64;
         entry.unobserved_output_tokens += unobserved_output.max(0) as u64;
         entry.unobserved_cache_read_tokens += unobserved_cache_read.max(0) as u64;
         entry.unobserved_cache_write_tokens += unobserved_cache_write.max(0) as u64;
     }
+
+    add_unattributed_ai_credits(conn, &filters, &counted_nano, &mut totals)?;
 
     Ok(totals
         .into_iter()
@@ -207,13 +215,70 @@ pub(super) fn query_model_usage_by_day(
         .collect())
 }
 
+/// AI Credits a selected session holds beyond what its runs and model rows
+/// put on a day: the run still going in a session whose usage checkpoint is
+/// newer than its last shutdown, or an undated shutdown. The headline counts
+/// them on the session's last-active day inside the range
+/// ([`IN_RANGE_NANO_AIU`]), so they go there too, under the session's current
+/// model and with no tokens, since none were recorded for them.
+fn add_unattributed_ai_credits(
+    conn: &Connection,
+    filters: &DayFilters<'_>,
+    counted_nano: &HashMap<String, u64>,
+    totals: &mut BTreeMap<UsageKey, DayModelUsageTotals>,
+) -> Result<()> {
+    let (where_clause, bind_values) = filters.sessions;
+    let (usage_join, values) = out_of_range_join(
+        where_clause,
+        bind_values,
+        filters.from_date,
+        filters.to_date,
+        false,
+    );
+    let sql = format!(
+        "SELECT s.id, date(COALESCE(s.updated_at, s.created_at)) AS d, s.source,
+                COALESCE(s.current_model,
+                    (SELECT mm.model_name FROM session_model_metrics mm
+                     WHERE mm.session_id = s.id
+                     ORDER BY COALESCE(mm.total_nano_aiu, 0) DESC, mm.model_name LIMIT 1),
+                    'unknown'),
+                {IN_RANGE_NANO_AIU}
+         FROM sessions s{usage_join}{where_clause}
+         AND d IS NOT NULL AND s.total_nano_aiu IS NOT NULL"
+    );
+    let refs = to_refs(&values);
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, i64>(4)?,
+        ))
+    })?;
+    for row in rows {
+        let (session_id, date, source_name, model, in_range) = row?;
+        let counted = counted_nano.get(&session_id).copied().unwrap_or(0);
+        let left = (in_range.max(0) as u64).saturating_sub(counted);
+        let Some(source) = source(&source_name).filter(|_| left > 0) else {
+            continue;
+        };
+        let entry = totals.entry((date, model, source)).or_default();
+        entry.total_nano_aiu += left;
+        entry.has_observed_ai_credits = true;
+    }
+    Ok(())
+}
+
+/// Adds one model's usage on a day; returns the AI Credits it counted.
 fn add_model_usage(
     totals: &mut BTreeMap<UsageKey, DayModelUsageTotals>,
     key: UsageKey,
     detail: &ModelMetricDetail,
-) {
+) -> u64 {
     let Some(usage) = detail.usage.as_ref() else {
-        return;
+        return 0;
     };
     let entry = totals.entry(key).or_default();
     entry.input_tokens += usage.input_tokens.unwrap_or(0);
@@ -227,10 +292,12 @@ fn add_model_usage(
     if let Some(total_nano_aiu) = detail.total_nano_aiu {
         entry.total_nano_aiu += total_nano_aiu;
         entry.has_observed_ai_credits = true;
+        total_nano_aiu
     } else {
         entry.unobserved_input_tokens += usage.input_tokens.unwrap_or(0);
         entry.unobserved_output_tokens += usage.output_tokens.unwrap_or(0);
         entry.unobserved_cache_read_tokens += usage.cache_read_tokens.unwrap_or(0);
         entry.unobserved_cache_write_tokens += usage.cache_write_tokens.unwrap_or(0);
+        0
     }
 }
