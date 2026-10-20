@@ -10,5 +10,8 @@
 pub(crate) mod app_info;
 pub(crate) mod config;
 mod config_home;
+mod pull_request_plan;
+mod pull_request_policy;
+pub(crate) mod pull_request_status;
 pub(crate) mod source_change;
 pub(crate) mod update;

@@ -39,6 +39,17 @@ export const commands = {
 	 */
 	getSessionFileVersion: (sessionId: string, backup: string) => typedError<FileVersionContent, BindingsErrorIpc>(__TAURI_INVOKE("get_session_file_version", { sessionId, backup })),
 	getSessionPullRequests: (sessionId: string) => typedError<SessionPullRequest[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_pull_requests", { sessionId })),
+	/**
+	 *  Ask GitHub, through the user's `gh`, for the state of the session's pull
+	 *  requests and for pull requests on the branches it pushed, when due.
+	 *  `force` refreshes all of them. Starts no `gh` when nothing is due.
+	 */
+	refreshSessionPullRequests: (sessionId: string, force: boolean) => typedError<PullRequestRefreshResult, BindingsErrorIpc>(__TAURI_INVOKE("refresh_session_pull_requests", { sessionId, force })),
+	/**
+	 *  Refresh the due primary pull requests of the listed sessions: at most 50,
+	 *  and at most one `gh` batch a minute.
+	 */
+	refreshListPullRequests: (sessionIds: string[]) => typedError<PullRequestRefreshResult, BindingsErrorIpc>(__TAURI_INVOKE("refresh_list_pull_requests", { sessionIds })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
 	/**
@@ -274,6 +285,19 @@ export type ProviderRunState = {
 	runStatus?: RunStatus,
 };
 
+// Whether a refresh could ask GitHub.
+export type PullRequestLookup =
+// Looked up, or nothing was due.
+"ok" |
+// The setting is off.
+"disabled" |
+// `gh` is not installed.
+"notInstalled" |
+// `gh` is not signed in to the host.
+"signedOut" |
+// `gh` ran but gave no usable answer; nothing was written.
+"failed";
+
 // A pull request as the session list shows it.
 export type PullRequestRef = {
 	host: string,
@@ -284,6 +308,15 @@ export type PullRequestRef = {
 	url: string,
 	// None until GitHub has been asked.
 	state: PullRequestState | null,
+};
+
+// What a pull request refresh changed.
+export type PullRequestRefreshResult = {
+	lookup: PullRequestLookup,
+	// Every pull request whose status row this call wrote, with its state.
+	updated: PullRequestRef[],
+	// A pushed-branch lookup added or removed a link for the session.
+	linksChanged: boolean,
 };
 
 // How a session took part in a pull request, strongest first.
@@ -390,6 +423,11 @@ export type SessionPullRequest = {
 	eventIndex: number | null,
 	// None until GitHub has been asked.
 	status: PullRequestStatus | null,
+	/**
+	 *  True when the pull request, or its `updated` role, came only from a
+	 *  lookup of a branch the session pushed, not from the transcript.
+	 */
+	foundByBranch: boolean,
 };
 
 // Which tool wrote a session.

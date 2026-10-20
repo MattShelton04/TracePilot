@@ -422,6 +422,11 @@ Pull requests found on GitHub whose head is a branch the session pushed. Looked
 up over the network, so a metadata rewrite keeps them.
 Primary key: `(session_id, host, owner, repo, branch, number)`.
 
+Each lookup of a branch replaces all of that branch's rows. When no pull
+request matched, it writes one marker row with `number = 0`, so the branch's
+last lookup time (`MAX(fetched_at)`) is still known. Readers skip `number = 0`.
+`host`, `owner` and `repo` are stored as in `session_pushed_branches`.
+
 | Column | Type | Meaning |
 | --- | --- | --- |
 | `session_id` | TEXT | Owning session. |
@@ -429,7 +434,7 @@ Primary key: `(session_id, host, owner, repo, branch, number)`.
 | `owner` | TEXT NOT NULL | Repository owner. |
 | `repo` | TEXT NOT NULL | Repository name. |
 | `branch` | TEXT NOT NULL | The pushed branch. |
-| `number` | INTEGER NOT NULL | Pull request number. |
+| `number` | INTEGER NOT NULL | Pull request number; `0` marks a lookup that matched none. |
 | `fetched_at` | TEXT NOT NULL | When GitHub was asked. |
 
 ### `pull_request_status`
@@ -456,7 +461,7 @@ Primary key: `(host, owner, repo, number)`, compared case-insensitively.
 | `review_decision` | TEXT | `approved`, `changes_requested` or `review_required`. |
 | `checks_state` | TEXT | Combined status of the head commit's checks. |
 | `fetched_at` | TEXT NOT NULL | When GitHub was last asked. |
-| `error` | TEXT | The last lookup's failure. NULL = it succeeded. |
+| `error` | TEXT | The last lookup's failure (for example `NOT_FOUND: ...`). NULL = it succeeded. A failure keeps the state columns from the last success. |
 
 ## Search
 

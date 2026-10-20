@@ -28,6 +28,8 @@ macro_rules! with_ipc_commands {
                 get_session_detail,
                 get_session_incidents,
                 get_session_pull_requests,
+                refresh_session_pull_requests,
+                refresh_list_pull_requests,
                 get_session_turns,
                 get_session_turn_activity,
                 get_session_context_timeline,

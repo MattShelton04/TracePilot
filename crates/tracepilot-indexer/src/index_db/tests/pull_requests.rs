@@ -10,9 +10,9 @@ use tracepilot_core::ids::SessionId;
 use tracepilot_core::provider::SessionSource;
 use tracepilot_core::pull_requests::PullRequestRole;
 
-const SESSION: &str = "f6666666-6666-4666-8666-666666666666";
+pub(super) const SESSION: &str = "f6666666-6666-4666-8666-666666666666";
 
-fn write_raw_session(root: &Path, events: &[String]) -> PathBuf {
+pub(super) fn write_raw_session(root: &Path, events: &[String]) -> PathBuf {
     let dir = root.join(SESSION);
     fs::create_dir_all(&dir).unwrap();
     fs::write(
@@ -27,7 +27,7 @@ fn write_raw_session(root: &Path, events: &[String]) -> PathBuf {
     dir
 }
 
-fn line(event_type: &str, time: &str, data: serde_json::Value) -> String {
+pub(super) fn line(event_type: &str, time: &str, data: serde_json::Value) -> String {
     serde_json::json!({
         "type": event_type,
         "data": data,
@@ -38,7 +38,7 @@ fn line(event_type: &str, time: &str, data: serde_json::Value) -> String {
     .to_string()
 }
 
-fn shell(id: &str, time: &str, command: &str, output: &str) -> [String; 2] {
+pub(super) fn shell(id: &str, time: &str, command: &str, output: &str) -> [String; 2] {
     [
         line(
             "tool.execution_start",
@@ -55,7 +55,7 @@ fn shell(id: &str, time: &str, command: &str, output: &str) -> [String; 2] {
 
 /// Pushes a branch, opens a pull request for it, merges an older one by
 /// number and reviews a third.
-fn session_events() -> Vec<String> {
+pub(super) fn session_events() -> Vec<String> {
     let mut events = vec![
         line(
             "session.start",
@@ -99,7 +99,7 @@ fn session_events() -> Vec<String> {
     events
 }
 
-fn indexed() -> (tempfile::TempDir, IndexDb) {
+pub(super) fn indexed() -> (tempfile::TempDir, IndexDb) {
     let tmp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
     let session = write_raw_session(tmp.path(), &session_events());
@@ -107,11 +107,11 @@ fn indexed() -> (tempfile::TempDir, IndexDb) {
     (tmp, db)
 }
 
-fn sid() -> SessionId {
+pub(super) fn sid() -> SessionId {
     SessionId::from_validated(SESSION)
 }
 
-fn count(db: &IndexDb, table: &str) -> i64 {
+pub(super) fn count(db: &IndexDb, table: &str) -> i64 {
     db.conn
         .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
         .unwrap()

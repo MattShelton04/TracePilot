@@ -457,6 +457,8 @@ export type UiConfig = {
 	recentRepoPaths?: string[],
 	contentMaxWidth?: number,
 	uiScale?: number,
+	// Look up linked pull requests' state on GitHub with the user's `gh`.
+	pullRequestLookup?: boolean,
 };
 
 export type UiPatch = UiPatch_Serialize | UiPatch_Deserialize;
@@ -471,6 +473,7 @@ export type UiPatch_Deserialize = {
 	recentRepoPaths?: string[] | null,
 	contentMaxWidth?: number | null,
 	uiScale?: number | null,
+	pullRequestLookup?: boolean | null,
 };
 
 export type UiPatch_Serialize = {
@@ -483,4 +486,5 @@ export type UiPatch_Serialize = {
 	recentRepoPaths?: string[] | null,
 	contentMaxWidth?: number | null,
 	uiScale?: number | null,
+	pullRequestLookup?: boolean | null,
 };

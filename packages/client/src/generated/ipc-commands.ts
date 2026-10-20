@@ -124,6 +124,8 @@ export const IPC_COMMANDS = [
   "prune_worktrees",
   "raise_claude_cleanup_period",
   "rebuild_search_index",
+  "refresh_list_pull_requests",
+  "refresh_session_pull_requests",
   "reindex_sessions",
   "reindex_sessions_full",
   "remove_registered_repo",

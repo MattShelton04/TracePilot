@@ -1,8 +1,10 @@
 //! Reads a session's linked pull requests, with their last known GitHub state.
 
+use std::cmp::Ordering;
+
 use rusqlite::Row;
 use tracepilot_core::ids::SessionId;
-use tracepilot_core::pull_requests::{PullRequestKey, PullRequestRoles};
+use tracepilot_core::pull_requests::{PullRequestKey, PullRequestRole, PullRequestRoles};
 
 use super::IndexDb;
 use crate::Result;
@@ -35,6 +37,9 @@ pub struct IndexedPullRequest {
     pub last_seen_at: Option<String>,
     pub event_index: Option<i64>,
     pub status: Option<IndexedPullRequestStatus>,
+    /// The pull request, or its `updated` role, came only from a lookup of a
+    /// branch the session pushed (`session_branch_pull_requests`).
+    pub found_by_branch: bool,
 }
 
 /// The pull request that stands for a session in the list.
@@ -88,30 +93,44 @@ pub(super) fn primary_pr_from_row(
     Ok((count, primary))
 }
 
-fn pull_request_from_row(row: &Row) -> rusqlite::Result<IndexedPullRequest> {
-    let number: i64 = row.get("number")?;
+/// The `pull_request_status` columns [`STATUS_COLUMNS`] selects, when a row
+/// exists.
+fn status_from_row(row: &Row) -> rusqlite::Result<Option<IndexedPullRequestStatus>> {
     let fetched_at: Option<String> = row.get("fetched_at")?;
-    let status = match fetched_at {
-        Some(fetched_at) => Some(IndexedPullRequestStatus {
-            state: row.get("state")?,
-            is_draft: row.get::<_, Option<bool>>("is_draft")?.unwrap_or(false),
-            title: row.get("status_title")?,
-            merged_at: row.get("merged_at")?,
-            closed_at: row.get("closed_at")?,
-            review_decision: row.get("review_decision")?,
-            checks_state: row.get("checks_state")?,
-            fetched_at,
-            error: row.get("error")?,
-        }),
-        None => None,
+    let Some(fetched_at) = fetched_at else {
+        return Ok(None);
     };
+    Ok(Some(IndexedPullRequestStatus {
+        state: row.get("state")?,
+        is_draft: row.get::<_, Option<bool>>("is_draft")?.unwrap_or(false),
+        title: row.get("status_title")?,
+        merged_at: row.get("merged_at")?,
+        closed_at: row.get("closed_at")?,
+        review_decision: row.get("review_decision")?,
+        checks_state: row.get("checks_state")?,
+        fetched_at,
+        error: row.get("error")?,
+    }))
+}
+
+/// `pull_request_status` columns for a join aliased `st`.
+const STATUS_COLUMNS: &str = "st.state, st.is_draft, st.title AS status_title, st.merged_at, \
+    st.closed_at, st.review_decision, st.checks_state, st.fetched_at, st.error";
+
+fn key_from_row(row: &Row) -> rusqlite::Result<PullRequestKey> {
+    let number: i64 = row.get("number")?;
+    Ok(PullRequestKey {
+        host: row.get("host")?,
+        owner: row.get("owner")?,
+        repo: row.get("repo")?,
+        number: u32::try_from(number).unwrap_or(0),
+    })
+}
+
+fn pull_request_from_row(row: &Row) -> rusqlite::Result<IndexedPullRequest> {
+    let status = status_from_row(row)?;
     Ok(IndexedPullRequest {
-        key: PullRequestKey {
-            host: row.get("host")?,
-            owner: row.get("owner")?,
-            repo: row.get("repo")?,
-            number: u32::try_from(number).unwrap_or(0),
-        },
+        key: key_from_row(row)?,
         roles: PullRequestRoles::from_bits(row.get("roles")?),
         primary: row.get("is_primary")?,
         head_ref: row.get("head_ref")?,
@@ -121,21 +140,86 @@ fn pull_request_from_row(row: &Row) -> rusqlite::Result<IndexedPullRequest> {
         last_seen_at: row.get("last_seen_at")?,
         event_index: row.get("event_index")?,
         status,
+        found_by_branch: false,
     })
+}
+
+/// A pull request found by looking up a branch the session pushed: the
+/// `updated` role only, with what GitHub said about it.
+fn branch_pull_request_from_row(row: &Row) -> rusqlite::Result<IndexedPullRequest> {
+    let status = status_from_row(row)?;
+    Ok(IndexedPullRequest {
+        key: key_from_row(row)?,
+        roles: [PullRequestRole::Updated].into_iter().collect(),
+        primary: false,
+        head_ref: row.get("branch")?,
+        base_ref: row.get("status_base_ref")?,
+        title: status.as_ref().and_then(|status| status.title.clone()),
+        first_seen_at: row.get("status_created_at")?,
+        last_seen_at: None,
+        event_index: None,
+        status,
+        found_by_branch: true,
+    })
+}
+
+/// The list order: primary first, then strongest role, then most recently
+/// seen (unknown last), then highest number.
+fn display_order(a: &IndexedPullRequest, b: &IndexedPullRequest) -> Ordering {
+    let rank = |pr: &IndexedPullRequest| {
+        pr.roles
+            .strongest()
+            .and_then(|role| PullRequestRole::ALL.iter().position(|r| *r == role))
+            .unwrap_or(PullRequestRole::ALL.len())
+    };
+    b.primary
+        .cmp(&a.primary)
+        .then_with(|| rank(a).cmp(&rank(b)))
+        .then_with(|| b.last_seen_at.cmp(&a.last_seen_at))
+        .then_with(|| b.key.number.cmp(&a.key.number))
+}
+
+/// Add branch lookups to the transcript's links: a new pull request, or the
+/// `updated` role on one the transcript already links.
+fn merge_branch_pull_requests(
+    prs: &mut Vec<IndexedPullRequest>,
+    found: Vec<IndexedPullRequest>,
+) -> bool {
+    let mut changed = false;
+    for pr in found {
+        let identity = pr.key.identity();
+        match prs
+            .iter_mut()
+            .find(|known| known.key.identity() == identity)
+        {
+            Some(known) if !known.roles.contains(PullRequestRole::Updated) => {
+                known.roles.insert(PullRequestRole::Updated);
+                known.found_by_branch = true;
+                changed = true;
+            }
+            Some(_) => {}
+            None => {
+                prs.push(pr);
+                changed = true;
+            }
+        }
+    }
+    changed
 }
 
 impl IndexDb {
     /// The session's linked pull requests: the primary one first, then by
-    /// strongest role, then most recent.
+    /// strongest role, then most recent. Pull requests found for its pushed
+    /// branches join in with the `updated` role; they never change which one
+    /// is primary or the session's link count.
     pub fn get_session_pull_requests(
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<IndexedPullRequest>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare(&format!(
             "SELECT p.host, p.owner, p.repo, p.number, p.roles, p.is_primary, p.head_ref,
                     p.base_ref, p.title, p.first_seen_at, p.last_seen_at, p.event_index,
-                    st.state, st.is_draft, st.title AS status_title, st.merged_at,
-                    st.closed_at, st.review_decision, st.checks_state, st.fetched_at, st.error
+                    {STATUS_COLUMNS}
              FROM session_pull_requests p
              LEFT JOIN pull_request_status st
                ON st.host = p.host AND st.owner = p.owner AND st.repo = p.repo
@@ -144,9 +228,32 @@ impl IndexDb {
              ORDER BY p.is_primary DESC,
                       CASE WHEN p.roles & 1 THEN 0 WHEN p.roles & 2 THEN 1
                            WHEN p.roles & 4 THEN 2 WHEN p.roles & 8 THEN 3 ELSE 4 END,
-                      p.last_seen_at DESC, p.number DESC",
-        )?;
-        let rows = stmt.query_map([session_id.as_str()], pull_request_from_row)?;
-        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+                      p.last_seen_at DESC, p.number DESC"
+        ))?;
+        let mut prs = stmt
+            .query_map([session_id.as_str()], pull_request_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        // Pull requests found for the session's pushed branches; `number = 0`
+        // marks a lookup that found none.
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT b.host, b.owner, b.repo, b.number, MIN(b.branch) AS branch,
+                    st.base_ref AS status_base_ref, st.created_at AS status_created_at,
+                    {STATUS_COLUMNS}
+             FROM session_branch_pull_requests b
+             LEFT JOIN pull_request_status st
+               ON st.host = b.host AND st.owner = b.owner AND st.repo = b.repo
+              AND st.number = b.number
+             WHERE b.session_id = ?1 AND b.number > 0
+             GROUP BY b.host COLLATE NOCASE, b.owner COLLATE NOCASE, b.repo COLLATE NOCASE,
+                      b.number"
+        ))?;
+        let found = stmt
+            .query_map([session_id.as_str()], branch_pull_request_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        if merge_branch_pull_requests(&mut prs, found) {
+            prs.sort_by(display_order);
+        }
+        Ok(prs)
     }
 }
