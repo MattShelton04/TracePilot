@@ -31,47 +31,56 @@ function handleCopy() {
 </script>
 
 <template>
-  <router-link :to="sessionLink" class="result-view-btn" @click.stop>
-    View in session
-  </router-link>
-  <button
-    class="result-copy-btn"
-    :class="{ 'result-copy-btn--copied': copied }"
-    :title="copied ? 'Copied!' : 'Copy content'"
-    :aria-label="copied ? 'Copied!' : 'Copy content'"
-    @click.stop="handleCopy"
-  >
-    <svg
-      v-if="!copied"
-      aria-hidden="true"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.5"
-      width="12"
-      height="12"
+  <!-- One group, so the copy button never wraps away from View in session. -->
+  <span class="result-actions">
+    <router-link :to="sessionLink" class="result-view-btn" @click.stop>
+      View in session
+    </router-link>
+    <button
+      class="result-copy-btn"
+      :class="{ 'result-copy-btn--copied': copied }"
+      :title="copied ? 'Copied!' : 'Copy content'"
+      :aria-label="copied ? 'Copied!' : 'Copy content'"
+      @click.stop="handleCopy"
     >
-      <rect x="5" y="5" width="9" height="9" rx="1" />
-      <path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
-    </svg>
-    <svg
-      v-else
-      aria-hidden="true"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      width="12"
-      height="12"
-    >
-      <polyline points="3 8 6.5 11.5 13 5" />
-    </svg>
-  </button>
+      <svg
+        v-if="!copied"
+        aria-hidden="true"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        width="12"
+        height="12"
+      >
+        <rect x="5" y="5" width="9" height="9" rx="1" />
+        <path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
+      </svg>
+      <svg
+        v-else
+        aria-hidden="true"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        width="12"
+        height="12"
+      >
+        <polyline points="3 8 6.5 11.5 13 5" />
+      </svg>
+    </button>
+  </span>
 </template>
 
 <style scoped>
-.result-view-btn {
+.result-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+  flex-shrink: 0;
+}
+.result-view-btn {
   color: var(--accent-fg);
   text-decoration: none;
   font-weight: 600;

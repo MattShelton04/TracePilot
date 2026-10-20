@@ -43,6 +43,16 @@ function pickSort(e: Event) {
   });
 }
 
+// On a short, narrow window only the examples show; each label stays in its
+// tooltip and for screen readers (see session-search.css).
+const SYNTAX_HINTS = [
+  { code: '"phrase"', label: "exact match" },
+  { code: "prefix*", label: "prefix search" },
+  { code: "type:error", label: "filter by type" },
+  { code: "repo:name", label: "filter by repo" },
+  { code: "tool:grep", label: "filter by tool" },
+] as const;
+
 const inputRef = ref<HTMLInputElement | null>(null);
 const filterToggleRef = ref<HTMLButtonElement | null>(null);
 function focusFilterToggle() {
@@ -78,11 +88,9 @@ defineExpose({ inputRef, focusFilterToggle });
       </span>
     </p>
     <div class="search-hints">
-      <span class="search-hint"><code>"phrase"</code> exact match</span>
-      <span class="search-hint"><code>prefix*</code> prefix search</span>
-      <span class="search-hint"><code>type:error</code> filter by type</span>
-      <span class="search-hint"><code>repo:name</code> filter by repo</span>
-      <span class="search-hint"><code>tool:grep</code> filter by tool</span>
+      <span v-for="hint in SYNTAX_HINTS" :key="hint.code" class="search-hint" :title="hint.label">
+        <code>{{ hint.code }}</code> <span class="search-hint-label">{{ hint.label }}</span>
+      </span>
       <button class="search-hint syntax-help-btn" @click="emit('show-syntax-help')">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
           <circle cx="8" cy="8" r="6" /><path d="M6 6a2 2 0 1 1 2 2v1" /><circle cx="8" cy="11.5" r="0.5" fill="currentColor" />
