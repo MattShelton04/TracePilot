@@ -4,7 +4,7 @@
 
 use serde_json::json;
 
-use super::command::{Target, Verb, parse_command};
+use super::command::{Shell, Target, Verb, parse_command};
 use super::test_support::*;
 use crate::pull_requests::model::{PullRequestEvidence as Evidence, PullRequestRole as Role};
 
@@ -116,7 +116,9 @@ fn a_create_command_must_be_at_command_position() {
         "cat <<'EOF' > notes.md\ngh pr create --fill\nEOF\ncat notes.md",
     ];
     for command in commands {
-        assert!(parse_command(command).gh.is_empty(), "{command}");
+        for shell in [Shell::Bash, Shell::PowerShell] {
+            assert!(parse_command(command, shell).gh.is_empty(), "{command}");
+        }
         let found = extract_flat(vec![claude_shell("c1", 1, command, URL_475, 0)]);
         assert!(found.pull_requests.is_empty(), "{command}");
     }
@@ -134,11 +136,16 @@ fn command_position_allows_prefixes_and_assignments() {
         "gh pr create --fill 2>&1 | Out-String",
     ];
     for command in commands {
-        let parsed = parse_command(command);
-        assert_eq!(parsed.gh.len(), 1, "{command}");
-        assert_eq!(parsed.gh[0].verb, Verb::Create, "{command}");
+        for shell in [Shell::Bash, Shell::PowerShell] {
+            let parsed = parse_command(command, shell);
+            assert_eq!(parsed.gh.len(), 1, "{command}");
+            assert_eq!(parsed.gh[0].verb, Verb::Create, "{command}");
+        }
     }
-    let parsed = parse_command("gh pr view 2>&1; gh pr view 12 -R o1/r1; gh pr view $n");
+    let parsed = parse_command(
+        "gh pr view 2>&1; gh pr view 12 -R o1/r1; gh pr view $n",
+        Shell::Bash,
+    );
     let targets: Vec<_> = parsed.gh.iter().map(|g| g.target.clone()).collect();
     assert_eq!(
         targets,
@@ -531,7 +538,7 @@ fn a_truncated_preview_keeps_the_glued_address() {
 #[test]
 fn escaped_backticks_in_double_quotes_do_not_hide_later_commands() {
     let command = r#"grep -n "Commit \`" body.md && git push -u origin feat 2>&1 | tail -2 && gh pr create --head feat --title "fix: x""#;
-    let parsed = parse_command(command);
+    let parsed = parse_command(command, Shell::Bash);
     assert!(parsed.pushes);
     assert_eq!(parsed.gh.len(), 1);
     assert_eq!(parsed.gh[0].title.as_deref(), Some("fix: x"));

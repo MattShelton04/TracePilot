@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use super::command::{ShellCommand, parse_command};
+use super::command::{Shell, ShellCommand, parse_command};
 use super::output::{exit_code_trailer, running_shell_id};
 use super::text::bounded;
 use crate::parsing::events::TypedEvent;
@@ -161,7 +161,12 @@ pub(super) fn collect(events: &[TypedEvent]) -> Vec<Call<'_>> {
                     let Some(command) = str_at(args, "command") else {
                         continue;
                     };
-                    let command = parse_command(command);
+                    let shell = if matches!(tool, "shell" | "bash") {
+                        Shell::Bash
+                    } else {
+                        Shell::PowerShell
+                    };
+                    let command = parse_command(command, shell);
                     if command.is_empty() {
                         continue;
                     }

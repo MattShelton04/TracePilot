@@ -35,6 +35,9 @@ pub(super) struct Created<'a> {
     pub(super) url: UrlMatch<'a>,
     pub(super) head: Option<String>,
     pub(super) base: Option<String>,
+    /// Printed on (or after) `gh`'s own progress line, not as a bare line
+    /// another command could have printed.
+    pub(super) progress: bool,
 }
 
 pub(super) fn created(text: &str) -> Vec<Created<'_>> {
@@ -58,15 +61,21 @@ pub(super) fn created(text: &str) -> Vec<Created<'_>> {
         let preview_tail =
             previous.starts_with("Preview (first") && !prefix.contains(char::is_whitespace);
         if suffix.is_empty() && !exists && (prefix.is_empty() || progress || preview_tail) {
+            let after_progress = is_progress(previous);
             let (head, base) = if progress {
                 creating_refs(prefix)
-            } else if is_progress(previous) {
+            } else if after_progress {
                 // A carriage return put the address on its own line.
                 creating_refs(previous.trim())
             } else {
                 (None, None)
             };
-            found.push(Created { url, head, base });
+            found.push(Created {
+                url,
+                head,
+                base,
+                progress: progress || after_progress || preview_tail,
+            });
         }
         previous = line;
     }
@@ -94,31 +103,28 @@ pub(super) struct Existing<'a> {
     pub(super) base: Option<String>,
 }
 
+/// Reads only the marker's line and the next, so the work is linear.
 pub(super) fn already_exists(text: &str) -> Vec<Existing<'_>> {
     const MARKER: &str = "already exists:";
     let mut found = Vec::new();
-    let mut from = 0;
-    while let Some(at) = text[from..].find(MARKER) {
-        let end = from + at + MARKER.len();
-        let line_start = text[..from + at].rfind('\n').map_or(0, |i| i + 1);
-        let line = &text[line_start..from + at];
-        from = end;
-        let rest = &text[end..];
-        let Some(url) = pr_urls(rest).next() else {
+    let mut lines = text.split('\n').peekable();
+    while let Some(line) = lines.next() {
+        let Some(at) = line.find(MARKER) else {
             continue;
         };
-        if !rest[..url.start].trim().is_empty() {
-            continue;
+        let rest = line[at + MARKER.len()..].trim();
+        let url = if rest.is_empty() {
+            lines.peek().map(|next| next.trim())
+        } else {
+            Some(rest)
         }
-        let quoted = quoted_values(line);
+        .and_then(|candidate| pr_urls(candidate).next().filter(|url| url.start == 0));
+        let Some(url) = url else {
+            continue;
+        };
+        let quoted = quoted_values(&line[..at]);
         let head = quoted.first().and_then(|h| branch_ref(h));
         let base = quoted.get(1).and_then(|b| branch_ref(b));
-        let url = UrlMatch {
-            start: end + url.start,
-            end: end + url.end,
-            ..url
-        };
-        from = url.end;
         found.push(Existing { url, head, base });
     }
     found
@@ -238,14 +244,18 @@ pub(super) struct Viewed<'a> {
     pub(super) head: Option<String>,
     pub(super) base: Option<String>,
     pub(super) title: Option<String>,
+    /// Read from a JSON object, which no error message looks like.
+    pub(super) from_json: bool,
 }
 
 /// `--json` output (`url`, `number`, `headRefName`, `baseRefName`,
 /// `title`), the plain `url:` / `number:` fields, the TTY footer `View this
-/// pull request on GitHub: URL`, or a bare address line (`--jq .url`).
-pub(super) fn viewed(text: &str) -> Viewed<'_> {
+/// pull request on GitHub: URL`, or, when `bare` allows it, an address alone
+/// on a line (`--jq .url`) in a short output.
+pub(super) fn viewed(text: &str, bare: bool) -> Viewed<'_> {
     let mut viewed = Viewed::default();
     if let Some(object) = first_json_object(text) {
+        viewed.from_json = true;
         viewed.number = object
             .get("number")
             .and_then(Value::as_u64)
@@ -266,17 +276,27 @@ pub(super) fn viewed(text: &str) -> Viewed<'_> {
         if viewed.url.is_some() || viewed.number.is_some() {
             return viewed;
         }
+        viewed.from_json = false;
     }
+    // A PR body printed by `gh pr view` can hold bare addresses; `--jq .url`
+    // prints one line (plus the shell's trailer).
+    let bare = bare
+        && text
+            .lines()
+            .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('<'))
+            .count()
+            <= 3;
     for line in text.split('\n') {
         let trimmed = line.trim();
-        let rest = trimmed
+        let field = trimmed
             .strip_prefix("url:")
-            .or_else(|| trimmed.strip_prefix("View this pull request on GitHub:"))
-            .unwrap_or(trimmed)
-            .trim();
+            .or_else(|| trimmed.strip_prefix("View this pull request on GitHub:"));
         if let Some(number) = trimmed.strip_prefix("number:") {
             viewed.number = viewed.number.or_else(|| parse_number(number.trim()));
         }
+        let Some(rest) = field.or(bare.then_some(trimmed)).map(str::trim) else {
+            continue;
+        };
         if viewed.url.is_none()
             && let Some(url) = pr_urls(rest).next()
             && url.start == 0

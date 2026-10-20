@@ -214,6 +214,26 @@ pub(super) fn valid_host(host: &str) -> bool {
                     .bytes()
                     .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         })
+        // An IP address is not a host here: a top-level domain is never
+        // all digits.
+        && !host
+            .rsplit('.')
+            .next()
+            .is_some_and(|tld| tld.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Bidirectional controls and zero-width characters: invisible text that
+/// can disguise what a title or branch name says.
+pub(super) fn is_invisible(c: char) -> bool {
+    matches!(
+        c,
+        '\u{00ad}'
+            | '\u{200b}'..='\u{200f}'
+            | '\u{202a}'..='\u{202e}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206f}'
+            | '\u{feff}'
+    )
 }
 
 /// Documentation examples, never real pull requests. `example` is not an
@@ -272,9 +292,9 @@ pub(super) fn valid_ref(name: &str) -> bool {
         && !name.contains("..")
         && !name.contains("@{")
         && !name.contains("//")
-        && !name
-            .chars()
-            .any(|c| c.is_control() || c.is_whitespace() || "~^:?*[\\".contains(c))
+        && !name.chars().any(|c| {
+            c.is_control() || c.is_whitespace() || is_invisible(c) || "~^:?*[\\".contains(c)
+        })
 }
 
 /// A branch reference as stored: `refs/heads/` stripped, then validated.
@@ -284,12 +304,13 @@ pub(super) fn branch_ref(name: &str) -> Option<String> {
     (valid_ref(name) && !name.starts_with("refs/")).then(|| name.to_string())
 }
 
-/// A display title: control characters dropped, whitespace collapsed, at
-/// most 200 characters.
+/// A display title: control and invisible characters dropped, whitespace
+/// collapsed, at most 200 characters.
 pub(super) fn clean_title(title: &str) -> Option<String> {
     let mut out = String::with_capacity(title.len().min(MAX_TITLE_CHARS * 4));
     let mut count = 0;
-    for word in title.split(|c: char| c.is_whitespace() || c.is_control()) {
+    let visible: String = title.chars().filter(|c| !is_invisible(*c)).collect();
+    for word in visible.split(|c: char| c.is_whitespace() || c.is_control()) {
         if word.is_empty() {
             continue;
         }
@@ -326,7 +347,12 @@ impl Hosts {
         }
     }
 
+    /// Every stored host passes here, so it is checked as a host name too:
+    /// `evil.com#.ghe.com` ends in `.ghe.com` but isn't a host.
     pub(super) fn allows(&self, host: &str) -> bool {
-        host == "github.com" || host.ends_with(".ghe.com") || self.extra.iter().any(|h| h == host)
+        valid_host(host)
+            && (host == "github.com"
+                || host.ends_with(".ghe.com")
+                || self.extra.iter().any(|h| h == host))
     }
 }
