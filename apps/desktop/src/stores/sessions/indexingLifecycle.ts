@@ -74,8 +74,8 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
 
   /**
    * Reload the list after an index pass finished elsewhere. A read already in
-   * flight may predate the pass, so wait for it and read once more; reads that
-   * start in the meantime coalesce onto that one trailing read.
+   * flight may predate the pass, so wait for it and read once more; reads
+   * started once it settles coalesce onto that one trailing read.
    */
   async function refreshAfterIndexPass() {
     const existing = fetchInflight.current();
