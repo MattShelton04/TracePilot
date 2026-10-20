@@ -2,6 +2,8 @@
 // The GitHub pull requests a session is linked to. Mirrors the specta DTOs in
 // packages/client/src/generated/bindings.ts (checked by the client's drift test).
 
+import type { SessionSource } from "./sources.js";
+
 /** How a session took part in a pull request, strongest first. */
 export type PullRequestRole = "created" | "updated" | "merged" | "reviewed" | "mentioned";
 
@@ -33,10 +35,24 @@ export interface PullRequestRef {
   state: PullRequestState | null;
 }
 
-/** How many pull requests a session is linked to, and the one that stands for it. */
+/** A linked pull request as the session list searches it. */
+export interface LinkedPullRequestSummary {
+  owner: string;
+  repo: string;
+  number: number;
+  /** GitHub's title when it has been fetched, else the transcript's. Untrusted display text. */
+  title: string | null;
+}
+
+/**
+ * How many pull requests a session is linked to, the one that stands for it,
+ * and every linked one, for searching the list.
+ */
 export interface LinkedPullRequests {
   count: number;
   primary: PullRequestRef;
+  /** Every linked pull request, primary first, then by strongest role and recency; at most 200. */
+  pullRequests: LinkedPullRequestSummary[];
 }
 
 /** A pull request a session is linked to, with what the session did. */
@@ -61,6 +77,27 @@ export interface SessionPullRequest {
   eventIndex: number | null;
   /** Null until GitHub has been asked. */
   status: PullRequestStatus | null;
+}
+
+/** How many other sessions link one of a session's pull requests. */
+export interface RelatedPullRequestCount {
+  host: string;
+  owner: string;
+  repo: string;
+  number: number;
+  /** Always at least 1: pull requests no other session links are left out. */
+  otherSessionCount: number;
+}
+
+/** A session linked to a pull request, for listing the sessions that share it. */
+export interface PullRequestSessionLink {
+  sessionId: string;
+  summary: string | null;
+  repository: string | null;
+  source: SessionSource;
+  updatedAt: string | null;
+  /** What this session did with the pull request, strongest first. */
+  roles: PullRequestRole[];
 }
 
 /** Badge and pill tones for a pull request's state; unknown reads as neutral. */

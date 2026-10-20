@@ -19,6 +19,7 @@ mod helpers;
 mod maintenance;
 mod migrations;
 mod open;
+mod pull_request_links;
 mod pull_request_reader;
 mod row_helpers;
 pub mod search_reader;
@@ -33,8 +34,12 @@ use rusqlite::Connection;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings).
 pub use format_diagnostics::{FormatDiagnostics, FormatNameCount};
+pub use pull_request_links::{
+    IndexedPullRequestSession, IndexedRelatedPullRequestCount, MAX_PULL_REQUEST_SESSIONS,
+};
 pub use pull_request_reader::{
     IndexedPrimaryPullRequest, IndexedPullRequest, IndexedPullRequestStatus,
+    IndexedPullRequestSummary, MAX_LISTED_PULL_REQUESTS,
 };
 pub use search_reader::{
     ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats,

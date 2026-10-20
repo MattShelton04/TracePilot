@@ -4,6 +4,9 @@ use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use tracepilot_core::SessionId;
 
+mod pull_requests;
+pub use pull_requests::*;
+
 // ── LRU Turn Cache ──────────────────────────────────────────────────
 
 /// The source state a cached entry was built from.
@@ -182,15 +185,6 @@ pub struct SessionListItem {
     /// The pull requests the session is linked to. None when it has none or
     /// the list came from the disk-scan fallback.
     pub linked_pull_requests: Option<LinkedPullRequests>,
-}
-
-/// How many pull requests a session is linked to, and the one that stands
-/// for it.
-#[derive(Debug, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkedPullRequests {
-    pub count: u32,
-    pub primary: PullRequestRef,
 }
 
 /// A pull request as the session list shows it.

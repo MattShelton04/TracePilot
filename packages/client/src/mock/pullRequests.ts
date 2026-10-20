@@ -1,4 +1,9 @@
-import type { LinkedPullRequests, SessionPullRequest } from "@tracepilot/types";
+import type {
+  LinkedPullRequests,
+  PullRequestRole,
+  RelatedPullRequestCount,
+  SessionPullRequest,
+} from "@tracepilot/types";
 import { ONE_HOUR, ts } from "./common.js";
 
 function pr(
@@ -68,6 +73,37 @@ export function getMockSessionPullRequests(sessionId: string): SessionPullReques
   return MOCK_SESSION_PULL_REQUESTS[sessionId] ?? [];
 }
 
+/** A pull request's identity, compared like the index: case-insensitive except the number. */
+function samePullRequest(
+  a: Pick<SessionPullRequest, "host" | "owner" | "repo" | "number">,
+  b: Pick<SessionPullRequest, "host" | "owner" | "repo" | "number">,
+): boolean {
+  return (
+    a.number === b.number &&
+    [a.host, a.owner, a.repo].join("/").toLowerCase() ===
+      [b.host, b.owner, b.repo].join("/").toLowerCase()
+  );
+}
+
+/** Every mock session linked to the pull request, with its roles there. */
+export function mockPullRequestLinks(
+  pr: Pick<SessionPullRequest, "host" | "owner" | "repo" | "number">,
+): { sessionId: string; roles: PullRequestRole[] }[] {
+  return Object.entries(MOCK_SESSION_PULL_REQUESTS).flatMap(([sessionId, linked]) =>
+    linked.filter((item) => samePullRequest(item, pr)).map(({ roles }) => ({ sessionId, roles })),
+  );
+}
+
+/** Like `get_session_pull_request_related_counts`: only pull requests other sessions link. */
+export function getMockPullRequestRelatedCounts(sessionId: string): RelatedPullRequestCount[] {
+  return getMockSessionPullRequests(sessionId).flatMap(({ host, owner, repo, number }) => {
+    const others = mockPullRequestLinks({ host, owner, repo, number }).filter(
+      (link) => link.sessionId !== sessionId,
+    ).length;
+    return others > 0 ? [{ host, owner, repo, number, otherSessionCount: others }] : [];
+  });
+}
+
 /** The list item's summary of {@link getMockSessionPullRequests}. */
 export function mockLinkedPullRequests(sessionId: string): LinkedPullRequests | null {
   const linked = getMockSessionPullRequests(sessionId);
@@ -77,5 +113,11 @@ export function mockLinkedPullRequests(sessionId: string): LinkedPullRequests | 
   return {
     count: linked.length,
     primary: { host, owner, repo, number, url, state: primary.status?.state ?? null },
+    pullRequests: linked.map((item) => ({
+      owner: item.owner,
+      repo: item.repo,
+      number: item.number,
+      title: item.status?.title ?? item.title,
+    })),
   };
 }

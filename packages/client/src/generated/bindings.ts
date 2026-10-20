@@ -39,6 +39,17 @@ export const commands = {
 	 */
 	getSessionFileVersion: (sessionId: string, backup: string) => typedError<FileVersionContent, BindingsErrorIpc>(__TAURI_INVOKE("get_session_file_version", { sessionId, backup })),
 	getSessionPullRequests: (sessionId: string) => typedError<SessionPullRequest[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_pull_requests", { sessionId })),
+	/**
+	 *  For each of the session's pull requests that other sessions link too, how
+	 *  many other sessions do. Pull requests no other session links are left out.
+	 */
+	getSessionPullRequestRelatedCounts: (sessionId: string) => typedError<RelatedPullRequestCount[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_pull_request_related_counts", { sessionId })),
+	/**
+	 *  Every session linked to the pull request (host, owner and repository
+	 *  compared ignoring case), most recently updated first, at most 100. The
+	 *  asking session is included when it links it.
+	 */
+	getPullRequestSessions: (host: string, owner: string, repo: string, number: number) => typedError<PullRequestSessionLink[], BindingsErrorIpc>(__TAURI_INVOKE("get_pull_request_sessions", { host, owner, repo, number })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
 	/**
@@ -245,13 +256,30 @@ export type IndexingProgressPayload = {
 	totalRepos: number,
 };
 
+// A linked pull request as the session list searches it.
+export type LinkedPullRequestSummary = {
+	owner: string,
+	repo: string,
+	number: number,
+	/**
+	 *  GitHub's title when it has been fetched, else the transcript's.
+	 *  Untrusted display text.
+	 */
+	title: string | null,
+};
+
 /**
- *  How many pull requests a session is linked to, and the one that stands
- *  for it.
+ *  How many pull requests a session is linked to, the one that stands for
+ *  it, and every linked one, for searching the list.
  */
 export type LinkedPullRequests = {
 	count: number,
 	primary: PullRequestRef,
+	/**
+	 *  Every linked pull request, primary first, then by strongest role and
+	 *  recency; at most 200.
+	 */
+	pullRequests: LinkedPullRequestSummary[],
 };
 
 // Whether a live process owns a session.
@@ -305,6 +333,17 @@ export type PullRequestRole =
 // The user pasted its address into a prompt.
 "mentioned";
 
+// A session linked to a pull request, for listing the sessions that share it.
+export type PullRequestSessionLink = {
+	sessionId: SessionId,
+	summary: string | null,
+	repository: string | null,
+	source: SessionSource,
+	updatedAt: string | null,
+	// What this session did with the pull request, strongest first.
+	roles: PullRequestRole[],
+};
+
 // A pull request's state on GitHub.
 export type PullRequestState = "open" | "draft" | "closed" | "merged";
 
@@ -319,6 +358,16 @@ export type PullRequestStatus = {
 	fetchedAt: string,
 	// The last lookup's failure.
 	error: string | null,
+};
+
+// How many other sessions link one of a session's pull requests.
+export type RelatedPullRequestCount = {
+	host: string,
+	owner: string,
+	repo: string,
+	number: number,
+	// Always at least 1: pull requests no other session links are left out.
+	otherSessionCount: number,
 };
 
 // What a running session's process is doing, when the source records it.

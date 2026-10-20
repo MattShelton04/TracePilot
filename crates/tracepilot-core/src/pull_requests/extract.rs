@@ -31,6 +31,18 @@ use super::model::{
 };
 use crate::parsing::events::TypedEvent;
 
+impl PullRequestKey {
+    /// Whether every part is one the extractor keeps: a DNS host name with a
+    /// dot, a GitHub owner and repository name, and a number from 1 to
+    /// 999,999,999. For checking a key that arrives from outside.
+    pub fn is_valid(&self) -> bool {
+        valid_host(&self.host)
+            && text::valid_owner(&self.owner)
+            && text::valid_repo(&self.repo)
+            && (1..=999_999_999).contains(&self.number)
+    }
+}
+
 /// A repository on a known host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Repo {

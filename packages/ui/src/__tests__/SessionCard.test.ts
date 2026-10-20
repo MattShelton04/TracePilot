@@ -278,16 +278,20 @@ describe("SessionCard", () => {
     expect(card(null).find('[data-testid="session-pull-requests"]').exists()).toBe(false);
 
     // Unknown state: neutral, no count for a single pull request.
-    const single = card({ count: 1, primary }).get('[data-testid="session-pull-requests"]');
+    const single = card({ count: 1, primary, pullRequests: [] }).get(
+      '[data-testid="session-pull-requests"]',
+    );
     expect(single.text()).toBe("#1046");
     expect(single.classes()).toContain("pr-stat--neutral");
     expect(single.attributes("title")).toBe("example/orchard#1046");
     // It sits in the footer stats, not the badge row.
     expect(single.element.closest(".card-stats-new")).not.toBeNull();
 
-    const several = card({ count: 3, primary: { ...primary, state: "merged" } }).get(
-      '[data-testid="session-pull-requests"]',
-    );
+    const several = card({
+      count: 3,
+      primary: { ...primary, state: "merged" },
+      pullRequests: [],
+    }).get('[data-testid="session-pull-requests"]');
     expect(several.get(".pr-stat__number").text()).toBe("#1046");
     expect(several.get(".pr-stat__more").text()).toBe("+2");
     expect(several.classes()).toContain("pr-stat--done");

@@ -16,6 +16,8 @@
 
 import type {
   FreshnessResponse as HandFreshnessResponse,
+  PullRequestSessionLink as HandPullRequestSessionLink,
+  RelatedPullRequestCount as HandRelatedPullRequestCount,
   SessionListItem as HandSessionListItem,
   SessionPullRequest as HandSessionPullRequest,
 } from "@tracepilot/types";
@@ -23,6 +25,8 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import type {
   FreshnessResponse as GenFreshnessResponse,
+  PullRequestSessionLink as GenPullRequestSessionLink,
+  RelatedPullRequestCount as GenRelatedPullRequestCount,
   SessionListItem as GenSessionListItem,
   SessionPullRequest as GenSessionPullRequest,
 } from "../generated/bindings.js";
@@ -54,6 +58,9 @@ describe("generated bindings match hand-written mirrors (wave 21)", () => {
     expectTypeOf<NonNullable<HandSessionListItem["linkedPullRequests"]>>().toEqualTypeOf<
       NonNullable<GenSessionListItem["linkedPullRequests"]>
     >();
+    // Sessions that share a pull request.
+    expectTypeOf<HandRelatedPullRequestCount>().toEqualTypeOf<GenRelatedPullRequestCount>();
+    expectTypeOf<HandPullRequestSessionLink>().toEqualTypeOf<GenPullRequestSessionLink>();
 
     void _freshness;
     void _session;

@@ -44,6 +44,8 @@ pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSes
             .then_some(true),
         linked_pr_count,
         primary_pr,
+        // The list readers fill these in one query for every row.
+        pull_requests: Vec::new(),
     })
 }
 

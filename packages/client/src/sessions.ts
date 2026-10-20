@@ -4,6 +4,8 @@ import type {
   EventsResponse,
   FreshnessResponse,
   PromptCacheResponse,
+  PullRequestSessionLink,
+  RelatedPullRequestCount,
   RequestLog,
   SessionDbTable,
   SessionDetail,
@@ -56,6 +58,33 @@ export async function getSessionIncidents(sessionId: string): Promise<SessionInc
 /** The GitHub pull requests the session is linked to: primary first, then by role and recency. */
 export async function getSessionPullRequests(sessionId: string): Promise<SessionPullRequest[]> {
   return invoke<SessionPullRequest[]>("get_session_pull_requests", { sessionId });
+}
+
+/** For each of the session's pull requests that other sessions link too, how many other sessions do. */
+export async function getSessionPullRequestRelatedCounts(
+  sessionId: string,
+): Promise<RelatedPullRequestCount[]> {
+  return invoke<RelatedPullRequestCount[]>("get_session_pull_request_related_counts", {
+    sessionId,
+  });
+}
+
+/**
+ * Every session linked to the pull request, newest first, at most 100. Host,
+ * owner and repository match ignoring case; the asking session is included.
+ */
+export async function getPullRequestSessions(pr: {
+  host: string;
+  owner: string;
+  repo: string;
+  number: number;
+}): Promise<PullRequestSessionLink[]> {
+  return invoke<PullRequestSessionLink[]>("get_pull_request_sessions", {
+    host: pr.host,
+    owner: pr.owner,
+    repo: pr.repo,
+    number: pr.number,
+  });
 }
 
 export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {
