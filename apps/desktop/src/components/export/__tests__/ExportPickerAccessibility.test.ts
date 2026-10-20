@@ -37,6 +37,13 @@ function mountPicker(selectedSession?: SessionListItem) {
 }
 
 describe("Export session picker accessibility", () => {
+  it("does not spellcheck the selected session name", () => {
+    const wrapper = mountPicker(sessions[1]);
+    const input = wrapper.get<HTMLInputElement>("input").element;
+    // `spellcheck` inherits, so the picker's root turns it off for its input.
+    expect(input.closest("[spellcheck]")?.getAttribute("spellcheck")).toBe("false");
+  });
+
   it("selects a filtered session with ArrowDown and Enter, distinguishing duplicate titles by ID", async () => {
     const wrapper = mountPicker();
     const input = wrapper.get<HTMLInputElement>("input");
