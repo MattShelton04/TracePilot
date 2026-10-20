@@ -72,12 +72,16 @@ pub struct GhBranchPullRequests {
     pub pull_requests: Vec<GhPullRequest>,
 }
 
-/// One aliased lookup's answer.
+/// One aliased lookup's answer. Error texts may name the repository: store
+/// them, never log them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GhLookup<T> {
     Found(T),
-    /// GitHub could not answer for this item, for example `NOT_FOUND` or no
-    /// access. The text may name the repository: store it, never log it.
+    /// GitHub says the repository or pull request does not exist (or is not
+    /// visible to this sign-in): a `NOT_FOUND` error.
+    NotFound(String),
+    /// GitHub could not answer for this item for another reason, for example
+    /// `FORBIDDEN`, a SAML requirement or a partial answer.
     Failed(String),
 }
 
@@ -189,10 +193,26 @@ fn describe_error(error: &Value) -> String {
         .collect()
 }
 
+/// The first GraphQL error under one alias.
+struct AliasError {
+    not_found: bool,
+    text: String,
+}
+
+impl AliasError {
+    fn lookup<T>(&self) -> GhLookup<T> {
+        if self.not_found {
+            GhLookup::NotFound(self.text.clone())
+        } else {
+            GhLookup::Failed(self.text.clone())
+        }
+    }
+}
+
 /// A parsed response: the `data` object and the errors keyed by alias.
 pub(super) struct GraphqlResponse {
     data: Map<String, Value>,
-    alias_errors: HashMap<String, String>,
+    alias_errors: HashMap<String, AliasError>,
 }
 
 impl GraphqlResponse {
@@ -216,7 +236,11 @@ impl GraphqlResponse {
                 if let Some(alias) = alias {
                     alias_errors
                         .entry(alias.to_string())
-                        .or_insert_with(|| describe_error(error));
+                        .or_insert_with(|| AliasError {
+                            not_found: error.get("type").and_then(Value::as_str)
+                                == Some("NOT_FOUND"),
+                            text: describe_error(error),
+                        });
                 }
             }
         }
@@ -232,28 +256,23 @@ impl GraphqlResponse {
         Ok(Self { data, alias_errors })
     }
 
-    fn failure(&self, alias: &str, fallback: &str) -> String {
-        self.alias_errors
-            .get(alias)
-            .cloned()
-            .unwrap_or_else(|| fallback.to_string())
-    }
-
-    /// The `repository` object under `alias`, or the lookup's failure.
-    fn repository(&self, alias: &str) -> Option<Result<&Value, String>> {
-        match self.data.get(alias) {
-            None => self.alias_errors.get(alias).map(|error| Err(error.clone())),
-            Some(Value::Null) => Some(Err(
-                self.failure(alias, "NOT_FOUND: Could not resolve to a Repository")
-            )),
-            Some(repository) => Some(Ok(repository)),
+    /// The alias's own error, or `fallback` as not found.
+    fn not_found_or_error<T>(&self, alias: &str, fallback: &str) -> GhLookup<T> {
+        match self.alias_errors.get(alias) {
+            Some(error) => error.lookup(),
+            None => GhLookup::NotFound(fallback.to_string()),
         }
     }
 
     pub(super) fn pull_request(&self, alias: &str) -> Option<GhLookup<GhPullRequest>> {
-        let repository = match self.repository(alias)? {
-            Ok(repository) => repository,
-            Err(error) => return Some(GhLookup::Failed(error)),
+        let repository = match self.data.get(alias) {
+            None => return self.alias_errors.get(alias).map(AliasError::lookup),
+            Some(Value::Null) => {
+                return Some(
+                    self.not_found_or_error(alias, "NOT_FOUND: Could not resolve to a Repository"),
+                );
+            }
+            Some(repository) => repository,
         };
         let found = repository
             .get("pullRequest")
@@ -261,31 +280,46 @@ impl GraphqlResponse {
             .and_then(parse_pull_request);
         Some(match found {
             Some(pr) => GhLookup::Found(pr),
-            None => GhLookup::Failed(
-                self.failure(alias, "NOT_FOUND: Could not resolve to a PullRequest"),
-            ),
+            None => self.not_found_or_error(alias, "NOT_FOUND: Could not resolve to a PullRequest"),
         })
     }
 
+    /// A branch lookup. Only a repository GitHub reports as `NOT_FOUND`
+    /// counts as "nothing found"; any other error, or an answer without its
+    /// pull request list, is a failure the caller must not record as empty.
     pub(super) fn branch(&self, alias: &str) -> Option<GhLookup<GhBranchPullRequests>> {
-        let repository = match self.repository(alias)? {
-            Ok(repository) => repository,
-            Err(error) => return Some(GhLookup::Failed(error)),
+        let error = self.alias_errors.get(alias);
+        let repository = match self.data.get(alias) {
+            None => return error.map(AliasError::lookup),
+            Some(Value::Null) => {
+                return Some(match error {
+                    Some(error) => error.lookup(),
+                    None => GhLookup::Failed("GitHub returned no repository".into()),
+                });
+            }
+            Some(repository) => repository,
+        };
+        // An error inside a partly answered repository: never "found nothing".
+        if let Some(error) = error {
+            return Some(GhLookup::Failed(error.text.clone()));
+        }
+        let Some(nodes) = repository
+            .get("pullRequests")
+            .and_then(|prs| prs.get("nodes"))
+            .and_then(Value::as_array)
+        else {
+            return Some(GhLookup::Failed(
+                "GitHub returned no pull request list".into(),
+            ));
         };
         let default_branch = repository
             .get("defaultBranchRef")
             .and_then(|branch| branch.get("name"))
             .and_then(Value::as_str)
             .map(str::to_string);
-        let pull_requests = repository
-            .get("pullRequests")
-            .and_then(|prs| prs.get("nodes"))
-            .and_then(Value::as_array)
-            .map(|nodes| nodes.iter().filter_map(parse_pull_request).collect())
-            .unwrap_or_default();
         Some(GhLookup::Found(GhBranchPullRequests {
             default_branch,
-            pull_requests,
+            pull_requests: nodes.iter().filter_map(parse_pull_request).collect(),
         }))
     }
 }

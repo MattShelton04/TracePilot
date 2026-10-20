@@ -329,6 +329,10 @@ reads and writes are in `tracepilot-indexer`'s `pull_request_lookups.rs` and
   - **Merged and closed PRs** are terminal, so they're never re-fetched
     automatically.
   - **When nothing is due,** no `gh` process starts, not even `gh auth status`.
+  - **Limits.** One session refresh looks up at most 200 PRs and 50 branches, the
+    primary and strongest first; the rest wait for the next trigger. A session can
+    be force-refreshed at most once every 10 seconds. Each call also stays under
+    24 KB of arguments.
 - **Failures.**
   - **One PR failing** (`NOT_FOUND`, no access) stores the error and `fetched_at`
     on its row and keeps the last known state.

@@ -7,7 +7,9 @@ use std::sync::{Arc, Mutex};
 use serde_json::{Value, json};
 use tracepilot_core::ids::SessionId;
 use tracepilot_indexer::index_db::IndexDb;
-use tracepilot_orchestrator::github::pull_requests::{GhCallError, GhOutput, GhRunner};
+use tracepilot_orchestrator::github::pull_requests::{
+    GhCallError, GhOutput, GhRunOptions, GhRunner,
+};
 
 use super::*;
 use crate::services::pull_request_policy::{OPEN_STALE_AFTER, parse_time};
@@ -47,6 +49,9 @@ struct FakeGh {
     calls: Mutex<Vec<Vec<String>>>,
     auth: Mutex<Option<Result<GhOutput, GhCallError>>>,
     graphql_failure: Mutex<Option<Result<GhOutput, GhCallError>>>,
+    /// Fail every GraphQL call from this one on (0-based).
+    fail_from_call: Mutex<Option<usize>>,
+    graphql_calls: Mutex<usize>,
     prs: Mutex<HashMap<u32, Value>>,
     branches: Mutex<HashMap<String, Value>>,
 }
@@ -80,10 +85,17 @@ impl FakeGh {
         let prs = self.prs.lock().unwrap();
         for i in 0.. {
             if let Some(branch) = variable(args, "-f", &format!("h{i}")) {
+                let alias = format!("b{i}");
                 let repo = branches.get(&branch).cloned().unwrap_or_else(
                     || json!({"defaultBranchRef": {"name": "main"}, "pullRequests": {"nodes": []}}),
                 );
-                data.insert(format!("b{i}"), repo);
+                // `{"error": TYPE}` answers the alias with that GraphQL error.
+                if let Some(kind) = repo.get("error") {
+                    errors.push(json!({"type": kind, "path": [alias], "message": "no"}));
+                    data.insert(alias, Value::Null);
+                } else {
+                    data.insert(alias, repo);
+                }
             } else if let Some(number) = variable(args, "-F", &format!("p{i}")) {
                 let number: u32 = number.parse().unwrap();
                 let alias = format!("pr{i}");
@@ -110,7 +122,7 @@ impl FakeGh {
 }
 
 impl GhRunner for FakeGh {
-    fn run(&self, args: &[String], _timeout_secs: u64) -> Result<GhOutput, GhCallError> {
+    fn run(&self, args: &[String], _options: GhRunOptions) -> Result<GhOutput, GhCallError> {
         self.calls.lock().unwrap().push(args.to_vec());
         if args[0] == "auth" {
             return self.auth.lock().unwrap().clone().unwrap_or(Ok(GhOutput {
@@ -120,6 +132,19 @@ impl GhRunner for FakeGh {
         }
         if let Some(failure) = self.graphql_failure.lock().unwrap().clone() {
             return failure;
+        }
+        let call = {
+            let mut calls = self.graphql_calls.lock().unwrap();
+            *calls += 1;
+            *calls - 1
+        };
+        if self
+            .fail_from_call
+            .lock()
+            .unwrap()
+            .is_some_and(|from| call >= from)
+        {
+            return Err(GhCallError::Timeout(30));
         }
         self.respond(args)
     }
@@ -423,7 +448,11 @@ async fn without_gh_or_a_sign_in_nothing_is_written_and_auth_is_cached() {
     assert_eq!(again.lookup, PullRequestLookup::NotInstalled);
     assert_eq!(fx.gh.kinds(), vec!["auth"]);
 
-    *fx.gh.auth.lock().unwrap() = Some(Ok(GhOutput::default()));
+    *fx.gh.auth.lock().unwrap() = Some(Ok(GhOutput {
+        success: false,
+        stdout: String::new(),
+        stderr: "You are not logged into any GitHub hosts. To log in, run: gh auth login".into(),
+    }));
     let signed_out = fx.session(at(AUTH_TTL), false).await;
     assert_eq!(signed_out.lookup, PullRequestLookup::SignedOut);
     assert_eq!(fx.gh.kinds(), vec!["auth", "auth"]);
@@ -523,3 +552,6 @@ async fn list_refreshes_take_primaries_in_one_batch_a_minute() {
     assert!(idle.updated.is_empty());
     assert!(fx.gh.kinds().is_empty());
 }
+
+#[path = "pull_request_refresh_tests.rs"]
+mod more;

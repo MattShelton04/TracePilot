@@ -2,7 +2,7 @@
 //! found for each pushed branch (`session_branch_pull_requests`).
 //!
 //! Callers do the network work first, then write everything from one refresh
-//! in a single short transaction. These tables are not indexer-owned, so a
+//! in a single short `IMMEDIATE` transaction. These tables are not indexer-owned, so a
 //! write never waits on indexing gates; a busy database fails the write and
 //! the caller reports it.
 
@@ -78,7 +78,7 @@ impl IndexDb {
         if write.is_empty() {
             return Ok(false);
         }
-        self.with_transaction(|db| {
+        self.with_immediate_transaction(|db| {
             for status in &write.statuses {
                 db.upsert_pull_request_status(status, fetched_at)?;
             }

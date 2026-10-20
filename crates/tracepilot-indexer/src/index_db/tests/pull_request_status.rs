@@ -270,11 +270,12 @@ fn lookups_list_each_pull_request_once_with_its_last_fetch() {
     );
     let after = db.session_pull_request_lookups(&sid()).unwrap().unwrap();
     let numbers: Vec<u32> = after.pull_requests.iter().map(|pr| pr.key.number).collect();
-    assert_eq!(numbers, vec![42, 41, 40, 43]);
-    let errored = &after.pull_requests[1];
+    // Primary first, then strongest role: the branch's #43 is `updated`.
+    assert_eq!(numbers, vec![42, 43, 41, 40]);
+    let errored = &after.pull_requests[2];
     assert_eq!(errored.error.as_deref(), Some("NOT_FOUND: gone"));
     assert_eq!(errored.fetched_at.as_deref(), Some(T1));
-    assert_eq!(after.pull_requests[3].state.as_deref(), Some("open"));
+    assert_eq!(after.pull_requests[1].state.as_deref(), Some("open"));
 
     let missing =
         tracepilot_core::ids::SessionId::from_validated("a0000000-0000-4000-8000-000000000000");
@@ -336,4 +337,22 @@ fn a_busy_database_fails_the_write_and_says_so() {
     assert!(error.is_busy(), "{error}");
     other.execute_batch("ROLLBACK").unwrap();
     assert_eq!(count(&db, "pull_request_status"), 0);
+}
+
+#[test]
+fn refresh_writes_take_the_write_lock_before_reading() {
+    let (tmp, db) = indexed();
+    let other = rusqlite::Connection::open(tmp.path().join("index.db")).unwrap();
+    other.execute_batch("PRAGMA busy_timeout=0").unwrap();
+    let blocked = db
+        .with_immediate_transaction(|_| {
+            // Before the closure writes anything, no other writer can start.
+            Ok(other.execute_batch("BEGIN IMMEDIATE").is_err())
+        })
+        .unwrap();
+    assert!(blocked);
+    let free = db
+        .with_transaction(|_| Ok(other.execute_batch("BEGIN IMMEDIATE; ROLLBACK").is_ok()))
+        .unwrap();
+    assert!(free, "a deferred transaction holds no lock until it writes");
 }

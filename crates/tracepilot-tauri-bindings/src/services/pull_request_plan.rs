@@ -93,14 +93,20 @@ fn pull_request_ref(key: &PullRequestKey, state: Option<&str>, is_draft: bool) -
     }
 }
 
+/// A host whose `gh` call failed during a refresh; later calls skip it.
+pub(super) type HostFailure = (String, GhCallError);
+
 impl Plan {
     /// Look up the plan's pushed branches; accepted pull requests get their
-    /// status from the same answer.
+    /// status from the same answer. A branch GitHub couldn't answer for (no
+    /// access, a partial answer, a failed call) gets no write, so its earlier
+    /// matches stay; only a repository GitHub reports missing records "none".
     pub(super) fn lookup_branches(
         &self,
         runner: &dyn GhRunner,
         write: &mut PullRequestRefreshWrite,
-    ) -> Result<(), (String, GhCallError)> {
+        failures: &mut Vec<HostFailure>,
+    ) {
         for host in self.hosts() {
             let items: Vec<&BranchItem> = self
                 .branches
@@ -111,14 +117,13 @@ impl Plan {
                 continue;
             }
             let queries: Vec<BranchQuery> = items.iter().map(|item| item.query.clone()).collect();
-            let results = gh_branch_pull_requests(runner, &host, &queries)
-                .map_err(|error| (host.clone(), error))?;
-            for (item, found) in items.into_iter().zip(results) {
+            let batch = gh_branch_pull_requests(runner, &host, &queries);
+            for (item, found) in items.into_iter().zip(batch.results) {
                 let numbers = match found {
-                    // Not sent, or left out of the response: try again later.
-                    None => continue,
-                    // The repository is gone or private now: record the lookup.
-                    Some(GhLookup::Failed(_)) => Vec::new(),
+                    // Not sent, unanswered or failed: try again later.
+                    None | Some(GhLookup::Failed(_)) => continue,
+                    // The repository is gone: nothing can match any more.
+                    Some(GhLookup::NotFound(_)) => Vec::new(),
                     Some(GhLookup::Found(found))
                         if found.default_branch.as_deref() == Some(item.lookup.branch.as_str()) =>
                     {
@@ -149,17 +154,20 @@ impl Plan {
                     numbers,
                 });
             }
+            if let Some(error) = batch.error {
+                failures.push((host, error));
+            }
         }
-        Ok(())
     }
 
     /// Fetch the plan's pull request states, except those a branch lookup
-    /// already answered.
+    /// already answered and those on a host whose call already failed.
     pub(super) fn lookup_statuses(
         &self,
         runner: &dyn GhRunner,
         write: &mut PullRequestRefreshWrite,
-    ) -> Result<(), (String, GhCallError)> {
+        failures: &mut Vec<HostFailure>,
+    ) {
         // Pull requests a branch lookup just answered for need no second call.
         let mut done: HashSet<_> = write
             .statuses
@@ -167,6 +175,9 @@ impl Plan {
             .map(|status| status.key.identity())
             .collect();
         for host in self.hosts() {
+            if failures.iter().any(|(failed, _)| *failed == host) {
+                continue;
+            }
             let items: Vec<&StatusItem> = self
                 .statuses
                 .iter()
@@ -178,21 +189,22 @@ impl Plan {
             }
             let queries: Vec<PullRequestQuery> =
                 items.iter().map(|item| item.query.clone()).collect();
-            let results =
-                gh_pull_requests(runner, &host, &queries).map_err(|error| (host.clone(), error))?;
-            for (item, found) in items.into_iter().zip(results) {
+            let batch = gh_pull_requests(runner, &host, &queries);
+            for (item, found) in items.into_iter().zip(batch.results) {
                 match found {
                     Some(GhLookup::Found(pr)) => {
                         push_status(write, status_update(item.fetch.key.clone(), &pr));
                     }
-                    Some(GhLookup::Failed(error)) => {
-                        write.errors.push((item.fetch.key.clone(), error))
+                    Some(GhLookup::NotFound(error) | GhLookup::Failed(error)) => {
+                        write.errors.push((item.fetch.key.clone(), error));
                     }
                     None => {}
                 }
             }
+            if let Some(error) = batch.error {
+                failures.push((host, error));
+            }
         }
-        Ok(())
     }
 }
 

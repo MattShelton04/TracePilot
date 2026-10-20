@@ -154,3 +154,52 @@ pub(super) fn branch_args(host: &str, queries: &[&BranchQuery]) -> Vec<String> {
     }
     args
 }
+
+/// Longest argument vector one `gh` call gets, in bytes as a quoted command
+/// line. Windows caps a command line at 32,767 characters; this leaves room.
+pub const MAX_ARGV_BYTES: usize = 24_000;
+
+/// Bytes an argument vector takes on a Windows command line: each argument
+/// quoted and space-separated, with quotes and backslashes escaped.
+pub(super) fn argv_bytes(args: &[String]) -> usize {
+    "gh".len()
+        + args
+            .iter()
+            .map(|arg| arg.len() + 3 + arg.bytes().filter(|b| matches!(b, b'"' | b'\\')).count())
+            .sum::<usize>()
+}
+
+/// Split `indices` into calls of at most [`MAX_ALIASES_PER_CALL`] aliases and
+/// [`MAX_ARGV_BYTES`], each with its argument vector.
+pub(super) fn plan_calls<Q>(
+    host: &str,
+    indices: &[usize],
+    queries: &[Q],
+    build: fn(&str, &[&Q]) -> Vec<String>,
+) -> Vec<(Vec<usize>, Vec<String>)> {
+    let mut calls = Vec::new();
+    let mut current: Vec<usize> = Vec::new();
+    let mut current_args = Vec::new();
+    for &index in indices {
+        let mut candidate = current.clone();
+        candidate.push(index);
+        let items: Vec<&Q> = candidate.iter().map(|&i| &queries[i]).collect();
+        let args = build(host, &items);
+        let fits = candidate.len() <= MAX_ALIASES_PER_CALL && argv_bytes(&args) <= MAX_ARGV_BYTES;
+        if fits || current.is_empty() {
+            current = candidate;
+            current_args = args;
+        } else {
+            calls.push((
+                std::mem::take(&mut current),
+                std::mem::take(&mut current_args),
+            ));
+            current.push(index);
+            current_args = build(host, &[&queries[index]]);
+        }
+    }
+    if !current.is_empty() {
+        calls.push((current, current_args));
+    }
+    calls
+}

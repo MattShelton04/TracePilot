@@ -36,6 +36,14 @@ pub(crate) const LIST_INTERVAL: Duration = Duration::seconds(60);
 pub(crate) const AUTH_TTL: Duration = Duration::minutes(10);
 /// How long automatic refreshes leave a host alone after a failed batch.
 pub(crate) const FAILURE_BACKOFF: Duration = Duration::minutes(2);
+/// At most one forced refresh per session this often; a forced call sooner
+/// behaves like an unforced one.
+pub(crate) const FORCE_INTERVAL: Duration = Duration::seconds(10);
+/// Most pull request states one session refresh fetches; the rest (weakest
+/// links first) wait for the next refresh.
+pub(crate) const MAX_SESSION_PULL_REQUESTS: usize = 200;
+/// Most pushed branches one session refresh looks up, most recent first.
+pub(crate) const MAX_SESSION_BRANCHES: usize = 50;
 
 /// What one refresh call works from.
 #[derive(Debug, Clone)]
@@ -65,6 +73,8 @@ struct Memory {
     backoff_until: HashMap<String, DateTime<Utc>>,
     last_list_batch: Option<DateTime<Utc>>,
     last_lookup: Option<PullRequestLookup>,
+    /// When each session last got a forced refresh.
+    last_forced: HashMap<String, DateTime<Utc>>,
 }
 
 /// Owns the in-memory state behind pull request refreshes: the network lock,
@@ -115,7 +125,22 @@ impl PullRequestRefresher {
         id: SessionId,
         force: bool,
     ) -> CmdResult<PullRequestRefreshResult> {
+        let force = force && ctx.enabled && self.claim_force(&id, ctx.now);
         self.refresh(ctx, Target::Session { id, force }).await
+    }
+
+    /// Whether a forced refresh of `id` may run now: at most one per
+    /// [`FORCE_INTERVAL`].
+    fn claim_force(&self, id: &SessionId, now: DateTime<Utc>) -> bool {
+        let mut memory = self.memory();
+        memory
+            .last_forced
+            .retain(|_, at| now - *at < FORCE_INTERVAL);
+        if memory.last_forced.contains_key(id.as_str()) {
+            return false;
+        }
+        memory.last_forced.insert(id.as_str().to_string(), now);
+        true
     }
 
     /// Refresh the due primary pull requests of listed sessions, at most one
@@ -200,6 +225,7 @@ impl PullRequestRefresher {
                     .filter_map(|fetch| {
                         status_query(&fetch).map(|query| StatusItem { fetch, query })
                     })
+                    .take(MAX_SESSION_PULL_REQUESTS)
                     .collect();
                 let branches = lookups
                     .branches
@@ -219,6 +245,7 @@ impl PullRequestRefresher {
                             span,
                         })
                     })
+                    .take(MAX_SESSION_BRANCHES)
                     .collect();
                 Ok(Plan {
                     statuses,
@@ -311,14 +338,21 @@ impl PullRequestRefresher {
         }
         plan.retain_hosts(&signed_in);
 
+        // Every answer that arrived is written, even when a later call failed.
         let mut write = PullRequestRefreshWrite::default();
+        let mut failures = Vec::new();
         let runner = &*self.runner;
-        if let Err((host, error)) = plan
-            .lookup_branches(runner, &mut write)
-            .and_then(|()| plan.lookup_statuses(runner, &mut write))
-        {
-            self.back_off(&[host], now, error.kind());
-            return result(PullRequestLookup::Failed);
+        plan.lookup_branches(runner, &mut write, &mut failures);
+        plan.lookup_statuses(runner, &mut write, &mut failures);
+        for (host, error) in &failures {
+            self.back_off(std::slice::from_ref(host), now, error.kind());
+        }
+        if write.is_empty() {
+            return if failures.is_empty() {
+                self.remember(PullRequestLookup::Ok)
+            } else {
+                result(PullRequestLookup::Failed)
+            };
         }
 
         let fetched_at = now.to_rfc3339_opts(SecondsFormat::Secs, true);

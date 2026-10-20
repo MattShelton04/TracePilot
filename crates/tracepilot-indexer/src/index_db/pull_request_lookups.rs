@@ -41,8 +41,10 @@ pub struct PushedBranchLookup {
 pub struct SessionPullRequestLookups {
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
-    /// Linked from the transcript or found for a pushed branch, once each.
+    /// Linked from the transcript or found for a pushed branch, once each:
+    /// the primary first, then by strongest role, then most recently seen.
     pub pull_requests: Vec<PullRequestFetchState>,
+    /// Most recently pushed first.
     pub branches: Vec<PushedBranchLookup>,
 }
 
@@ -94,15 +96,18 @@ impl IndexDb {
 
         let mut stmt = self.conn.prepare(&format!(
             "SELECT k.host, k.owner, k.repo, k.number, {FETCH_COLUMNS}
-             FROM (SELECT host, owner, repo, number, 0 AS source
+             FROM (SELECT host, owner, repo, number, is_primary,
+                          CASE WHEN roles & 1 THEN 0 WHEN roles & 2 THEN 1
+                               WHEN roles & 4 THEN 2 WHEN roles & 8 THEN 3 ELSE 4 END AS rank,
+                          last_seen_at, 0 AS source
                    FROM session_pull_requests WHERE session_id = ?1
                    UNION ALL
-                   SELECT host, owner, repo, number, 1 AS source
+                   SELECT host, owner, repo, number, 0, 1, NULL, 1
                    FROM session_branch_pull_requests WHERE session_id = ?1 AND number > 0) k
              LEFT JOIN pull_request_status st
                ON st.host = k.host AND st.owner = k.owner AND st.repo = k.repo
               AND st.number = k.number
-             ORDER BY k.source, k.number DESC"
+             ORDER BY k.is_primary DESC, k.rank, k.last_seen_at DESC, k.source, k.number DESC"
         ))?;
         let pull_requests = stmt
             .query_map([session_id.as_str()], fetch_state_from_row)?
@@ -117,7 +122,7 @@ impl IndexDb {
                     AS last_lookup_at
              FROM session_pushed_branches pb
              WHERE pb.session_id = ?1
-             ORDER BY pb.first_push_at, pb.branch",
+             ORDER BY pb.last_push_at DESC, pb.first_push_at DESC, pb.branch",
         )?;
         let branches = stmt
             .query_map([session_id.as_str()], |row| {

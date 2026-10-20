@@ -7,27 +7,36 @@ use std::sync::Mutex;
 use super::*;
 
 /// Records every call and answers from a queue (the last answer repeats).
-struct FakeGh {
+pub(super) struct FakeGh {
     calls: Mutex<Vec<Vec<String>>>,
+    pub(super) options: Mutex<Vec<GhRunOptions>>,
     answers: Mutex<VecDeque<Result<GhOutput, GhCallError>>>,
 }
 
 impl FakeGh {
-    fn new(answers: Vec<Result<GhOutput, GhCallError>>) -> Self {
+    pub(super) fn new(answers: Vec<Result<GhOutput, GhCallError>>) -> Self {
         Self {
             calls: Mutex::new(Vec::new()),
+            options: Mutex::new(Vec::new()),
             answers: Mutex::new(answers.into()),
         }
     }
 
-    fn calls(&self) -> Vec<Vec<String>> {
+    pub(super) fn calls(&self) -> Vec<Vec<String>> {
         self.calls.lock().unwrap().clone()
     }
 }
 
+/// The answers of a batch that must not have failed.
+pub(super) fn answered<T>(batch: GhBatch<T>) -> Vec<Option<GhLookup<T>>> {
+    assert_eq!(batch.error, None);
+    batch.results
+}
+
 impl GhRunner for FakeGh {
-    fn run(&self, args: &[String], _timeout_secs: u64) -> Result<GhOutput, GhCallError> {
+    fn run(&self, args: &[String], options: GhRunOptions) -> Result<GhOutput, GhCallError> {
         self.calls.lock().unwrap().push(args.to_vec());
+        self.options.lock().unwrap().push(options);
         let mut answers = self.answers.lock().unwrap();
         if answers.len() > 1 {
             answers.pop_front().unwrap()
@@ -37,7 +46,7 @@ impl GhRunner for FakeGh {
     }
 }
 
-fn ok(stdout: serde_json::Value) -> Result<GhOutput, GhCallError> {
+pub(super) fn ok(stdout: serde_json::Value) -> Result<GhOutput, GhCallError> {
     Ok(GhOutput {
         success: true,
         stdout: stdout.to_string(),
@@ -45,7 +54,7 @@ fn ok(stdout: serde_json::Value) -> Result<GhOutput, GhCallError> {
     })
 }
 
-fn pr_node(number: u32) -> serde_json::Value {
+pub(super) fn pr_node(number: u32) -> serde_json::Value {
     serde_json::json!({
         "number": number, "title": "Fix ripeness", "state": "OPEN", "isDraft": false,
         "mergedAt": null, "closedAt": null, "createdAt": "2026-09-10T00:02:00Z",
@@ -55,7 +64,7 @@ fn pr_node(number: u32) -> serde_json::Value {
     })
 }
 
-fn query(number: u32) -> PullRequestQuery {
+pub(super) fn query(number: u32) -> PullRequestQuery {
     PullRequestQuery {
         owner: "example".into(),
         repo: "orchard".into(),
@@ -64,13 +73,13 @@ fn query(number: u32) -> PullRequestQuery {
 }
 
 /// The value after `flag name=` in an argument vector.
-fn variable(args: &[String], flag: &str, name: &str) -> Option<String> {
+pub(super) fn variable(args: &[String], flag: &str, name: &str) -> Option<String> {
     args.windows(2)
         .find(|pair| pair[0] == flag && pair[1].starts_with(&format!("{name}=")))
         .map(|pair| pair[1][name.len() + 1..].to_string())
 }
 
-fn query_text(args: &[String]) -> String {
+pub(super) fn query_text(args: &[String]) -> String {
     variable(args, "-f", "query").expect("query")
 }
 
@@ -88,7 +97,7 @@ fn fifty_one_pull_requests_take_two_calls_to_one_host() {
         ok(serde_json::json!({"data": {"pr0": {"pullRequest": pr_node(51)}}})),
     ]);
     let queries: Vec<_> = (1..=51).map(query).collect();
-    let results = gh_pull_requests(&gh, "github.com", &queries).unwrap();
+    let results = answered(gh_pull_requests(&gh, "github.com", &queries));
 
     let calls = gh.calls();
     assert_eq!(calls.len(), 2);
@@ -133,7 +142,7 @@ fn values_travel_as_raw_variables_never_in_the_query() {
             number: 0,
         },
     ];
-    let results = gh_pull_requests(&gh, "github.com", &queries).unwrap();
+    let results = answered(gh_pull_requests(&gh, "github.com", &queries));
     let calls = gh.calls();
     assert_eq!(calls.len(), 1);
     let args = &calls[0];
@@ -185,7 +194,7 @@ fn invalid_hosts_owners_repos_and_branches_are_rejected() {
     assert!(!valid_branch("") && !valid_branch("a\nb") && !valid_branch(&"b".repeat(256)));
 
     let gh = FakeGh::new(vec![ok(serde_json::json!({"data": {}}))]);
-    let results = gh_pull_requests(&gh, "-evil.com", &[query(1)]).unwrap();
+    let results = answered(gh_pull_requests(&gh, "-evil.com", &[query(1)]));
     assert_eq!(results, vec![None]);
     assert!(gh.calls().is_empty());
 }
@@ -215,8 +224,7 @@ fn every_enum_maps_and_unknown_values_are_none() {
     }
     let gh = FakeGh::new(vec![ok(serde_json::json!({ "data": nodes }))]);
     let queries: Vec<_> = (1..=5).map(query).collect();
-    let found: Vec<GhPullRequest> = gh_pull_requests(&gh, "github.com", &queries)
-        .unwrap()
+    let found: Vec<GhPullRequest> = answered(gh_pull_requests(&gh, "github.com", &queries))
         .into_iter()
         .map(|result| match result {
             Some(GhLookup::Found(pr)) => pr,
@@ -263,16 +271,20 @@ fn a_missing_repository_or_pull_request_is_a_per_item_error() {
         stdout: stdout.into(),
         stderr: "gh: Could not resolve to a Repository with the name 'example/orchard'.".into(),
     })]);
-    let results = gh_pull_requests(&gh, "github.com", &[query(1), query(2), query(3)]).unwrap();
+    let results = answered(gh_pull_requests(
+        &gh,
+        "github.com",
+        &[query(1), query(2), query(3)],
+    ));
     assert_eq!(
         results[0],
-        Some(GhLookup::Failed(
+        Some(GhLookup::NotFound(
             "NOT_FOUND: Could not resolve to a Repository with the name 'example/orchard'.".into()
         ))
     );
     assert_eq!(
         results[1],
-        Some(GhLookup::Failed(
+        Some(GhLookup::NotFound(
             "NOT_FOUND: Could not resolve to a PullRequest with the number of 2.".into()
         ))
     );
@@ -291,7 +303,7 @@ fn long_errors_are_truncated_without_control_characters() {
     let stdout = serde_json::json!({"data": {"pr0": null},
         "errors": [{"type": "FORBIDDEN", "path": ["pr0"], "message": message}]});
     let gh = FakeGh::new(vec![ok(stdout)]);
-    let results = gh_pull_requests(&gh, "github.com", &[query(1)]).unwrap();
+    let results = answered(gh_pull_requests(&gh, "github.com", &[query(1)]));
     let Some(GhLookup::Failed(error)) = &results[0] else {
         panic!("expected a failure");
     };
@@ -325,13 +337,14 @@ fn whole_call_failures_fail_the_lookup() {
     ];
     for failure in failures {
         let gh = FakeGh::new(vec![failure.clone()]);
-        let result = gh_pull_requests(&gh, "github.com", &[query(1)]);
-        assert!(result.is_err(), "{failure:?} should fail the call");
+        let batch = gh_pull_requests(&gh, "github.com", &[query(1)]);
+        assert!(batch.error.is_some(), "{failure:?} should fail the call");
+        assert_eq!(batch.results, vec![None]);
     }
     let gh = FakeGh::new(vec![Err(GhCallError::NotInstalled)]);
     assert_eq!(
-        gh_pull_requests(&gh, "github.com", &[query(1)]),
-        Err(GhCallError::NotInstalled)
+        gh_pull_requests(&gh, "github.com", &[query(1)]).error,
+        Some(GhCallError::NotInstalled)
     );
 }
 
@@ -362,7 +375,7 @@ fn branch_lookups_send_the_branch_raw_and_read_the_default_branch() {
             branch: "bad\u{7}".into(),
         },
     ];
-    let results = gh_branch_pull_requests(&gh, "acme.ghe.com", &queries).unwrap();
+    let results = answered(gh_branch_pull_requests(&gh, "acme.ghe.com", &queries));
     let calls = gh.calls();
     assert_eq!(calls.len(), 1);
     let args = &calls[0];
@@ -386,7 +399,10 @@ fn branch_lookups_send_the_branch_raw_and_read_the_default_branch() {
         }
         other => panic!("unexpected {other:?}"),
     }
-    assert_eq!(results[1], Some(GhLookup::Failed("NOT_FOUND: gone".into())));
+    assert_eq!(
+        results[1],
+        Some(GhLookup::NotFound("NOT_FOUND: gone".into()))
+    );
     assert_eq!(results[2], None);
 }
 
@@ -395,14 +411,14 @@ fn two_hosts_are_separate_calls() {
     let gh = FakeGh::new(vec![ok(
         serde_json::json!({"data": {"pr0": {"pullRequest": pr_node(1)}}}),
     )]);
-    gh_pull_requests(&gh, "github.com", &[query(1)]).unwrap();
-    gh_pull_requests(&gh, "acme.ghe.com", &[query(1)]).unwrap();
+    answered(gh_pull_requests(&gh, "github.com", &[query(1)]));
+    answered(gh_pull_requests(&gh, "acme.ghe.com", &[query(1)]));
     let hosts: Vec<String> = gh.calls().iter().map(|call| call[3].clone()).collect();
     assert_eq!(hosts, vec!["github.com", "acme.ghe.com"]);
 }
 
 #[test]
-fn auth_status_names_the_host() {
+fn auth_status_names_the_host_and_reads_why_it_failed() {
     let signed_in = FakeGh::new(vec![Ok(GhOutput {
         success: true,
         ..GhOutput::default()
@@ -413,16 +429,64 @@ fn auth_status_names_the_host() {
     );
     assert_eq!(
         signed_in.calls(),
-        vec![vec!["auth", "status", "--hostname", "acme.ghe.com"]]
+        vec![vec![
+            "auth",
+            "status",
+            "--active",
+            "--hostname",
+            "acme.ghe.com"
+        ]]
     );
-    let signed_out = FakeGh::new(vec![Ok(GhOutput::default())]);
+    for text in [
+        "You are not logged into any GitHub hosts. To log in, run: gh auth login",
+        "github.com\n  X Failed to log in to github.com account octo (default)\n  - To re-authenticate, run: gh auth login -h github.com",
+    ] {
+        let signed_out = FakeGh::new(vec![Ok(GhOutput {
+            success: false,
+            stdout: String::new(),
+            stderr: text.into(),
+        })]);
+        assert_eq!(
+            gh_host_auth(&signed_out, "github.com"),
+            Ok(GhHostAuth::SignedOut)
+        );
+    }
+    // Offline or a slow server is not a sign-out.
+    let offline = FakeGh::new(vec![Ok(GhOutput {
+        success: false,
+        stdout: String::new(),
+        stderr: "error connecting to api.github.com".into(),
+    })]);
     assert_eq!(
-        gh_host_auth(&signed_out, "github.com"),
-        Ok(GhHostAuth::SignedOut)
+        gh_host_auth(&offline, "github.com"),
+        Err(GhCallError::Response("auth_status"))
     );
     let missing = FakeGh::new(vec![Err(GhCallError::NotInstalled)]);
     assert_eq!(
         gh_host_auth(&missing, "github.com"),
         Err(GhCallError::NotInstalled)
+    );
+}
+
+#[test]
+fn an_old_gh_without_active_is_asked_again_without_it() {
+    let gh = FakeGh::new(vec![
+        Ok(GhOutput {
+            success: false,
+            stdout: String::new(),
+            stderr: "unknown flag: --active\n\nUsage:  gh auth status [flags]".into(),
+        }),
+        Ok(GhOutput {
+            success: true,
+            ..GhOutput::default()
+        }),
+    ]);
+    assert_eq!(gh_host_auth(&gh, "github.com"), Ok(GhHostAuth::SignedIn));
+    assert_eq!(
+        gh.calls(),
+        vec![
+            vec!["auth", "status", "--active", "--hostname", "github.com"],
+            vec!["auth", "status", "--hostname", "github.com"],
+        ]
     );
 }

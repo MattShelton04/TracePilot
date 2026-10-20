@@ -422,9 +422,12 @@ Pull requests found on GitHub whose head is a branch the session pushed. Looked
 up over the network, so a metadata rewrite keeps them.
 Primary key: `(session_id, host, owner, repo, branch, number)`.
 
-Each lookup of a branch replaces all of that branch's rows. When no pull
-request matched, it writes one marker row with `number = 0`, so the branch's
-last lookup time (`MAX(fetched_at)`) is still known. Readers skip `number = 0`.
+Each answered lookup of a branch replaces all of that branch's rows. When no
+pull request matched (or GitHub reports the repository `NOT_FOUND`), it writes
+one marker row with `number = 0`, so the branch's last lookup time
+(`MAX(fetched_at)`) is still known. Readers skip `number = 0`. A lookup GitHub
+refused or answered only in part (no access, SAML, a failed call) writes
+nothing, so the branch keeps its earlier rows and is asked again later.
 `host`, `owner` and `repo` are stored as in `session_pushed_branches`.
 
 | Column | Type | Meaning |

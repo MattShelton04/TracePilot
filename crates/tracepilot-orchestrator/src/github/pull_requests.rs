@@ -10,6 +10,8 @@
 //! The process boundary is the [`GhRunner`] trait, so tests use a fake runner
 //! and never touch the network or a real `gh`.
 
+#[cfg(test)]
+mod batch_tests;
 mod query;
 mod response;
 #[cfg(test)]
@@ -22,8 +24,8 @@ use crate::error::OrchestratorError;
 use crate::process::{execute_with_timeout, hidden_std_command};
 
 pub use query::{
-    BranchQuery, MAX_ALIASES_PER_CALL, PullRequestQuery, valid_branch, valid_host, valid_number,
-    valid_owner, valid_repo,
+    BranchQuery, MAX_ALIASES_PER_CALL, MAX_ARGV_BYTES, PullRequestQuery, valid_branch, valid_host,
+    valid_number, valid_owner, valid_repo,
 };
 pub use response::{GhBranchPullRequests, GhLookup, GhPullRequest, GhPullRequestState};
 
@@ -70,9 +72,36 @@ impl GhCallError {
     }
 }
 
+/// How to run one `gh` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GhRunOptions {
+    pub timeout_secs: u64,
+    /// Remove `GH_ENTERPRISE_TOKEN` and `GITHUB_ENTERPRISE_TOKEN` from the
+    /// child's environment.
+    pub strip_enterprise_tokens: bool,
+}
+
+impl GhRunOptions {
+    /// Options for a call to `host`. A host other than `github.com` or a
+    /// `*.ghe.com` tenant came from a session file, so `gh` may only reach it
+    /// with a sign-in stored by `gh auth login`, never an environment token.
+    pub fn for_host(host: &str, timeout_secs: u64) -> Self {
+        Self {
+            timeout_secs,
+            strip_enterprise_tokens: !trusts_environment_tokens(host),
+        }
+    }
+}
+
+/// Whether `gh` may use environment tokens for `host`.
+pub fn trusts_environment_tokens(host: &str) -> bool {
+    let host = host.to_ascii_lowercase();
+    host == "github.com" || host.ends_with(".ghe.com")
+}
+
 /// Runs `gh` with an argument vector (never through a shell).
 pub trait GhRunner: Send + Sync {
-    fn run(&self, args: &[String], timeout_secs: u64) -> Result<GhOutput, GhCallError>;
+    fn run(&self, args: &[String], options: GhRunOptions) -> Result<GhOutput, GhCallError>;
 }
 
 /// The real `gh`, as a hidden process with a timeout.
@@ -80,7 +109,7 @@ pub trait GhRunner: Send + Sync {
 pub struct GhCli;
 
 impl GhRunner for GhCli {
-    fn run(&self, args: &[String], timeout_secs: u64) -> Result<GhOutput, GhCallError> {
+    fn run(&self, args: &[String], options: GhRunOptions) -> Result<GhOutput, GhCallError> {
         let mut cmd = hidden_std_command(tracepilot_core::constants::DEFAULT_GH_COMMAND);
         cmd.args(args)
             // Never wait on a prompt or check for gh updates in the background.
@@ -90,11 +119,15 @@ impl GhRunner for GhCli {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        if options.strip_enterprise_tokens {
+            cmd.env_remove("GH_ENTERPRISE_TOKEN")
+                .env_remove("GITHUB_ENTERPRISE_TOKEN");
+        }
         let child = cmd.spawn().map_err(|error| match error.kind() {
             ErrorKind::NotFound => GhCallError::NotInstalled,
             _ => GhCallError::Spawn,
         })?;
-        match execute_with_timeout(child, timeout_secs) {
+        match execute_with_timeout(child, options.timeout_secs) {
             Ok((stdout, stderr, status)) => Ok(GhOutput {
                 success: status.success(),
                 stdout: String::from_utf8_lossy(&stdout).into_owned(),
@@ -118,75 +151,146 @@ fn log_call(kind: &'static str, host: &str, count: usize) {
     tracing::info!(target: "tracepilot::gh", kind, host, count, "gh call");
 }
 
-/// `gh auth status --hostname <host>`. A missing `gh` is
-/// [`GhCallError::NotInstalled`]; any non-zero exit is signed out.
+fn auth_args(host: &str, active: bool) -> Vec<String> {
+    let mut args = vec!["auth".to_string(), "status".to_string()];
+    if active {
+        args.push("--active".into());
+    }
+    args.extend(["--hostname".to_string(), host.to_string()]);
+    args
+}
+
+/// What `gh auth status` prints when no account is signed in to the host.
+const SIGNED_OUT_MARKERS: [&str; 4] = [
+    "not logged in",
+    "not logged into",
+    "no accounts",
+    "gh auth login",
+];
+
+/// `gh auth status --active --hostname <host>` (without `--active` on a `gh`
+/// too old to know it). Exit 0 is signed in; output saying no account is
+/// signed in is signed out; any other failure (offline, a slow server) is an
+/// error, not a sign-out. The output is only matched, never kept or logged.
 pub fn gh_host_auth(runner: &dyn GhRunner, host: &str) -> Result<GhHostAuth, GhCallError> {
     if !valid_host(host) {
         return Ok(GhHostAuth::SignedOut);
     }
+    let options = GhRunOptions::for_host(host, GH_AUTH_TIMEOUT_SECS);
     log_call("auth", host, 1);
-    let args = ["auth", "status", "--hostname", host].map(String::from);
-    let output = runner.run(&args, GH_AUTH_TIMEOUT_SECS)?;
-    Ok(if output.success {
-        GhHostAuth::SignedIn
+    let mut output = runner.run(&auth_args(host, true), options)?;
+    let text = |output: &GhOutput| format!("{}\n{}", output.stdout, output.stderr).to_lowercase();
+    if !output.success && text(&output).contains("unknown flag") {
+        log_call("auth", host, 1);
+        output = runner.run(&auth_args(host, false), options)?;
+    }
+    if output.success {
+        return Ok(GhHostAuth::SignedIn);
+    }
+    let text = text(&output);
+    if SIGNED_OUT_MARKERS
+        .iter()
+        .any(|marker| text.contains(marker))
+    {
+        Ok(GhHostAuth::SignedOut)
     } else {
-        GhHostAuth::SignedOut
-    })
+        Err(GhCallError::Response("auth_status"))
+    }
 }
 
-/// Look up pull requests on one host, at most [`MAX_ALIASES_PER_CALL`] per
-/// `gh` call.
-///
-/// The result lines up with `queries`: `None` for a query that failed
-/// validation (never sent) or that the response left out. A failed call fails
-/// the whole lookup, so the caller writes nothing.
+/// One host's answers, lined up with the queries: `None` for a query that
+/// failed validation (never sent), that the response left out, or whose call
+/// never ran. Calls run in order and stop at the first that fails, so the
+/// answers of earlier calls are kept alongside `error`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GhBatch<T> {
+    pub results: Vec<Option<GhLookup<T>>>,
+    pub error: Option<GhCallError>,
+}
+
+/// What differs between the status and branch batches.
+struct BatchSpec<Q, T> {
+    kind: &'static str,
+    alias: &'static str,
+    is_valid: fn(&Q) -> bool,
+    build: fn(&str, &[&Q]) -> Vec<String>,
+    read: fn(&response::GraphqlResponse, &str) -> Option<GhLookup<T>>,
+}
+
+fn run_batch<Q, T: Clone>(
+    runner: &dyn GhRunner,
+    host: &str,
+    queries: &[Q],
+    spec: BatchSpec<Q, T>,
+) -> GhBatch<T> {
+    let mut batch = GhBatch {
+        results: vec![None; queries.len()],
+        error: None,
+    };
+    if !valid_host(host) {
+        return batch;
+    }
+    let valid: Vec<usize> = (0..queries.len())
+        .filter(|&i| (spec.is_valid)(&queries[i]))
+        .collect();
+    let options = GhRunOptions::for_host(host, GH_GRAPHQL_TIMEOUT_SECS);
+    for (chunk, args) in query::plan_calls(host, &valid, queries, spec.build) {
+        log_call(spec.kind, host, chunk.len());
+        let response = runner
+            .run(&args, options)
+            .and_then(|output| response::GraphqlResponse::parse(&output));
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                batch.error = Some(error);
+                break;
+            }
+        };
+        for (position, &index) in chunk.iter().enumerate() {
+            batch.results[index] = (spec.read)(&response, &format!("{}{position}", spec.alias));
+        }
+    }
+    batch
+}
+
+/// Look up pull requests on one host, at most [`MAX_ALIASES_PER_CALL`] and
+/// [`MAX_ARGV_BYTES`] per `gh` call.
 pub fn gh_pull_requests(
     runner: &dyn GhRunner,
     host: &str,
     queries: &[PullRequestQuery],
-) -> Result<Vec<Option<GhLookup<GhPullRequest>>>, GhCallError> {
-    let mut results: Vec<Option<GhLookup<GhPullRequest>>> = vec![None; queries.len()];
-    if !valid_host(host) {
-        return Ok(results);
-    }
-    let valid: Vec<usize> = (0..queries.len())
-        .filter(|&i| queries[i].is_valid())
-        .collect();
-    for chunk in valid.chunks(MAX_ALIASES_PER_CALL) {
-        let items: Vec<&PullRequestQuery> = chunk.iter().map(|&i| &queries[i]).collect();
-        log_call("status", host, items.len());
-        let output = runner.run(&query::status_args(host, &items), GH_GRAPHQL_TIMEOUT_SECS)?;
-        let response = response::GraphqlResponse::parse(&output)?;
-        for (alias, &index) in chunk.iter().enumerate() {
-            results[index] = response.pull_request(&format!("pr{alias}"));
-        }
-    }
-    Ok(results)
+) -> GhBatch<GhPullRequest> {
+    run_batch(
+        runner,
+        host,
+        queries,
+        BatchSpec {
+            kind: "status",
+            alias: "pr",
+            is_valid: PullRequestQuery::is_valid,
+            build: query::status_args,
+            read: response::GraphqlResponse::pull_request,
+        },
+    )
 }
 
-/// Find the pull requests whose head is a pushed branch, newest first, at
-/// most [`MAX_ALIASES_PER_CALL`] branches per `gh` call. Lines up with
-/// `queries` like [`gh_pull_requests`].
+/// Find the pull requests whose head is a pushed branch, newest first,
+/// batched like [`gh_pull_requests`].
 pub fn gh_branch_pull_requests(
     runner: &dyn GhRunner,
     host: &str,
     queries: &[BranchQuery],
-) -> Result<Vec<Option<GhLookup<GhBranchPullRequests>>>, GhCallError> {
-    let mut results: Vec<Option<GhLookup<GhBranchPullRequests>>> = vec![None; queries.len()];
-    if !valid_host(host) {
-        return Ok(results);
-    }
-    let valid: Vec<usize> = (0..queries.len())
-        .filter(|&i| queries[i].is_valid())
-        .collect();
-    for chunk in valid.chunks(MAX_ALIASES_PER_CALL) {
-        let items: Vec<&BranchQuery> = chunk.iter().map(|&i| &queries[i]).collect();
-        log_call("branches", host, items.len());
-        let output = runner.run(&query::branch_args(host, &items), GH_GRAPHQL_TIMEOUT_SECS)?;
-        let response = response::GraphqlResponse::parse(&output)?;
-        for (alias, &index) in chunk.iter().enumerate() {
-            results[index] = response.branch(&format!("b{alias}"));
-        }
-    }
-    Ok(results)
+) -> GhBatch<GhBranchPullRequests> {
+    run_batch(
+        runner,
+        host,
+        queries,
+        BatchSpec {
+            kind: "branches",
+            alias: "b",
+            is_valid: BranchQuery::is_valid,
+            build: query::branch_args,
+            read: response::GraphqlResponse::branch,
+        },
+    )
 }
