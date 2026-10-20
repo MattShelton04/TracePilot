@@ -13,6 +13,7 @@ use crate::pull_requests::model::{
 use crate::testing::make_typed_event;
 
 pub(super) const REPO: &str = "MattShelton04/TracePilot";
+pub(super) const URL_475: &str = "https://github.com/MattShelton04/TracePilot/pull/475";
 
 pub(super) fn at(second: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 9, 1, 10, 0, 0).unwrap()

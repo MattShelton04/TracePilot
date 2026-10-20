@@ -21,6 +21,8 @@ mod tests;
 mod tests_review;
 #[cfg(test)]
 mod tests_shell;
+#[cfg(test)]
+mod tests_shell_output;
 mod text;
 
 use serde_json::Value;
