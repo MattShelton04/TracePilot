@@ -18,7 +18,11 @@ mod test_support;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_review;
+#[cfg(test)]
 mod tests_shell;
+#[cfg(test)]
+mod tests_shell_output;
 mod text;
 
 use serde_json::Value;
@@ -53,15 +57,23 @@ impl Repo {
         self.owner.eq_ignore_ascii_case(owner) && self.repo.eq_ignore_ascii_case(repo)
     }
 
-    /// `owner/repo` on `host`, or on GitHub when the host kind is GitHub or
-    /// unknown. Another host kind (Azure DevOps, …) has no pull requests here.
-    fn parse(slug: &str, host: Option<&str>, host_type: Option<&str>) -> Option<Self> {
+    /// `owner/repo` on `host`. Without one, the host a `pr-link` recorded
+    /// for the same repository (`known`), else GitHub when the host kind is
+    /// GitHub or unknown. Another host kind (Azure DevOps, …) has no pull
+    /// requests here.
+    fn parse(
+        slug: &str,
+        host: Option<&str>,
+        host_type: Option<&str>,
+        known: &[Self],
+    ) -> Option<Self> {
         let (owner, repo) = parse_slug(slug)?;
         let host = match host.map(|h| h.trim().to_ascii_lowercase()) {
             Some(host) if valid_host(&host) => host,
-            _ if host_type.is_none_or(|t| t.eq_ignore_ascii_case("github")) => {
-                "github.com".to_string()
-            }
+            _ if host_type.is_none_or(|t| t.eq_ignore_ascii_case("github")) => known
+                .iter()
+                .find(|r| r.same(owner, repo))
+                .map_or_else(|| "github.com".to_string(), |r| r.host.clone()),
             _ => return None,
         };
         Some(Self {
@@ -79,6 +91,11 @@ struct Scope {
     current: Option<Repo>,
     /// The repository the caller knows for the whole session.
     fallback: Option<Repo>,
+    /// Repositories Claude Code's `pr-link` records name, with their hosts.
+    known: Vec<Repo>,
+    /// The session's working directory and repository root, normalized
+    /// ([`normalize_path`]), for telling whether a `cd` left the repository.
+    roots: Vec<String>,
 }
 
 impl Scope {
@@ -86,12 +103,13 @@ impl Scope {
         self.current.as_ref().or(self.fallback.as_ref())
     }
 
-    /// The host of `owner/repo`: the session's own when it is that
-    /// repository, else GitHub.
+    /// The host of `owner/repo`: the session's own, or a `pr-link`'s, when
+    /// it is that repository, else GitHub.
     fn host_for(&self, owner: &str, repo: &str) -> String {
         [self.current.as_ref(), self.fallback.as_ref()]
             .into_iter()
             .flatten()
+            .chain(&self.known)
             .find(|r| r.same(owner, repo))
             .map_or_else(|| "github.com".to_string(), |r| r.host.clone())
     }
@@ -103,11 +121,57 @@ impl Scope {
             .filter(|c| c.is_object())
             .unwrap_or(data);
         let field = |key: &str| context.get(key).and_then(Value::as_str);
+        for root in [field("cwd"), field("gitRoot")].into_iter().flatten() {
+            let root = normalize_path(root);
+            if !root.is_empty() && !self.roots.contains(&root) {
+                self.roots.push(root);
+            }
+        }
         let Some(slug) = field("repository") else {
             return;
         };
-        self.current = Repo::parse(slug, field("repositoryHost"), field("hostType"));
+        self.current = Repo::parse(
+            slug,
+            field("repositoryHost"),
+            field("hostType"),
+            &self.known,
+        );
     }
+
+    /// Whether a `cd` may have left the session's repository: a home or
+    /// variable path, a relative path through `..`, or an absolute path
+    /// outside the session's directories. A subdirectory or worktree inside
+    /// the repository stays.
+    fn left_repository(&self, cd: &command::Cd) -> bool {
+        let command::Cd::Path(path) = cd else {
+            return true;
+        };
+        let path = normalize_path(path);
+        let absolute = path.starts_with('/')
+            || path.as_bytes().get(1) == Some(&b':')
+            || path.starts_with("//");
+        if !absolute {
+            return path.split('/').any(|part| part == "..");
+        }
+        !self
+            .roots
+            .iter()
+            .any(|root| path == *root || path.starts_with(&format!("{root}/")))
+    }
+}
+
+/// A path compared case-insensitively with `/` separators, Git Bash's
+/// `/c/` read as `c:/`, and no trailing separator.
+fn normalize_path(path: &str) -> String {
+    let mut path = path.trim().replace('\\', "/").to_ascii_lowercase();
+    let bytes = path.as_bytes();
+    if bytes.len() >= 3 && bytes[0] == b'/' && bytes[1].is_ascii_alphabetic() && bytes[2] == b'/' {
+        path = format!("{}:{}", &path[1..2], &path[2..]);
+    }
+    while path.len() > 1 && path.ends_with('/') && !path.ends_with(":/") {
+        path.pop();
+    }
+    path
 }
 
 fn is_context(event_type: &str) -> bool {
@@ -123,6 +187,7 @@ pub fn extract_pull_requests(
     hint: RepositoryHint<'_>,
 ) -> SessionPullRequests {
     let mut hosts = Hosts::default();
+    let mut known: Vec<Repo> = Vec::new();
     for event in events {
         let data = &event.raw.data;
         if is_context(&event.raw.event_type) {
@@ -139,15 +204,24 @@ pub fn extract_pull_requests(
         {
             // Claude Code wrote it from `gh`'s own output: its host is real.
             hosts.add(&url.host);
+            if hosts.allows(&url.host) && !known.iter().any(|r| r.same(url.owner, url.repo)) {
+                known.push(Repo {
+                    host: url.host.clone(),
+                    owner: url.owner.to_string(),
+                    repo: url.repo.to_string(),
+                });
+            }
         }
     }
     let fallback = hint
         .repository
-        .and_then(|slug| Repo::parse(slug, None, hint.host_type));
+        .and_then(|slug| Repo::parse(slug, None, hint.host_type, &known));
     let mut scope = Scope {
         hosts,
         current: None,
         fallback,
+        known,
+        roots: Vec::new(),
     };
     let calls = calls::collect(events);
     let mut calls = calls.iter().peekable();
@@ -203,13 +277,15 @@ pub fn extract_pull_requests(
 }
 
 /// A prompt the user typed: no agent owns it, and its source (when
-/// recorded) is the user. System, skill, subagent and command-output
-/// messages are not prompts.
+/// recorded) is the user or a slash command they ran. System, skill,
+/// subagent and local command-output messages are not prompts.
 fn is_user_prompt(event: &TypedEvent) -> bool {
     event.raw.agent_id.is_none()
         && match event.raw.data.get("source") {
             None | Some(Value::Null) => true,
-            Some(source) => source.as_str() == Some("user"),
+            Some(source) => source.as_str().is_some_and(|source| {
+                source == "user" || (source.starts_with("command-") && source != "command-local")
+            }),
         }
 }
 
@@ -232,7 +308,7 @@ fn pr_link_key(data: &Value, scope: &Scope) -> Option<PullRequestKey> {
     }
     let (owner, repo) = parse_slug(data.get("prRepository")?.as_str()?)?;
     Some(PullRequestKey {
-        host: "github.com".to_string(),
+        host: scope.host_for(owner, repo),
         owner: owner.to_string(),
         repo: repo.to_string(),
         number: number?,

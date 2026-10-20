@@ -10,7 +10,7 @@
 import { Transcript, text, toolUse } from "./claude-transcript.mjs";
 
 export const copilotPullRequestSessionId = "72510000-0000-4000-8000-000000000005";
-export const claudePullRequestSessionId = "c1a0de00-0000-4000-8000-00000000000c";
+export const claudePullRequestSessionId = "c1a0de00-0000-4000-8000-00000000000d";
 
 const copilotStart = "2026-03-21T09:00:00.000Z";
 const done = (output) => `${output}\n<exited with exit code 0>`;
@@ -64,7 +64,12 @@ export function buildCopilotPullRequestSession() {
       "Fix the ripeness check, open a pull request, and merge https://github.com/example/orchard/pull/57 once its checks pass. All content is synthetic.",
   });
   add("assistant.turn_start", { turnId: "turn-0", model: "gpt-4.1" });
-  shell("turn-0", "pr-view", "gh pr view 57", "title:\tBump the irrigation schedule\nstate:\tOPEN\nurl:\thttps://github.com/example/orchard/pull/57");
+  shell(
+    "turn-0",
+    "pr-view",
+    "gh pr view 57",
+    "title:\tBump the irrigation schedule\nstate:\tOPEN\nurl:\thttps://github.com/example/orchard/pull/57",
+  );
   add("assistant.message", {
     turnId: "turn-0",
     content: "Its checks pass. Merging it, then fixing the ripeness check on a branch.",
@@ -129,7 +134,8 @@ export function buildClaudePullRequestSession() {
     "pr_create",
     [
       toolUse("toolu_pr_create", "Bash", {
-        command: 'git push -u origin feat/dimmer && gh pr create --title "Add a dimmer" --body "Synthetic."',
+        command:
+          'git push -u origin feat/dimmer && gh pr create --title "Add a dimmer" --body "Synthetic."',
         description: "Push and open the pull request",
       }),
     ],
@@ -163,12 +169,17 @@ export function buildClaudePullRequestSession() {
     "tool_use",
   );
   t.bookkeeping(prLink(12));
-  t.toolResult("toolu_pr_push", "To https://github.com/example/lantern.git\n   1a2b3c4..5d6e7f8  fix/wick-length -> fix/wick-length", {
-    stdout: "",
-    stderr: "To https://github.com/example/lantern.git\n   1a2b3c4..5d6e7f8  fix/wick-length -> fix/wick-length",
-    interrupted: false,
-    isImage: false,
-  });
+  t.toolResult(
+    "toolu_pr_push",
+    "To https://github.com/example/lantern.git\n   1a2b3c4..5d6e7f8  fix/wick-length -> fix/wick-length",
+    {
+      stdout: "",
+      stderr:
+        "To https://github.com/example/lantern.git\n   1a2b3c4..5d6e7f8  fix/wick-length -> fix/wick-length",
+      interrupted: false,
+      isImage: false,
+    },
+  );
   t.call("pr_pushed", [text("Pushed the fix to #12.")], claudeUsage, "end_turn");
   t.bookkeeping(prLink(12));
   t.costState(0.0004, { input: 40, cacheRead: 400, cacheWrite: 80, output: 20 });

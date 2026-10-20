@@ -6,11 +6,14 @@
 //! and comments are skipped, so `grep 'gh pr create'` or a PR body that
 //! mentions a command never reads as one.
 
+pub(super) use super::lexer::Shell;
 use super::lexer::{Token, segments};
 use super::text::{UrlMatch, branch_ref, parse_number, pr_urls};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Verb {
+    /// `gh pr list` / `gh pr status`: links nothing, but prints addresses.
+    List,
     Create,
     Merge,
     View,
@@ -28,6 +31,7 @@ pub(super) enum Verb {
 impl Verb {
     fn parse(word: &str) -> Option<Self> {
         Some(match word {
+            "list" | "ls" | "status" => Self::List,
             "create" | "new" => Self::Create,
             "merge" => Self::Merge,
             "view" => Self::View,
@@ -47,6 +51,30 @@ impl Verb {
     /// Flags of this subcommand that take a value (`gh pr <verb> --help`).
     fn value_flags(self) -> &'static [&'static str] {
         match self {
+            Self::List => &[
+                "--json",
+                "-q",
+                "--jq",
+                "-t",
+                "--template",
+                "-L",
+                "--limit",
+                "-s",
+                "--state",
+                "-B",
+                "--base",
+                "-H",
+                "--head",
+                "-l",
+                "--label",
+                "-A",
+                "--author",
+                "-S",
+                "--search",
+                "-a",
+                "--assignee",
+                "--app",
+            ],
             Self::Create => &[
                 "-t",
                 "--title",
@@ -146,12 +174,22 @@ pub(super) enum RepoFlag {
     Unknown,
 }
 
+/// The directory an earlier `cd` in the same command moved to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Cd {
+    Path(String),
+    /// Home, `-`, or a variable.
+    Unknown,
+}
+
 /// One `gh pr <verb>` at command position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct GhPr {
     pub(super) verb: Verb,
     pub(super) target: Target,
     pub(super) repo: RepoFlag,
+    /// The latest `cd` before it in the same command.
+    pub(super) cd: Option<Cd>,
     pub(super) title: Option<String>,
     pub(super) head: Option<String>,
     pub(super) base: Option<String>,
@@ -181,26 +219,55 @@ impl ShellCommand {
 }
 
 /// Parse a command, cheaply skipping ones that mention neither tool.
-pub(super) fn parse_command(command: &str) -> ShellCommand {
+pub(super) fn parse_command(command: &str, shell: Shell) -> ShellCommand {
     let mut parsed = ShellCommand::default();
     let maybe_gh = command.contains("gh") && command.contains("pr");
     let maybe_push = command.contains("git") && command.contains("push");
     if !maybe_gh && !maybe_push {
         return parsed;
     }
-    for segment in segments(command) {
+    let mut cd = None;
+    for segment in segments(command, shell) {
         let words = command_words(&segment);
         let Some(first) = words.first() else { continue };
         let program = first.text.to_ascii_lowercase();
         if matches!(program.as_str(), "gh" | "gh.exe") {
-            if let Some(gh) = gh_pr(&words[1..]) {
+            if let Some(mut gh) = gh_pr(&words[1..]) {
+                gh.cd.clone_from(&cd);
                 parsed.gh.push(gh);
             }
         } else if matches!(program.as_str(), "git" | "git.exe") && is_push(&words[1..]) {
             parsed.pushes = true;
+        } else if matches!(
+            program.as_str(),
+            "cd" | "chdir" | "pushd" | "set-location" | "sl" | "push-location"
+        ) {
+            cd = Some(cd_target(&words[1..]));
         }
     }
     parsed
+}
+
+/// Where `cd`/`Set-Location` goes: its first argument, or `-Path`'s value.
+fn cd_target(words: &[Token]) -> Cd {
+    let mut words = words.iter();
+    while let Some(word) = words.next() {
+        let flag = word.text.to_ascii_lowercase();
+        let word = match flag.as_str() {
+            "-path" | "-literalpath" => match words.next() {
+                Some(word) => word,
+                None => break,
+            },
+            "-" => break,
+            flag if flag.starts_with('-') => continue,
+            _ => word,
+        };
+        if word.expands || word.text.starts_with('~') {
+            break;
+        }
+        return Cd::Path(word.text.clone());
+    }
+    Cd::Unknown
 }
 
 /// The words of a segment from its command on: prefixes, assignments and
@@ -287,6 +354,7 @@ fn gh_pr(words: &[Token]) -> Option<GhPr> {
         verb,
         target: Target::Current,
         repo: RepoFlag::Absent,
+        cd: None,
         title: None,
         head: None,
         base: None,
@@ -306,6 +374,10 @@ fn gh_pr(words: &[Token]) -> Option<GhPr> {
         if text == "--" {
             flags_done = true;
             continue;
+        }
+        if text == "--help" || text == "-h" {
+            // Prints usage; does nothing.
+            return None;
         }
         let (flag, inline) = match text.split_once('=') {
             Some((flag, value)) if flag.starts_with("--") => (flag, Some(value)),

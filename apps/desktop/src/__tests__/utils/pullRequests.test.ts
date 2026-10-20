@@ -26,6 +26,10 @@ describe("pull request helpers", () => {
     expect(pullRequestTooltip(pr)).toBe(
       "example/orchard#1046 — Retry index writes\nfix/retry → main\nCreated in this session",
     );
+    // Only the branch the transcript named, never a placeholder for the other.
+    expect(pullRequestTooltip(makePullRequest(9, ["merged"], { headRef: "chore/water" }))).toBe(
+      "example/orchard#9\nchore/water\nMerged in this session",
+    );
     expect(pullRequestTooltip(makePullRequest(7, ["mentioned"]))).toBe(
       "example/orchard#7\nMentioned in this session",
     );
