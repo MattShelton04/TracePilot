@@ -1,7 +1,7 @@
 //! Splitting a shell command into segments of unquoted words. Quotes,
-//! escapes, PowerShell here-strings, heredocs, comments and redirections are
-//! read the way bash and PowerShell would, closely enough that text inside
-//! them never starts a segment.
+//! escapes, PowerShell here-strings and block comments, heredocs, comments
+//! and redirections are read the way bash and PowerShell would, closely
+//! enough that text inside them never starts a segment.
 
 /// One word of a shell command, unquoted.
 #[derive(Debug, Default)]
@@ -11,8 +11,19 @@ pub(super) struct Token {
     pub(super) expands: bool,
 }
 
+/// Which shell reads the command: their escapes differ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Shell {
+    /// bash and other POSIX shells: `\` escapes, `` ` `` substitutes.
+    Bash,
+    /// PowerShell: `` ` `` escapes, `\` is a path separator.
+    PowerShell,
+}
+
 /// Split a command into segments of words, honoring quotes.
-pub(super) fn segments(command: &str) -> Vec<Vec<Token>> {
+pub(super) fn segments(command: &str, shell: Shell) -> Vec<Vec<Token>> {
+    let bash = shell == Shell::Bash;
+    let escape = if bash { '\\' } else { '`' };
     let mut lexer = Lexer::default();
     let mut chars = command.chars().peekable();
     let mut heredocs: Vec<String> = Vec::new();
@@ -32,16 +43,16 @@ pub(super) fn segments(command: &str) -> Vec<Vec<Token>> {
                 while let Some(c) = chars.next() {
                     match c {
                         '"' => break,
-                        // bash: `\"`, `\\`, `` \` ``, `\$`; PowerShell: `` `" ``.
-                        '\\' if chars
-                            .peek()
-                            .is_some_and(|c| matches!(c, '"' | '\\' | '`' | '$')) =>
+                        // bash: `\"`, `\\`, `` \` ``, `\$`.
+                        '\\' if bash
+                            && chars
+                                .peek()
+                                .is_some_and(|c| matches!(c, '"' | '\\' | '`' | '$')) =>
                         {
                             lexer.token.text.extend(chars.next());
                         }
-                        '`' if chars.peek() == Some(&'"') => {
-                            lexer.token.text.extend(chars.next());
-                        }
+                        // PowerShell: any character after a backtick.
+                        '`' if !bash => lexer.token.text.extend(chars.next()),
                         '$' => {
                             lexer.token.expands = true;
                             lexer.token.text.push(c);
@@ -69,6 +80,17 @@ pub(super) fn segments(command: &str) -> Vec<Vec<Token>> {
                 while chars.peek().is_some_and(|c| *c != '\n') {
                     chars.next();
                 }
+            }
+            '<' if !bash && chars.peek() == Some(&'#') => {
+                // A PowerShell block comment, through `#>`.
+                let mut previous = ' ';
+                for c in chars.by_ref() {
+                    if previous == '#' && c == '>' {
+                        break;
+                    }
+                    previous = c;
+                }
+                lexer.end_token();
             }
             '>' => {
                 // A redirection: `2>&1`, `> file`, `2>$null`, `*>&1`.
@@ -111,14 +133,15 @@ pub(super) fn segments(command: &str) -> Vec<Vec<Token>> {
                 }
                 lexer.end_token();
             }
-            '\\' | '`' if chars.peek() == Some(&'\n') => {
+            c if c == escape && chars.peek() == Some(&'\n') => {
+                // A line continuation.
                 chars.next();
             }
-            '\\' | '`' if chars.peek() == Some(&'\r') => {
+            c if c == escape && chars.peek() == Some(&'\r') => {
                 chars.next();
                 chars.next_if_eq(&'\n');
             }
-            '\\' => {
+            c if c == escape => {
                 if let Some(next) = chars.next() {
                     lexer.started = true;
                     lexer.token.text.push(next);
@@ -146,6 +169,7 @@ pub(super) fn segments(command: &str) -> Vec<Vec<Token>> {
                     }
                 }
             }
+            // A bash backtick starts or ends a command substitution.
             ';' | '|' | '&' | '(' | ')' | '{' | '}' | '`' => lexer.end_segment(),
             c if c.is_whitespace() => lexer.end_token(),
             c => {

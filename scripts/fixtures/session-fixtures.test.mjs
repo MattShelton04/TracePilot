@@ -221,6 +221,9 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudePullRequestSessionId,
     ],
   );
+  // A reused id makes one fixture shadow another in the index.
+  const ids = [...generated.sessions, ...generated.claudeSessions].map((session) => session.id);
+  assert.equal(new Set(ids).size, ids.length);
   assert.equal(generated.files.length, 29);
   assert(
     existsSync(

@@ -22,7 +22,8 @@
 //!   sorted, because some are serialized from a `HashMap`.
 //!
 //! Schema added after the snapshot was captured (migration 22's session
-//! source columns, migration 24's USD cost columns, and their
+//! source columns, migration 24's USD cost columns, migration 26's pull
+//! request tables and columns, and their
 //! `schema_version` rows) is left out of the dump and asserted directly
 //! instead, so the snapshot still proves every pre-existing value is
 //! unchanged.
@@ -52,13 +53,19 @@ const FINGERPRINT_COLUMNS: &[&str] = &["source_fingerprint", "search_source_fing
 const GOLDEN_SCHEMA_VERSION: i64 = 21;
 /// `sessions` columns added after [`GOLDEN_SCHEMA_VERSION`], with the value
 /// every Copilot row must hold.
-fn post_golden_session_columns() -> [(&'static str, Value); 5] {
+fn post_golden_session_columns() -> [(&'static str, Value); 10] {
     [
         ("source", json!("copilot")),
         ("parent_session_id", Value::Null),
         ("role", json!("primary")),
         ("hidden", json!(0)),
         ("source_format_version", Value::Null),
+        // Migration 26: the corpus links no pull requests.
+        ("linked_pr_count", json!(0)),
+        ("primary_pr_host", Value::Null),
+        ("primary_pr_owner", Value::Null),
+        ("primary_pr_repo", Value::Null),
+        ("primary_pr_number", Value::Null),
     ]
 }
 
@@ -71,11 +78,19 @@ const POST_GOLDEN_COLUMNS: &[(&str, &str)] = &[
     ("session_model_metrics", "cost_usd"),
 ];
 
-/// Tables added after [`GOLDEN_SCHEMA_VERSION`] that only other sources fill.
-/// Copilot must leave them empty, so they stay out of the snapshot.
+/// Tables added after [`GOLDEN_SCHEMA_VERSION`] that the Copilot corpus leaves
+/// empty: other sources fill them, the corpus runs no `gh pr` or `git push`
+/// commands, and nothing looks pull requests up on GitHub. They stay out of
+/// the snapshot.
 /// (`session_format_observations` is in the snapshot: Copilot reports format
 /// observations since analytics version 18.)
-const POST_GOLDEN_EMPTY_TABLES: &[&str] = &["session_native_tool_calls"];
+const POST_GOLDEN_EMPTY_TABLES: &[&str] = &[
+    "session_native_tool_calls",
+    "session_pull_requests",
+    "session_pushed_branches",
+    "session_branch_pull_requests",
+    "pull_request_status",
+];
 
 fn golden_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/copilot-index.json")
@@ -196,7 +211,7 @@ fn dump_tables(db_path: &Path, root: &Path) -> Value {
         }
         if table == "schema_version" {
             let newest = rows.iter().filter_map(|r| r["version"].as_i64()).max();
-            assert_eq!(newest, Some(25));
+            assert_eq!(newest, Some(26));
             rows.retain(|r| r["version"].as_i64() <= Some(GOLDEN_SCHEMA_VERSION));
         }
         rows.sort_by_key(|row| row.to_string());

@@ -9,7 +9,7 @@ use serde_json::Value;
 use super::calls::{Call, McpKind};
 use super::collect::{Collector, Hit};
 use super::command::{GhPr, RepoFlag, ShellCommand, Target, Verb};
-use super::output::{self, Status, first_json_object};
+use super::output::{self, Status, StatusLine, first_json_object};
 use super::text::{UrlMatch, bounded, branch_ref, clean, parse_number, parse_slug, pr_urls};
 use super::{Repo, Scope};
 use crate::pull_requests::model::{
@@ -89,9 +89,22 @@ impl Scope {
         }
     }
 
+    /// The `-R` a command acts on. Without one, a `cd` out of the session's
+    /// repository earlier in the command leaves the repository unknown.
+    fn flag_for<'a>(&self, gh: &'a GhPr) -> Cow<'a, RepoFlag> {
+        match (&gh.repo, &gh.cd) {
+            (RepoFlag::Absent, Some(cd)) if self.left_repository(cd) => {
+                Cow::Owned(RepoFlag::Unknown)
+            }
+            (flag, _) => Cow::Borrowed(flag),
+        }
+    }
+
     fn target_key(&self, gh: &GhPr) -> Option<PullRequestKey> {
         match &gh.target {
-            Target::Number(number) => self.repo_for(&gh.repo).map(|repo| repo.key(*number)),
+            Target::Number(number) => self
+                .repo_for(&self.flag_for(gh))
+                .map(|repo| repo.key(*number)),
             Target::Url {
                 host,
                 owner,
@@ -107,27 +120,43 @@ impl Scope {
         }
     }
 
-    /// A status line's pull request: `O/R#N`, or `#N` in the command's repository.
-    fn status_key(
-        &self,
-        slug: Option<(&str, &str)>,
-        number: u32,
-        flag: &RepoFlag,
-    ) -> Option<PullRequestKey> {
-        match slug {
-            Some((owner, repo)) => Some(self.slug_key(owner, repo, number)),
-            None => self.repo_for(flag).map(|repo| repo.key(number)),
+    /// A status line's pull request, printed by `gh` (the command it
+    /// belongs to): `O/R#N`, or `#N` in that command's repository.
+    fn status_key(&self, line: &StatusLine<'_>, gh: &GhPr) -> Option<PullRequestKey> {
+        match (line.slug, &gh.target) {
+            (Some((owner, repo)), _) => Some(self.slug_key(owner, repo, line.number)),
+            (None, Target::Url { number, .. }) if *number == line.number => self.target_key(gh),
+            (None, _) => self
+                .repo_for(&self.flag_for(gh))
+                .map(|repo| repo.key(line.number)),
         }
     }
 }
 
-/// The `-R` of the only command of these verbs, or none.
-fn only_repo<'a>(command: &'a ShellCommand, verbs: &[Verb]) -> &'a RepoFlag {
-    let mut matching = command.gh.iter().filter(|gh| verbs.contains(&gh.verb));
-    match (matching.next(), matching.next()) {
-        (Some(gh), None) => &gh.repo,
-        _ => &RepoFlag::Absent,
+/// The number a command names explicitly.
+fn target_number(gh: &GhPr) -> Option<u32> {
+    match gh.target {
+        Target::Number(number) | Target::Url { number, .. } => Some(number),
+        _ => None,
     }
+}
+
+/// The command of `verb` that printed a status line about `number`: the one
+/// that names it, else one that names no number (the current branch, a
+/// loop variable). A line about a number no such command names came from
+/// other output, such as a pull request body.
+fn status_owner(command: &ShellCommand, verb: Verb, number: u32) -> Option<usize> {
+    let candidates = || {
+        command
+            .gh
+            .iter()
+            .enumerate()
+            .filter(|(_, gh)| gh.verb == verb)
+    };
+    candidates()
+        .find(|(_, gh)| target_number(gh) == Some(number))
+        .or_else(|| candidates().find(|(_, gh)| target_number(gh).is_none()))
+        .map(|(i, _)| i)
 }
 
 pub(super) fn shell(
@@ -157,7 +186,36 @@ pub(super) fn shell(
 
     if command.has(Verb::Create) {
         let creates: Vec<&GhPr> = command.with(Verb::Create).collect();
-        let created: Vec<_> = texts.iter().flat_map(|t| output::created(t)).collect();
+        // Addresses another `gh pr` in the same call names are its own.
+        let named: Vec<u32> = command
+            .gh
+            .iter()
+            .filter(|gh| gh.verb != Verb::Create)
+            .filter_map(target_number)
+            .collect();
+        // Commands that print addresses of their own (`gh pr list`, `gh pr
+        // view --jq .url`): then bare lines beyond one per create are theirs.
+        let others_print = command.gh.iter().any(|gh| {
+            gh.verb == Verb::List || (gh.verb != Verb::Create && gh.target == Target::Current)
+        });
+        let mut bare_left = if others_print {
+            creates.len()
+        } else {
+            usize::MAX
+        };
+        let created: Vec<_> = texts
+            .iter()
+            .flat_map(|t| output::created(t))
+            .filter(|found| !named.contains(&found.url.number))
+            .filter(|found| {
+                if found.progress {
+                    return true;
+                }
+                let keep = bare_left > 0;
+                bare_left = bare_left.saturating_sub(1);
+                keep
+            })
+            .collect();
         for (i, found) in created.iter().enumerate() {
             let Some(key) = scope.url_key(&found.url) else {
                 continue;
@@ -201,7 +259,8 @@ pub(super) fn shell(
     } else {
         Vec::new()
     };
-    let mut merge_reported = false;
+    // Merge commands whose outcome a status line reported.
+    let mut reported: Vec<usize> = Vec::new();
     for line in &statuses {
         let (role, evidence, verb) = match line.status {
             Status::Merged => (Role::Merged, Evidence::GhMerge, Verb::Merge),
@@ -210,12 +269,14 @@ pub(super) fn shell(
             Status::Reopened => (Role::Updated, Evidence::GhCommand, Verb::Reopen),
             Status::Ready => (Role::Updated, Evidence::GhCommand, Verb::Ready),
         };
-        if !command.has(verb) {
+        let Some(owner) = status_owner(command, verb, line.number) else {
             continue;
+        };
+        let gh = &command.gh[owner];
+        if verb == Verb::Merge {
+            reported.push(owner);
         }
-        merge_reported |= verb == Verb::Merge;
-        let flag = only_repo(command, &[verb]);
-        if let Some(key) = scope.status_key(line.slug, line.number, flag) {
+        if let Some(key) = scope.status_key(line, gh) {
             out.add(
                 hit(key, role, evidence)
                     .refs(line.deleted_branch.clone(), None)
@@ -224,13 +285,13 @@ pub(super) fn shell(
         }
     }
 
-    for gh in &command.gh {
+    for (i, gh) in command.gh.iter().enumerate() {
         match gh.verb {
-            Verb::Create => {}
+            Verb::Create | Verb::List => {}
             Verb::Merge => {
                 // Merged without a status line (`gh` printed nothing, or
                 // its output was not recorded): the exit code decides.
-                if merge_reported || !succeeded {
+                if reported.contains(&i) || !succeeded {
                     continue;
                 }
                 if let Some(key) = scope.target_key(gh) {
@@ -258,16 +319,23 @@ pub(super) fn shell(
                 }
             }
             Verb::View if gh.target == Target::Current => {
-                if call.failed {
+                if !exit_ok {
                     continue;
                 }
+                // After an error message only JSON is trusted, and a bare
+                // address may be another command's.
+                let failed = looks_failed(&texts);
+                let bare = !failed && command.gh.len() == 1;
                 let Some((key, viewed)) = texts.iter().find_map(|t| {
-                    let viewed = output::viewed(t);
+                    let viewed = output::viewed(t, bare);
+                    if failed && !viewed.from_json {
+                        return None;
+                    }
                     let key = match &viewed.url {
                         Some(url) => scope.url_key(url),
                         None => viewed
                             .number
-                            .and_then(|n| scope.repo_for(&gh.repo).map(|r| r.key(n))),
+                            .and_then(|n| scope.repo_for(&scope.flag_for(gh)).map(|r| r.key(n))),
                     }?;
                     Some((key, viewed))
                 }) else {
@@ -286,9 +354,11 @@ pub(super) fn shell(
                     continue;
                 }
                 let key = match &gh.target {
-                    Target::Branch(_) if gh.verb == Verb::View => texts
-                        .iter()
-                        .find_map(|t| output::viewed(t).url.and_then(|url| scope.url_key(&url))),
+                    Target::Branch(_) if gh.verb == Verb::View => texts.iter().find_map(|t| {
+                        output::viewed(t, false)
+                            .url
+                            .and_then(|url| scope.url_key(&url))
+                    }),
                     _ => scope.target_key(gh),
                 };
                 let Some(key) = key else { continue };
@@ -296,7 +366,7 @@ pub(super) fn shell(
                 if gh.verb == Verb::View && command.gh.len() == 1 {
                     let viewed = texts
                         .iter()
-                        .map(|t| output::viewed(t))
+                        .map(|t| output::viewed(t, false))
                         .find(|v| v.number.is_some());
                     if let Some(viewed) = viewed.filter(|v| v.number == Some(found.key.number)) {
                         let title = viewed.title.clone();

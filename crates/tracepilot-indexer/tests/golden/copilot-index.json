@@ -4374,7 +4374,7 @@
     ],
     "sessions": [
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "feature-x",
         "compaction_count": 0,
         "copilot_version": null,
@@ -4428,7 +4428,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.24",
@@ -4482,7 +4482,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.83",
@@ -4536,7 +4536,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.83",
@@ -4590,7 +4590,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.88",
@@ -4644,7 +4644,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.91",
@@ -4698,7 +4698,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": null,
@@ -4752,7 +4752,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 1,
         "copilot_version": "1.0.83",
@@ -4806,7 +4806,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": "main",
         "compaction_count": 1,
         "copilot_version": "1.0.91",
@@ -4860,7 +4860,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": null,
         "compaction_count": 0,
         "copilot_version": "1.0.2",
@@ -4911,7 +4911,7 @@
         "workspace_mtime": null
       },
       {
-        "analytics_version": 21,
+        "analytics_version": 22,
         "branch": null,
         "compaction_count": 0,
         "copilot_version": null,
