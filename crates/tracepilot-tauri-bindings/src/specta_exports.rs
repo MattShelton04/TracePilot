@@ -44,6 +44,7 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             crate::commands::session::check_session_freshness,
             crate::commands::session::get_session_file_history,
             crate::commands::session::get_session_file_version,
+            crate::commands::session::get_session_pull_requests,
             // wave 98 — state/system commands
             crate::commands::state::get_db_size,
             crate::commands::state::get_session_count,

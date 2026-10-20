@@ -11,6 +11,7 @@ import type {
   SessionDetail,
   SessionIncident,
   SessionPlan,
+  SessionPullRequest,
   ShutdownMetrics,
   TodosResponse,
 } from "@tracepilot/types";
@@ -26,6 +27,7 @@ export interface CachedSession {
   fileHistory?: FileCheckpoint[];
   shutdownMetrics: ShutdownMetrics | null;
   incidents: SessionIncident[];
+  pullRequests?: SessionPullRequest[];
   todos: TodosResponse | null;
   promptCache?: PromptCacheTimeline | null;
   turnActivity?: (number | null)[];

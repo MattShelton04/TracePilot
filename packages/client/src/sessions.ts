@@ -14,6 +14,7 @@ import type {
   SessionIncident,
   SessionListItem,
   SessionPlan,
+  SessionPullRequest,
   SessionSectionsInfo,
   ShutdownMetrics,
   TodosResponse,
@@ -50,6 +51,11 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 
 export async function getSessionIncidents(sessionId: string): Promise<SessionIncident[]> {
   return invoke<SessionIncident[]>("get_session_incidents", { sessionId });
+}
+
+/** The GitHub pull requests the session is linked to: primary first, then by role and recency. */
+export async function getSessionPullRequests(sessionId: string): Promise<SessionPullRequest[]> {
+  return invoke<SessionPullRequest[]>("get_session_pull_requests", { sessionId });
 }
 
 export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {

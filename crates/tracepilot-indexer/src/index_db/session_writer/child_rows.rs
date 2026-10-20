@@ -23,6 +23,8 @@ pub(super) fn delete_child_rows(conn: &Connection, session_id: &str) -> Result<(
         "DELETE FROM session_agent_runs WHERE session_id = ?1",
         "DELETE FROM session_agent_selections WHERE session_id = ?1",
         "DELETE FROM session_skill_invocations WHERE session_id = ?1",
+        "DELETE FROM session_pull_requests WHERE session_id = ?1",
+        "DELETE FROM session_pushed_branches WHERE session_id = ?1",
     ];
 
     for sql in DELETE_SQLS {

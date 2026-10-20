@@ -13,7 +13,7 @@ use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14, MIGRATION_15,
-    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20,
+    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20, MIGRATION_26,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -194,6 +194,12 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
                   PRIMARY KEY (session_id, kind, name),
                   FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
               );",
+        pre_hook: None,
+    },
+    Migration {
+        version: 26,
+        name: "linked pull requests",
+        sql: MIGRATION_26,
         pre_hook: None,
     },
 ];

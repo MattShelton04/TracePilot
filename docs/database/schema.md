@@ -1,6 +1,6 @@
 # `index.db` schema reference
 
-This is every table, column and index in the session index as of migration 25.
+This is every table, column and index in the session index as of migration 26.
 [README.md](README.md) explains the design. The DDL lives in
 [`migrations/`](../../crates/tracepilot-indexer/src/index_db/migrations/).
 `schema_doc_matches_migrations` compares this page with a freshly migrated
@@ -16,7 +16,9 @@ Conventions:
 - Booleans are stored as `INTEGER` 0/1.
 
 Every child table has `FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE`,
-and the metadata writer replaces each child table's rows wholesale.
+and the metadata writer replaces each child table's rows wholesale. The exceptions
+are the network lookups `session_branch_pull_requests` (kept across rewrites) and
+`pull_request_status` (keyed by pull request, not session).
 
 ## Catalogue
 
@@ -69,6 +71,11 @@ holds session-lifetime totals that lists and KPI cards can read without joins.
 | `hidden` | INTEGER NOT NULL | Derived from `role` (guardians are hidden by default). **Not read**: lists filter on `role` instead. |
 | `source_format_version` | TEXT | Reserved for a provider format version. Nothing sets it yet; format drift goes to `session_format_observations`. **Not read.** |
 | `cost_usd` | REAL | Provider-priced USD for sources not billed in AI Credits. NULL = no figure. Copilot writes none. |
+| `linked_pr_count` | INTEGER NOT NULL | Rows in `session_pull_requests` for the session. 0 = none linked. |
+| `primary_pr_host` | TEXT | Host of the session's primary pull request (`is_primary`). NULL = none. |
+| `primary_pr_owner` | TEXT | Owner of the primary pull request. |
+| `primary_pr_repo` | TEXT | Repository of the primary pull request. |
+| `primary_pr_number` | INTEGER | Number of the primary pull request. |
 
 Indexes:
 - `idx_sessions_updated_at`: newest-first session list.
@@ -365,6 +372,91 @@ Primary key: `(session_id, kind, name)`.
 | `kind` | TEXT NOT NULL | `record`, `attachment` or `version`. |
 | `name` | TEXT NOT NULL | Sanitized type name or version. |
 | `record_count` | INTEGER NOT NULL | Occurrences in the session. |
+
+### `session_pull_requests`
+
+The GitHub pull requests a session is linked to, from
+`tracepilot_core::pull_requests`: Claude Code's `pr-link` records and the output of
+`gh pr` commands, GitHub MCP tools and the user's prompts. Addresses that only
+appear in fetched pages, files or the assistant's text are not stored.
+Primary key: `(session_id, host, owner, repo, number)`.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `session_id` | TEXT | Owning session. |
+| `host` | TEXT NOT NULL | `github.com`, a `*.ghe.com` tenant or the session's own GitHub Enterprise host, lowercase. |
+| `owner` | TEXT NOT NULL | Repository owner, in the case first seen. |
+| `repo` | TEXT NOT NULL | Repository name, in the case first seen. |
+| `number` | INTEGER NOT NULL | Pull request number. |
+| `roles` | INTEGER NOT NULL | Bits: created 1, updated 2, merged 4, reviewed 8, mentioned 16. |
+| `evidence` | INTEGER NOT NULL | Bits naming what established the link (`PullRequestEvidence`). **Not read.** |
+| `is_primary` | INTEGER NOT NULL | The one row per session that stands for it in the list and header. |
+| `head_ref` | TEXT | Head branch, when the transcript named it. |
+| `base_ref` | TEXT | Base branch, when the transcript named it. |
+| `title` | TEXT | Title, when the transcript recorded one. Untrusted display text. |
+| `first_seen_at` | TEXT | First evidence. |
+| `last_seen_at` | TEXT | Latest evidence. |
+| `event_index` | INTEGER | Event that established the strongest role. |
+
+Indexes: `idx_session_pull_requests_pr` finds the sessions linked to one pull request.
+
+### `session_pushed_branches`
+
+Branches a session pushed to a GitHub remote, parsed from `git push` output.
+Primary key: `(session_id, host, owner, repo, branch)`.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `session_id` | TEXT | Owning session. |
+| `host` | TEXT NOT NULL | Remote host, lowercase. |
+| `owner` | TEXT NOT NULL | Remote repository owner. |
+| `repo` | TEXT NOT NULL | Remote repository name. |
+| `branch` | TEXT NOT NULL | Remote branch name. |
+| `first_push_at` | TEXT | First push. |
+| `last_push_at` | TEXT | Latest push. |
+| `push_count` | INTEGER NOT NULL | Pushes of this branch in the session. |
+
+### `session_branch_pull_requests`
+
+Pull requests found on GitHub whose head is a branch the session pushed. Looked
+up over the network, so a metadata rewrite keeps them.
+Primary key: `(session_id, host, owner, repo, branch, number)`.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `session_id` | TEXT | Owning session. |
+| `host` | TEXT NOT NULL | Repository host. |
+| `owner` | TEXT NOT NULL | Repository owner. |
+| `repo` | TEXT NOT NULL | Repository name. |
+| `branch` | TEXT NOT NULL | The pushed branch. |
+| `number` | INTEGER NOT NULL | Pull request number. |
+| `fetched_at` | TEXT NOT NULL | When GitHub was asked. |
+
+### `pull_request_status`
+
+The last known state of each pull request on GitHub, shared by every session
+linked to it. Looked up over the network; reindexing keeps it.
+Primary key: `(host, owner, repo, number)`, compared case-insensitively.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `host` | TEXT NOT NULL | Repository host. |
+| `owner` | TEXT NOT NULL | Repository owner. |
+| `repo` | TEXT NOT NULL | Repository name. |
+| `number` | INTEGER NOT NULL | Pull request number. |
+| `state` | TEXT | `open`, `closed` or `merged`. NULL = unknown. |
+| `is_draft` | INTEGER | Draft pull request. |
+| `title` | TEXT | Title on GitHub. |
+| `head_ref` | TEXT | Head branch. |
+| `base_ref` | TEXT | Base branch. |
+| `head_owner` | TEXT | Owner of the head repository (differs for forks). |
+| `created_at` | TEXT | When it was opened. |
+| `merged_at` | TEXT | When it was merged. |
+| `closed_at` | TEXT | When it was closed. |
+| `review_decision` | TEXT | `approved`, `changes_requested` or `review_required`. |
+| `checks_state` | TEXT | Combined status of the head commit's checks. |
+| `fetched_at` | TEXT NOT NULL | When GitHub was last asked. |
+| `error` | TEXT | The last lookup's failure. NULL = it succeeded. |
 
 ## Search
 

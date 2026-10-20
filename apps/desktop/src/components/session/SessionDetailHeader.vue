@@ -1,14 +1,16 @@
 <script setup lang="ts">
-/** SessionDetailHeader — the session's title, live indicator and identity badges. */
+/** SessionDetailHeader — the session's title, live indicator, identity badges and linked pull requests. */
 import {
   isNonCopilotSource,
   modelDisplayName,
   type SessionDetail,
+  type SessionPullRequest,
   type SessionSource,
 } from "@tracepilot/types";
 import { Badge, projectLabelFromCwd } from "@tracepilot/ui";
 import { Folder } from "lucide-vue-next";
 import { computed } from "vue";
+import SessionPullRequestChip from "@/components/session/SessionPullRequestChip.vue";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 
 const props = defineProps<{
@@ -20,6 +22,8 @@ const props = defineProps<{
   /** The running session is waiting for input. */
   waiting: boolean;
   liveBadge: { label: string; title: string };
+  /** Linked pull requests, primary first. */
+  pullRequests?: SessionPullRequest[];
 }>();
 
 const currentModel = computed(() => sessionModel(props.detail) ?? "");
@@ -56,6 +60,7 @@ const projectLabel = computed(() =>
       data-testid="session-project-chip"
     ><Folder :size="12" aria-hidden="true" class="project-chip__icon" />{{ projectLabel }}</Badge>
     <Badge v-if="detail.branch" variant="success">{{ detail.branch }}</Badge>
+    <SessionPullRequestChip v-if="pullRequests?.length" :pull-requests="pullRequests" />
     <Badge v-if="currentModel" variant="done" :title="currentModel">{{ modelDisplayName(currentModel, source) }}</Badge>
     <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
     <Badge v-if="detail.hostType || !isNonCopilotSource(source)" variant="neutral">{{ detail.hostType || 'cli' }}</Badge>

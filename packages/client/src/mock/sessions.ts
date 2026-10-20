@@ -10,6 +10,7 @@ import type {
 
 import { MOCK_CLAUDE_EVENTS, MOCK_CLAUDE_TODOS, MOCK_CLAUDE_TURNS } from "./claudeSessions.js";
 import { NOW, NOW_MS, ONE_HOUR, ts } from "./common.js";
+import { mockLinkedPullRequests } from "./pullRequests.js";
 
 export const MOCK_SESSIONS: SessionListItem[] = [
   {
@@ -41,6 +42,7 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     createdAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 72).toISOString(),
     updatedAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 4).toISOString(),
     isRunning: false,
+    linkedPullRequests: mockLinkedPullRequests("sess-search-polish"),
   },
   {
     id: "sess-export-markdown",
@@ -68,6 +70,7 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     createdAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 30).toISOString(),
     updatedAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 3).toISOString(),
     isRunning: false,
+    linkedPullRequests: mockLinkedPullRequests("sess-claude-code-review"),
   },
 ];
 

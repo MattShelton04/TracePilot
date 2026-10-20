@@ -51,6 +51,7 @@ export * from "./languageDetection";
 export { ensureMarkdownReady } from "./markdownLoader";
 export * from "./objective";
 export * from "./pathUtils";
+export * from "./pullRequests";
 export { highlightLine, highlightSql } from "./syntaxHighlight";
 export * from "./timelineUtils";
 export * from "./toolCall";

@@ -248,6 +248,14 @@ watch(
   },
 );
 
+// The header's pull request chip shows on every tab, so they load with the
+// session (after the detail watcher, so the session id is already current).
+watch(
+  () => props.sessionId,
+  () => void props.store.loadPullRequests(),
+  { immediate: true },
+);
+
 const showPromptCache = computed(() => prefs.isFeatureEnabled("promptCacheInsights"));
 
 // Registered after the detail watcher so the session id is already current.
@@ -280,6 +288,7 @@ watch(
         :active="isSessionActive"
         :waiting="isWaiting"
         :live-badge="liveBadge"
+        :pull-requests="store.pullRequests"
       />
 
       <SessionDetailActions

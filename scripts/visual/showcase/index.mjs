@@ -37,6 +37,7 @@ const heroOnly = {
   get_session_plan: () => heroPlan,
   get_session_checkpoints: () => heroCheckpoints,
   get_session_incidents: () => heroIncidents,
+  get_session_pull_requests: () => [],
   get_shutdown_metrics: () => heroShutdownMetrics,
   get_session_context_timeline: () => ({ timeline: heroContextTimeline, ...FILE_STAMP }),
   get_session_prompt_cache: () => ({ timeline: heroPromptCache, ...FILE_STAMP }),

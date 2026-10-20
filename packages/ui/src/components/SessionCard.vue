@@ -4,6 +4,9 @@ import {
   formatRelativeTime,
   isNonCopilotSource,
   modelDisplayName,
+  pullRequestSlug,
+  pullRequestStateLabel,
+  pullRequestTone,
   resolveSessionSource,
   runStatusBadge,
   sourceLabel,
@@ -11,6 +14,7 @@ import {
 import { Folder, TriangleAlert } from "lucide-vue-next";
 import { computed } from "vue";
 import { projectLabelFromCwd } from "../utils/pathUtils";
+import { pullRequestIcon } from "../utils/pullRequests";
 import Badge from "./Badge.vue";
 import SourceLogo from "./SourceLogo.vue";
 
@@ -38,6 +42,18 @@ const rateLimitCount = computed(() => props.session.rateLimitCount ?? 0);
 const errorCount = computed(() =>
   Math.max(0, (props.session.errorCount ?? 0) - rateLimitCount.value),
 );
+
+// The pull request that stands for the session, coloured by its state once known.
+const linkedPrs = computed(() => props.session.linkedPullRequests ?? null);
+const prTitle = computed(() => {
+  const linked = linkedPrs.value;
+  if (!linked) return "";
+  const state = pullRequestStateLabel(linked.primary.state);
+  const head = `${pullRequestSlug(linked.primary)}${state ? ` · ${state}` : ""}`;
+  const others = linked.count - 1;
+  if (others <= 0) return head;
+  return `${head}\n+${others} more linked pull request${others === 1 ? "" : "s"}`;
+});
 
 function isClaude(session: SessionListItem): boolean {
   return resolveSessionSource(session.source) === "claudeCode";
@@ -138,6 +154,18 @@ function activeTitle(): string {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
           {{ session.compactionCount }}
         </span>
+        <span
+          v-if="linkedPrs"
+          class="stat-item-inline pr-stat"
+          :class="`pr-stat--${pullRequestTone(linkedPrs.primary.state)}`"
+          :title="prTitle"
+          :aria-label="`Pull request ${prTitle}`"
+          data-testid="session-pull-requests"
+        >
+          <component :is="pullRequestIcon(linkedPrs.primary.state)" :size="14" aria-hidden="true" />
+          <span class="pr-stat__number">#{{ linkedPrs.primary.number }}</span>
+          <span v-if="linkedPrs.count > 1" class="pr-stat__more">+{{ linkedPrs.count - 1 }}</span>
+        </span>
       </div>
       <span class="card-footer-end">
         <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
@@ -236,6 +264,27 @@ function activeTitle(): string {
 }
 .stat-item-inline.warning svg {
   color: var(--warning-fg);
+}
+
+/* The primary pull request; unknown and draft states keep the quiet icon colour. */
+.pr-stat {
+  gap: 4px;
+}
+.pr-stat__number,
+.pr-stat__more {
+  font-variant-numeric: tabular-nums;
+}
+.pr-stat__more {
+  color: var(--text-tertiary);
+}
+.pr-stat--success svg {
+  color: var(--success-fg);
+}
+.pr-stat--done svg {
+  color: var(--done-fg);
+}
+.pr-stat--danger svg {
+  color: var(--danger-fg);
 }
 
 .card-footer-end {

@@ -48,5 +48,6 @@ export function richToolFixture(cmd, args, sampleId) {
   if (cmd === "get_session_prompt_cache")
     return { timeline: null, eventsFileSize: 1024, eventsFileMtime: Date.parse(fixtureTime) };
   if (cmd === "get_session_incidents") return [];
+  if (cmd === "get_session_pull_requests") return [];
   return undefined;
 }

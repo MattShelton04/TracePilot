@@ -34,8 +34,9 @@ routed view and session tabs or pop-out windows.
 - Tabs are defined in `apps/desktop/src/config/sessionTabs.ts`: Overview,
   Conversation, Events, Todos, Metrics, Context, Explorer, Timeline. A tab with
   `requires` only shows when the session's source has that capability.
-- Header: title, source and metadata badges, then the actions row: Copy Resume
-  Command, Resume in Terminal (when the source supports it), Open Folder,
+- Header: title, source and metadata badges (with the primary linked pull
+  request after the branch, and a `+N` menu for the others), then the actions
+  row: Copy Resume Command, Resume in Terminal (when the source supports it), Open Folder,
   Export, Replay, and the refresh toolbar. Resuming a session that is active
   elsewhere asks for confirmation first.
 - Gaps: the sticky actions bar uses `backdrop-filter`; the running indicator
@@ -55,6 +56,10 @@ routed view and session tabs or pop-out windows.
 - **Context**: Where, Agent, When and Session facets instead of label/value
   rows. Deep usage (tokens, model table, cache) stays on the Metrics tab.
   What happened and Context sit side by side at equal height.
+- **Pull requests**, after them when the session linked any: one row per pull
+  request, grouped by what the session did (created or updated, merged,
+  reviewed). A group of more than five starts collapsed. State colours come
+  from `pullRequestTone`: open success, draft neutral, merged done, closed danger.
 - **Activity**, below them: a histogram of turn starts across the session
   (`get_session_turn_activity`, which returns only the start times). Resumes,
   incidents and Claude Code file snapshots are pinned above the bar they fell

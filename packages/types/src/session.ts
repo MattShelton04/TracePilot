@@ -2,6 +2,7 @@
 // Core session management types: list items, detail views, shutdown metrics,
 // and session artifacts (todos, plans, checkpoints).
 
+import type { LinkedPullRequests } from "./pullRequests.js";
 import type { RunStatus, SessionSource } from "./sources.js";
 
 /**
@@ -35,6 +36,8 @@ export interface SessionListItem {
   rateLimitCount?: number | null;
   compactionCount?: number | null;
   truncationCount?: number | null;
+  /** The pull requests the session is linked to; null when none (or from the disk-scan fallback). */
+  linkedPullRequests?: LinkedPullRequests | null;
 }
 
 /** A session incident (error, rate limit, compaction, or truncation). */

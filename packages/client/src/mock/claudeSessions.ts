@@ -6,6 +6,7 @@ import { ts } from "./common.js";
 export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
   {
     turnIndex: 0,
+    eventIndex: 1,
     userMessage: "Review indexing retries.",
     assistantMessages: [{ content: "I'll inspect the retry policy and run its tests." }],
     model: "claude-opus-4-6",
@@ -33,6 +34,7 @@ export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
       },
       {
         toolCallId: "claude-bash",
+        eventIndex: 5,
         toolName: "shell",
         nativeToolName: "Bash",
         arguments: { command: "cargo test retry", description: "Check retry policy" },

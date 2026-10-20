@@ -19,6 +19,7 @@ import {
   claudeUntieredCacheSessionId,
 } from "./claude-gallery.mjs";
 import { claudeRequestLogSessionId, REQUEST_RECORDS_VERSION } from "./claude-requests.mjs";
+import { claudePullRequestSessionId, copilotPullRequestSessionId } from "./pull-requests.mjs";
 import {
   buildReportIntentSession,
   buildRichToolsSession,
@@ -201,7 +202,7 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
   assert.equal(generated.reused, false);
   assert.deepEqual(
     generated.sessions.map((session) => session.id),
-    [richToolsSessionId, reportIntentSessionId],
+    [richToolsSessionId, reportIntentSessionId, copilotPullRequestSessionId],
   );
   assert.deepEqual(
     generated.claudeSessions.map((session) => session.id),
@@ -217,9 +218,10 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeNotificationSessionId,
       claudeUnreportedAgentSessionId,
       claudeRequestLogSessionId,
+      claudePullRequestSessionId,
     ],
   );
-  assert.equal(generated.files.length, 26);
+  assert.equal(generated.files.length, 29);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),

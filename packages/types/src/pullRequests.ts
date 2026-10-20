@@ -1,0 +1,130 @@
+// ─── Pull request types ───────────────────────────────────────────
+// The GitHub pull requests a session is linked to. Mirrors the specta DTOs in
+// packages/client/src/generated/bindings.ts (checked by the client's drift test).
+
+/** How a session took part in a pull request, strongest first. */
+export type PullRequestRole = "created" | "updated" | "merged" | "reviewed" | "mentioned";
+
+/** A pull request's state on GitHub. */
+export type PullRequestState = "open" | "draft" | "closed" | "merged";
+
+/** A pull request's last known state on GitHub. */
+export interface PullRequestStatus {
+  state: PullRequestState | null;
+  title: string | null;
+  mergedAt: string | null;
+  closedAt: string | null;
+  reviewDecision: string | null;
+  checksState: string | null;
+  fetchedAt: string;
+  /** The last lookup's failure. */
+  error: string | null;
+}
+
+/** A pull request as the session list shows it. */
+export interface PullRequestRef {
+  host: string;
+  owner: string;
+  repo: string;
+  number: number;
+  /** Rebuilt from the parts above, never copied from a session file. */
+  url: string;
+  /** Null until GitHub has been asked. */
+  state: PullRequestState | null;
+}
+
+/** How many pull requests a session is linked to, and the one that stands for it. */
+export interface LinkedPullRequests {
+  count: number;
+  primary: PullRequestRef;
+}
+
+/** A pull request a session is linked to, with what the session did. */
+export interface SessionPullRequest {
+  host: string;
+  owner: string;
+  repo: string;
+  number: number;
+  /** Rebuilt from the parts above, never copied from a session file. */
+  url: string;
+  /** Strongest first. */
+  roles: PullRequestRole[];
+  /** The one that stands for the session in the list and header. */
+  primary: boolean;
+  headRef: string | null;
+  baseRef: string | null;
+  /** The title the transcript recorded. Untrusted display text. */
+  title: string | null;
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  /** The event that established the strongest role. */
+  eventIndex: number | null;
+  /** Null until GitHub has been asked. */
+  status: PullRequestStatus | null;
+}
+
+/** Badge and pill tones for a pull request's state; unknown reads as neutral. */
+export type PullRequestTone = "success" | "neutral" | "done" | "danger";
+
+const STATE_TONES: Record<PullRequestState, PullRequestTone> = {
+  open: "success",
+  draft: "neutral",
+  merged: "done",
+  closed: "danger",
+};
+
+const STATE_LABELS: Record<PullRequestState, string> = {
+  open: "Open",
+  draft: "Draft",
+  merged: "Merged",
+  closed: "Closed",
+};
+
+const ROLE_LABELS: Record<PullRequestRole, string> = {
+  created: "Created",
+  updated: "Updated",
+  merged: "Merged",
+  reviewed: "Reviewed",
+  mentioned: "Mentioned",
+};
+
+const ROLE_SENTENCES: Record<PullRequestRole, string> = {
+  created: "Created in this session",
+  updated: "Updated in this session",
+  merged: "Merged in this session",
+  reviewed: "Reviewed in this session",
+  mentioned: "Mentioned in this session",
+};
+
+export function pullRequestTone(state: PullRequestState | null | undefined): PullRequestTone {
+  return state ? STATE_TONES[state] : "neutral";
+}
+
+/** "Merged", or null while the state is unknown. */
+export function pullRequestStateLabel(state: PullRequestState | null | undefined): string | null {
+  return state ? STATE_LABELS[state] : null;
+}
+
+export function pullRequestRoleLabel(role: PullRequestRole): string {
+  return ROLE_LABELS[role];
+}
+
+/** "Created in this session" for the strongest role. */
+export function pullRequestRoleSentence(roles: readonly PullRequestRole[]): string | null {
+  return roles.length ? ROLE_SENTENCES[roles[0]] : null;
+}
+
+/** `owner/repo#n` */
+export function pullRequestSlug(pr: { owner: string; repo: string; number: number }): string {
+  return `${pr.owner}/${pr.repo}#${pr.number}`;
+}
+
+/** The state GitHub last reported for a linked pull request. */
+export function sessionPullRequestState(pr: SessionPullRequest): PullRequestState | null {
+  return pr.status?.state ?? null;
+}
+
+/** The recorded title, or the one GitHub reported. */
+export function sessionPullRequestTitle(pr: SessionPullRequest): string | null {
+  return pr.title?.trim() || pr.status?.title?.trim() || null;
+}

@@ -75,6 +75,7 @@
   "get_session_liveness",
   "get_session_plan",
   "get_session_prompt_cache",
+  "get_session_pull_requests",
   "get_session_request_log",
   "get_session_sections",
   "get_session_todos",

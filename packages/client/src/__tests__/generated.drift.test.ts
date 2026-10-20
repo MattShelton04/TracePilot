@@ -17,12 +17,14 @@
 import type {
   FreshnessResponse as HandFreshnessResponse,
   SessionListItem as HandSessionListItem,
+  SessionPullRequest as HandSessionPullRequest,
 } from "@tracepilot/types";
 import { describe, expectTypeOf, it } from "vitest";
 
 import type {
   FreshnessResponse as GenFreshnessResponse,
   SessionListItem as GenSessionListItem,
+  SessionPullRequest as GenSessionPullRequest,
 } from "../generated/bindings.js";
 import type {
   BridgeHydrationSnapshot,
@@ -46,6 +48,12 @@ describe("generated bindings match hand-written mirrors (wave 21)", () => {
     //    verify the element-wise assignability holds when wrapped in an
     //    array.
     const _sessionArray: HandSessionListItem[] = [] as GenSessionListItem[];
+
+    // 4. Linked pull requests (`get_session_pull_requests`), both ways.
+    expectTypeOf<HandSessionPullRequest>().toEqualTypeOf<GenSessionPullRequest>();
+    expectTypeOf<NonNullable<HandSessionListItem["linkedPullRequests"]>>().toEqualTypeOf<
+      NonNullable<GenSessionListItem["linkedPullRequests"]>
+    >();
 
     void _freshness;
     void _session;

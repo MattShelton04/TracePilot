@@ -255,4 +255,37 @@ describe("SessionCard", () => {
     expect(unsplit.get(".stat-item-inline.error").text()).toBe("2");
     expect(unsplit.find('[data-testid="session-rate-limits"]').exists()).toBe(false);
   });
+
+  it("shows the primary pull request in the footer, coloured by its state", () => {
+    const card = (linkedPullRequests: SessionListItem["linkedPullRequests"]) =>
+      mount(SessionCard, { props: { session: makeSession({ id: "s", linkedPullRequests }) } });
+    const primary = {
+      host: "github.com",
+      owner: "example",
+      repo: "orchard",
+      number: 1046,
+      url: "https://github.com/example/orchard/pull/1046",
+      state: null,
+    };
+
+    expect(card(null).find('[data-testid="session-pull-requests"]').exists()).toBe(false);
+
+    // Unknown state: neutral, no count for a single pull request.
+    const single = card({ count: 1, primary }).get('[data-testid="session-pull-requests"]');
+    expect(single.text()).toBe("#1046");
+    expect(single.classes()).toContain("pr-stat--neutral");
+    expect(single.attributes("title")).toBe("example/orchard#1046");
+    // It sits in the footer stats, not the badge row.
+    expect(single.element.closest(".card-stats-new")).not.toBeNull();
+
+    const several = card({ count: 3, primary: { ...primary, state: "merged" } }).get(
+      '[data-testid="session-pull-requests"]',
+    );
+    expect(several.get(".pr-stat__number").text()).toBe("#1046");
+    expect(several.get(".pr-stat__more").text()).toBe("+2");
+    expect(several.classes()).toContain("pr-stat--done");
+    expect(several.attributes("title")).toBe(
+      "example/orchard#1046 · Merged\n+2 more linked pull requests",
+    );
+  });
 });

@@ -1,6 +1,6 @@
 /**
  * useSessionSections — owns the standard async sections (todos, checkpoints,
- * plan, file history, shutdown metrics, incidents, prompt
+ * plan, file history, shutdown metrics, incidents, pull requests, prompt
  * cache, turn activity) for a session detail instance.
  *
  * Extracted from useSessionDetail. Returns the data refs, error refs,
@@ -14,6 +14,7 @@ import {
   getSessionIncidents,
   getSessionPlan,
   getSessionPromptCache,
+  getSessionPullRequests,
   getSessionTodos,
   getSessionTurnActivity,
   getShutdownMetrics,
@@ -23,6 +24,7 @@ import type {
   PromptCacheTimeline,
   SessionIncident,
   SessionPlan,
+  SessionPullRequest,
   ShutdownMetrics,
   TodosResponse,
 } from "@tracepilot/types";
@@ -66,6 +68,8 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
   // proxies for thousands of cache windows, segment records and file paths.
   const metricsSection = createAsyncSection<ShutdownMetrics | null>(null, { shallow: true });
   const incidentsSection = createAsyncSection<SessionIncident[]>([]);
+  // Read from the index, like incidents; the header shows them on every tab.
+  const pullRequestsSection = createAsyncSection<SessionPullRequest[]>([], { shallow: true });
   const promptCacheSection = createAsyncSection<PromptCacheTimeline | null>(null, {
     shallow: true,
   });
@@ -139,6 +143,18 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     logLevel: "warn",
   });
 
+  const pullRequestsDef = defineAsyncSection({
+    key: "pullRequests",
+    section: pullRequestsSection,
+    defaultValue: (): SessionPullRequest[] => [],
+    fetchFn: (id) => getSessionPullRequests(id),
+    sessionId: opts.sessionId,
+    loaded: opts.loaded,
+    guard: opts.guard,
+    logPrefix,
+    logLevel: "warn",
+  });
+
   const promptCacheDef = defineAsyncSection({
     key: "promptCache",
     section: promptCacheSection,
@@ -170,6 +186,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     fileHistoryDef as AsyncSectionDefinition<unknown>,
     metricsDef as AsyncSectionDefinition<unknown>,
     incidentsDef as AsyncSectionDefinition<unknown>,
+    pullRequestsDef as AsyncSectionDefinition<unknown>,
     promptCacheDef as AsyncSectionDefinition<unknown>,
     activityDef as AsyncSectionDefinition<unknown>,
   ];
@@ -188,8 +205,8 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
 
   /**
    * Refresh every loaded section except the source sections in `skip`
-   * (already fresh at the source's current version); todos, checkpoints
-   * and incidents come from elsewhere and always reload.
+   * (already fresh at the source's current version); todos, checkpoints,
+   * incidents and pull requests come from elsewhere and always reload.
    */
   function refreshLoaded(
     id: string,
@@ -218,6 +235,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     fileHistorySection,
     metricsSection,
     incidentsSection,
+    pullRequestsSection,
     promptCacheSection,
     activitySection,
     todosDef,
@@ -226,6 +244,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     fileHistoryDef,
     metricsDef,
     incidentsDef,
+    pullRequestsDef,
     promptCacheDef,
     activityDef,
     standardSections,

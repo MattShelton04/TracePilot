@@ -8,6 +8,7 @@ const mockGetSessionPlan = vi.fn();
 const mockGetShutdownMetrics = vi.fn();
 const mockGetSessionIncidents = vi.fn();
 const mockGetSessionPromptCache = vi.fn();
+const mockGetSessionPullRequests = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
   getSessionTodos: (...a: unknown[]) => mockGetSessionTodos(...a),
@@ -16,6 +17,7 @@ vi.mock("@tracepilot/client", () => ({
   getShutdownMetrics: (...a: unknown[]) => mockGetShutdownMetrics(...a),
   getSessionIncidents: (...a: unknown[]) => mockGetSessionIncidents(...a),
   getSessionPromptCache: (...a: unknown[]) => mockGetSessionPromptCache(...a),
+  getSessionPullRequests: (...a: unknown[]) => mockGetSessionPullRequests(...a),
 }));
 
 import { useSessionSections } from "@/composables/session/useSessionSections";
@@ -111,5 +113,36 @@ describe("useSessionSections", () => {
     expect(mockGetSessionCheckpoints).toHaveBeenCalledTimes(1);
     expect(mockGetSessionPlan).not.toHaveBeenCalled();
     expect(loaded.value.has("plan")).toBe(false);
+  });
+
+  it("loads pull requests and reloads them on every refresh, even with the source unchanged", async () => {
+    const { sections, loaded, guard } = setup();
+    mockGetSessionPullRequests.mockResolvedValue([{ number: 1, primary: true }]);
+    await sections.pullRequestsDef.load();
+    expect(mockGetSessionPullRequests).toHaveBeenCalledWith("sess-1");
+    expect(sections.pullRequestsSection.data.value).toEqual([{ number: 1, primary: true }]);
+    expect(loaded.value.has("pullRequests")).toBe(true);
+
+    // Indexed rows, not the source: a skip set of fresh sources never holds them back.
+    mockGetSessionPullRequests.mockResolvedValue([{ number: 2, primary: true }]);
+    const refreshes = sections.refreshLoaded("sess-1", guard.current(), new Set(["pullRequests"]));
+    expect(refreshes.map((r) => r.key)).toContain("pullRequests");
+    await Promise.all(refreshes.map((r) => r.done));
+    expect(sections.pullRequestsSection.data.value).toEqual([{ number: 2, primary: true }]);
+
+    sections.resetData();
+    expect(sections.pullRequestsSection.data.value).toEqual([]);
+  });
+
+  it("drops a pull request response that arrives after a session switch", async () => {
+    const { sections, loaded, guard } = setup();
+    let resolve: (value: unknown) => void = () => {};
+    mockGetSessionPullRequests.mockReturnValue(new Promise((r) => (resolve = r)));
+    const pending = sections.pullRequestsDef.load();
+    guard.start();
+    resolve([{ number: 9, primary: true }]);
+    await pending;
+    expect(sections.pullRequestsSection.data.value).toEqual([]);
+    expect(loaded.value.has("pullRequests")).toBe(false);
   });
 });
