@@ -11,23 +11,29 @@ use tracepilot_core::analytics::types::{
 };
 use tracepilot_core::prompt_cache::AGENT_RESUME_SOURCE;
 
-use super::super::helpers::to_refs;
+use super::super::helpers::{append_segment_date_filter, to_refs};
 
 /// Aggregate the predicted windows of sessions matching `where_clause`
-/// (a `build_date_repo_filter` clause over the `sessions s` alias).
+/// (a `build_date_repo_filter` clause over the `sessions s` alias) that
+/// resumed inside the range, like the in-range usage beside them. Observed
+/// cache lifetimes stay whole-session.
 pub(super) fn query_prompt_cache(
     conn: &Connection,
     where_clause: &str,
     bind_values: &[String],
+    from_date: Option<&str>,
+    to_date: Option<&str>,
 ) -> Result<PromptCacheAnalytics> {
+    let (window_where, window_values) =
+        append_segment_date_filter(where_clause, bind_values, from_date, to_date, "w.resume_at");
     let sql = format!(
         "SELECT w.session_id, w.outcome, w.idle_seconds, w.prefix_tokens, w.change_kinds,
                 w.resume_source, w.model
          FROM session_cache_windows w
-         JOIN sessions s ON s.id = w.session_id{where_clause}
+         JOIN sessions s ON s.id = w.session_id{window_where}
            AND w.resume_at IS NOT NULL"
     );
-    let refs = to_refs(bind_values);
+    let refs = to_refs(&window_values);
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
         Ok((

@@ -281,7 +281,7 @@ const otherMs = computed(() =>
               : "No incidents"
           }}
         </div>
-        <div class="tile__detail">{{ incidentBreakdown }}</div>
+        <div class="tile__detail tile__detail--wrap">{{ incidentBreakdown }}</div>
       </div>
 
       <div class="tile" data-testid="outcome-changes">
@@ -464,6 +464,11 @@ const otherMs = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The incident breakdown names every kind, so it wraps rather than cutting off. */
+.tile__detail--wrap {
+  white-space: normal;
 }
 
 .tile__badge {

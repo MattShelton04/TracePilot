@@ -148,7 +148,7 @@ describe("ExportTab session sections info", () => {
 
     request("big-session").resolve(BIG);
     await flushPromises();
-    expect(stats(w)).toBe("400 turns · 4000 events");
+    expect(stats(w)).toBe("400 turns · 4,000 events");
     expect(emptyHints(w)).toHaveLength(0);
   });
 
@@ -161,7 +161,7 @@ describe("ExportTab session sections info", () => {
 
     request("big-session").resolve(BIG);
     await flushPromises();
-    expect(stats(w)).toBe("400 turns · 4000 events");
+    expect(stats(w)).toBe("400 turns · 4,000 events");
   });
 
   it("ignores a response that arrives after the tab unmounts", async () => {

@@ -189,6 +189,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onOutsidePoint
       :disabled="disabled"
       :title="selectedSession && !open ? optionTooltip(selectedSession) : undefined"
       autocomplete="off"
+      spellcheck="false"
       :placeholder="placeholder"
       @focus="openList"
       @click="openList"

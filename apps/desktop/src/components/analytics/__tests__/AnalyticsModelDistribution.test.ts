@@ -23,12 +23,16 @@ function entry(overrides: Partial<Entry> & Pick<Entry, "model">): Entry {
   };
 }
 
-function names(modelDistribution: Entry[]) {
+function mountMix(modelDistribution: Entry[], allSources?: boolean) {
   const summary = buildDashboardSummary(
     { ...FIXTURE_ANALYTICS, modelDistribution },
     { computeUsageBasedCost: () => null, computeWholesaleCost: () => null },
   );
-  const wrapper = mount(AnalyticsModelMix, { props: { models: summary.models } });
+  return mount(AnalyticsModelMix, { props: { models: summary.models, allSources } });
+}
+
+function names(modelDistribution: Entry[]) {
+  const wrapper = mountMix(modelDistribution);
   return wrapper.findAll(".ad-row .ad-row__name > span:last-child").map((el) => el.text());
 }
 
@@ -62,5 +66,34 @@ describe("analytics model mix names", () => {
     const shown = names(many);
     expect(shown.slice(0, 2)).toEqual(["model-7", "model-6"]);
     expect(shown.at(-1)).toBe("2 more");
+  });
+});
+
+describe("analytics model mix markers", () => {
+  /** Each shown model row's marker: its source logo or a colour swatch. */
+  function markers(modelDistribution: Entry[], allSources?: boolean) {
+    return mountMix(modelDistribution, allSources)
+      .findAll(".ad-row .ad-row__name")
+      .filter((row) => !row.text().endsWith("more"))
+      .map((row) =>
+        row.find(".ad-source").exists() ? "logo" : row.find(".ad-sw").exists() ? "swatch" : "none",
+      );
+  }
+  const copilotOnly = [entry({ model: "gpt-5" }), entry({ model: "claude-haiku-4.5" })];
+
+  it("shows source logos with no provider filter, even when one source is present", () => {
+    expect(markers(copilotOnly, true)).toEqual(["logo", "logo"]);
+  });
+
+  it("keeps colour swatches when one provider is selected", () => {
+    expect(markers(copilotOnly, false)).toEqual(["swatch", "swatch"]);
+  });
+
+  it("shows logos for models from more than one source", () => {
+    const mixed = [
+      entry({ model: "gpt-5" }),
+      entry({ model: "claude-opus-5-5", source: "claudeCode" }),
+    ];
+    expect(markers(mixed)).toEqual(["logo", "logo"]);
   });
 });

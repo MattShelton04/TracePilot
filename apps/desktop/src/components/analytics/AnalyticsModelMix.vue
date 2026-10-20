@@ -18,6 +18,8 @@ const props = defineProps<{
   models: ModelRow[];
   /** The per-day series have runs in the range, though `models` may be empty. */
   dailyUsage?: boolean;
+  /** No provider filter is selected, so each model shows its source's logo. */
+  allSources?: boolean;
 }>();
 
 const router = useRouter();
@@ -26,7 +28,10 @@ const SHOWN = 6;
 const top = computed(() => props.models.slice(0, SHOWN));
 const rest = computed(() => props.models.slice(SHOWN));
 const maxTokens = computed(() => Math.max(1, props.models[0]?.tokens ?? 1));
-const multiSource = computed(() => new Set(props.models.map((m) => m.source)).size > 1);
+// Logos whenever no provider filter is set, even if only one source appears; swatches otherwise.
+const sourceLogos = computed(
+  () => props.allSources || new Set(props.models.map((m) => m.source)).size > 1,
+);
 
 function cacheHit(model: ModelRow): string {
   const input = model.composition.input;
@@ -75,7 +80,7 @@ function openModels() {
           <div class="ad-row model-mix__grid" role="row">
             <span class="ad-row__name" role="cell">
               <span
-                v-if="multiSource"
+                v-if="sourceLogos"
                 class="ad-source"
                 :style="{ color: SOURCE_COLORS[model.source] }"
               ><SourceLogo :source="model.source" :size="12" /></span>

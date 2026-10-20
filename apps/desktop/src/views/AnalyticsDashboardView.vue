@@ -141,7 +141,11 @@ const billedInAic = computed(() =>
         <AnalyticsKpis :data="data" :summary="summary" :rows="dayRows" />
         <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" :range-text="rangeText" />
         <div class="ad-pair">
-          <AnalyticsModelMix :models="summary.models" :daily-usage="dailyUsage" />
+          <AnalyticsModelMix
+            :models="summary.models"
+            :daily-usage="dailyUsage"
+            :all-sources="!store.selectedSource"
+          />
           <AnalyticsTokenMix
             :composition="summary.composition"
             :models="summary.models"

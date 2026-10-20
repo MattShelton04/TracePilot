@@ -224,6 +224,15 @@ describe("ComparisonHeader", () => {
     expect(chips("session-a")).toEqual(expect.arrayContaining(["1 turn", "1 event"]));
     expect(chips("session-b")).toEqual(expect.arrayContaining(["2 turns", "0 events"]));
 
+    const big = makeCompStub({
+      compared: true,
+      dataA: side("a", 2_822, 12_345),
+      dataB: side("b", 1, 1),
+    });
+    const bigMeta = mount(hostFor(ComparisonHeader, big)).get(".session-a .summary-meta").text();
+    expect(bigMeta).toContain("12,345 events");
+    expect(bigMeta).toContain("2,822 turns");
+
     const charts = mount(hostFor(ComparisonCharts, comp));
     expect(charts.findAll(".timeline-label").map((l) => l.text())).toEqual([
       "Session A — — (1 turn)",

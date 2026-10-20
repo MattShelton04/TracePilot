@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
 import {
+  formatNumberFull,
   formatRelativeTime,
   isNonCopilotSource,
   modelDisplayName,
@@ -131,7 +132,7 @@ function activeTitle(): string {
       <div class="card-stats-new">
         <span class="stat-item-inline" title="Total Events">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          {{ session.eventCount ?? 0 }}
+          {{ formatNumberFull(session.eventCount ?? 0) }}
         </span>
         <span class="stat-item-inline" title="Conversation Turns">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>

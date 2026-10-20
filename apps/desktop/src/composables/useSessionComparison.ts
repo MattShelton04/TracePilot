@@ -13,6 +13,7 @@ import {
   formatCost,
   formatDuration,
   formatNumber,
+  formatNumberFull,
   formatRate,
   toErrorMessage,
   useAsyncGuard,
@@ -384,20 +385,20 @@ export function useSessionComparison() {
     }
 
     const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));
-    const fmtInt = (v: number) => (isNorm ? v.toFixed(1) : String(Math.round(v)));
+    const fmtInt = (v: number) => (isNorm ? v.toFixed(1) : formatNumberFull(Math.round(v)));
 
     return [
       {
         ...row("Session Span", durA, durB, formatDuration, false),
         hint: DURATION_HINTS.sessionSpan,
       },
-      row("Turns", turnsA, turnsB, String, false),
+      row("Turns", turnsA, turnsB, formatNumberFull, false),
       row(`Total Tokens${suffix}`, per(tokA, divA), per(tokB, divB), fmtN, false),
       costRow(),
       row(`Tool Calls${suffix}`, per(tcA, divA), per(tcB, divB), fmtInt, false),
       // A change between two rates reads in percentage points.
       row("Success Rate", srA, srB, formatRate, true, formatSessionPointDelta),
-      row("Files Modified", fmA, fmB, String, false),
+      row("Files Modified", fmA, fmB, formatNumberFull, false),
       row(`Lines Changed${suffix}`, per(lcA, divA), per(lcB, divB), fmtInt, false),
     ];
   });
