@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  formatNumberFull,
   isNonCopilotSource,
   modelDisplayName,
   type SessionSource,
@@ -116,7 +117,7 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
           <Badge v-if="exitLabel(comp.dataA.metrics, sourceA)" :variant="exitBadgeVariant(comp.dataA.metrics)">{{ exitLabel(comp.dataA.metrics, sourceA) }}</Badge>
           <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }}</Badge>
           <Badge variant="neutral">{{ plural(comp.dataA.turns.length, "turn") }}</Badge>
-          <Badge variant="neutral">{{ plural(comp.dataA.detail?.eventCount ?? 0, "event") }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataA.detail?.eventCount ?? 0, "event", undefined, formatNumberFull) }}</Badge>
         </div>
       </div>
       <div class="summary-card session-b">
@@ -129,7 +130,7 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
           <Badge v-if="exitLabel(comp.dataB.metrics, sourceB)" :variant="exitBadgeVariant(comp.dataB.metrics)">{{ exitLabel(comp.dataB.metrics, sourceB) }}</Badge>
           <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }}</Badge>
           <Badge variant="neutral">{{ plural(comp.dataB.turns.length, "turn") }}</Badge>
-          <Badge variant="neutral">{{ plural(comp.dataB.detail?.eventCount ?? 0, "event") }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataB.detail?.eventCount ?? 0, "event", undefined, formatNumberFull) }}</Badge>
         </div>
       </div>
     </div>

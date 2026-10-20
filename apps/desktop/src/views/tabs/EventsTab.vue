@@ -5,6 +5,7 @@ import {
   ErrorAlert,
   ExpandChevron,
   FilterSelect,
+  formatNumberFull,
   useSessionTabLoader,
 } from "@tracepilot/ui";
 import { computed, ref, useId, watch } from "vue";
@@ -171,10 +172,10 @@ function retryLoadEvents() {
       />
       <span v-if="eventsKnown" class="text-xs text-[var(--text-secondary)]">
         <template v-if="shownFilter">
-          {{ totalCount }} matching event{{ totalCount !== 1 ? 's' : '' }}
+          {{ formatNumberFull(totalCount) }} matching event{{ totalCount !== 1 ? 's' : '' }}
         </template>
         <template v-else>
-          {{ totalCount }} total event{{ totalCount !== 1 ? 's' : '' }}
+          {{ formatNumberFull(totalCount) }} total event{{ totalCount !== 1 ? 's' : '' }}
         </template>
       </span>
     </div>

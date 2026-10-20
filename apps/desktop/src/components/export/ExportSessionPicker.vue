@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { SessionListItem, SessionSectionsInfo } from "@tracepilot/types";
-import { isNonCopilotSource, modelDisplayName, sourceLabel } from "@tracepilot/types";
+import {
+  formatNumberFull,
+  isNonCopilotSource,
+  modelDisplayName,
+  sourceLabel,
+} from "@tracepilot/types";
 import { Badge, projectLabelFromCwd } from "@tracepilot/ui";
 import { computed } from "vue";
 import SessionPicker from "@/components/SessionPicker.vue";
@@ -30,6 +35,7 @@ const folderProject = computed(() =>
       :sessions="sessions"
       :selected-id="selectedSessionId"
       label="Session to export"
+      spellcheck="false"
       @select="emit('select', $event)"
     />
     <div v-if="selectedSession" class="session-info">
@@ -45,7 +51,7 @@ const folderProject = computed(() =>
       </div>
       <div v-if="sectionsInfo" class="session-info-stats">
         <span v-if="sectionsInfo.turnCount != null">{{ plural(sectionsInfo.turnCount, "turn") }}</span>
-        <span v-if="sectionsInfo.eventCount != null">· {{ plural(sectionsInfo.eventCount, "event") }}</span>
+        <span v-if="sectionsInfo.eventCount != null">· {{ plural(sectionsInfo.eventCount, "event", undefined, formatNumberFull) }}</span>
       </div>
     </div>
   </section>

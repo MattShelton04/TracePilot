@@ -76,6 +76,18 @@ it("says events are loading, not that there are none, until the first page loads
   wrapper.unmount();
 });
 
+it("groups a large event total the way the session Overview does", async () => {
+  store.loadEvents.mockImplementation(async () => {
+    store.events = page(0, 12_345);
+    store.loaded.add("events");
+  });
+  const wrapper = mountTab();
+  await flushPromises();
+  const text = wrapper.text();
+  wrapper.unmount();
+  expect(text).toContain("12,345 total events");
+});
+
 it("shows a failed first load as an error, never as zero events", async () => {
   store.loadEvents.mockImplementation(async () => {
     store.eventsError = "Couldn't read events.jsonl";
