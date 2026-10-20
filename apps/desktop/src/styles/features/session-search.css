@@ -12,6 +12,7 @@
 .search-view .search-hero {
   padding: 24px 0 0;
   flex-shrink: 0;
+  container: search-hero / inline-size;
 }
 
 .search-view .search-hero-container {
@@ -1156,4 +1157,63 @@
 
 .search-view .health-pending {
   color: var(--attention-fg);
+}
+
+/* ── Short windows ──────────────────────────────────────────── */
+/* Under 800px of height (the 960×640 minimum included) the hero, hints and
+   footer left room for barely one result, so tighten them. Taller windows keep
+   the roomier layout above. */
+@media (max-height: 800px) {
+  .search-view {
+    padding-block: 16px;
+  }
+  .search-view .search-hero {
+    padding-top: 0;
+  }
+  .search-view .search-hero-input {
+    padding-block: 10px;
+  }
+  .search-view .search-hints {
+    margin-top: 8px;
+  }
+  .search-view .search-controls {
+    padding-top: 8px;
+  }
+  .search-view .search-page-layout {
+    margin-top: 12px;
+  }
+  .search-view .results-summary {
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+  .search-view .results-list .result-card {
+    padding: 12px 14px;
+  }
+  .search-view .result-card .result-header,
+  .search-view .result-card .result-snippet {
+    margin-bottom: 6px;
+  }
+  .search-view .keyboard-hints {
+    gap: 8px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+  }
+  .search-view .keyboard-hints kbd {
+    min-width: 20px;
+    padding: 0 6px;
+  }
+
+  /* Too narrow for the hint chips on one row: show only the examples. Each
+     label stays in the chip's tooltip and for screen readers, and More syntax
+     explains them all. */
+  @container search-hero (max-width: 839px) {
+    .search-view .search-hint-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
 }

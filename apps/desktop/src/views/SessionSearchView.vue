@@ -57,6 +57,12 @@ const {
 
 const openShortcutLabel = isMacPlatform() ? "⌘Enter" : "Ctrl+Enter";
 
+// A page from the URL can sit past the end once the index has shrunk: there
+// are matches, just none on this page.
+const pastLastPage = computed(
+  () => !store.hasResults && store.totalCount > 0 && store.page > store.totalPages,
+);
+
 // The URL holds the query, filters and page, so returning to the same URL
 // (back from a result) lands on the same scroll position in the results.
 const route = useRoute();
@@ -231,6 +237,22 @@ useScrollRestore({
             <button class="clear-search-btn" @click="store.clearAll()">Clear search</button>
           </div>
 
+          <div
+            v-else-if="pastLastPage"
+            class="search-empty-state"
+            data-testid="search-past-last-page"
+          >
+            <div class="empty-title">No results on page {{ store.page }}</div>
+            <div class="empty-subtitle">
+              The {{ formatNumberFull(store.totalCount) }}
+              result{{ store.totalCount !== 1 ? 's' : '' }} now fit on
+              {{ store.totalPages }} page{{ store.totalPages !== 1 ? 's' : '' }}.
+            </div>
+            <button class="clear-search-btn" @click="store.setPage(store.totalPages)">
+              Go to page {{ store.totalPages }}
+            </button>
+          </div>
+
           <div v-else-if="!store.hasResults" class="search-empty-state">
             <svg class="search-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
               <circle cx="20" cy="20" r="14" />
@@ -275,7 +297,7 @@ useScrollRestore({
           />
 
           <SessionSearchPagination
-            v-if="!store.hasNoSearchableTerms"
+            v-if="store.hasResults && !store.hasNoSearchableTerms"
             :page="store.page"
             :total-pages="store.totalPages"
             :total-count="store.totalCount"

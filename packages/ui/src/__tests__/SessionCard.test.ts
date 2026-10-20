@@ -60,6 +60,13 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("5");
   });
 
+  it("groups a large event count the way the session Overview does", () => {
+    const wrapper = mount(SessionCard, {
+      props: { session: makeSession({ id: "big", eventCount: 12_345 }) },
+    });
+    expect(wrapper.get('[title="Total Events"]').text()).toBe("12,345");
+  });
+
   it("shows relative time for updatedAt", () => {
     const wrapper = mount(SessionCard, {
       props: {

@@ -130,7 +130,7 @@ describe("per-day charts with runs from resumed sessions", () => {
     const summary = buildDashboardSummary(resumedOnly, unpriced);
     const rows = build(resumedOnly, "runs").rows;
     const kpis = mount(AnalyticsKpis, { props: { data: resumedOnly, summary, rows } });
-    expect(kpis.text()).toContain("1 runs · active 1 of 3");
+    expect(kpis.text()).toContain("1 run · active 1 of 3");
     expect(kpis.text()).not.toContain("No sessions in this range");
   });
 

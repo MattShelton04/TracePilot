@@ -129,7 +129,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   // Passes and source purges (turning Claude Code on or off) change the
   // list; keep the loaded list and the sidebar count in step with the index.
   const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
-    void lifecycle.refreshSessions();
+    void lifecycle.refreshAfterIndexPass();
   });
 
   return {

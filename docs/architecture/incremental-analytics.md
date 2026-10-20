@@ -144,25 +144,36 @@ only. The AI Credit estimate, token composition and model shares are built from
 those model rows. A model left with no usage in the range has no row. Usage the
 segments don't account for stays with the session, on its last-active day
 inside the range: a session with no segments, an undated shutdown, or usage
-recorded after the last segment. The daily model chart places a session without
-segments on its last-active day too. Without a date filter nothing is
+recorded after the last segment. The daily model series places a session without
+segments on its last-active day too, and puts the AI Credits the session total
+holds beyond its in-range runs (a running run's latest usage checkpoint, an
+undated shutdown) on that day under the session's current model with no tokens,
+so its AI Credits add up to the headline's. Without a date filter nothing is
 subtracted, so All Time shows the lifetime totals exactly. A USD figure is
 unknown (the source reads as partly priced) when the session is unpriced or a
 run outside the range is, since that run's share can't be removed. Segments
 carry no per-model USD, so a model's USD in `modelDistribution` is unknown for
-a session where that model also ran outside the range. Turns, tool calls,
-incidents, prompt-cache windows, API duration statistics and the per-turn and
-per-second averages remain whole-session values. The legacy daily cost series
-counts premium requests; the headline `total_cost` retains model-reported cost.
+a session where that model also ran outside the range. Errors and rate limits
+each have a timestamped `session_incidents` row, so the daily incidents series
+counts them on the day they happened, selected like the runs (an untimestamped
+one takes its session's last-active day), and `totalRateLimits` is that
+series' sum. Compaction and truncation rows are capped per session, so those
+counts stay whole-session, on the last-active day. Prompt-cache replies after
+an idle gap count the selected sessions' windows that resumed in the range.
+Turns, tool calls, observed cache lifetimes, API duration statistics and the
+per-turn and per-second averages remain whole-session values. The legacy daily
+cost series counts premium requests; the headline `total_cost` retains model-reported cost.
 The rule is in `index_db/helpers/range_usage.rs`, and
 `compute_analytics_in_range` applies it to the disk fallback. Differential
 fixtures in the indexer's `analytics_parity`, `range_totals` and
 `range_models` tests cover these semantics against the disk fallback, and
 `segment_totals` checks that Copilot and Claude Code segments add up to their
 session totals. `analytics_day_series` covers runs from sessions resumed after
-the range. The disk fallback (used when the index can't be opened or its query
-fails) only loads sessions last active in the range, so its daily charts leave
-those runs out.
+the range, and `analytics_day_accuracy` the daily AI Credits, incidents and
+cache replies above. The disk fallback (used when the index can't be opened or
+its query fails) only loads sessions last active in the range, so its daily
+charts leave those runs out. It reports no incidents, and its daily model
+series leaves out AI Credits no run accounts for.
 
 ### Claude Code runs and USD cost
 
