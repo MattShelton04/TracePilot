@@ -232,6 +232,13 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     await refreshSections();
   }
 
+  /** Reload the pull requests even when loaded (a GitHub lookup changed them). */
+  function reloadPullRequests(): Promise<void> {
+    const id = sessionId.value;
+    if (!id) return Promise.resolve();
+    return sections.pullRequestsDef.buildRefresh(id, sessionGuard.current());
+  }
+
   /** Every section built only from the session's source files. */
   const SOURCE_KEYS: ReadonlySet<string> = new Set(["detail", "turns", ...SOURCE_SECTION_KEYS]);
 
@@ -429,6 +436,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     loadShutdownMetrics: sections.metricsDef.load,
     loadIncidents: sections.incidentsDef.load,
     loadPullRequests: sections.pullRequestsDef.load,
+    reloadPullRequests,
     loadPromptCache: sections.promptCacheDef.load,
     loadTurnActivity: sections.activityDef.load,
     reset,

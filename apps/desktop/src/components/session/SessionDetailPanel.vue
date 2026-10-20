@@ -33,6 +33,7 @@ import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import { useRunningSessionPoll } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
+import { useSessionPullRequestStatus } from "@/composables/useSessionPullRequestStatus";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -212,11 +213,15 @@ useRunningSessionPoll({
   refresh: () => Promise.all([props.store.refreshIfSourceChanged(), checkRunning()]),
 });
 
+/** Pull request state from GitHub: once per session open and manual refresh. */
+const pullRequestStatus = useSessionPullRequestStatus(props.store);
+
 /** A manual refresh: reloads every loaded section. */
 async function refresh() {
   if (refreshing.value) return;
   fullRefreshRequested = true;
   await refreshNow();
+  void pullRequestStatus.refresh();
 }
 
 defineExpose({ isSessionActive, refresh });
@@ -250,9 +255,15 @@ watch(
 
 // The header's pull request chip shows on every tab, so they load with the
 // session (after the detail watcher, so the session id is already current).
+// Then GitHub is asked for their state and for the branches the session
+// pushed, so this runs even when the transcript linked none.
 watch(
   () => props.sessionId,
-  () => void props.store.loadPullRequests(),
+  async () => {
+    const id = props.store.sessionId;
+    await props.store.loadPullRequests();
+    await pullRequestStatus.refresh(false, id);
+  },
   { immediate: true },
 );
 

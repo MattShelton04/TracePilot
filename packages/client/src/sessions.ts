@@ -4,6 +4,7 @@ import type {
   EventsResponse,
   FreshnessResponse,
   PromptCacheResponse,
+  PullRequestRefreshResult,
   RequestLog,
   SessionDbTable,
   SessionDetail,
@@ -56,6 +57,28 @@ export async function getSessionIncidents(sessionId: string): Promise<SessionInc
 /** The GitHub pull requests the session is linked to: primary first, then by role and recency. */
 export async function getSessionPullRequests(sessionId: string): Promise<SessionPullRequest[]> {
   return invoke<SessionPullRequest[]>("get_session_pull_requests", { sessionId });
+}
+
+/**
+ * Ask GitHub (through the `gh` CLI) for the session's pull requests that are
+ * due a lookup, or all of them with `force`, and look up its pushed branches.
+ * Main window only.
+ */
+export async function refreshSessionPullRequests(
+  sessionId: string,
+  force: boolean,
+): Promise<PullRequestRefreshResult> {
+  return invoke<PullRequestRefreshResult>("refresh_session_pull_requests", { sessionId, force });
+}
+
+/**
+ * The session list's poll: the due primary pull requests of these sessions,
+ * at most one GitHub call a minute. Main window only.
+ */
+export async function refreshListPullRequests(
+  sessionIds: string[],
+): Promise<PullRequestRefreshResult> {
+  return invoke<PullRequestRefreshResult>("refresh_list_pull_requests", { sessionIds });
 }
 
 export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {

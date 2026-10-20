@@ -345,6 +345,7 @@ async function handleFactoryReset() {
     localStorage.removeItem(STORAGE_KEYS.updateCheck);
     localStorage.removeItem(STORAGE_KEYS.dismissedUpdate);
     localStorage.removeItem(STORAGE_KEYS.claudeRetentionNoticeDismissed);
+    localStorage.removeItem(STORAGE_KEYS.pullRequestNoticeDismissed);
     window.location.reload();
   } catch (e) {
     resetting.value = false;

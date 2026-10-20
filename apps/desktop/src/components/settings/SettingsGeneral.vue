@@ -154,6 +154,20 @@ const {
           class="input-medium"
         />
       </div>
+
+      <div class="setting-row" data-testid="setting-pull-request-lookup">
+        <div class="setting-info">
+          <div class="setting-label">Look up pull request status with the GitHub CLI</div>
+          <div class="setting-description">
+            Shows whether linked pull requests are open, merged or closed. Uses your GitHub CLI sign-in.
+          </div>
+        </div>
+        <FormSwitch
+          :model-value="preferences.pullRequestLookup"
+          @update:model-value="preferences.pullRequestLookup = $event"
+          aria-label="Look up pull request status with the GitHub CLI"
+        />
+      </div>
     </SectionPanel>
   </div>
 </template>

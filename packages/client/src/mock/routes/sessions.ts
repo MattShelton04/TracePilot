@@ -11,7 +11,11 @@ import { MOCK_EMPTY_REQUEST_LOG } from "../claudeRequestLog.js";
 import { MOCK_EVENTS_MTIME } from "../common.js";
 import { MOCK_CONTEXT_TIMELINE } from "../contextTimeline.js";
 import { MOCK_PROMPT_CACHE } from "../promptCache.js";
-import { getMockSessionPullRequests } from "../pullRequests.js";
+import {
+  getMockSessionPullRequests,
+  mockRefreshListPullRequests,
+  mockRefreshSessionPullRequests,
+} from "../pullRequests.js";
 import {
   getMockSessionDetail,
   getMockSessionEvents,
@@ -46,6 +50,8 @@ export const SESSION_ROUTES: MockRoutes = {
     },
   ],
   get_session_pull_requests: (args) => getMockSessionPullRequests(mockSessionId(args)),
+  refresh_session_pull_requests: (args) => mockRefreshSessionPullRequests(mockSessionId(args)),
+  refresh_list_pull_requests: (args) => mockRefreshListPullRequests(args.sessionIds),
   get_session_turns: (args): TurnsResponse => ({
     turns: getMockSessionTurns(mockSessionId(args)),
     eventsFileSize: 1024,

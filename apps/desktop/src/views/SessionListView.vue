@@ -20,6 +20,7 @@ import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import SourceSwitch from "@/components/sources/SourceSwitch.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { useListPullRequestPoll } from "@/composables/useListPullRequestPoll";
 import { useLiveClock } from "@/composables/useLiveClock";
 import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
@@ -49,6 +50,8 @@ const {
   complete: allCardsRendered,
   ensureRendered,
 } = useProgressiveList(() => store.filteredSessions);
+// Open pull requests on the shown cards pick up their GitHub state.
+useListPullRequestPoll(() => renderedSessions.value);
 const { refreshing, refresh } = useAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.

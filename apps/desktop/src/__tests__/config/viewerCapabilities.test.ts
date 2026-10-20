@@ -29,6 +29,10 @@ const MAIN_WINDOW_ONLY: Record<string, string> = {
   save_config: "one-time legacy localStorage migration, which the main window runs at startup",
   update_config: "pop-outs never persist preferences (stores/preferences/persistence.ts)",
   reindex_sessions: "sessions store reindex, called only from the session list",
+  refresh_session_pull_requests:
+    "pullRequestStatus store runs GitHub lookups only when useWindowRole().isMain()",
+  refresh_list_pull_requests:
+    "pullRequestStatus store runs GitHub lookups only when useWindowRole().isMain()",
   open_in_explorer: "Open Folder actions are hidden in pop-outs (SessionDetailPanel, ExplorerTab)",
   resume_session_in_terminal: "Resume in Terminal is hidden in pop-outs (SessionDetailPanel)",
   sdk_connect: "starts the Copilot CLI; pop-outs hide the steering Connect button",

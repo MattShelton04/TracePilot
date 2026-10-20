@@ -61,6 +61,20 @@ export interface SessionPullRequest {
   eventIndex: number | null;
   /** Null until GitHub has been asked. */
   status: PullRequestStatus | null;
+  /** Linked only because the session pushed to the pull request's branch. */
+  foundByBranch: boolean;
+}
+
+/** How the last GitHub lookup went. */
+export type PullRequestLookup = "ok" | "disabled" | "notInstalled" | "signedOut" | "failed";
+
+/** What a status refresh changed. */
+export interface PullRequestRefreshResult {
+  lookup: PullRequestLookup;
+  /** Every pull request whose status this call wrote, with its new state. */
+  updated: PullRequestRef[];
+  /** Branch lookups added or removed a link for the session. */
+  linksChanged: boolean;
 }
 
 /** Badge and pill tones for a pull request's state; unknown reads as neutral. */
@@ -131,7 +145,49 @@ export function sessionPullRequestState(pr: SessionPullRequest): PullRequestStat
   return pr.status?.state ?? null;
 }
 
-/** The recorded title, or the one GitHub reported. */
+/** The title GitHub reported, or the one the transcript recorded. */
 export function sessionPullRequestTitle(pr: SessionPullRequest): string | null {
-  return pr.title?.trim() || pr.status?.title?.trim() || null;
+  return pr.status?.title?.trim() || pr.title?.trim() || null;
+}
+
+/** Tones for a pull request's checks summary. */
+export type PullRequestChecksTone = "success" | "danger" | "warning";
+
+/** A pull request's checks summary. */
+export interface PullRequestChecks {
+  label: string;
+  tone: PullRequestChecksTone;
+}
+
+// GitHub's status check rollup states, lower-cased.
+const CHECKS = new Map<string, PullRequestChecks>([
+  ["success", { label: "Checks passing", tone: "success" }],
+  ["failure", { label: "Checks failing", tone: "danger" }],
+  ["error", { label: "Checks failing", tone: "danger" }],
+  ["pending", { label: "Checks pending", tone: "warning" }],
+  ["expected", { label: "Checks pending", tone: "warning" }],
+]);
+
+// GitHub's review decisions, lower-cased.
+const REVIEW_LABELS = new Map<string, string>([
+  ["approved", "Approved"],
+  ["changes_requested", "Changes requested"],
+  ["review_required", "Review required"],
+]);
+
+/** "Checks passing" and its tone, or null for no or an unknown rollup. */
+export function pullRequestChecks(
+  checksState: string | null | undefined,
+): PullRequestChecks | null {
+  return (checksState && CHECKS.get(checksState.toLowerCase())) || null;
+}
+
+/** "Approved", or null for no or an unknown review decision. */
+export function pullRequestReviewLabel(reviewDecision: string | null | undefined): string | null {
+  return (reviewDecision && REVIEW_LABELS.get(reviewDecision.toLowerCase())) || null;
+}
+
+/** Whether a refresh changed what the session's pull requests show. */
+export function pullRequestRefreshChanged(result: PullRequestRefreshResult): boolean {
+  return result.updated.length > 0 || result.linksChanged;
 }

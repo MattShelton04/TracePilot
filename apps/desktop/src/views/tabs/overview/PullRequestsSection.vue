@@ -2,15 +2,18 @@
 /**
  * Overview: the GitHub pull requests the session is linked to, grouped by
  * what it did (created or updated, merged, reviewed). A group of more than
- * five starts collapsed. Hidden when there are none.
+ * five starts collapsed. Hidden when there are none. The main window can
+ * refresh their state from GitHub, and a note says when it can't.
  */
 import { useToast } from "@tracepilot/ui";
-import { ChevronRight } from "lucide-vue-next";
+import { ChevronRight, RefreshCw } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
+import PullRequestLookupNote from "@/components/overview/PullRequestLookupNote.vue";
 import PullRequestRow from "@/components/overview/PullRequestRow.vue";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
 import { usePullRequestLinks } from "@/composables/usePullRequestLinks";
+import { useSessionPullRequestStatus } from "@/composables/useSessionPullRequestStatus";
 import { groupPullRequests, turnForEvent } from "@/utils/pullRequests";
 import { useOverviewModel } from "./overviewModel";
 
@@ -18,6 +21,11 @@ const { store } = useOverviewModel();
 const { canOpen, open, copyLink } = usePullRequestLinks();
 const navigateToConversation = useConversationNavigation();
 const toast = useToast();
+const {
+  refresh: refreshStatus,
+  refreshing,
+  available: canRefresh,
+} = useSessionPullRequestStatus(store);
 
 const pullRequests = computed(() => store.pullRequests);
 const groups = computed(() => groupPullRequests(pullRequests.value));
@@ -61,7 +69,28 @@ async function jump(eventIndex: number | null) {
     class="mb-6"
     data-testid="pull-requests-section"
   >
-    <template #aside>{{ pullRequests.length }} linked</template>
+    <template #aside>
+      <span>{{ pullRequests.length }} linked</span>
+      <button
+        v-if="canRefresh"
+        type="button"
+        class="btn btn-sm btn-ghost pr-refresh"
+        :disabled="refreshing"
+        :aria-busy="refreshing"
+        title="Look up their status on GitHub"
+        data-testid="pull-requests-refresh"
+        @click="refreshStatus(true)"
+      >
+        <RefreshCw
+          :size="14"
+          aria-hidden="true"
+          class="pr-refresh__icon"
+          :class="{ 'pr-refresh__icon--spinning': refreshing }"
+        />
+        Refresh
+      </button>
+    </template>
+    <PullRequestLookupNote />
     <div v-for="group in groups" :key="group.key" class="pr-group" :data-group="group.key">
       <button
         v-if="group.collapsed"
@@ -139,9 +168,21 @@ async function jump(eventIndex: number | null) {
   list-style: none;
 }
 
+/* The header keeps its height; the button only spins while GitHub is asked. */
+.pr-refresh {
+  margin: -4px -8px -4px 0;
+}
+
+.pr-refresh__icon--spinning {
+  animation: spin 1s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pr-group__chevron {
     transition: none;
+  }
+  .pr-refresh__icon--spinning {
+    animation: none;
   }
 }
 </style>

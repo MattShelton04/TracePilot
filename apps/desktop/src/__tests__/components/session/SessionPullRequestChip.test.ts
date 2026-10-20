@@ -128,6 +128,23 @@ describe("SessionPullRequestChip", () => {
     expect(tone("closed")).toEqual({ cls: "badge-danger", text: "#1046 Closed" });
   });
 
+  it("names the pull request by GitHub's title once fetched", () => {
+    const status = {
+      state: "open" as const,
+      title: "Retry index writes with backoff",
+      mergedAt: null,
+      closedAt: null,
+      reviewDecision: null,
+      checksState: null,
+      fetchedAt: "2026-01-01T00:00:00Z",
+      error: null,
+    };
+    const badge = mountChip([{ ...created, status }]).get(".badge");
+    expect(badge.attributes("title")?.split("\n")[0]).toBe(
+      "example/orchard#1046 — Retry index writes with backoff",
+    );
+  });
+
   it("lists the other pull requests behind +N and opens the chosen one", async () => {
     const open = vi.fn();
     const wrapper = mountChip([created, merged, reviewed], open);

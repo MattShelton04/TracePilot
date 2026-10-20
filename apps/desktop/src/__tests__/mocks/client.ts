@@ -52,6 +52,12 @@ export function createClientMock(overrides: ClientExports = {}): ClientExports {
     contextCaptureDeleteAll: vi.fn().mockResolvedValue(0),
     // Every session detail panel asks for these; most tests have none.
     getSessionPullRequests: vi.fn().mockResolvedValue([]),
+    refreshSessionPullRequests: vi
+      .fn()
+      .mockResolvedValue({ lookup: "ok", updated: [], linksChanged: false }),
+    refreshListPullRequests: vi
+      .fn()
+      .mockResolvedValue({ lookup: "ok", updated: [], linksChanged: false }),
     IPC_EVENTS,
   };
 

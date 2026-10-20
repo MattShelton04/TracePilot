@@ -16,6 +16,7 @@
 
 import type {
   FreshnessResponse as HandFreshnessResponse,
+  PullRequestRefreshResult as HandPullRequestRefreshResult,
   SessionListItem as HandSessionListItem,
   SessionPullRequest as HandSessionPullRequest,
 } from "@tracepilot/types";
@@ -23,6 +24,7 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import type {
   FreshnessResponse as GenFreshnessResponse,
+  PullRequestRefreshResult as GenPullRequestRefreshResult,
   SessionListItem as GenSessionListItem,
   SessionPullRequest as GenSessionPullRequest,
 } from "../generated/bindings.js";
@@ -54,6 +56,7 @@ describe("generated bindings match hand-written mirrors (wave 21)", () => {
     expectTypeOf<NonNullable<HandSessionListItem["linkedPullRequests"]>>().toEqualTypeOf<
       NonNullable<GenSessionListItem["linkedPullRequests"]>
     >();
+    expectTypeOf<HandPullRequestRefreshResult>().toEqualTypeOf<GenPullRequestRefreshResult>();
 
     void _freshness;
     void _session;

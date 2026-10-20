@@ -56,6 +56,7 @@ export function createStore(): SessionDetailContext {
     loadIncidents: vi.fn(),
     loadPromptCache: vi.fn(),
     loadPullRequests: vi.fn(),
+    reloadPullRequests: vi.fn(),
     reset: vi.fn(),
     refreshAll: vi.fn(),
     refreshIfSourceChanged: vi.fn(),

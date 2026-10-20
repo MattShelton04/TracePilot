@@ -1,14 +1,36 @@
-import type { ConversationTurn, SessionPullRequest } from "@tracepilot/types";
+import { refreshSessionPullRequests } from "@tracepilot/client";
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
+import type {
+  ConversationTurn,
+  PullRequestRefreshResult,
+  SessionPullRequest,
+} from "@tracepilot/types";
 import { EXTERNAL_LINK_HANDLER_KEY } from "@tracepilot/ui";
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { makePullRequest } from "@/__tests__/utils/pullRequestFixtures";
 import { NAVIGATE_CONVERSATION_KEY } from "@/composables/useConversationNavigation";
+import { useWindowRole } from "@/composables/useWindowRole";
+import { STORAGE_KEYS } from "@/config/storageKeys";
+import { usePreferencesStore } from "@/stores/preferences";
+import { usePullRequestStatusStore } from "@/stores/pullRequestStatus";
 import { OVERVIEW_MODEL_KEY } from "../overview/overviewModel";
 import PullRequestsSection from "../overview/PullRequestsSection.vue";
 
-const mocks = vi.hoisted(() => ({ copy: vi.fn(), success: vi.fn(), warning: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  copy: vi.fn(),
+  success: vi.fn(),
+  warning: vi.fn(),
+  push: vi.fn(),
+}));
+
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("@/__tests__/mocks/client");
+  return createClientMock();
+});
+
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: mocks.push }) }));
 
 vi.mock("@tracepilot/ui", async (original) => {
   const module = await original<typeof import("@tracepilot/ui")>();
@@ -25,7 +47,12 @@ const store = reactive({
   pullRequests: [] as SessionPullRequest[],
   turns: [] as ConversationTurn[],
   loadTurns: vi.fn(async () => {}),
+  reloadPullRequests: vi.fn(async () => {}),
 });
+
+function result(fields: Partial<PullRequestRefreshResult> = {}): PullRequestRefreshResult {
+  return { lookup: "ok", updated: [], linksChanged: false, ...fields };
+}
 
 function mountSection(open: ((url: string) => void) | null = vi.fn(), navigate = vi.fn()) {
   return mount(PullRequestsSection, {
@@ -44,10 +71,17 @@ const rowNumbers = (wrapper: ReturnType<typeof mountSection>) =>
 
 describe("PullRequestsSection", () => {
   beforeEach(() => {
+    setupPinia();
+    localStorage.clear();
     vi.clearAllMocks();
     mocks.copy.mockResolvedValue(true);
+    vi.mocked(refreshSessionPullRequests).mockResolvedValue(result());
+    store.sessionId = "s1";
     store.pullRequests = [];
     store.turns = [];
+  });
+  afterEach(() => {
+    useWindowRole().role.value = "main";
   });
 
   it("is hidden when the session links none", () => {
@@ -142,5 +176,101 @@ describe("PullRequestsSection", () => {
     const wrapper = mountSection(null);
     expect(wrapper.find('[data-testid="pull-request-open"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="pull-request-copy"]').exists()).toBe(true);
+  });
+
+  describe("status from GitHub", () => {
+    const refreshButton = (wrapper: ReturnType<typeof mountSection>) =>
+      wrapper.find('[data-testid="pull-requests-refresh"]');
+    const note = (wrapper: ReturnType<typeof mountSection>) =>
+      wrapper.find('[data-testid="pull-request-lookup-note"]');
+
+    beforeEach(() => {
+      store.pullRequests = [makePullRequest(1, ["created"], { primary: true })];
+    });
+
+    it("refreshes every pull request on demand, spinning until GitHub answers", async () => {
+      const pending = createDeferred<PullRequestRefreshResult>();
+      vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(pending.promise);
+      const wrapper = mountSection();
+      const button = refreshButton(wrapper);
+      expect(button.text()).toBe("Refresh");
+
+      await button.trigger("click");
+      expect(refreshSessionPullRequests).toHaveBeenCalledWith("s1", true);
+      expect(button.attributes("disabled")).toBeDefined();
+      expect(button.get(".pr-refresh__icon").classes()).toContain("pr-refresh__icon--spinning");
+      // Rows stay as they are while it runs.
+      expect(wrapper.findAll('[data-testid="pull-request-row"]')).toHaveLength(1);
+
+      const { host, owner, repo, number, url } = store.pullRequests[0];
+      pending.resolve(result({ updated: [{ host, owner, repo, number, url, state: "open" }] }));
+      await flushPromises();
+      expect(store.reloadPullRequests).toHaveBeenCalledTimes(1);
+      expect(button.attributes("disabled")).toBeUndefined();
+      expect(button.get(".pr-refresh__icon").classes()).not.toContain("pr-refresh__icon--spinning");
+    });
+
+    it("doesn't reload when the lookup changed nothing", async () => {
+      const wrapper = mountSection();
+      await refreshButton(wrapper).trigger("click");
+      await flushPromises();
+      expect(store.reloadPullRequests).not.toHaveBeenCalled();
+    });
+
+    it("hides Refresh in a pop-out and while the setting is off", () => {
+      useWindowRole().role.value = "viewer";
+      expect(refreshButton(mountSection(null)).exists()).toBe(false);
+      useWindowRole().role.value = "main";
+      usePreferencesStore().pullRequestLookup = false;
+      expect(refreshButton(mountSection()).exists()).toBe(false);
+    });
+
+    it.each([
+      ["notInstalled", "Install and sign in to the GitHub CLI to see pull request status."],
+      ["signedOut", "Sign in to the GitHub CLI to see pull request status."],
+    ] as const)("explains a %s lookup, with a way to Settings", async (lookup, text) => {
+      vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result({ lookup }));
+      await usePullRequestStatusStore().refreshSession("s1");
+      const wrapper = mountSection();
+      expect(note(wrapper).text()).toContain(text);
+      await note(wrapper).get(".pr-note__link").trigger("click");
+      expect(mocks.push).toHaveBeenCalledWith({ name: "settings" });
+    });
+
+    it("says when lookups are off", () => {
+      usePreferencesStore().pullRequestLookup = false;
+      expect(note(mountSection()).text()).toContain("Pull request status lookups are off.");
+    });
+
+    it.each([
+      "ok",
+      "failed",
+    ] as const)("says nothing after a lookup that was %s", async (lookup) => {
+      vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result({ lookup }));
+      await usePullRequestStatusStore().refreshSession("s1");
+      expect(note(mountSection()).exists()).toBe(false);
+    });
+
+    it("remembers a dismissed note, per reason", async () => {
+      vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result({ lookup: "signedOut" }));
+      await usePullRequestStatusStore().refreshSession("s1");
+      const wrapper = mountSection();
+      await wrapper.get('[data-testid="pull-request-lookup-note-dismiss"]').trigger("click");
+      expect(note(wrapper).exists()).toBe(false);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.pullRequestNoticeDismissed) ?? "")).toBe(
+        "cli",
+      );
+      expect(note(mountSection()).exists()).toBe(false);
+
+      // Turning lookups off is a different reason, so that note shows.
+      usePreferencesStore().pullRequestLookup = false;
+      expect(note(mountSection()).exists()).toBe(true);
+    });
+
+    it("shows no note in a pop-out", () => {
+      usePreferencesStore().pullRequestLookup = false;
+      useWindowRole().role.value = "viewer";
+      expect(note(mountSection(null)).exists()).toBe(false);
+    });
   });
 });

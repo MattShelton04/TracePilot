@@ -21,6 +21,7 @@ export function makePullRequest(
     lastSeenAt: null,
     eventIndex: null,
     status: null,
+    foundByBranch: false,
     ...fields,
   };
 }

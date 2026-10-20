@@ -42,7 +42,7 @@ form-action 'self'
 | `style-src` | `'self' 'unsafe-inline'` | `'unsafe-inline'` is required by Vue's scoped-style hydration and several UI libraries that emit inline `<style>` blocks at runtime. Tracked as accepted risk; revisit if/when the toolchain supports nonces. |
 | `font-src` | `'self' data:` | Fonts are bundled; `data:` covers icon-font fallbacks emitted by some Vite plugins. |
 | `img-src` | `'self' data:` | Bundled assets plus inline `data:` URIs (avatars, generated previews). No remote image hosts — avoids tracking pixels. |
-| `connect-src` | `'self' https://github.com https://api.github.com` | `'self'` covers the Tauri IPC + dev server. The two GitHub origins are the only remote endpoints the renderer talks to (auth status, repo metadata). All other network traffic (Copilot SDK, MCP servers) flows through the Rust backend, not the renderer. |
+| `connect-src` | `'self' https://github.com https://api.github.com` | `'self'` covers the Tauri IPC + dev server. The two GitHub origins are the only remote endpoints the renderer talks to (auth status, repo metadata). All other network traffic (Copilot SDK, MCP servers, pull request status through the `gh` CLI) flows through the Rust backend, not the renderer. |
 | `object-src` | `'none'` | No Flash / plugin embedding. |
 | `base-uri` | `'self'` | Prevents `<base>` tag injection from rebasing relative URLs. |
 | `frame-ancestors` | `'none'` | The TracePilot window cannot be embedded in another frame. |
