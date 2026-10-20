@@ -35,7 +35,6 @@ const folderProject = computed(() =>
       :sessions="sessions"
       :selected-id="selectedSessionId"
       label="Session to export"
-      spellcheck="false"
       @select="emit('select', $event)"
     />
     <div v-if="selectedSession" class="session-info">
