@@ -115,8 +115,15 @@ export function pullRequestRoleSentence(roles: readonly PullRequestRole[]): stri
 }
 
 /** `owner/repo#n` */
-export function pullRequestSlug(pr: { owner: string; repo: string; number: number }): string {
-  return `${pr.owner}/${pr.repo}#${pr.number}`;
+export function pullRequestSlug(pr: {
+  host?: string;
+  owner: string;
+  repo: string;
+  number: number;
+}): string {
+  // Name any host other than GitHub, so a link never looks like it goes there.
+  const host = pr.host && pr.host !== "github.com" ? `${pr.host}/` : "";
+  return `${host}${pr.owner}/${pr.repo}#${pr.number}`;
 }
 
 /** The state GitHub last reported for a linked pull request. */

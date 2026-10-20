@@ -159,6 +159,7 @@ function activeTitle(): string {
           class="stat-item-inline pr-stat"
           :class="`pr-stat--${pullRequestTone(linkedPrs.primary.state)}`"
           :title="prTitle"
+          role="img"
           :aria-label="`Pull request ${prTitle}`"
           data-testid="session-pull-requests"
         >

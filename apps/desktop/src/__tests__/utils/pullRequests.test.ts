@@ -29,6 +29,10 @@ describe("pull request helpers", () => {
     expect(pullRequestTooltip(makePullRequest(7, ["mentioned"]))).toBe(
       "example/orchard#7\nMentioned in this session",
     );
+    // A host other than GitHub is always named.
+    expect(pullRequestTooltip(makePullRequest(8, ["reviewed"], { host: "code.example.com" }))).toBe(
+      "code.example.com/example/orchard#8\nReviewed in this session",
+    );
   });
 
   it("groups by strongest role and collapses only groups of more than five", () => {
@@ -57,5 +61,8 @@ describe("pull request helpers", () => {
     expect(turnForEvent(turns, 12)?.turnIndex).toBe(1);
     expect(turnForEvent(turns, 30)?.turnIndex).toBe(2);
     expect(turnForEvent(turns, 0)).toBeNull();
+    // A turn opened without a start event starts at its first tool call, so
+    // a later record in it (a pr-link) lands there, not in the turn before.
+    expect(turnForEvent(turns, 34)?.turnIndex).toBe(2);
   });
 });

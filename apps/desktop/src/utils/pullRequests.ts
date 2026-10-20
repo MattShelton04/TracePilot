@@ -90,8 +90,18 @@ export function groupPullRequests(prs: readonly SessionPullRequest[]): PullReque
 }
 
 /**
+ * Where a turn starts in the event stream: its own index, else (for a turn
+ * the reconstructor opened without a start event) its first tool call's.
+ */
+function turnStart(turn: ConversationTurn): number | null {
+  if (turn.eventIndex != null) return turn.eventIndex;
+  const starts = turn.toolCalls.flatMap((tc) => (tc.eventIndex == null ? [] : [tc.eventIndex]));
+  return starts.length ? Math.min(...starts) : null;
+}
+
+/**
  * The conversation turn holding an event: the turn whose tool call started
- * at it, else the last turn that opened at or before it.
+ * at it, else the last turn that started at or before it.
  */
 export function turnForEvent(
   turns: readonly ConversationTurn[],
@@ -100,9 +110,12 @@ export function turnForEvent(
   const exact = turns.find((turn) => turn.toolCalls.some((tc) => tc.eventIndex === eventIndex));
   if (exact) return exact;
   let best: ConversationTurn | null = null;
+  let bestStart = -1;
   for (const turn of turns) {
-    if (turn.eventIndex != null && turn.eventIndex <= eventIndex) {
-      if (!best || (best.eventIndex ?? -1) < turn.eventIndex) best = turn;
+    const start = turnStart(turn);
+    if (start != null && start <= eventIndex && start > bestStart) {
+      best = turn;
+      bestStart = start;
     }
   }
   return best;
