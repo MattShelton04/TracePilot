@@ -116,7 +116,7 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
           <Badge v-if="sessionModel(comp.dataA.detail)" variant="accent" :title="sessionModel(comp.dataA.detail)!">{{ modelDisplayName(sessionModel(comp.dataA.detail)!, sourceA) }}</Badge>
           <Badge v-if="exitLabel(comp.dataA.metrics, sourceA)" :variant="exitBadgeVariant(comp.dataA.metrics)">{{ exitLabel(comp.dataA.metrics, sourceA) }}</Badge>
           <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }}</Badge>
-          <Badge variant="neutral">{{ plural(comp.dataA.turns.length, "turn") }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataA.turns.length, "turn", undefined, formatNumberFull) }}</Badge>
           <Badge variant="neutral">{{ plural(comp.dataA.detail?.eventCount ?? 0, "event", undefined, formatNumberFull) }}</Badge>
         </div>
       </div>
@@ -129,7 +129,7 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
           <Badge v-if="sessionModel(comp.dataB.detail)" variant="accent" :title="sessionModel(comp.dataB.detail)!">{{ modelDisplayName(sessionModel(comp.dataB.detail)!, sourceB) }}</Badge>
           <Badge v-if="exitLabel(comp.dataB.metrics, sourceB)" :variant="exitBadgeVariant(comp.dataB.metrics)">{{ exitLabel(comp.dataB.metrics, sourceB) }}</Badge>
           <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }}</Badge>
-          <Badge variant="neutral">{{ plural(comp.dataB.turns.length, "turn") }}</Badge>
+          <Badge variant="neutral">{{ plural(comp.dataB.turns.length, "turn", undefined, formatNumberFull) }}</Badge>
           <Badge variant="neutral">{{ plural(comp.dataB.detail?.eventCount ?? 0, "event", undefined, formatNumberFull) }}</Badge>
         </div>
       </div>

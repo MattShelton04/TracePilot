@@ -226,12 +226,12 @@ describe("ComparisonHeader", () => {
 
     const big = makeCompStub({
       compared: true,
-      dataA: side("a", 1, 12_345),
+      dataA: side("a", 2_822, 12_345),
       dataB: side("b", 1, 1),
     });
-    expect(mount(hostFor(ComparisonHeader, big)).get(".session-a .summary-meta").text()).toContain(
-      "12,345 events",
-    );
+    const bigMeta = mount(hostFor(ComparisonHeader, big)).get(".session-a .summary-meta").text();
+    expect(bigMeta).toContain("12,345 events");
+    expect(bigMeta).toContain("2,822 turns");
 
     const charts = mount(hostFor(ComparisonCharts, comp));
     expect(charts.findAll(".timeline-label").map((l) => l.text())).toEqual([
