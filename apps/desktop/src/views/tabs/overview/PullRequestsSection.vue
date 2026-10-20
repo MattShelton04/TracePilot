@@ -27,6 +27,11 @@ const {
   available: canRefresh,
 } = useSessionPullRequestStatus(store);
 
+/** aria-disabled rather than disabled, so focus stays on the button while it runs. */
+function refreshAll() {
+  if (!refreshing.value) void refreshStatus(true);
+}
+
 const pullRequests = computed(() => store.pullRequests);
 const groups = computed(() => groupPullRequests(pullRequests.value));
 const showGroupLabels = computed(() => groups.value.length > 1);
@@ -75,11 +80,11 @@ async function jump(eventIndex: number | null) {
         v-if="canRefresh"
         type="button"
         class="btn btn-sm btn-ghost pr-refresh"
-        :disabled="refreshing"
+        :aria-disabled="refreshing"
         :aria-busy="refreshing"
         title="Look up their status on GitHub"
         data-testid="pull-requests-refresh"
-        @click="refreshStatus(true)"
+        @click="refreshAll"
       >
         <RefreshCw
           :size="14"
@@ -171,6 +176,10 @@ async function jump(eventIndex: number | null) {
 /* The header keeps its height; the button only spins while GitHub is asked. */
 .pr-refresh {
   margin: -4px -8px -4px 0;
+}
+
+.pr-refresh[aria-disabled="true"] {
+  cursor: progress;
 }
 
 .pr-refresh__icon--spinning {

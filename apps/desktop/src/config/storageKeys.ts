@@ -37,7 +37,7 @@ export const STORAGE_KEYS = Object.freeze({
   dismissedUpdate: "tracepilot-dismissed-update",
   /** Whether the Claude Code transcript-cleanup notice in Settings was dismissed. */
   claudeRetentionNoticeDismissed: "tracepilot-claude-retention-notice-dismissed",
-  /** Which Overview note about pull request status lookups was dismissed ("cli" or "disabled"). */
+  /** The Overview notes about pull request status lookups that were dismissed ("cli", "disabled"). */
   pullRequestNoticeDismissed: "tracepilot-pull-request-notice-dismissed",
   /** SDK bridge settings (CLI URL + log level). */
   sdkSettings: "tracepilot:sdk-settings",

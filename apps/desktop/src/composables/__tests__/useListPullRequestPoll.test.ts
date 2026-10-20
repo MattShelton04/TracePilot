@@ -1,6 +1,10 @@
 import { refreshListPullRequests } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
-import type { PullRequestState, SessionListItem } from "@tracepilot/types";
+import type {
+  PullRequestRefreshResult,
+  PullRequestState,
+  SessionListItem,
+} from "@tracepilot/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, nextTick, type Ref, ref } from "vue";
 import {
@@ -63,12 +67,18 @@ describe("listPollCandidates", () => {
 
 describe("useListPullRequestPoll", () => {
   let sessions: Ref<SessionListItem[]>;
+  let active: Ref<boolean>;
   let scope: ReturnType<typeof effectScope>;
   let hidden = false;
 
   function start() {
     scope = effectScope();
-    scope.run(() => useListPullRequestPoll(() => sessions.value));
+    scope.run(() =>
+      useListPullRequestPoll(
+        () => sessions.value,
+        () => active.value,
+      ),
+    );
   }
 
   beforeEach(() => {
@@ -79,6 +89,7 @@ describe("useListPullRequestPoll", () => {
     hidden = false;
     vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
     sessions = ref([item("a", "open"), item("b", "merged"), item("c", null)]);
+    active = ref(true);
   });
 
   afterEach(() => {
@@ -184,5 +195,73 @@ describe("useListPullRequestPoll", () => {
     await nextTick();
     await vi.advanceTimersByTimeAsync(0);
     expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits while the list is hidden behind a session tab", async () => {
+    active.value = false;
+    start();
+    await vi.advanceTimersByTimeAsync(LIST_POLL_INTERVAL_MS * 3);
+    expect(refreshListPullRequests).not.toHaveBeenCalled();
+
+    // Shown again: never asked before, so it asks at once.
+    active.value = true;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+
+    // Hidden and shown within the minute: it waits for the minute.
+    active.value = false;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(20_000);
+    active.value = true;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(LIST_POLL_INTERVAL_MS - 20_000);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(2);
+
+    // Hidden for longer than a minute: shown again asks at once.
+    active.value = false;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(LIST_POLL_INTERVAL_MS * 2);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(2);
+    active.value = true;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(3);
+  });
+
+  it("makes one call, and no timer storm, while a lookup runs past the minute", async () => {
+    vi.mocked(refreshListPullRequests).mockReturnValue(
+      new Promise<PullRequestRefreshResult>(() => {}),
+    );
+    start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+
+    // The list changing and the window coming back don't start a second one.
+    sessions.value = [...sessions.value, item("d", "open")];
+    await nextTick();
+    window.dispatchEvent(new Event("focus"));
+    await vi.advanceTimersByTimeAsync(LIST_POLL_INTERVAL_MS * 5);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("counts the minute from the end of a slow lookup", async () => {
+    let finish: (value: PullRequestRefreshResult) => void = () => {};
+    vi.mocked(refreshListPullRequests).mockReturnValueOnce(
+      new Promise<PullRequestRefreshResult>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(LIST_POLL_INTERVAL_MS + 30_000);
+    finish({ lookup: "ok", updated: [], linksChanged: false });
+    await vi.advanceTimersByTimeAsync(LIST_POLL_INTERVAL_MS - 1_000);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(2);
   });
 });

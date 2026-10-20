@@ -14,7 +14,7 @@ import {
   useAutoRefresh,
 } from "@tracepilot/ui";
 import { Search } from "lucide-vue-next";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
@@ -50,8 +50,13 @@ const {
   complete: allCardsRendered,
   ensureRendered,
 } = useProgressiveList(() => store.filteredSessions);
-// Open pull requests on the shown cards pick up their GitHub state.
-useListPullRequestPoll(() => renderedSessions.value);
+// Open pull requests on the shown cards pick up their GitHub state while the
+// list is on screen (App.vue keeps it mounted, hidden, under a session tab).
+const routeViewVisible = inject<Ref<boolean>>("routeViewVisible", ref(true));
+useListPullRequestPoll(
+  () => renderedSessions.value,
+  () => routeViewVisible.value,
+);
 const { refreshing, refresh } = useAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.

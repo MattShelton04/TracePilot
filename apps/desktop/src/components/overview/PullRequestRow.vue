@@ -120,6 +120,7 @@ const linkedAtTitle = computed(() =>
           >
             <GitBranch v-if="fromBranch(role)" :size="10" aria-hidden="true" class="pr-row__branch-hint" />
             {{ pullRequestRoleLabel(role) }}
+            <span v-if="fromBranch(role)" class="sr-only">(found from a branch this session pushed)</span>
           </Badge>
         </span>
         <span v-if="linkedAt" class="pr-row__time" :title="linkedAtTitle">Linked {{ linkedAt }}</span>

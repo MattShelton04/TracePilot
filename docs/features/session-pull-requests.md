@@ -297,38 +297,80 @@ reindex: they only read these tables, or fill the two network tables.
 
 ### 4.6 Live state through `gh` (phase 2)
 
-This reuses `tracepilot-orchestrator/src/github.rs`: the existing `gh` wrapper,
-hidden processes, timeouts and GraphQL batching.
+The `gh` client lives in `tracepilot-orchestrator/src/github/pull_requests/`. It
+runs `gh` as a hidden process with a timeout and no shell. The rules about when to
+look up are in `tracepilot-tauri-bindings/src/services/pull_request_*.rs`, and the
+reads and writes are in `tracepilot-indexer`'s `pull_request_lookups.rs` and
+`pull_request_status_writer.rs`.
 
-- **One query for many PRs.** One `gh api graphql --hostname <host>` call per
-  host, with up to 50 aliased `repository(owner,name){pullRequest(number){…}}`
-  lookups. That is 1 rate-limit point, against a budget of 5,000/hour.
+- **One query for many PRs.** Each `gh api graphql --hostname <host>` call looks up
+  as many as 50 PRs, one aliased `repository(owner,name){pullRequest(number){…}}` each.
+  - Owner, repository, branch and number come from session files, so they're
+    untrusted. They go to `gh` only as GraphQL variables: `-f` for strings, and
+    `-F` only for numbers TracePilot formats itself. They never appear in the query
+    text.
+  - Before that, each value is checked against the URL grammar in §4.3.
 - **Fields:** `title state isDraft mergedAt closedAt createdAt headRefName
   baseRefName headRepositoryOwner reviewDecision` and the last commit's
-  `statusCheckRollup.state`.
-- **When it fetches:**
-  - When a session detail opens: its PRs, if never fetched or open and older than
-    10 minutes.
-  - On a manual refresh button.
-  - At most one batched call a minute, only while the window has focus, for open
-    PRs on visible list cards.
-  - Merged and closed PRs are terminal and never re-fetched automatically.
-- **Pushed-branch lookup.** For each `session_pushed_branches` row, excluding
-  the default branch, `main`, `master`, `develop` and `gh-pages`, query
-  `pullRequests(headRefName:$b, first:5, states:[OPEN,MERGED,CLOSED])`.
-  - Accept a PR whose head owner matches the push remote's owner, and whose open
-    interval overlaps the session's active span (from the first push to the last
-    event + 24 h).
-  - Accepted PRs gain the **updated** role, with evidence "branch lookup".
+  `statusCheckRollup.state`. Each is stored lower-case (`open`, `approved`,
+  `success`, …).
+- **When it fetches.** Two commands do the fetching, and the main window calls
+  them; pop-out viewers aren't granted either one.
+  - **Opening or refreshing a session detail** calls
+    `refresh_session_pull_requests(id, force: false)`. It fetches PRs that were
+    never fetched, open or draft PRs older than 10 minutes, and failed lookups
+    older than 1 hour.
+  - **The Refresh button** in the Overview section passes `force: true`. That
+    re-fetches all of the session's PRs and branches.
+  - **The session list** calls `refresh_list_pull_requests(ids)` for visible
+    cards whose primary PR is open, draft or still unknown. It runs at most once a
+    minute while the window has focus, and Rust enforces the same 60-second
+    limit. Cards update in place.
+  - **Merged and closed PRs** are terminal, so they're never re-fetched
+    automatically.
+  - **When nothing is due,** no `gh` process starts, not even `gh auth status`.
+- **Failures.**
+  - **One PR failing** (`NOT_FOUND`, no access) stores the error and `fetched_at`
+    on its row and keeps the last known state.
+  - **Unavailable `gh` or a whole-call failure.** If `gh` is missing or signed out,
+    or the whole call fails (timeout, output that isn't JSON), nothing is written.
+    Auth results are cached for 10 minutes, and a failed host backs off for 2
+    minutes.
+  - **Network work runs before the write.** Results are then written in one short
+    transaction. A write that the indexer blocks fails, gets logged, and is left
+    for the next trigger.
+- **Pushed-branch lookup.**
+  - **Which branches.** It covers each `session_pushed_branches` row except `main`,
+    `master`, `develop` and `gh-pages` (skipped before the network) and the
+    repository's `defaultBranchRef` (skipped after).
+  - **The query** is `pullRequests(headRefName:$b, first:5, states:[OPEN,MERGED,CLOSED])`,
+    batched like the status query, and it returns the same fields.
+  - **Which PRs count.** A PR is accepted when its head owner matches the push
+    remote's owner and its open interval overlaps the session's active span: from
+    the first push (or the session start) to the last event plus 24 hours.
+  - **Storage.** Accepted PRs are stored in `session_branch_pull_requests`. Their
+    status is stored from the same response, so it doesn't need a second call. A
+    lookup that finds nothing stores a marker row with `number = 0`, which every
+    read ignores.
+  - **When it repeats.** A branch is looked up again only when its last lookup is
+    over 30 minutes old and was made before the 24-hour window closed. That allows
+    one final lookup after the window closes.
+  - **In the detail view,** `get_session_pull_requests` merges these PRs in with
+    the **updated** role and `foundByBranch`. The Overview row's tooltip explains
+    the role ("Found from a branch this session pushed"). The list count and the
+    primary PR still come only from the extractor.
 - **Without `gh`** (not installed, signed out, or the setting off), PRs still show
-  as `#1046`, using the title the transcript recorded when it had one, with no state
-  colour. The Overview section explains this once. Errors are stored per PR and
-  never block indexing.
+  as `#1046` with the title the transcript recorded and no state colour. The
+  Overview section shows a short note that can be dismissed, with a link to the
+  setting.
 - **Setting:** **Settings → General → "Look up pull request status with the GitHub
-  CLI"**, next to the existing update check. The proposal is to turn it on by
-  default when `gh auth status` succeeds; see §8. The query sends
-  only repository names and PR numbers that are already the user's, to their own
-  GitHub host, with their own `gh` sign-in.
+  CLI"** (`ui.pullRequestLookup`), on by default. Lookups run only when
+  `gh auth status --hostname <host>` succeeds. The query sends only repository
+  names, PR numbers and branch names that come from the user's own sessions, to
+  their own GitHub host, with their own `gh` sign-in.
+- **Logs.** Each `gh` process is logged as `gh call` under the `tracepilot::gh`
+  target, with its kind (`auth`, `status`, `branches`), host and count. Owner,
+  repository, branch and error text are never logged.
 
 ## 5. Copilot vs Claude at a glance
 
@@ -418,45 +460,49 @@ re-extracted **once**. Phases 2 and 3 change no analytics or extractor version.
   colours stay neutral until phase 2 supplies a state.
 - Synthetic Copilot and Claude Code fixture sessions with pull requests.
 
-### Phase 2: state from GitHub, and pushed branches
+### Phase 2: state from GitHub, and pushed branches (delivered)
 
-Network only; no reindex.
+Network only; no reindex, no migration and no version bump. The design is in
+§4.6.
 
 - **Setting.** **Settings → General → Look up pull request status with the GitHub
-  CLI**, on by default when `gh auth status` succeeds. It covers both
-  `pull_request_status` and branch lookups.
+  CLI** (`ui.pullRequestLookup`). It's on by default and covers both status and
+  branch lookups. Lookups run only when `gh auth status` succeeds for the host.
 - **Status cache.**
-  - A `gh api graphql --hostname <host>` batch, up to 50 aliased
-    `repository{pullRequest(number)}` lookups per call, through the existing
-    wrapper in `tracepilot-orchestrator/src/github.rs` (hidden process, timeout,
-    no shell).
-  - Upsert into `pull_request_status`; store each failure in `error`.
-  - Merged and closed PRs are terminal and aren't refetched automatically.
-- **When it runs:**
-  - when a session detail opens, for its PRs that were never fetched, or are
-    open and older than 10 minutes;
-  - when the user clicks a refresh action in the Pull requests section;
-  - at most one batched call a minute while the window has focus, for open PRs
-    on visible list cards.
+  - **The query.** A batched `gh api graphql` call looks up to 50 PRs per call
+    and passes every untrusted value as a variable.
+  - **Storage.** Results are upserted into `pull_request_status`, and each PR's
+    failure goes in `error`.
+  - **Terminal states.** Merged and closed PRs aren't re-fetched automatically.
+- **When it runs:** when a session detail opens or refreshes; from the
+  **Refresh** button in the Pull requests section; and at most once a minute while
+  the window has focus, for open or unknown PRs on list cards the list has
+  rendered.
 - **Pushed-branch lookup.**
-  - For each `session_pushed_branches` row (except the default branch and `main`,
-    `master`, `develop`, `gh-pages`), query
-    `pullRequests(headRefName:, states:[OPEN,MERGED,CLOSED], first:5)`.
-  - Accept a PR whose head owner matches the push remote, and whose open interval
-    overlaps the session's span (first push to last event + 24 h).
-  - Store matches in `session_branch_pull_requests`.
-  - `get_session_pull_requests` unions them in with the **updated** role. That
-    covers Copilot sessions whose only link is a push to an existing PR, and
-    Claude subagent pushes that wrote no `pr-link`.
-  - The list count and primary come from the extractor's columns, so branch-only
-    links show in the detail view but not on list cards.
+  - Matches are stored in `session_branch_pull_requests`.
+  - `get_session_pull_requests` unions them in with the **updated** role.
+  - The list count and the primary PR still come only from the extractor.
 - **UI.**
-  - State colours and words on the chip, the card and the section (open, draft,
-    merged, closed).
-  - Checks and review decision on section cards.
-  - "Updated" from GitHub when fetched.
-  - A short note when `gh` isn't installed or signed in.
-- **Pop-out viewers** keep reading only; fetching runs from the main window.
+  - State colours and words show on the chip, the card and the section.
+  - Overview rows show checks ("Checks passing/failing/pending") and the review
+    decision while a PR is open or a draft.
+  - Rows prefer GitHub's title over the transcript's.
+  - "Updated" found from a pushed branch has a branch icon and a tooltip.
+  - A dismissible note shows when `gh` is missing or signed out, or the setting
+    is off.
+- **Pop-out viewers** read only. Neither refresh command is granted in
+  `viewer.json`, and the triggers are hidden there.
+
+Deviations from the plan:
+
+- **Sessions with no links of their own.** The detail lookup also runs for
+  sessions with no transcript links, so sessions linked only by a pushed branch
+  are found. It starts no `gh` process when nothing is due.
+- **Lookups that find nothing.** A branch lookup that finds nothing stores a
+  `number = 0` marker row, because the schema has no separate "looked up" table
+  and no migration was allowed.
+- **Fork pull requests.** The lookup queries the repository that was pushed to.
+  A PR opened from a fork against an upstream repository isn't found by branch.
 
 ### Phase 3: find sessions by pull request
 

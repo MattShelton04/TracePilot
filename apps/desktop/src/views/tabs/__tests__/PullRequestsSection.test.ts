@@ -197,17 +197,45 @@ describe("PullRequestsSection", () => {
 
       await button.trigger("click");
       expect(refreshSessionPullRequests).toHaveBeenCalledWith("s1", true);
-      expect(button.attributes("disabled")).toBeDefined();
+      expect(button.attributes("aria-disabled")).toBe("true");
+      expect(button.attributes("aria-busy")).toBe("true");
       expect(button.get(".pr-refresh__icon").classes()).toContain("pr-refresh__icon--spinning");
       // Rows stay as they are while it runs.
       expect(wrapper.findAll('[data-testid="pull-request-row"]')).toHaveLength(1);
+
+      // A second click while it runs asks nothing more.
+      await button.trigger("click");
+      expect(refreshSessionPullRequests).toHaveBeenCalledTimes(1);
 
       const { host, owner, repo, number, url } = store.pullRequests[0];
       pending.resolve(result({ updated: [{ host, owner, repo, number, url, state: "open" }] }));
       await flushPromises();
       expect(store.reloadPullRequests).toHaveBeenCalledTimes(1);
-      expect(button.attributes("disabled")).toBeUndefined();
+      expect(button.attributes("aria-disabled")).toBe("false");
       expect(button.get(".pr-refresh__icon").classes()).not.toContain("pr-refresh__icon--spinning");
+    });
+
+    it("keeps keyboard focus on Refresh while it runs", async () => {
+      const pending = createDeferred<PullRequestRefreshResult>();
+      vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(pending.promise);
+      const wrapper = mount(PullRequestsSection, {
+        attachTo: document.body,
+        global: {
+          provide: {
+            [OVERVIEW_MODEL_KEY as symbol]: { store },
+            [NAVIGATE_CONVERSATION_KEY as symbol]: vi.fn(),
+          },
+        },
+      });
+      const button = refreshButton(wrapper);
+      (button.element as HTMLButtonElement).focus();
+      await button.trigger("click");
+      expect(button.attributes("disabled")).toBeUndefined();
+      expect(document.activeElement).toBe(button.element);
+      pending.resolve(result());
+      await flushPromises();
+      expect(document.activeElement).toBe(button.element);
+      wrapper.unmount();
     });
 
     it("doesn't reload when the lookup changed nothing", async () => {
@@ -257,13 +285,33 @@ describe("PullRequestsSection", () => {
       const wrapper = mountSection();
       await wrapper.get('[data-testid="pull-request-lookup-note-dismiss"]').trigger("click");
       expect(note(wrapper).exists()).toBe(false);
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.pullRequestNoticeDismissed) ?? "")).toBe(
-        "cli",
-      );
+      const saved = () =>
+        JSON.parse(localStorage.getItem(STORAGE_KEYS.pullRequestNoticeDismissed) ?? "null");
+      expect(saved()).toEqual(["cli"]);
       expect(note(mountSection()).exists()).toBe(false);
 
       // Turning lookups off is a different reason, so that note shows.
       usePreferencesStore().pullRequestLookup = false;
+      const off = mountSection();
+      expect(note(off).exists()).toBe(true);
+      await off.get('[data-testid="pull-request-lookup-note-dismiss"]').trigger("click");
+      expect(saved()).toEqual(["cli", "disabled"]);
+
+      // Both stay dismissed: dismissing one doesn't bring back the other.
+      expect(note(mountSection()).exists()).toBe(false);
+      usePreferencesStore().pullRequestLookup = true;
+      await flushPromises();
+      vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(
+        result({ lookup: "notInstalled" }),
+      );
+      await usePullRequestStatusStore().refreshSession("s1");
+      expect(note(mountSection()).exists()).toBe(false);
+    });
+
+    it("reads a malformed saved dismissal as none", async () => {
+      localStorage.setItem(STORAGE_KEYS.pullRequestNoticeDismissed, '"cli"');
+      vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result({ lookup: "signedOut" }));
+      await usePullRequestStatusStore().refreshSession("s1");
       expect(note(mountSection()).exists()).toBe(true);
     });
 

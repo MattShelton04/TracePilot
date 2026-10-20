@@ -93,9 +93,40 @@ describe("pullRequestStatus store", () => {
     vi.mocked(refreshSessionPullRequests).mockRejectedValueOnce(new Error("boom"));
     const store = usePullRequestStatusStore();
     expect(await store.refreshSession("s1")).toBeNull();
-    expect(store.error).toContain("boom");
+    expect(store.sessionError).toContain("boom");
     expect(store.lookup).toBeNull();
     expect(store.isRefreshing("s1")).toBe(false);
+  });
+
+  it("keeps session and list failures apart when they overlap", async () => {
+    const session = createDeferred<PullRequestRefreshResult>();
+    const list = createDeferred<PullRequestRefreshResult>();
+    vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(session.promise);
+    vi.mocked(refreshListPullRequests).mockReturnValueOnce(list.promise);
+    const store = usePullRequestStatusStore();
+    const sessionDone = store.refreshSession("s1");
+    const listDone = store.refreshList(["a"]);
+    session.reject(new Error("session boom"));
+    await sessionDone;
+    // The list lookup finishing well doesn't clear the session's failure.
+    list.resolve(result());
+    await listDone;
+    expect(store.sessionError).toContain("session boom");
+    expect(store.listError).toBeNull();
+  });
+
+  it("shares a running list lookup instead of starting another", async () => {
+    const list = createDeferred<PullRequestRefreshResult>();
+    vi.mocked(refreshListPullRequests).mockReturnValueOnce(list.promise);
+    const store = usePullRequestStatusStore();
+    const first = store.refreshList(["a"]);
+    const second = store.refreshList(["a", "b"]);
+    expect(store.listPolling).toBe(true);
+    list.reject(new Error("list boom"));
+    await Promise.all([first, second]);
+    expect(refreshListPullRequests).toHaveBeenCalledTimes(1);
+    expect(store.listError).toContain("list boom");
+    expect(store.listPolling).toBe(false);
   });
 
   it("never looks anything up from a pop-out or with the setting off", async () => {

@@ -26,13 +26,17 @@ const MESSAGES: Record<PullRequestLookupNotice, string> = {
 const status = usePullRequestStatusStore();
 // Pop-outs have no router and never show the note (the store says so).
 const router = useWindowRole().isMain() ? useRouter() : null;
-const dismissed = useLocalStorage<string | null>(STORAGE_KEYS.pullRequestNoticeDismissed, null);
+/** Every reason dismissed so far. Anything else stored there reads as none. */
+const stored = useLocalStorage<unknown>(STORAGE_KEYS.pullRequestNoticeDismissed, []);
+const dismissed = computed<string[]>(() =>
+  Array.isArray(stored.value) ? stored.value.filter((r) => typeof r === "string") : [],
+);
 
 /** Not installed and signed out are one reason: the CLI isn't usable. */
 const reason = computed(() => (status.notice === "disabled" ? "disabled" : "cli"));
 const message = computed(() => {
   const notice = status.notice;
-  return notice && dismissed.value !== reason.value ? MESSAGES[notice] : null;
+  return notice && !dismissed.value.includes(reason.value) ? MESSAGES[notice] : null;
 });
 
 function openSettings() {
@@ -40,7 +44,7 @@ function openSettings() {
 }
 
 function dismiss() {
-  dismissed.value = reason.value;
+  if (!dismissed.value.includes(reason.value)) stored.value = [...dismissed.value, reason.value];
 }
 </script>
 

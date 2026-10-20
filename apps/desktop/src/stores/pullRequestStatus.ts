@@ -30,13 +30,16 @@ export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => 
 
   /** How the last lookup went; null until one ran in this window. */
   const lookup = ref<PullRequestLookup | null>(null);
-  const error = ref<string | null>(null);
+  /** The last session lookup's failure, and the last list lookup's, kept apart. */
+  const sessionError = ref<string | null>(null);
+  const listError = ref<string | null>(null);
   /** Sessions whose pull requests are being looked up. */
   const refreshingIds = shallowRef<ReadonlySet<string>>(new Set());
   /** When the session list last asked (ms), for its once-a-minute poll. */
   const lastListPollAt = ref<number | null>(null);
   const listPolling = ref(false);
   const inFlight = new Map<string, Promise<PullRequestRefreshResult | null>>();
+  let listRequest: Promise<void> | null = null;
 
   /** Lookups run only from the main window, and only while the setting is on. */
   const canLookUp = computed(() => isMain() && prefs.pullRequestLookup);
@@ -87,14 +90,17 @@ export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => 
     const running = inFlight.get(sessionId);
     if (running) return running;
     setRefreshing(sessionId, true);
-    const request = runMutation(error, async () => {
+    // Each call keeps its own failure, so overlapping lookups never clear another's.
+    const failure = ref<string | null>(null);
+    const request = runMutation(failure, async () => {
       const result = await refreshSessionPullRequests(sessionId, force);
       record(result);
       return result;
     }).finally(() => {
       inFlight.delete(sessionId);
       setRefreshing(sessionId, false);
-      if (error.value) logWarn("[pullRequestStatus] Session lookup failed:", error.value);
+      sessionError.value = failure.value;
+      if (failure.value) logWarn("[pullRequestStatus] Session lookup failed:", failure.value);
     });
     inFlight.set(sessionId, request);
     return request;
@@ -102,25 +108,35 @@ export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => 
 
   /**
    * The session list's poll: the due primary pull requests of these
-   * sessions. The backend makes at most one GitHub call a minute.
+   * sessions. The backend makes at most one GitHub call a minute. A call
+   * while one runs gets the running one; `lastListPollAt` marks both its
+   * start and its end, so the next minute counts from whichever is later.
    */
-  async function refreshList(sessionIds: readonly string[]): Promise<void> {
-    if (!canLookUp.value || listPolling.value || !sessionIds.length) return;
+  function refreshList(sessionIds: readonly string[]): Promise<void> {
+    if (listRequest) return listRequest;
+    if (!canLookUp.value || !sessionIds.length) return Promise.resolve();
     listPolling.value = true;
     lastListPollAt.value = Date.now();
-    try {
-      await runMutation(error, async () => {
-        record(await refreshListPullRequests([...sessionIds]));
+    const failure = ref<string | null>(null);
+    listRequest = runMutation(failure, async () => {
+      record(await refreshListPullRequests([...sessionIds]));
+    })
+      .then(() => {
+        listError.value = failure.value;
+        if (failure.value) logWarn("[pullRequestStatus] List lookup failed:", failure.value);
+      })
+      .finally(() => {
+        listRequest = null;
+        listPolling.value = false;
+        lastListPollAt.value = Date.now();
       });
-      if (error.value) logWarn("[pullRequestStatus] List lookup failed:", error.value);
-    } finally {
-      listPolling.value = false;
-    }
+    return listRequest;
   }
 
   return {
     lookup,
-    error,
+    sessionError,
+    listError,
     lastListPollAt,
     listPolling,
     canLookUp,

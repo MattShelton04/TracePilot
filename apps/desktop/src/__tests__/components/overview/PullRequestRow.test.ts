@@ -87,9 +87,11 @@ describe("PullRequestRow", () => {
   it("hints that an Updated role came from a pushed branch", () => {
     const row = mountRow(makePullRequest(1, ["updated"], { foundByBranch: true }));
     const badge = row.get("[data-from-branch]");
-    expect(badge.text()).toBe("Updated");
     expect(badge.attributes("title")).toBe("Found from a branch this session pushed");
-    expect(badge.find("svg").exists()).toBe(true);
+    expect(badge.find("svg").attributes("aria-hidden")).toBe("true");
+    // Screen readers hear the hint, not only a hover title.
+    expect(badge.get(".sr-only").text()).toBe("(found from a branch this session pushed)");
+    expect(badge.text()).toBe("Updated (found from a branch this session pushed)");
 
     const fromTranscript = mountRow(makePullRequest(1, ["updated"]));
     expect(fromTranscript.find("[data-from-branch]").exists()).toBe(false);
