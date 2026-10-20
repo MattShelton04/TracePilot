@@ -14,7 +14,7 @@ import {
   sourceLabel,
 } from "@tracepilot/types";
 import { Users } from "lucide-vue-next";
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, useId, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useContextMenu } from "@/composables/useContextMenu";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -25,6 +25,7 @@ import {
   usePullRequestSessionsStore,
 } from "@/stores/pullRequestSessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
+import { type MenuPlacement, placeAnchoredMenu } from "@/utils/menuPlacement";
 
 const props = defineProps<{
   sessionId: string;
@@ -35,39 +36,91 @@ const { isViewer } = useWindowRole();
 const router = isViewer() ? null : useRouter();
 const related = usePullRequestSessionsStore();
 const tabs = useSessionTabsStore();
+const menuId = useId();
+const statusId = useId();
 
 const count = computed(() => (router ? related.relatedCount(props.sessionId, props.pr) : 0));
 const label = computed(() => `Also in ${count.value} other session${count.value === 1 ? "" : "s"}`);
 const state = computed(() => related.relatedSessions(props.sessionId, props.pr));
+const sessions = computed(() => (state.value?.status === "ready" ? state.value.sessions : []));
+const statusText = computed(() => {
+  if (!state.value || state.value.status === "loading") return "Loading sessions…";
+  if (state.value.status === "error") return "Couldn't load the sessions.";
+  return sessions.value.length === 0 ? "No other sessions found." : null;
+});
+/** The list stops at 100 sessions; the count doesn't. */
+const moreCount = computed(() =>
+  sessions.value.length > 0 ? Math.max(0, count.value - sessions.value.length) : 0,
+);
 
 const open = ref(false);
-const position = ref({ x: 0, y: 0 });
 const trigger = ref<HTMLButtonElement | null>(null);
-const menuRef = ref<HTMLElement | null>(null);
-
-// Placed for its loading line; the list that replaces it scrolls rather than
-// running off the bottom of the window.
-const menuStyle = computed(() => ({
-  left: `${placement.value.x}px`,
-  top: `${placement.value.y}px`,
-  maxHeight: `${Math.max(120, Math.min(360, window.innerHeight - placement.value.y - 8))}px`,
-}));
+const panel = ref<HTMLElement | null>(null);
+const placement = ref<MenuPlacement>({ x: 0, y: 0, maxHeight: 360 });
 
 function close() {
   open.value = false;
 }
 
-const { placement, onKeydown } = useContextMenu({
-  active: open,
-  panel: menuRef,
-  position,
-  dismiss: close,
+// Focus, Esc, arrow keys and Tab; this component places the menu itself.
+const { onKeydown } = useContextMenu({ active: open, panel, dismiss: close });
+
+/** Below the trigger, or above it when only that fits; replaced as content changes. */
+function place() {
+  const anchor = trigger.value?.getBoundingClientRect();
+  const menu = panel.value;
+  if (!open.value || !anchor || !menu) return;
+  placement.value = placeAnchoredMenu(
+    anchor,
+    { width: menu.getBoundingClientRect().width, height: menu.scrollHeight },
+    { width: window.innerWidth, height: window.innerHeight },
+  );
+}
+
+let resizeObserver: ResizeObserver | null = null;
+watch(panel, (el, _, onCleanup) => {
+  if (!el) return;
+  place();
+  window.addEventListener("resize", place);
+  if (typeof ResizeObserver !== "undefined") {
+    resizeObserver = new ResizeObserver(place);
+    resizeObserver.observe(el);
+  }
+  onCleanup(() => {
+    window.removeEventListener("resize", place);
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+  });
 });
 
-// Another session or pull request in this row closes the menu.
+// Another session or pull request in this row, or no count left, closes the menu.
 watch(
   () => [props.sessionId, props.pr.host, props.pr.owner, props.pr.repo, props.pr.number],
   close,
+);
+watch(count, (n) => {
+  if (n === 0) close();
+});
+
+// An open menu whose list went (its counts reloaded for other pull requests) loads it again.
+watch([open, state], ([isOpen, current]) => {
+  if (isOpen && !current) void related.loadRelatedSessions(props.sessionId, props.pr);
+});
+
+// Once the list or its error shows, put focus on its first item unless the
+// user has moved it elsewhere, so the arrow keys work straight away.
+watch(
+  () => state.value?.status,
+  (status) => {
+    if (!open.value || status === "loading") return;
+    void nextTick(() => {
+      place();
+      const el = panel.value;
+      const active = document.activeElement;
+      if (!el || (active && active !== document.body && active !== el)) return;
+      el.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    });
+  },
 );
 
 function toggle() {
@@ -75,18 +128,18 @@ function toggle() {
     close();
     return;
   }
-  const rect = trigger.value?.getBoundingClientRect();
-  position.value = rect ? { x: rect.left, y: rect.bottom + 4 } : { x: 0, y: 0 };
   open.value = true;
   void related.loadRelatedSessions(props.sessionId, props.pr);
 }
 
 function retry() {
+  // The Retry item goes away while loading; keep focus in the menu.
+  panel.value?.focus();
   void related.loadRelatedSessions(props.sessionId, props.pr, { retry: true });
 }
 
 function sessionTitle(link: PullRequestSessionLink): string {
-  return link.summary?.trim() || link.sessionId.slice(0, 8);
+  return link.summary?.trim() || `Session ${link.sessionId.slice(0, 8)}`;
 }
 
 /** What the session did with the pull request, then when it was last updated. */
@@ -117,6 +170,7 @@ function openSession(event: MouseEvent, link: PullRequestSessionLink) {
       class="pr-related__trigger"
       aria-haspopup="menu"
       :aria-expanded="open"
+      :aria-controls="open ? menuId : undefined"
       data-testid="pull-request-related"
       @click="toggle"
     >
@@ -126,23 +180,35 @@ function openSession(event: MouseEvent, link: PullRequestSessionLink) {
     <Teleport to="body">
       <div
         v-if="open"
-        ref="menuRef"
+        ref="panel"
         class="pr-related-menu"
-        role="menu"
-        :aria-label="`Other sessions linked to #${pr.number}`"
-        :aria-busy="state?.status === 'loading'"
         tabindex="-1"
-        :style="menuStyle"
+        :style="{
+          left: `${placement.x}px`,
+          top: `${placement.y}px`,
+          maxHeight: `${placement.maxHeight}px`,
+        }"
         data-testid="pull-request-related-menu"
         @click.stop
         @keydown="onKeydown"
       >
-        <p v-if="!state || state.status === 'loading'" class="pr-related-menu__status" role="status">
-          Loading sessions…
+        <p
+          v-if="statusText"
+          :id="statusId"
+          class="pr-related-menu__status"
+          :role="state?.status === 'error' ? 'alert' : 'status'"
+        >
+          {{ statusText }}
         </p>
-        <template v-else-if="state.status === 'error'">
-          <p class="pr-related-menu__status" role="alert">Couldn't load the sessions.</p>
+        <div
+          :id="menuId"
+          role="menu"
+          :aria-label="`Other sessions linked to #${pr.number}`"
+          :aria-busy="!state || state.status === 'loading'"
+          :aria-describedby="statusText ? statusId : undefined"
+        >
           <button
+            v-if="state?.status === 'error'"
             type="button"
             role="menuitem"
             tabindex="-1"
@@ -152,13 +218,8 @@ function openSession(event: MouseEvent, link: PullRequestSessionLink) {
           >
             Retry
           </button>
-        </template>
-        <p v-else-if="state.sessions.length === 0" class="pr-related-menu__status">
-          No other sessions found.
-        </p>
-        <template v-else>
           <button
-            v-for="link in state.sessions"
+            v-for="link in sessions"
             :key="link.sessionId"
             type="button"
             role="menuitem"
@@ -175,7 +236,10 @@ function openSession(event: MouseEvent, link: PullRequestSessionLink) {
               >{{ sourceLabel(link.source) }}</span>{{ sessionDetails(link) }}
             </span>
           </button>
-        </template>
+        </div>
+        <p v-if="moreCount > 0" class="pr-related-menu__status" data-testid="pull-request-related-more">
+          and {{ moreCount }} more
+        </p>
       </div>
       <div v-if="open" class="pr-related-backdrop" @click="close" @contextmenu.prevent="close" />
     </Teleport>

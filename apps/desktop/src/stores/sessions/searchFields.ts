@@ -5,11 +5,23 @@
  */
 import { modelDisplayName, type SessionListItem } from "@tracepilot/types";
 import {
+  includesPullRequestKey,
   isPullRequestSearchKey,
   pullRequestKeyFromUrl,
   pullRequestSearchKeys,
 } from "@/utils/pullRequestUrl";
 import { folderRepositories, folderRepository } from "./repositoryFolders";
+
+/** The fields every term is looked for in, besides linked pull requests. */
+const TEXT_FIELDS = [
+  "summary",
+  "repository",
+  "branch",
+  "cwd",
+  "model",
+  "modelName",
+  "id",
+] as const satisfies readonly (keyof SessionSearchFields)[];
 
 export interface SessionSearchFields {
   id: string;
@@ -88,24 +100,21 @@ export function buildSearchFieldCache(
 }
 
 /**
- * Whether `term` appears in any searched field. A linked pull request matches
- * a `#n` or `owner/repo#n` term only as a whole key (`#57` doesn't find #570);
- * any other term, a bare number included, is a substring of its key or title.
+ * Whether `term` appears in any searched field. A `#n` or `owner/repo#n`
+ * term names one pull request: a linked one matches only as a whole key, and
+ * the text fields only where no digit follows it, so `#57` finds neither
+ * #570 nor "Review #570". Any other term, a bare number included, is a
+ * substring of any field.
  */
 export function fieldsInclude(fields: SessionSearchFields, term: string): boolean {
-  const pullRequestMatch =
-    fields.pullRequestKeys !== null &&
-    (isPullRequestSearchKey(term)
-      ? fields.pullRequestKeys.has(term)
-      : fields.pullRequests.includes(term));
+  if (isPullRequestSearchKey(term)) {
+    return (
+      fields.pullRequestKeys?.has(term) === true ||
+      TEXT_FIELDS.some((field) => includesPullRequestKey(fields[field], term))
+    );
+  }
   return (
-    pullRequestMatch ||
-    fields.summary.includes(term) ||
-    fields.repository.includes(term) ||
-    fields.branch.includes(term) ||
-    fields.cwd.includes(term) ||
-    fields.model.includes(term) ||
-    fields.modelName.includes(term) ||
-    fields.id.includes(term)
+    (fields.pullRequestKeys !== null && fields.pullRequests.includes(term)) ||
+    TEXT_FIELDS.some((field) => fields[field].includes(term))
   );
 }

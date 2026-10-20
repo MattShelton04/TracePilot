@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { makePullRequest } from "@/__tests__/utils/pullRequestFixtures";
 import { NAVIGATE_CONVERSATION_KEY } from "@/composables/useConversationNavigation";
+import { usePullRequestSessionsStore } from "@/stores/pullRequestSessions";
 import { OVERVIEW_MODEL_KEY } from "../overview/overviewModel";
 import PullRequestsSection from "../overview/PullRequestsSection.vue";
 
@@ -167,13 +168,29 @@ describe("PullRequestsSection", () => {
     expect(row.get('[data-testid="pull-request-related"]').text()).toBe("Also in 2 other sessions");
     expect(other.find('[data-testid="pull-request-related"]').exists()).toBe(false);
 
-    // The same list doesn't count again; a reloaded one does.
+    // A refresh naming the same pull requests doesn't count again; another set does.
+    mountSection();
+    store.pullRequests = store.pullRequests.map((p) => ({ ...p }));
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(1);
+    store.pullRequests = [...store.pullRequests, makePullRequest(7, ["merged"])];
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(2);
+    expect(row.find('[data-testid="pull-request-related"]').exists()).toBe(true);
+  });
+
+  it("counts again when the store let the session's counts go", async () => {
+    store.pullRequests = [makePullRequest(1046, ["created"], { primary: true })];
     mountSection();
     await flushPromises();
     expect(mocks.relatedCounts).toHaveBeenCalledTimes(1);
-    store.pullRequests = [...store.pullRequests];
+    // Other sessions opened since; this one, still on screen, was evicted.
+    const related = usePullRequestSessionsStore();
+    for (let i = 0; i < 32; i++) await related.loadRelatedCounts(`other-${i}`, store.pullRequests);
     await flushPromises();
-    expect(mocks.relatedCounts).toHaveBeenCalledTimes(2);
+    expect(mocks.relatedCounts).toHaveBeenCalledWith("s1");
+    expect(mocks.relatedCounts.mock.calls.filter(([id]) => id === "s1")).toHaveLength(2);
+    expect(related.hasEntry("s1")).toBe(true);
   });
 
   it("offers only Copy link in a pop-out window", () => {

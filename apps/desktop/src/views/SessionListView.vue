@@ -189,13 +189,6 @@ function clearFilters() {
   focusSearch();
 }
 
-/** A pasted pull request URL searches for the sessions linked to it (see `pullRequestUrl`). */
-function pastePullRequestUrl(event: ClipboardEvent) {
-  handlePullRequestPaste(event, (value) => {
-    store.searchQuery = value;
-  });
-}
-
 function showEmptySessions() {
   prefs.hideEmptySessions = false;
   focusSearch();
@@ -323,7 +316,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
             v-model="store.searchQuery"
             placeholder="Search sessions…"
             data-testid="session-search"
-            @paste="pastePullRequestUrl"
+            @paste="handlePullRequestPaste"
           />
         </div>
         <div class="toolbar-filters">

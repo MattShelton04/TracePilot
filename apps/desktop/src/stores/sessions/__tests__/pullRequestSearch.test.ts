@@ -102,14 +102,23 @@ describe("stores/sessions/filtering – linked pull requests", () => {
     expect(find("#1")).toEqual([]);
   });
 
-  it("keeps a #n term matching other fields as text", () => {
-    const withMention = [session("e", [], { summary: "Follow up on #57" })];
-    const result = filterAndSortSessions(
-      withMention,
-      { searchTerms: ["#57"], repository: null, hideEmptySessions: false },
-      buildSearchFieldCache(withMention),
-      "updated",
-    );
-    expect(result.map((s) => s.id)).toEqual(["e"]);
+  it("matches a #n term in the other fields only where no digit follows", () => {
+    const mentions = [
+      session("e", [], { summary: "Follow up on #57" }),
+      session("ff", [], { summary: "Review #570" }),
+      session("ggg", [], { branch: "fix/example/orchard#57-retry" }),
+      session("hhhh", [], { branch: "fix/example/orchard#571" }),
+    ];
+    const ids = (term: string) =>
+      filterAndSortSessions(
+        mentions,
+        { searchTerms: [term], repository: null, hideEmptySessions: false },
+        buildSearchFieldCache(mentions),
+        "oldest",
+      ).map((s) => s.id);
+    expect(ids("#57")).toEqual(["e", "ggg"]);
+    expect(ids("example/orchard#57")).toEqual(["ggg"]);
+    // Not shaped like a key: still a substring, as before.
+    expect(ids("57")).toEqual(["e", "ff", "ggg", "hhhh"]);
   });
 });

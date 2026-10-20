@@ -1,12 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   handlePullRequestPaste,
+  includesPullRequestKey,
   isPullRequestSearchKey,
   parsePullRequestUrl,
   pullRequestKeyFromUrl,
   pullRequestPasteEdit,
 } from "../pullRequestUrl";
+
+const SHA = "0123456789abcdef0123456789abcdef01234567";
 
 describe("parsePullRequestUrl", () => {
   it("reads a github.com pull request URL", () => {
@@ -36,6 +38,11 @@ describe("parsePullRequestUrl", () => {
     "https://github.com/o/r/pull/12/files#diff-abc",
     "https://github.com/o/r/pull/12?w=1",
     "  https://github.com/o-dash/re_po-1.x/pull/12\n",
+    "https://github.com/o/r/pull/12/commits/abc1234",
+    `https://github.com/o/r/pull/12/commits/${SHA}/`,
+    `https://github.com/o/r/pull/12/commits/${SHA.toUpperCase()}#diff-1`,
+    "https://github.com/o/r/pull/12/files/abc1234",
+    `https://github.com/o/r/pull/12/files/abc1234..${SHA}?diff=split`,
   ])("accepts %s", (url) => {
     expect(parsePullRequestUrl(url)?.number).toBe(12);
   });
@@ -50,7 +57,14 @@ describe("parsePullRequestUrl", () => {
     ["a script URL", "javascript:alert(1)//github.com/o/r/pull/1"],
     ["another scheme", "ftp://github.com/o/r/pull/1"],
     ["no repository", "https://github.com/o/pull/1"],
-    ["an extra segment", "https://github.com/o/r/pull/1/commits/abc123"],
+    ["a six-character commit", "https://github.com/o/r/pull/1/commits/abc123"],
+    ["a 41-character commit", `https://github.com/o/r/pull/1/commits/${SHA}a`],
+    ["a commit that isn't hex", "https://github.com/o/r/pull/1/commits/abcdefg"],
+    ["a segment after a commit", "https://github.com/o/r/pull/1/commits/abc1234/files"],
+    ["an open file range", "https://github.com/o/r/pull/1/files/abc1234.."],
+    ["a three-dot range", "https://github.com/o/r/pull/1/files/abc1234...def5678"],
+    ["a three-commit range", "https://github.com/o/r/pull/1/files/abc1234..def5678..abc1234"],
+    ["a checks run", "https://github.com/o/r/pull/1/checks/abc1234"],
     ["an unknown subpage", "https://github.com/o/r/pull/1/reviews"],
     ["a path before the owner", "https://github.com/x/o/r/pull/1"],
     ["other words", "see https://github.com/o/r/pull/1"],
@@ -87,22 +101,39 @@ describe("isPullRequestSearchKey", () => {
   });
 });
 
+describe("includesPullRequestKey", () => {
+  it("finds the key only where no digit follows it", () => {
+    expect(includesPullRequestKey("review #57", "#57")).toBe(true);
+    expect(includesPullRequestKey("review #57, then #570", "#57")).toBe(true);
+    expect(includesPullRequestKey("review #570 and #5700", "#57")).toBe(false);
+    expect(includesPullRequestKey("#570 then #57.", "#57")).toBe(true);
+    expect(includesPullRequestKey("o/r#57a", "o/r#57")).toBe(true);
+    expect(includesPullRequestKey("", "#57")).toBe(false);
+  });
+});
+
 describe("pullRequestPasteEdit", () => {
   const url = "https://github.com/o/r/pull/12";
 
   it("puts the key in an empty input", () => {
-    expect(pullRequestPasteEdit("", 0, 0, url)).toEqual({ value: "o/r#12", caret: 6 });
+    expect(pullRequestPasteEdit("", 0, 0, url)).toEqual({
+      value: "o/r#12",
+      inserted: "o/r#12",
+      caret: 6,
+    });
   });
 
   it("replaces the selection and keeps the other text apart", () => {
     // "fix |bug| later" with "bug" selected.
     expect(pullRequestPasteEdit("fix bug later", 4, 7, url)).toEqual({
       value: "fix o/r#12 later",
+      inserted: "o/r#12",
       caret: 10,
     });
     // Pasted against text on both sides.
     expect(pullRequestPasteEdit("fixlater", 3, 3, url)).toEqual({
       value: "fix o/r#12 later",
+      inserted: " o/r#12 ",
       caret: 10,
     });
   });
@@ -114,6 +145,23 @@ describe("pullRequestPasteEdit", () => {
 });
 
 describe("handlePullRequestPaste", () => {
+  const original = Object.getOwnPropertyDescriptor(document, "execCommand");
+
+  afterEach(() => {
+    if (original) Object.defineProperty(document, "execCommand", original);
+    else Reflect.deleteProperty(document, "execCommand");
+    document.body.innerHTML = "";
+  });
+
+  function focusedInput(value: string) {
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.value = value;
+    input.focus();
+    input.setSelectionRange(value.length, value.length);
+    return input;
+  }
+
   function paste(input: HTMLInputElement, text: string) {
     const event = new Event("paste", { cancelable: true }) as ClipboardEvent;
     Object.defineProperty(event, "clipboardData", {
@@ -123,28 +171,59 @@ describe("handlePullRequestPaste", () => {
     return event;
   }
 
-  it("applies the key in place of a pasted URL and moves the caret after it", async () => {
-    const input = document.createElement("input");
-    input.value = "login ";
-    input.setSelectionRange(6, 6);
-    const apply = vi.fn((value: string) => {
-      input.value = value;
+  function stubExecCommand(impl: (command: string, ui: boolean, value: string) => boolean) {
+    const exec = vi.fn(impl);
+    Object.defineProperty(document, "execCommand", { configurable: true, value: exec });
+    return exec;
+  }
+
+  it("types the key with insertText, so the input reports it itself", () => {
+    const input = focusedInput("login");
+    const onInput = vi.fn();
+    input.addEventListener("input", onInput);
+    // What a browser does: insert over the selection and fire an input event.
+    const exec = stubExecCommand((_, __, text) => {
+      const start = input.selectionStart ?? 0;
+      input.setRangeText(text, start, input.selectionEnd ?? start, "end");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
     });
     const event = paste(input, "https://github.com/o/r/pull/12/files");
 
-    expect(handlePullRequestPaste(event, apply)).toBe(true);
+    expect(handlePullRequestPaste(event)).toBe(true);
     expect(event.defaultPrevented).toBe(true);
-    expect(apply).toHaveBeenCalledWith("login o/r#12");
-    await nextTick();
+    expect(exec).toHaveBeenCalledWith("insertText", false, " o/r#12");
+    expect(input.value).toBe("login o/r#12");
+    expect(onInput).toHaveBeenCalledTimes(1);
     expect(input.selectionStart).toBe(12);
   });
 
+  it("sets the value and fires an input event where insertText does nothing", () => {
+    const input = focusedInput("login ");
+    const onInput = vi.fn();
+    input.addEventListener("input", onInput);
+    stubExecCommand(() => false);
+
+    expect(handlePullRequestPaste(paste(input, "https://github.com/o/r/pull/12"))).toBe(true);
+    expect(input.value).toBe("login o/r#12");
+    expect(onInput).toHaveBeenCalledTimes(1);
+    expect(input.selectionStart).toBe(12);
+  });
+
+  it("falls back when there is no insertText at all", () => {
+    Object.defineProperty(document, "execCommand", { configurable: true, value: undefined });
+    const input = focusedInput("");
+    expect(handlePullRequestPaste(paste(input, "https://github.com/o/r/pull/12"))).toBe(true);
+    expect(input.value).toBe("o/r#12");
+  });
+
   it("lets the browser paste anything else", () => {
-    const input = document.createElement("input");
-    const apply = vi.fn();
+    const input = focusedInput("");
+    const exec = stubExecCommand(() => true);
     const event = paste(input, "login bug");
-    expect(handlePullRequestPaste(event, apply)).toBe(false);
+    expect(handlePullRequestPaste(event)).toBe(false);
     expect(event.defaultPrevented).toBe(false);
-    expect(apply).not.toHaveBeenCalled();
+    expect(exec).not.toHaveBeenCalled();
+    expect(input.value).toBe("");
   });
 });

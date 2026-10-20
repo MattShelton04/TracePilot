@@ -39,7 +39,7 @@ function link(
 ): PullRequestSessionLink {
   return {
     sessionId,
-    summary: `Session ${sessionId}`,
+    summary: `Summary ${sessionId}`,
     repository: "example/orchard",
     source: "copilot",
     updatedAt: null,
@@ -67,10 +67,19 @@ async function mountWithCounts(
 
 const trigger = () =>
   document.querySelector<HTMLButtonElement>('[data-testid="pull-request-related"]');
-const menu = () => document.querySelector('[data-testid="pull-request-related-menu"]');
+const panel = () =>
+  document.querySelector<HTMLElement>('[data-testid="pull-request-related-menu"]');
+const menu = () => panel()?.querySelector('[role="menu"]') ?? null;
 const items = () => [
   ...document.querySelectorAll<HTMLButtonElement>('[data-testid="pull-request-related-session"]'),
 ];
+const titles = () =>
+  items().map((item) => item.querySelector(".pr-related-menu__title")?.textContent);
+
+async function openMenu() {
+  trigger()?.click();
+  await flushPromises();
+}
 
 describe("PullRequestRelatedSessions", () => {
   beforeEach(() => {
@@ -87,7 +96,7 @@ describe("PullRequestRelatedSessions", () => {
   it("renders nothing while no other session shares the pull request", async () => {
     const wrapper = await mountWithCounts([count(0)]);
     expect(wrapper.html()).toBe("<!--v-if-->");
-    const unknown = await mountWithCounts([count(3, 999)]);
+    const unknown = await mountWithCounts([count(3, 999)], [pr], "s2");
     expect(unknown.find("button").exists()).toBe(false);
   });
 
@@ -95,7 +104,7 @@ describe("PullRequestRelatedSessions", () => {
     await mountWithCounts([count(1)]);
     expect(trigger()?.textContent?.trim()).toBe("Also in 1 other session");
     document.body.innerHTML = "";
-    await mountWithCounts([count(3)]);
+    await mountWithCounts([count(3)], [pr], "s2");
     expect(trigger()?.textContent?.trim()).toBe("Also in 3 other sessions");
   });
 
@@ -109,51 +118,62 @@ describe("PullRequestRelatedSessions", () => {
     mocks.sessions.mockResolvedValue([
       link("s1"),
       link("s2", { summary: "Worker one", roles: ["created", "merged"] }),
-      link("s3", { summary: null, source: "claudeCode" }),
+      link("s3abcdef99", { summary: null, source: "claudeCode" }),
     ]);
     await mountWithCounts([count(2)]);
     expect(mocks.sessions).not.toHaveBeenCalled();
+    expect(trigger()?.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger()?.hasAttribute("aria-controls")).toBe(false);
 
-    trigger()?.click();
-    await flushPromises();
+    await openMenu();
     expect(mocks.sessions).toHaveBeenCalledWith({
       host: pr.host,
       owner: pr.owner,
       repo: pr.repo,
       number: pr.number,
     });
-    expect(menu()?.getAttribute("role")).toBe("menu");
-    expect(
-      items().map((item) => item.querySelector(".pr-related-menu__title")?.textContent),
-    ).toEqual(["Worker one", "s3"]);
+    expect(trigger()?.getAttribute("aria-expanded")).toBe("true");
+    expect(trigger()?.getAttribute("aria-controls")).toBe(menu()?.id);
+    expect(titles()).toEqual(["Worker one", "Session s3abcdef"]);
     expect(items()[0].textContent).toContain("Copilot · Created · Merged");
     expect(items()[1].textContent).toContain("Claude Code · Updated");
+    // The menu holds only its items; the list loaded with focus on the first.
+    expect(menu()?.querySelectorAll(":scope > :not([role='menuitem'])")).toHaveLength(0);
+    expect(document.activeElement).toBe(items()[0]);
 
     // Closing and opening again uses the cached list.
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await flushPromises();
-    expect(menu()).toBeNull();
-    trigger()?.click();
-    await flushPromises();
+    expect(panel()).toBeNull();
+    await openMenu();
     expect(mocks.sessions).toHaveBeenCalledTimes(1);
     expect(items()).toHaveLength(2);
+  });
+
+  it("describes the loading state outside the menu's items", async () => {
+    mocks.sessions.mockImplementation(() => new Promise(() => {}));
+    await mountWithCounts([count(1)]);
+    await openMenu();
+    const status = panel()?.querySelector('[role="status"]');
+    expect(status?.textContent?.trim()).toBe("Loading sessions…");
+    expect(menu()?.getAttribute("aria-busy")).toBe("true");
+    expect(menu()?.getAttribute("aria-describedby")).toBe(status?.id);
+    expect(menu()?.contains(status ?? null)).toBe(false);
   });
 
   it("opens a session on click, and in a tab on Ctrl+click", async () => {
     mocks.sessions.mockResolvedValue([link("s2", { summary: "Worker one" })]);
     await mountWithCounts([count(1)]);
-    trigger()?.click();
-    await flushPromises();
+    await openMenu();
 
     items()[0].click();
     await flushPromises();
     expect(mocks.pushRoute).toHaveBeenCalledWith(mocks.router, ROUTE_NAMES.sessionOverview, {
       params: { id: "s2" },
     });
-    expect(menu()).toBeNull();
+    expect(panel()).toBeNull();
 
-    trigger()?.click();
-    await flushPromises();
+    await openMenu();
     items()[0].dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
     await flushPromises();
     expect(mocks.pushRoute).toHaveBeenCalledTimes(1);
@@ -163,89 +183,93 @@ describe("PullRequestRelatedSessions", () => {
   it("says when only this session is left", async () => {
     mocks.sessions.mockResolvedValue([link("s1")]);
     await mountWithCounts([count(1)]);
-    trigger()?.click();
-    await flushPromises();
-    expect(menu()?.textContent).toContain("No other sessions found.");
+    await openMenu();
+    expect(panel()?.textContent).toContain("No other sessions found.");
+    expect(panel()?.querySelector('[data-testid="pull-request-related-more"]')).toBeNull();
   });
 
-  it("shows an error with a retry that loads again", async () => {
+  it("notes the sessions past the list's limit", async () => {
+    mocks.sessions.mockResolvedValue([link("s1"), link("s2"), link("s3")]);
+    await mountWithCounts([count(130)]);
+    await openMenu();
+    expect(items()).toHaveLength(2);
+    const more = panel()?.querySelector('[data-testid="pull-request-related-more"]');
+    expect(more?.textContent?.trim()).toBe("and 128 more");
+    expect(menu()?.contains(more ?? null)).toBe(false);
+  });
+
+  it("shows an error with a retry that loads again and keeps focus in the menu", async () => {
     mocks.sessions.mockRejectedValueOnce(new Error("index locked"));
     await mountWithCounts([count(1)]);
-    trigger()?.click();
-    await flushPromises();
-    expect(menu()?.textContent).toContain("Couldn't load the sessions.");
+    await openMenu();
+    expect(panel()?.querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't load the sessions.",
+    );
+    const retry = document.querySelector<HTMLButtonElement>(
+      '[data-testid="pull-request-related-retry"]',
+    );
+    expect(document.activeElement).toBe(retry);
 
-    mocks.sessions.mockResolvedValueOnce([link("s2")]);
-    document
-      .querySelector<HTMLButtonElement>('[data-testid="pull-request-related-retry"]')
-      ?.click();
+    let resolve!: (links: PullRequestSessionLink[]) => void;
+    mocks.sessions.mockImplementationOnce(() => new Promise((r) => (resolve = r)));
+    retry?.click();
+    await flushPromises();
+    expect(document.activeElement).toBe(panel());
+    resolve([link("s2")]);
     await flushPromises();
     expect(mocks.sessions).toHaveBeenCalledTimes(2);
     expect(items()).toHaveLength(1);
-  });
-});
-
-describe("pullRequestSessions store", () => {
-  beforeEach(() => {
-    setupPinia();
-    vi.clearAllMocks();
+    expect(document.activeElement).toBe(items()[0]);
   });
 
-  it("counts once per pull-request list, and not at all for none", async () => {
-    const store = usePullRequestSessionsStore();
-    mocks.counts.mockResolvedValue([count(2)]);
-    await store.loadRelatedCounts("s1", []);
-    expect(mocks.counts).not.toHaveBeenCalled();
-
-    const prs = [pr];
-    await store.loadRelatedCounts("s1", prs);
-    await store.loadRelatedCounts("s1", prs);
-    expect(mocks.counts).toHaveBeenCalledTimes(1);
-    expect(store.relatedCount("s1", { ...pr, owner: "EXAMPLE" })).toBe(2);
-
-    // A refreshed list counts again and drops the cached menus.
+  it("stays open with its list when a refresh lists the same pull requests", async () => {
     mocks.sessions.mockResolvedValue([link("s2")]);
-    await store.loadRelatedSessions("s1", pr);
-    expect(store.relatedSessions("s1", pr)?.status).toBe("ready");
-    await store.loadRelatedCounts("s1", [pr]);
+    await mountWithCounts([count(1)]);
+    await openMenu();
+    expect(items()).toHaveLength(1);
+
+    // A running session's poll: a new array naming the same pull requests.
+    await usePullRequestSessionsStore().loadRelatedCounts("s1", [{ ...pr }]);
+    await flushPromises();
+    expect(mocks.counts).toHaveBeenCalledTimes(1);
+    expect(panel()).not.toBeNull();
+    expect(items()).toHaveLength(1);
+    expect(mocks.sessions).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the button while changed pull requests are counted again", async () => {
+    await mountWithCounts([count(2)]);
+    let resolve!: (rows: unknown) => void;
+    mocks.counts.mockImplementationOnce(() => new Promise((r) => (resolve = r)));
+
+    const loading = usePullRequestSessionsStore().loadRelatedCounts("s1", [
+      pr,
+      makePullRequest(7, ["reviewed"]),
+    ]);
+    await flushPromises();
     expect(mocks.counts).toHaveBeenCalledTimes(2);
-    expect(store.relatedSessions("s1", pr)).toBeNull();
+    expect(trigger()?.textContent?.trim()).toBe("Also in 2 other sessions");
+
+    resolve([count(3), count(1, 7)]);
+    await loading;
+    await flushPromises();
+    expect(trigger()?.textContent?.trim()).toBe("Also in 3 other sessions");
   });
 
-  it("drops counts that land after the session's list was replaced", async () => {
+  it("closes when no count is left, and loads a dropped list again on the next open", async () => {
+    mocks.sessions.mockResolvedValue([link("s2")]);
+    await mountWithCounts([count(1)]);
+    await openMenu();
+    // The counts reload for a set without this pull request, then with it again.
     const store = usePullRequestSessionsStore();
-    let resolveOld!: (rows: unknown) => void;
-    mocks.counts.mockImplementationOnce(() => new Promise((resolve) => (resolveOld = resolve)));
+    mocks.counts.mockResolvedValueOnce([]);
+    await store.loadRelatedCounts("s1", [makePullRequest(7, ["reviewed"])]);
+    await flushPromises();
+    expect(panel()).toBeNull();
     mocks.counts.mockResolvedValueOnce([count(1)]);
-
-    const first = store.loadRelatedCounts("s1", [pr]);
     await store.loadRelatedCounts("s1", [pr]);
-    resolveOld([count(9)]);
-    await first;
-    expect(store.relatedCount("s1", pr)).toBe(1);
-  });
-
-  it("drops a session list that lands after the counts reloaded", async () => {
-    const store = usePullRequestSessionsStore();
-    mocks.counts.mockResolvedValue([count(1)]);
-    await store.loadRelatedCounts("s1", [pr]);
-    let resolveOld!: (links: unknown) => void;
-    mocks.sessions.mockImplementationOnce(() => new Promise((resolve) => (resolveOld = resolve)));
-    const pending = store.loadRelatedSessions("s1", pr);
-
-    await store.loadRelatedCounts("s1", [pr]);
-    resolveOld([link("s2")]);
-    await pending;
-    expect(store.relatedSessions("s1", pr)).toBeNull();
-  });
-
-  it("keeps each open session's counts apart", async () => {
-    const store = usePullRequestSessionsStore();
-    mocks.counts.mockResolvedValueOnce([count(1)]).mockResolvedValueOnce([count(4)]);
-    await store.loadRelatedCounts("s1", [pr]);
-    await store.loadRelatedCounts("s2", [pr]);
-    expect(store.relatedCount("s1", pr)).toBe(1);
-    expect(store.relatedCount("s2", pr)).toBe(4);
-    expect(mocks.counts.mock.calls).toEqual([["s1"], ["s2"]]);
+    await openMenu();
+    expect(mocks.sessions).toHaveBeenCalledTimes(2);
+    expect(items()).toHaveLength(1);
   });
 });

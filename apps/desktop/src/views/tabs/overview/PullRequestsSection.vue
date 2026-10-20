@@ -28,10 +28,15 @@ const pullRequests = computed(() => store.pullRequests);
 const groups = computed(() => groupPullRequests(pullRequests.value));
 const showGroupLabels = computed(() => groups.value.length > 1);
 
-// Other sessions linked to these pull requests: counted once per list the
-// session loads (a refresh reloads them). Pop-outs can't open another session.
+// Other sessions linked to these pull requests: counted once per set of pull
+// requests (the store skips a refresh that lists the same ones), and again if
+// the store let this session's counts go. Pop-outs can't open another session.
 watch(
-  [() => store.sessionId, pullRequests],
+  [
+    () => store.sessionId,
+    pullRequests,
+    () => (store.sessionId ? related.hasEntry(store.sessionId) : false),
+  ],
   ([id, prs]) => {
     if (id && !isViewer()) void related.loadRelatedCounts(id, prs);
   },
