@@ -10,7 +10,7 @@
 import { Transcript, text, toolUse } from "./claude-transcript.mjs";
 
 export const copilotPullRequestSessionId = "72510000-0000-4000-8000-000000000005";
-export const claudePullRequestSessionId = "c1a0de00-0000-4000-8000-00000000000c";
+export const claudePullRequestSessionId = "c1a0de00-0000-4000-8000-00000000000d";
 
 const copilotStart = "2026-03-21T09:00:00.000Z";
 const done = (output) => `${output}\n<exited with exit code 0>`;

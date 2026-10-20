@@ -17,10 +17,12 @@ export function primaryPullRequest(prs: readonly SessionPullRequest[]): SessionP
   return prs.find((pr) => pr.primary) ?? prs[0] ?? null;
 }
 
-/** `head → base`, or null when the transcript named neither. */
+/** `head → base`, the one branch the transcript named, or null for neither. */
 export function pullRequestBranches(pr: SessionPullRequest): string | null {
-  if (!pr.headRef && !pr.baseRef) return null;
-  return `${pr.headRef ?? "?"} → ${pr.baseRef ?? "?"}`;
+  if (pr.headRef && pr.baseRef) return `${pr.headRef} → ${pr.baseRef}`;
+  if (pr.headRef) return pr.headRef;
+  if (pr.baseRef) return `→ ${pr.baseRef}`;
+  return null;
 }
 
 /** Title line, branches and role, one per line. */
