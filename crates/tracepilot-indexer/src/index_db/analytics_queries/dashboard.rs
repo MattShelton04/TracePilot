@@ -38,8 +38,9 @@ pub(super) fn query_analytics(
     // (tokens, cost, premium requests, AI Credits) counts only inside the
     // range: each session's lifetime total minus its segments that ended on a
     // day outside it. Without a date filter they are the lifetime totals.
-    // Turns, tool calls, incidents and the per-turn and per-second averages
-    // stay whole-session values; per-model usage below follows the same rule.
+    // Turns, tool calls, compactions, truncations and the per-turn and
+    // per-second averages stay whole-session values; per-model usage below
+    // follows the same rule. Rate limits are the incident day rows' sum.
     // See `helpers::range_usage`.
     //
     // The day charts count the same in-range runs plus runs of sessions last
@@ -57,7 +58,6 @@ pub(super) fn query_analytics(
                         (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)
                     END), 0),
                     COUNT(CASE WHEN error_count > 0 THEN 1 END),
-                    COALESCE(SUM(rate_limit_count), 0),
                     COALESCE(SUM(compaction_count), 0),
                     COALESCE(SUM(truncation_count), 0),
                     COALESCE(SUM({IN_RANGE_NANO_AIU}), 0),
@@ -78,7 +78,6 @@ pub(super) fn query_analytics(
         total_api_duration_ms_sum,
         output_tokens_with_duration,
         sessions_with_errors,
-        total_rate_limits,
         total_compactions,
         total_truncations,
         total_nano_aiu,
@@ -95,7 +94,6 @@ pub(super) fn query_analytics(
         i64,
         i64,
         u32,
-        i64,
         i64,
         i64,
         i64,
@@ -118,7 +116,6 @@ pub(super) fn query_analytics(
             row.get(12)?,
             row.get(13)?,
             row.get(14)?,
-            row.get(15)?,
         ))
     })?;
 
@@ -278,37 +275,15 @@ pub(super) fn query_analytics(
         0.0
     };
 
-    // Incidents by day.
-    //
-    // NOTE: Incident counts (`error_count`, `rate_limit_count`, etc.) are pre-aggregated
-    // on the session row with no per-segment or per-turn timestamps.  Incidents are
-    // therefore attributed to the session's *last-active* date
-    // (`COALESCE(updated_at, created_at)`), not to the exact day they occurred.  For
-    // single-day sessions this is exact; for long-running sessions that span the range
-    // boundary the chart date reflects when the session ended, not when each incident
-    // happened.  Fixing this would require storing per-incident timestamps (future work).
-    let ibd_sql = format!(
-        "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,
-                    COALESCE(SUM(s.error_count), 0),
-                    COALESCE(SUM(s.rate_limit_count), 0),
-                    COALESCE(SUM(s.compaction_count), 0),
-                    COALESCE(SUM(s.truncation_count), 0)
-             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
-        where_clause
-    );
-    let refs = to_refs(&bind_values);
-    let mut ibd_stmt = conn.prepare(&ibd_sql)?;
-    let incidents_by_day: Vec<DayIncidents> = ibd_stmt
-        .query_map(params_from_iter(refs.iter().copied()), |row| {
-            Ok(DayIncidents {
-                date: row.get(0)?,
-                errors: row.get::<_, i64>(1)?.max(0) as u64,
-                rate_limits: row.get::<_, i64>(2)?.max(0) as u64,
-                compactions: row.get::<_, i64>(3)?.max(0) as u64,
-                truncations: row.get::<_, i64>(4)?.max(0) as u64,
-            })
-        })?
-        .collect::<std::result::Result<_, _>>()?;
+    let incidents_by_day = query_incidents_by_day(
+        conn,
+        (&where_clause, &bind_values),
+        (&run_where, &run_values),
+        from_date,
+        to_date,
+    )?;
+    // The day rows' sum, so the headline and the charts count the same.
+    let total_rate_limits: u64 = incidents_by_day.iter().map(|d| d.rate_limits).sum();
 
     Ok(AnalyticsData {
         total_sessions,
@@ -331,11 +306,17 @@ pub(super) fn query_analytics(
         },
         cache_stats,
         sessions_with_errors,
-        total_rate_limits: total_rate_limits.max(0) as u64,
+        total_rate_limits,
         total_compactions: total_compactions.max(0) as u64,
         total_truncations: total_truncations.max(0) as u64,
         incidents_by_day,
-        prompt_cache: super::prompt_cache::query_prompt_cache(conn, &where_clause, &bind_values)?,
+        prompt_cache: super::prompt_cache::query_prompt_cache(
+            conn,
+            &where_clause,
+            &bind_values,
+            from_date,
+            to_date,
+        )?,
         cost_by_source: super::source_cost::query_cost_by_source(
             conn,
             &where_clause,
@@ -351,4 +332,93 @@ pub(super) fn query_analytics(
             to_date,
         )?,
     })
+}
+
+/// The day an incident happened; an untimestamped one takes its session's
+/// last-active day.
+const INCIDENT_DAY: &str =
+    "COALESCE(date(i.timestamp), date(COALESCE(s.updated_at, s.created_at)))";
+
+/// Incidents by day.
+///
+/// Every error and rate limit has its own timestamped `session_incidents` row
+/// (analytics v20), so they count on the day they happened, selected like the
+/// runs: by that day alone, with the repository, source and hide-empty
+/// filters (`runs`). Compaction and truncation rows stop at
+/// `MAX_INCIDENTS_PER_SESSION`, so those two stay the session's counts on its
+/// last-active day, for the sessions `sessions` selects. Each of those
+/// sessions' days has a row, even with no incidents.
+fn query_incidents_by_day(
+    conn: &Connection,
+    sessions: (&str, &[String]),
+    runs: (&str, &[String]),
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+) -> Result<Vec<DayIncidents>> {
+    let (where_clause, bind_values) = sessions;
+    let session_sql = format!(
+        "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,
+                    COALESCE(SUM(s.compaction_count), 0),
+                    COALESCE(SUM(s.truncation_count), 0)
+             FROM sessions s{where_clause} AND d IS NOT NULL GROUP BY d"
+    );
+    let refs = to_refs(bind_values);
+    let mut stmt = conn.prepare(&session_sql)?;
+    let session_rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+        ))
+    })?;
+    let mut counts: Vec<(String, i64, i64, i64, i64)> = Vec::new();
+    for row in session_rows {
+        let (date, compactions, truncations) = row?;
+        counts.push((date, 0, 0, compactions, truncations));
+    }
+
+    let (run_where, run_values) = runs;
+    let error_where = format!("{run_where} AND i.event_type = 'error'");
+    let errors = query_day_bucketed(
+        conn,
+        DayBucketSpec {
+            from_clause: "session_incidents i JOIN sessions s ON s.id = i.session_id",
+            aggregate_expr: "COUNT(*), COUNT(CASE WHEN
+                CASE WHEN json_valid(i.detail_json) THEN json_extract(i.detail_json, '$.errorType') END
+                = 'rate_limit' THEN 1 END)",
+            bucket_column: INCIDENT_DAY,
+        },
+        &error_where,
+        run_values,
+        from_date,
+        to_date,
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        },
+    )?;
+    counts.extend(
+        errors
+            .into_iter()
+            .map(|(date, errors, rate_limits)| (date, errors, rate_limits, 0, 0)),
+    );
+
+    let mut by_day: std::collections::BTreeMap<String, DayIncidents> = Default::default();
+    for (date, errors, rate_limits, compactions, truncations) in counts {
+        let entry = by_day.entry(date.clone()).or_insert(DayIncidents {
+            date,
+            errors: 0,
+            rate_limits: 0,
+            compactions: 0,
+            truncations: 0,
+        });
+        entry.errors += errors.max(0) as u64;
+        entry.rate_limits += rate_limits.max(0) as u64;
+        entry.compactions += compactions.max(0) as u64;
+        entry.truncations += truncations.max(0) as u64;
+    }
+    Ok(by_day.into_values().collect())
 }
