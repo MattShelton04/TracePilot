@@ -114,10 +114,10 @@ export const claudeToolSamples = [
     "grep",
     "Grep",
     "grep",
-    { pattern: "ready", path: "src", "-i": true },
+    { pattern: "ready", path: "src", "-i": true, output_mode: "content", "-n": true },
     { mode: "content", content: `${file}:1:export const ready = true;` },
     `${file}:1:export const ready = true;`,
-    { pattern: "ready", path: "src", ignore_case: true },
+    { pattern: "ready", path: "src", ignore_case: true, output_mode: "content", "-n": true },
     ".grep-result",
   ),
   sample(
