@@ -57,7 +57,11 @@ function mountView(...outcomes: Outcome[]) {
       } else {
         store.error = null;
         store.skills = outcome.skills;
-        store.tokenBudget = { enabledTokens: 0, totalSkills: outcome.skills.length, enabledSkills: 0 };
+        store.tokenBudget = {
+          enabledTokens: 0,
+          totalSkills: outcome.skills.length,
+          enabledSkills: 0,
+        };
       }
       store.initialized = true;
     }),
