@@ -151,6 +151,25 @@ fn test_sanitize_prefix_preserved() {
 }
 
 #[test]
+fn test_sanitize_operator_word_prefix_is_a_quoted_term() {
+    // FTS5 reads a bare `OR*` as the operator and fails with a syntax error.
+    for (query, expected) in [
+        ("OR*", "\"OR\"*"),
+        ("AND*", "\"AND\"*"),
+        ("NOT* foo", "\"NOT\"* foo"),
+        ("foo bar AND*", "foo bar \"AND\"*"),
+        ("*OR", "\"OR\"*"),
+        ("(OR*)", "\"OR\"*"),
+        ("NEAR*", "\"NEAR\"*"),
+        ("foo OR OR*", "foo OR \"OR\"*"),
+        // Lowercase words were never operators and stay bare.
+        ("or*", "or*"),
+    ] {
+        assert_eq!(sanitize_fts_query(query), expected, "{query:?}");
+    }
+}
+
+#[test]
 fn test_sanitize_invalid_wildcards() {
     // Leading wildcard — normalized to trailing
     assert_eq!(sanitize_fts_query("*foo"), "foo*");

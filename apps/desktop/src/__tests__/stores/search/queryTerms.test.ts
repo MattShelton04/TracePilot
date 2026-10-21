@@ -25,6 +25,22 @@ describe("describeSearchText", () => {
     }
   });
 
+  it("counts an operator word with a prefix star as a term, as the indexer does", () => {
+    for (const text of ["OR*", "AND*", "NOT*", "NEAR*", "NOT* found", "ready OR*", "(OR*)"]) {
+      expect(describeSearchText(text).hasTerms, text).toBe(true);
+      expect(describeSearchText(text).startsWithNot, text).toBe(false);
+    }
+  });
+
+  it("keeps bare operators as operators next to starred ones", () => {
+    expect(describeSearchText("OR").hasTerms).toBe(false);
+    expect(describeSearchText("NOT").hasTerms).toBe(false);
+    expect(describeSearchText("NOT").startsWithNot).toBe(true);
+    expect(describeSearchText("NOT OR*")).toEqual({ hasTerms: false, startsWithNot: true });
+    expect(describeSearchText("*** NOT jwt")).toEqual({ hasTerms: false, startsWithNot: true });
+    expect(describeSearchText("ready OR")).toEqual({ hasTerms: true, startsWithNot: false });
+  });
+
   it("flags text that opens with an uppercase NOT", () => {
     expect(describeSearchText("NOT jwt").startsWithNot).toBe(true);
     expect(describeSearchText("NOT jwt error").startsWithNot).toBe(true);

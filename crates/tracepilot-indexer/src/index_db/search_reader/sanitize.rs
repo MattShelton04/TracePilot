@@ -37,11 +37,13 @@ const JOIN: char = '\u{1F}';
 /// FTS5 has a specific query syntax. Raw user input can cause parse errors.
 /// This function handles:
 /// - Balanced quotes (phrase search), including mixed phrases + terms
-/// - Prefix queries (word*)
+/// - Prefix queries (word*), including on an operator word: `OR*` becomes
+///   `"OR"*`, a prefix search for words starting with "or", and `NEAR*`
+///   becomes `"NEAR"*`
 /// - Boolean operators: like FTS5, only the uppercase spellings `AND`, `OR`
 ///   and `NOT` are operators; `and`, `or` and `not` are ordinary words
-/// - Stripping problematic characters (parentheses, colons, carets) and the
-///   `NEAR` keyword (words such as "nearby" are kept)
+/// - Stripping problematic characters (parentheses, colons, carets) and a
+///   bare `NEAR` keyword (`NEAR*` and words such as "nearby" are kept)
 /// - Words joined by punctuation (`index.ts`, `build-std`, `path/to/file`)
 ///   become a quoted phrase, so their parts must be adjacent as they are in
 ///   the text; words separated by spaces still match anywhere
@@ -208,6 +210,9 @@ fn bare_term(token: &str) -> Option<String> {
     }
     let term = match parts.as_slice() {
         [] => return None,
+        // An operator word written as a term (`OR*`) is quoted, or FTS5
+        // reads it as the operator and rejects the query.
+        [word] if OPERATORS.contains(&word.as_str()) || word == "NEAR" => format!("\"{word}\""),
         [word] => word.clone(),
         words => format!("\"{}\"", words.join(" ")),
     };

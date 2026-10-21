@@ -2490,6 +2490,39 @@
         "turn_number": 0
       },
       {
+        "content": "Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running",
+        "content_type": "tool_result",
+        "event_index": 70,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327827,
+        "tool_name": "write_agent",
+        "turn_number": 3
+      },
+      {
+        "content": "Message delivered to agent agent-alpha. The recipient can reply with write_agent.\nMessage to agent-alpha:\n6 * 7 = 42.",
+        "content_type": "tool_result",
+        "event_index": 57,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327825,
+        "tool_name": "write_agent",
+        "turn_number": 0
+      },
+      {
+        "content": "Message delivered to agent agent-beta. The recipient can reply with write_agent.\nMessage to agent-beta:\nalpha asks: what is 6*7?",
+        "content_type": "tool_result",
+        "event_index": 40,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327819,
+        "tool_name": "write_agent",
+        "turn_number": 0
+      },
+      {
         "content": "Nested output.",
         "content_type": "assistant_message",
         "event_index": 21,
@@ -2535,6 +2568,28 @@
         "session_id": "00000000-0000-4000-8000-000000000006",
         "timestamp_unix": 1789171210,
         "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+        "content_type": "tool_result",
+        "event_index": 22,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791078012,
+        "tool_name": "skill",
+        "turn_number": 2
+      },
+      {
+        "content": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+        "content_type": "tool_result",
+        "event_index": 7,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791077987,
+        "tool_name": "skill",
         "turn_number": 0
       },
       {
@@ -2704,61 +2759,6 @@
         "session_id": "00000000-0000-4000-8000-000000000005",
         "timestamp_unix": 1767225610,
         "tool_name": null,
-        "turn_number": 0
-      },
-      {
-        "content": "content: Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running",
-        "content_type": "tool_result",
-        "event_index": 70,
-        "id": "<wall-clock>",
-        "metadata_json": null,
-        "session_id": "00000000-0000-4000-8000-000000000009",
-        "timestamp_unix": 1790327827,
-        "tool_name": "write_agent",
-        "turn_number": 3
-      },
-      {
-        "content": "content: Message delivered to agent agent-alpha. The recipient can reply with write_agent.\ndetailedContent: Message to agent-alpha:\n6 * 7 = 42.",
-        "content_type": "tool_result",
-        "event_index": 57,
-        "id": "<wall-clock>",
-        "metadata_json": null,
-        "session_id": "00000000-0000-4000-8000-000000000009",
-        "timestamp_unix": 1790327825,
-        "tool_name": "write_agent",
-        "turn_number": 0
-      },
-      {
-        "content": "content: Message delivered to agent agent-beta. The recipient can reply with write_agent.\ndetailedContent: Message to agent-beta:\nalpha asks: what is 6*7?",
-        "content_type": "tool_result",
-        "event_index": 40,
-        "id": "<wall-clock>",
-        "metadata_json": null,
-        "session_id": "00000000-0000-4000-8000-000000000009",
-        "timestamp_unix": 1790327819,
-        "tool_name": "write_agent",
-        "turn_number": 0
-      },
-      {
-        "content": "content: Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
-        "content_type": "tool_result",
-        "event_index": 22,
-        "id": "<wall-clock>",
-        "metadata_json": null,
-        "session_id": "00000000-0000-4000-8000-00000000000a",
-        "timestamp_unix": 1791078012,
-        "tool_name": "skill",
-        "turn_number": 2
-      },
-      {
-        "content": "content: Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
-        "content_type": "tool_result",
-        "event_index": 7,
-        "id": "<wall-clock>",
-        "metadata_json": null,
-        "session_id": "00000000-0000-4000-8000-00000000000a",
-        "timestamp_unix": 1791077987,
-        "tool_name": "skill",
         "turn_number": 0
       },
       {
@@ -4393,7 +4393,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000003",
         "rate_limit_count": 0,
         "repository": "org/project",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4447,7 +4447,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000005",
         "rate_limit_count": 0,
         "repository": "golden/v1-0-24",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4501,7 +4501,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000006",
         "rate_limit_count": 0,
         "repository": "golden/agents",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4555,7 +4555,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000007",
         "rate_limit_count": 0,
         "repository": "golden/multiturn",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4609,7 +4609,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000009",
         "rate_limit_count": 0,
         "repository": "golden/agent-messaging",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4663,7 +4663,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-00000000000a",
         "rate_limit_count": 0,
         "repository": "golden/skill-refs",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4717,7 +4717,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000001",
         "rate_limit_count": 0,
         "repository": "user/repo",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4771,7 +4771,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000008",
         "rate_limit_count": 0,
         "repository": "golden/prompt-cache",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4825,7 +4825,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-00000000000b",
         "rate_limit_count": 0,
         "repository": "golden/schema-v1-0-91",
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4879,7 +4879,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000004",
         "rate_limit_count": 0,
         "repository": null,
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": {
@@ -4930,7 +4930,7 @@
         "path": "<sessions>/00000000-0000-4000-8000-000000000002",
         "rate_limit_count": 0,
         "repository": null,
-        "search_extractor_version": 4,
+        "search_extractor_version": 5,
         "search_indexed_at": "<wall-clock>",
         "search_source_fingerprint": {
           "json": null
