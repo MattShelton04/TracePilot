@@ -3,7 +3,7 @@ use crate::document::{
     PortableSessionMetadata, SessionArchive,
 };
 use crate::options::RedactionOptions;
-use tracepilot_core::models::conversation::ConversationTurn;
+use tracepilot_core::models::conversation::{ConversationTurn, SkillInvocationEvent};
 
 use super::patterns::RedactionPattern;
 use super::policy::collect_active_patterns;
@@ -158,10 +158,16 @@ fn redact_turn(
         if let Some(ref mut args) = tc.arguments {
             redact_json_value(args, patterns, stats);
         }
+        if let Some(skill) = &mut tc.skill_invocation {
+            redact_skill_invocation(skill, patterns, stats);
+        }
     }
 
     for event in &mut turn.session_events {
         redact_string(&mut event.summary, patterns, stats);
+        if let Some(skill) = &mut event.skill_invocation {
+            redact_skill_invocation(skill, patterns, stats);
+        }
     }
 
     for msg in &mut turn.system_messages {
@@ -173,6 +179,19 @@ fn redact_turn(
             redact_json_value(attachment, patterns, stats);
         }
     }
+}
+
+/// Redact a loaded skill's text: its `SKILL.md` path, which usually sits under
+/// a home directory, and the description and body copied from that file.
+fn redact_skill_invocation(
+    skill: &mut SkillInvocationEvent,
+    patterns: &[&RedactionPattern],
+    stats: &mut RedactionStats,
+) {
+    redact_opt_string(&mut skill.name, patterns, stats);
+    redact_opt_string(&mut skill.path, patterns, stats);
+    redact_opt_string(&mut skill.description, patterns, stats);
+    redact_opt_string(&mut skill.content, patterns, stats);
 }
 
 /// Redact checkpoint titles, filenames, and content.

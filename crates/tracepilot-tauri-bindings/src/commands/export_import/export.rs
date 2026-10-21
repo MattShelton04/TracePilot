@@ -16,10 +16,10 @@ use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInf
 use tracepilot_core::SessionId;
 use tracepilot_core::parsing::session_db::list_tables;
 use tracepilot_core::provider::ResolvedSession;
-use tracepilot_export::SectionId;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
 };
+use tracepilot_export::{ExportError, ExportFile, SectionId};
 
 // ── Helper Functions ──────────────────────────────────────────────────────
 
@@ -120,6 +120,30 @@ fn check_custom_tables(db_path: &Path) -> bool {
     }
 }
 
+/// Write the rendered files: a single file to `out`, several beside it under
+/// their own names. Returns the bytes written. A failed write names the file.
+fn write_export_files(out: &Path, files: &[ExportFile]) -> CmdResult<u64> {
+    tracepilot_core::utils::fs::ensure_parent_dir(out)?;
+
+    let write = |dest: &Path, file: &ExportFile| {
+        std::fs::write(dest, &file.content).map_err(|e| ExportError::io(dest, e))
+    };
+    let mut total_size: u64 = 0;
+    if let [file] = files {
+        write(out, file)?;
+        total_size = file.content.len() as u64;
+    } else {
+        let parent_dir = out
+            .parent()
+            .ok_or_else(|| BindingsError::Validation("Invalid output path".into()))?;
+        for file in files {
+            write(&parent_dir.join(&file.filename), file)?;
+            total_size += file.content.len() as u64;
+        }
+    }
+    Ok(total_size)
+}
+
 // ── Export Commands ────────────────────────────────────────────────────────
 
 /// Export one or more sessions to the requested format and write to `output_path`.
@@ -183,23 +207,7 @@ pub async fn export_sessions(
             ));
         }
 
-        let out = PathBuf::from(&output_path);
-        tracepilot_core::utils::fs::ensure_parent_dir(&out)?;
-
-        let mut total_size: u64 = 0;
-        if files.len() == 1 {
-            std::fs::write(&out, &files[0].content)?;
-            total_size = files[0].content.len() as u64;
-        } else {
-            let parent_dir = out
-                .parent()
-                .ok_or_else(|| BindingsError::Validation("Invalid output path".into()))?;
-            for file in &files {
-                let dest = parent_dir.join(&file.filename);
-                std::fs::write(&dest, &file.content)?;
-                total_size += file.content.len() as u64;
-            }
-        }
+        let total_size = write_export_files(Path::new(&output_path), &files)?;
 
         let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
@@ -380,87 +388,5 @@ pub async fn get_session_sections(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn build_export_detail_options_uses_defaults_when_all_none() {
-        let (content, redaction) = build_export_detail_options(None, None, None, None, None, None);
-        let default_content = ContentDetailOptions::default();
-        let default_redaction = RedactionOptions::default();
-
-        assert_eq!(
-            content.include_subagent_internals,
-            default_content.include_subagent_internals
-        );
-        assert_eq!(
-            content.include_tool_details,
-            default_content.include_tool_details
-        );
-        assert_eq!(
-            content.include_full_tool_results,
-            default_content.include_full_tool_results
-        );
-
-        assert_eq!(redaction.anonymize_paths, default_redaction.anonymize_paths);
-        assert_eq!(redaction.strip_secrets, default_redaction.strip_secrets);
-        assert_eq!(redaction.strip_pii, default_redaction.strip_pii);
-    }
-
-    #[test]
-    fn build_export_detail_options_respects_explicit_values() {
-        let (content, redaction) = build_export_detail_options(
-            Some(false),
-            Some(false),
-            Some(true),
-            Some(true),
-            Some(true),
-            Some(true),
-        );
-
-        assert!(!content.include_subagent_internals);
-        assert!(!content.include_tool_details);
-        assert!(content.include_full_tool_results);
-
-        assert!(redaction.anonymize_paths);
-        assert!(redaction.strip_secrets);
-        assert!(redaction.strip_pii);
-    }
-
-    #[test]
-    fn build_export_detail_options_handles_partial_overrides() {
-        let (content, redaction) =
-            build_export_detail_options(Some(false), None, None, None, Some(true), None);
-
-        assert!(!content.include_subagent_internals); // overridden
-        assert!(content.include_tool_details); // default
-        assert!(!content.include_full_tool_results); // default
-
-        assert!(!redaction.anonymize_paths); // default
-        assert!(redaction.strip_secrets); // overridden
-        assert!(!redaction.strip_pii); // default
-    }
-
-    #[test]
-    fn empty_sections_returns_empty_set() {
-        let result = parse_sections(&[]).unwrap();
-        assert!(
-            result.is_empty(),
-            "empty input should produce empty set, not all sections"
-        );
-    }
-
-    #[test]
-    fn explicit_sections_are_parsed() {
-        let result = parse_sections(&["conversation".to_string(), "plan".to_string()]).unwrap();
-        assert_eq!(result.len(), 2);
-        assert!(result.contains(&SectionId::Conversation));
-        assert!(result.contains(&SectionId::Plan));
-    }
-
-    #[test]
-    fn unknown_section_returns_error() {
-        let result = parse_sections(&["nonexistent".to_string()]);
-        assert!(result.is_err());
-    }
-}
+#[path = "export_tests.rs"]
+mod tests;

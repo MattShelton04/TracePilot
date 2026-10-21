@@ -22,4 +22,6 @@ pub use engine::apply_redaction;
 pub use stats::RedactionStats;
 
 #[cfg(test)]
+mod skill_tests;
+#[cfg(test)]
 mod tests;
