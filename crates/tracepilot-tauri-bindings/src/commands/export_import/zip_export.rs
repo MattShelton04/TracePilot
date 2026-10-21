@@ -52,7 +52,7 @@ fn write_folder_zip(session_path: &Path, dest: &Path) -> CmdResult<()> {
     result
 }
 
-/// A hidden sibling of `dest`, unique to this process.
+/// A dot-prefixed sibling of `dest` (hidden on Unix), unique to this process.
 fn partial_path(dest: &Path) -> PathBuf {
     let name = dest.file_name().unwrap_or_default().to_string_lossy();
     dest.with_file_name(format!(".{name}.{}.partial", std::process::id()))
