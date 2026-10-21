@@ -29,6 +29,23 @@ describe("registry", () => {
       expect(entry?.label).toBe("Shell (Terminal Output)");
     });
 
+    it("registers the macOS/Linux bash shell family like the powershell family", () => {
+      for (const [bash, powershell] of [
+        ["bash", "powershell"],
+        ["read_bash", "read_powershell"],
+        ["write_bash", "write_powershell"],
+        ["stop_bash", "stop_powershell"],
+      ]) {
+        expect(hasResultRenderer(bash)).toBe(hasResultRenderer(powershell));
+        expect(hasArgsRenderer(bash)).toBe(hasArgsRenderer(powershell));
+        expect(getRendererEntry(bash)?.label).toContain("Bash");
+      }
+      const names = getRegisteredRenderers().map((r) => r.toolName);
+      expect(names).toEqual(
+        expect.arrayContaining(["bash", "read_bash", "write_bash", "stop_bash"]),
+      );
+    });
+
     it("returns entry for 'sql'", () => {
       const entry = getRendererEntry("sql");
       expect(entry).toBeDefined();

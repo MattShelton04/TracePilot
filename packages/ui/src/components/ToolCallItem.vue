@@ -234,7 +234,7 @@ watch(
         via {{ tc.mcpServerName }}{{ tc.mcpToolName ? ` → ${tc.mcpToolName}` : "" }}
       </span>
 
-      <span class="ml-auto flex items-center gap-2 flex-shrink-0">
+      <span class="tool-call-meta">
         <!-- Permission status pill (paired permission.* events) -->
         <span
           v-if="permissionStatus"
@@ -292,6 +292,15 @@ watch(
 </template>
 
 <style scoped>
+/* Duration, status and chevron sit at the far right even without an argument summary. */
+.tool-call-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .tool-call-exit {
   padding: 1px 6px;
   border-radius: 999px;

@@ -34,18 +34,18 @@ const status = useToolCallStatus(() => props.tc);
 const background = computed(() => backgroundOutcomeView(props.tc));
 // The recorded exit code outlives result text the CLI may strip.
 const exitCode = computed(() => props.tc.exitCode ?? terminal.value.exitCode);
+const SHELL_TITLES: Record<string, string> = {
+  powershell: "PowerShell",
+  bash: "Bash",
+  read_powershell: "Read shell",
+  read_bash: "Read shell",
+  write_powershell: "Write to shell",
+  write_bash: "Write to shell",
+  stop_powershell: "Stop shell",
+  stop_bash: "Stop shell",
+};
 const title = computed(
-  () =>
-    props.tc.nativeToolName ??
-    (props.tc.toolName === "read_powershell"
-      ? "Read shell"
-      : props.tc.toolName === "write_powershell"
-        ? "Write to shell"
-        : props.tc.toolName === "stop_powershell"
-          ? "Stop shell"
-          : props.tc.toolName === "powershell"
-            ? "PowerShell"
-            : props.tc.toolName),
+  () => props.tc.nativeToolName ?? SHELL_TITLES[props.tc.toolName] ?? props.tc.toolName,
 );
 const processLabel = computed(() => {
   if (background.value) return "";

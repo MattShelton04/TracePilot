@@ -155,6 +155,35 @@ export function richToolVariants(richToolSamples, { agent, reviewer, source }) {
       arguments: { shellId: "0", delay: 1 },
       viewState: "read completed while shell runs",
     }),
+    // macOS and Linux Copilot CLI sessions use the bash shell family.
+    variant("powershell", "bash", {
+      toolName: "bash",
+      arguments: { command: "pnpm test --reporter=dot", description: "Run the greeting tests" },
+      content:
+        "\u001b[32m··\u001b[0m\n\nTest Files  1 passed (1)\nTests       2 passed (2)\n<exited with exit code 0>",
+    }),
+    variant("powershell", "bash-running", {
+      toolName: "bash",
+      arguments: { command: "pnpm build", description: "Build the synthetic app" },
+      content: null,
+      viewState: "running invocation before first output",
+    }),
+    variant("read-powershell", "read-bash", {
+      toolName: "read_bash",
+      arguments: { shellId: "fixture-bash-1", delay: 1 },
+      content:
+        "Building desktop fixture…\nCompiled 18 modules.\n<shellId: fixture-bash-1 completed with exit code 0>",
+    }),
+    variant("write-powershell", "write-bash", {
+      toolName: "write_bash",
+      arguments: { shellId: "fixture-bash-1", chars: "y\n" },
+      content: "Continue? [y/N] y\nConfiguration saved.\n<shellId: fixture-bash-1 running>",
+    }),
+    variant("powershell", "stop-bash", {
+      toolName: "stop_bash",
+      arguments: { shellId: "fixture-bash-1" },
+      content: "Shell fixture-bash-1 stopped.",
+    }),
     variant("sql", "sql-mixed", {
       content:
         '[{"id":1,"label":"","value":null,"data":{"ready":true}},{"id":2,"later":false,"value":23.5}]',

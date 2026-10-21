@@ -79,6 +79,23 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Stop Shell",
     resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
   },
+  // Copilot CLI on macOS and Linux names its shell tools after bash.
+  bash: {
+    label: "Bash (Terminal Output)",
+    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+  },
+  read_bash: {
+    label: "Read Bash (Terminal Output)",
+    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+  },
+  write_bash: {
+    label: "Write Bash",
+    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+  },
+  stop_bash: {
+    label: "Stop Bash",
+    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+  },
   sql: {
     label: "SQL (Query + Table)",
     resultComponent: defineAsyncComponent(() => import("./SqlResultRenderer.vue")),
