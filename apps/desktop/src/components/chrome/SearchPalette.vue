@@ -226,6 +226,13 @@ onUnmounted(() => search.dispose());
 </template>
 
 <style scoped>
+/* Hold the palette's top edge still while results grow and shrink; the shared
+   modal centres vertically, which moved the input as you typed. 20vh is where
+   the full-height palette sat when centred. */
+:global(.modal:has(> .modal-body > .palette-modal)) {
+  align-self: flex-start;
+  margin-top: 20vh;
+}
 .palette-modal {
   display: flex;
   flex-direction: column;

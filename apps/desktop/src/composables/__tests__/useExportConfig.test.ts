@@ -48,6 +48,42 @@ describe("useExportConfig", () => {
     });
   });
 
+  it("a custom preset brings back its content detail and redaction", () => {
+    const config = useExportConfig();
+    config.applyPreset("agent-context");
+    config.updateRedaction("stripSecrets", true);
+    config.updateContentDetail("includeToolDetails", false);
+    config.saveAsPreset("Share");
+    const share = config.activePreset.value as string;
+
+    // Full-Fidelity Backup turns redaction off and tool details on.
+    config.applyPreset("full-fidelity-backup");
+    config.applyPreset(share);
+
+    expect(config.activePreset.value).toBe(share);
+    expect(config.redaction.value).toEqual({
+      anonymizePaths: false,
+      stripSecrets: true,
+      stripPii: false,
+    });
+    expect(config.contentDetail.value).toEqual({
+      includeSubagentInternals: true,
+      includeToolDetails: false,
+      includeFullToolResults: false,
+    });
+  });
+
+  it("clears activePreset when an option changes by hand", () => {
+    const config = useExportConfig();
+    config.applyPreset("minimal-team-log");
+    config.updateRedaction("stripPii", true);
+    expect(config.activePreset.value).toBeNull();
+
+    config.applyPreset("minimal-team-log");
+    config.updateContentDetail("includeToolDetails", true);
+    expect(config.activePreset.value).toBeNull();
+  });
+
   it("clears activePreset when format changes manually", async () => {
     const config = useExportConfig();
 
@@ -64,7 +100,7 @@ describe("useExportConfig", () => {
 // Each useExportConfig() call stands for one visit to the Export tab: the
 // view mounts it afresh after Import, a reload or a restart.
 describe("useExportConfig persistence", () => {
-  it("restores format, sections, detail, redaction and the active preset", async () => {
+  it("restores format, sections, detail and redaction", async () => {
     const first = useExportConfig();
     first.applyPreset("agent-context");
     first.toggleSection("metrics");
@@ -77,7 +113,8 @@ describe("useExportConfig persistence", () => {
 
     expect(next.format.value).toBe("markdown");
     expect(new Set(next.sectionsArray.value)).toEqual(new Set(["conversation", "plan", "todos"]));
-    expect(next.activePreset.value).toBe("minimal-team-log");
+    // The options changed after the preset, so it is no longer active.
+    expect(next.activePreset.value).toBeNull();
     expect(next.redaction.value).toEqual({
       anonymizePaths: false,
       stripSecrets: true,
@@ -110,6 +147,81 @@ describe("useExportConfig persistence", () => {
     next.applyPreset(saved as string);
     expect(next.activePreset.value).toBe(saved);
     expect(next.sectionsArray.value).toEqual(["plan"]);
+  });
+
+  it("keeps a custom preset's content detail and redaction across visits", async () => {
+    const first = useExportConfig();
+    first.updateRedaction("stripSecrets", true);
+    first.updateRedaction("anonymizePaths", true);
+    first.updateContentDetail("includeFullToolResults", true);
+    first.saveAsPreset("Share");
+    await nextTick();
+    const share = first.activePreset.value as string;
+
+    const next = useExportConfig();
+    next.applyPreset("full-fidelity-backup");
+    next.applyPreset(share);
+
+    expect(next.redaction.value).toEqual({
+      anonymizePaths: true,
+      stripSecrets: true,
+      stripPii: false,
+    });
+    expect(next.contentDetail.value).toEqual({
+      includeSubagentInternals: true,
+      includeToolDetails: true,
+      includeFullToolResults: true,
+    });
+  });
+
+  it("still loads a custom preset saved without content detail or redaction", () => {
+    const options = readExportOptions(
+      JSON.stringify({
+        redaction: { stripSecrets: true },
+        customPresets: [
+          { id: "custom-1", label: "Old", format: "markdown", sections: ["plan"] },
+          {
+            id: "custom-2",
+            label: "Partial",
+            format: "json",
+            sections: [],
+            contentDetail: { includeToolDetails: false, extra: true },
+            redaction: { stripPii: true, anonymizePaths: "yes" },
+          },
+        ],
+      }),
+    );
+
+    const [old, partial] = options.customPresets;
+    expect(old).toMatchObject({ id: "custom-1", format: "markdown", sections: ["plan"] });
+    expect(old.contentDetail).toBeUndefined();
+    expect(old.redaction).toBeUndefined();
+    expect(partial.contentDetail).toEqual({
+      includeSubagentInternals: true,
+      includeToolDetails: false,
+      includeFullToolResults: false,
+    });
+    expect(partial.redaction).toEqual({
+      anonymizePaths: false,
+      stripSecrets: false,
+      stripPii: true,
+    });
+  });
+
+  it("leaves the current options alone when applying an old custom preset", () => {
+    localStorage.setItem(
+      STORAGE_KEYS.exportOptions,
+      JSON.stringify({
+        customPresets: [{ id: "custom-1", label: "Old", format: "markdown", sections: ["plan"] }],
+      }),
+    );
+    const config = useExportConfig();
+    config.updateRedaction("stripSecrets", true);
+
+    config.applyPreset("custom-1");
+
+    expect(config.activePreset.value).toBe("custom-1");
+    expect(config.redaction.value.stripSecrets).toBe(true);
   });
 
   it("remembers a manual change that cleared the preset", async () => {
