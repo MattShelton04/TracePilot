@@ -38,11 +38,12 @@ const JOIN: char = '\u{1F}';
 /// This function handles:
 /// - Balanced quotes (phrase search), including mixed phrases + terms
 /// - Prefix queries (word*), including on an operator word: `OR*` becomes
-///   `"OR"*`, a prefix search for words starting with "or"
+///   `"OR"*`, a prefix search for words starting with "or", and `NEAR*`
+///   becomes `"NEAR"*`
 /// - Boolean operators: like FTS5, only the uppercase spellings `AND`, `OR`
 ///   and `NOT` are operators; `and`, `or` and `not` are ordinary words
-/// - Stripping problematic characters (parentheses, colons, carets) and the
-///   `NEAR` keyword (words such as "nearby" are kept)
+/// - Stripping problematic characters (parentheses, colons, carets) and a
+///   bare `NEAR` keyword (`NEAR*` and words such as "nearby" are kept)
 /// - Words joined by punctuation (`index.ts`, `build-std`, `path/to/file`)
 ///   become a quoted phrase, so their parts must be adjacent as they are in
 ///   the text; words separated by spaces still match anywhere
