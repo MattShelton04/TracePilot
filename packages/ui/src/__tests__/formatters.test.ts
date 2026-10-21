@@ -341,7 +341,8 @@ describe("formatNumber", () => {
     expect(formatNumber(1_000)).toBe("1K");
     expect(formatNumber(1_234)).toBe("1.2K");
     expect(formatNumber(12_345)).toBe("12.3K");
-    expect(formatNumber(999_999)).toBe("1000K");
+    expect(formatNumber(999_949)).toBe("999.9K");
+    expect(formatNumber(999_999)).toBe("1M"); // boundaries: packages/types/tests
   });
 
   it("formats numbers under 1000 without suffix", () => {
@@ -379,7 +380,8 @@ describe("formatDuration", () => {
     expect(formatDuration(1000)).toBe("1s");
     expect(formatDuration(2100)).toBe("2.1s");
     expect(formatDuration(59_000)).toBe("59s");
-    expect(formatDuration(59_999)).toBe("60s"); // Formats with decimal
+    expect(formatDuration(59_949)).toBe("59.9s");
+    expect(formatDuration(59_999)).toBe("1m 0s"); // boundaries: packages/types/tests
   });
 
   it("formats minutes and seconds", () => {
