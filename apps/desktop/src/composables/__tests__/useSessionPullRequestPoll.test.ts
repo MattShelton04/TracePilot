@@ -36,7 +36,7 @@ describe("useSessionPullRequestPoll", () => {
   let sessionId: Ref<string | null>;
   let pullRequests: Ref<SessionPullRequest[]>;
   let active: Ref<boolean>;
-  let refresh: ReturnType<typeof vi.fn>;
+  let refresh: ReturnType<typeof vi.fn<() => Promise<null>>>;
   let scope: ReturnType<typeof effectScope>;
   let hidden = false;
 
