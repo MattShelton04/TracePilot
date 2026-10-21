@@ -122,3 +122,52 @@ fn durations_match_the_apps_format_duration() {
         assert_eq!(format_duration(ms), expected, "{ms}ms");
     }
 }
+
+/// Model Usage writes a token count the source didn't report as "—", like
+/// Requests, rather than 0; a reported zero stays 0.
+#[test]
+fn model_usage_marks_unknown_token_counts() {
+    use tracepilot_core::models::event_types::{ModelMetricDetail, RequestMetrics, UsageMetrics};
+    let mut session = minimal_session();
+    let mut metrics = ShutdownMetrics::default();
+    metrics.model_metrics.insert(
+        "partial".into(),
+        ModelMetricDetail {
+            requests: Some(RequestMetrics {
+                count: Some(2),
+                cost: None,
+            }),
+            usage: Some(UsageMetrics {
+                input_tokens: Some(1200),
+                output_tokens: Some(0),
+                cache_read_tokens: None,
+                cache_write_tokens: None,
+                reasoning_tokens: None,
+            }),
+            total_nano_aiu: None,
+            token_details: None,
+        },
+    );
+    metrics.model_metrics.insert(
+        "snapshot-only".into(),
+        ModelMetricDetail {
+            requests: None,
+            usage: None,
+            total_nano_aiu: None,
+            token_details: None,
+        },
+    );
+    session.shutdown_metrics = Some(metrics);
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+
+    assert!(
+        text.contains("| partial | 2 | — | 1200 | 0 | — | — |"),
+        "{text}"
+    );
+    assert!(
+        text.contains("| snapshot-only | — | — | — | — | — | — |"),
+        "{text}"
+    );
+}
