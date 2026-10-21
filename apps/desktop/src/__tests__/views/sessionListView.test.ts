@@ -403,11 +403,11 @@ describe("Session list freshness while it stays open", () => {
     vi.spyOn(store, "refreshSessions").mockResolvedValue(undefined);
     wrapper = renderWithCards();
     await flushPromises();
-    expect(wrapper.get(".card-time-new").text()).toBe("just now");
+    expect(wrapper.get(".card-time-new").text()).toBe("now");
 
     vi.advanceTimersByTime(5 * 60_000);
     await flushPromises();
-    expect(wrapper.get(".card-time-new").text()).toBe("5m ago");
+    expect(wrapper.get(".card-time-new").text()).toBe("5m");
   });
 });
 

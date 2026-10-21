@@ -60,11 +60,12 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("5");
   });
 
-  it("groups a large event count the way the session Overview does", () => {
+  it("abbreviates large counts so the footer stays on one line, exact on hover", () => {
     const wrapper = mount(SessionCard, {
-      props: { session: makeSession({ id: "big", eventCount: 12_345 }) },
+      props: { session: makeSession({ id: "big", eventCount: 12_345, turnCount: 1_153 }) },
     });
-    expect(wrapper.get('[title="Total Events"]').text()).toBe("12,345");
+    expect(wrapper.get('[title="12,345 events"]').text()).toBe("12.3K");
+    expect(wrapper.get('[title="1,153 conversation turns"]').text()).toBe("1.2K");
   });
 
   it("shows relative time for updatedAt", () => {
@@ -77,7 +78,8 @@ describe("SessionCard", () => {
         }),
       },
     });
-    expect(wrapper.text()).toContain("1h ago");
+    // Short form: the footer has no room for "ago"; the timestamp is on hover.
+    expect(wrapper.get(".card-time-new").text()).toBe("1h");
   });
 
   it("shows model badge when currentModel is present", () => {

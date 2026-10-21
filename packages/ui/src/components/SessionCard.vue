@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
 import {
+  formatNumber,
   formatNumberFull,
   formatRelativeTime,
   isNonCopilotSource,
@@ -43,6 +44,17 @@ const rateLimitCount = computed(() => props.session.rateLimitCount ?? 0);
 const errorCount = computed(() =>
   Math.max(0, (props.session.errorCount ?? 0) - rateLimitCount.value),
 );
+
+// The footer is one line however much it holds: counts are abbreviated and the
+// age drops "ago", with the exact values on hover.
+const eventCount = computed(() => props.session.eventCount ?? 0);
+const turnCount = computed(() => props.session.turnCount ?? 0);
+
+/** Called on every render, not cached, so the list's clock tick moves it on. */
+function age(updatedAt: string | null | undefined): string {
+  const relative = formatRelativeTime(updatedAt);
+  return relative === "just now" ? "now" : relative.replace(/ ago$/, "");
+}
 
 // The pull request that stands for the session, coloured by its state once known.
 const linkedPrs = computed(() => props.session.linkedPullRequests ?? null);
@@ -130,13 +142,13 @@ function activeTitle(): string {
 
     <div class="card-footer-new">
       <div class="card-stats-new">
-        <span class="stat-item-inline" title="Total Events">
+        <span class="stat-item-inline" :title="`${formatNumberFull(eventCount)} events`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          {{ formatNumberFull(session.eventCount ?? 0) }}
+          {{ formatNumber(eventCount) }}
         </span>
-        <span class="stat-item-inline" title="Conversation Turns">
+        <span class="stat-item-inline" :title="`${formatNumberFull(turnCount)} conversation turns`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          {{ session.turnCount ?? 0 }}
+          {{ formatNumber(turnCount) }}
         </span>
         <span v-if="errorCount" class="stat-item-inline error" :title="`${errorCount} error${errorCount !== 1 ? 's' : ''} encountered`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -170,7 +182,7 @@ function activeTitle(): string {
         </span>
       </div>
       <span class="card-footer-end">
-        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ age(session.updatedAt) }}</span>
         <span
           class="card-source-logo"
           :class="isClaude(session) ? 'card-source-logo--claude' : 'card-source-logo--copilot'"
@@ -231,6 +243,7 @@ function activeTitle(): string {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding-top: 16px;
   border-top: 1px solid var(--border-subtle);
 }
@@ -238,13 +251,17 @@ function activeTitle(): string {
 .card-stats-new {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  min-width: 0;
+  /* A last resort: clip rather than run into the age. */
+  overflow: hidden;
 }
 
 .stat-item-inline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
@@ -291,6 +308,7 @@ function activeTitle(): string {
 
 .card-footer-end {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
 }
@@ -307,6 +325,7 @@ function activeTitle(): string {
 }
 
 .card-time-new {
+  white-space: nowrap;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-tertiary);
