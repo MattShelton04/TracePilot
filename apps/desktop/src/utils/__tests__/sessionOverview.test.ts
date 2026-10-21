@@ -3,9 +3,11 @@ import {
   activityBinCount,
   activityWindow,
   binTurnStarts,
+  clockNeedsSeconds,
   clusterMarkers,
   countIncidents,
   eventTimeLabel,
+  formatClock,
   groupByFolder,
   relativeToRoot,
   splitSessionTime,
@@ -140,6 +142,31 @@ describe("timestampsSpanDays", () => {
     expect(timestampsSpanDays(["2026-01-01T12:00:00Z", "2026-01-01T12:05:00Z"])).toBe(false);
     expect(timestampsSpanDays(["2026-01-01T12:00:00Z", "not a time", undefined])).toBe(false);
     expect(timestampsSpanDays([])).toBe(false);
+  });
+});
+
+describe("formatClock", () => {
+  const at = new Date(2026, 0, 2, 20, 0, 35).getTime();
+
+  it("shows seconds only when asked", () => {
+    expect(formatClock(at)).toBe(
+      new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+    );
+    expect(formatClock(at, false, true)).toBe(
+      new Date(at).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    );
+    expect(formatClock(at, true, true)).toContain(formatClock(at, false, true));
+  });
+
+  it("needs seconds only for steps under a minute", () => {
+    expect(clockNeedsSeconds(15_000)).toBe(true);
+    expect(clockNeedsSeconds(59_999)).toBe(true);
+    expect(clockNeedsSeconds(60_000)).toBe(false);
+    expect(clockNeedsSeconds(0)).toBe(false);
   });
 });
 

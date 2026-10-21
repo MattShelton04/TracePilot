@@ -15,6 +15,7 @@ import {
   activityBinCount,
   activityWindow,
   binTurnStarts,
+  clockNeedsSeconds,
   clusterMarkers,
   formatClock,
   type MarkerCluster,
@@ -60,6 +61,11 @@ const counts = computed(() =>
 );
 const maxCount = computed(() => Math.max(1, ...counts.value));
 const withDates = computed(() => (timeWindow.value ? spansDays(timeWindow.value) : false));
+// Bin ranges, the busiest bin and pins carry seconds when bins are under a minute.
+const binSeconds = computed(() => clockNeedsSeconds(binMs.value));
+function binClock(ms: number): string {
+  return formatClock(ms, withDates.value, binSeconds.value);
+}
 
 const bars = computed(() => {
   const w = timeWindow.value;
@@ -74,7 +80,7 @@ const bars = computed(() => {
       idle,
       left: (i / binCount.value) * 100,
       height: count ? Math.max(6, (count / maxCount.value) * 100) : 0,
-      title: `${formatClock(start, withDates.value)} – ${formatClock(start + binMs.value, withDates.value)} · ${
+      title: `${binClock(start)} – ${binClock(start + binMs.value)} · ${
         idle ? "not running" : `${count} turn${count === 1 ? "" : "s"}`
       }`,
     };
@@ -88,12 +94,13 @@ const ticks = computed(() => {
   const count = plotWidth.value
     ? Math.max(2, Math.min(5, Math.floor(plotWidth.value / spacing) + 1))
     : 5;
+  const withSeconds = clockNeedsSeconds((w.end - w.start) / (count - 1));
   return Array.from({ length: count }, (_, i) => {
     const t = w.start + ((w.end - w.start) * i) / (count - 1);
     const last = i === count - 1;
     return {
       pct: (i / (count - 1)) * 100,
-      label: last && props.running ? "now" : formatClock(t, withDates.value),
+      label: last && props.running ? "now" : formatClock(t, withDates.value, withSeconds),
       align: i === 0 ? "start" : last ? "end" : "middle",
     };
   });
@@ -136,9 +143,7 @@ const MARKER_ICON = {
 } as const;
 
 function clusterText(cluster: MarkerCluster): string {
-  const shown = cluster.markers
-    .slice(0, 4)
-    .map((m) => `${formatClock(m.at, withDates.value)} · ${m.label}`);
+  const shown = cluster.markers.slice(0, 4).map((m) => `${binClock(m.at)} · ${m.label}`);
   const more = cluster.markers.length - shown.length;
   return more > 0 ? `${shown.join("; ")}; +${more} more` : shown.join("; ");
 }
@@ -158,7 +163,7 @@ const summary = computed(() => {
         : `1 turn every ${formatRecordedDuration((w.end - w.start) / n)}`;
   const away = props.gaps.reduce((sum, g) => sum + (g.end - g.start), 0);
   return {
-    busiest: formatClock(w.start + peak * binMs.value, withDates.value),
+    busiest: binClock(w.start + peak * binMs.value),
     busiestCount: counts.value[peak],
     pace,
     away: away > 0 ? formatRecordedDuration(away) : null,

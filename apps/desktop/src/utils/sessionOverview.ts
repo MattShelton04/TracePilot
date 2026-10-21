@@ -207,12 +207,27 @@ export function splitSessionTime(
 
 const DAY_MS = 86_400_000;
 
-/** A clock time such as `7:05 pm`, with the date added for spans over a day. */
-export function formatClock(ms: number, withDate = false): string {
+/**
+ * A clock time such as `7:05 pm`, with the date added for spans over a day
+ * and seconds (`7:05:30 pm`) for steps under a minute.
+ */
+export function formatClock(ms: number, withDate = false, withSeconds = false): string {
   const date = new Date(ms);
-  const clock = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const clock = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+  });
   if (!withDate) return clock;
   return `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${clock}`;
+}
+
+/**
+ * Whether labels `stepMs` apart need seconds: under a minute apart,
+ * minute-only labels can repeat.
+ */
+export function clockNeedsSeconds(stepMs: number): boolean {
+  return stepMs > 0 && stepMs < 60_000;
 }
 
 /** Whether a window crosses into another day, so its labels need dates. */
