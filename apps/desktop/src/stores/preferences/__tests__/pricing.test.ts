@@ -118,6 +118,33 @@ describe("createPricingSlice", () => {
     expect(slice.modelWholesalePrices.value.length).toBe(originalCount);
   });
 
+  it("refuses a second rate for a listed model, which lookups would never use", () => {
+    const slice = createPricingSlice();
+    const listed = slice.modelWholesalePrices.value.find((p) => !p.minimumInputTokens);
+    if (!listed) throw new Error("No default-context rate listed");
+    const before = [...slice.modelWholesalePrices.value];
+    const cost = slice.computeWholesaleCost(listed.model, 1_000_000, 0, 0);
+    const duplicate = {
+      inputPerM: 999,
+      cachedInputPerM: 0,
+      outputPerM: 0,
+      premiumRequests: 1,
+      status: "user-override" as const,
+    };
+
+    expect(slice.addWholesalePrice({ ...duplicate, model: listed.model })).toBe(false);
+    // Case, spaces and a `models/` prefix name the same model.
+    const spelled = `models/${listed.model.toUpperCase().replace(/-/g, " ")}`;
+    expect(slice.addWholesalePrice({ ...duplicate, model: spelled })).toBe(false);
+    expect(slice.modelWholesalePrices.value).toEqual(before);
+    expect(slice.computeWholesaleCost(listed.model, 1_000_000, 0, 0)).toBe(cost);
+
+    // A removed default can be added back.
+    slice.removeWholesalePrice(listed.model);
+    expect(slice.addWholesalePrice({ ...duplicate, model: listed.model })).toBe(true);
+    expect(slice.computeWholesaleCost(listed.model, 1_000_000, 0, 0)).toBe(999);
+  });
+
   it("isRichRenderingEnabled short-circuits when the master toggle is off", () => {
     const slice = createPricingSlice();
     slice.toolRendering.value.enabled = false;

@@ -263,6 +263,48 @@ describe("PullRequestsSection", () => {
       expect(button.get(".pr-refresh__icon").classes()).not.toContain("pr-refresh__icon--spinning");
     });
 
+    it("runs a click made during an automatic lookup once that one ends", async () => {
+      const passive = createDeferred<PullRequestRefreshResult>();
+      vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(passive.promise);
+      const wrapper = mountSection();
+      const automatic = usePullRequestStatusStore().refreshSession("s1");
+      await flushPromises();
+      const button = refreshButton(wrapper);
+      expect(button.attributes("aria-busy")).toBe("true");
+      expect(button.attributes("aria-disabled")).toBe("false");
+
+      await button.trigger("click");
+      expect(button.attributes("aria-disabled")).toBe("true");
+      passive.resolve(result());
+      await automatic;
+      await flushPromises();
+      expect(refreshSessionPullRequests).toHaveBeenCalledTimes(2);
+      expect(refreshSessionPullRequests).toHaveBeenLastCalledWith("s1", true);
+      expect(button.attributes("aria-disabled")).toBe("false");
+    });
+
+    it.each([
+      ["answers failed", () => Promise.resolve(result({ lookup: "failed" }))],
+      ["throws", () => Promise.reject(new Error("gh timed out"))],
+    ] as const)("says so when a Refresh click %s", async (_, answer) => {
+      vi.mocked(refreshSessionPullRequests).mockImplementationOnce(answer);
+      const wrapper = mountSection();
+      await refreshButton(wrapper).trigger("click");
+      await flushPromises();
+      expect(mocks.warning).toHaveBeenCalledWith("Couldn't look up these pull requests on GitHub");
+    });
+
+    it("stays quiet when an automatic lookup fails or a click succeeds", async () => {
+      const wrapper = mountSection();
+      vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result({ lookup: "failed" }));
+      await usePullRequestStatusStore().refreshSession("s1");
+      vi.mocked(refreshSessionPullRequests).mockRejectedValueOnce(new Error("offline"));
+      await usePullRequestStatusStore().refreshSession("s1");
+      await refreshButton(wrapper).trigger("click");
+      await flushPromises();
+      expect(mocks.warning).not.toHaveBeenCalled();
+    });
+
     it("keeps keyboard focus on Refresh while it runs", async () => {
       const pending = createDeferred<PullRequestRefreshResult>();
       vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(pending.promise);

@@ -1,10 +1,10 @@
 /**
  * Look up a session detail's pull requests on GitHub and reload them when
- * the lookup changed something. The detail panel runs it once per session
- * open and per manual refresh; the Overview's Refresh button forces it.
+ * the lookup changed something. The detail panel runs it per session open,
+ * per manual refresh and on its poll; the Overview's Refresh button forces it.
  * Main window only, and only while the setting is on (the store checks).
  */
-import { pullRequestRefreshChanged } from "@tracepilot/types";
+import { type PullRequestLookup, pullRequestRefreshChanged } from "@tracepilot/types";
 import { computed } from "vue";
 import { usePullRequestStatusStore } from "@/stores/pullRequestStatus";
 
@@ -20,14 +20,20 @@ export function useSessionPullRequestStatus(store: PullRequestStatusTarget) {
   /**
    * Look up the open session (`force`: every pull request, not only the due
    * ones). Nothing happens when the session changed since `expected`.
+   * Answers how the lookup went, or null when it didn't run or the session
+   * changed meanwhile.
    */
-  async function refresh(force = false, expected = store.sessionId): Promise<void> {
+  async function refresh(
+    force = false,
+    expected = store.sessionId,
+  ): Promise<PullRequestLookup | null> {
     const id = store.sessionId;
-    if (!id || id !== expected || !status.canLookUp) return;
+    if (!id || id !== expected || !status.canLookUp) return null;
     const result = await status.refreshSession(id, force);
     // A session switch drops the answer; the new session asks for its own.
-    if (!result || store.sessionId !== id || !pullRequestRefreshChanged(result)) return;
-    await store.reloadPullRequests();
+    if (!result || store.sessionId !== id) return null;
+    if (pullRequestRefreshChanged(result)) await store.reloadPullRequests();
+    return store.sessionId === id ? result.lookup : null;
   }
 
   return {

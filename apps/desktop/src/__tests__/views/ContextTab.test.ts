@@ -2,7 +2,7 @@ import { getSessionRequestLog } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
 import type { RequestLog } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { reactive } from "vue";
 import { resetSessionTabViews } from "@/composables/useSessionTabViews";
 import ContextTab from "@/views/tabs/ContextTab.vue";
@@ -156,6 +156,79 @@ describe("ContextTab", () => {
     expect(copilot.find(".context-tab__stats").exists()).toBe(true);
     // Only the Claude Code session's log was read.
     expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-reads a live session's recorded requests only while that view shows", async () => {
+    detailStore.detail.source = "claudeCode";
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+    // The up-front read decides whether the view is offered.
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+
+    // The running poll swaps the detail each tick; the timeline is showing.
+    for (const eventCount of [11, 12, 13]) {
+      detailStore.detail = { ...detailStore.detail, eventCount };
+      await flushPromises();
+    }
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+
+    // Switching to it reads the log once, since it went stale meanwhile.
+    await wrapper
+      .findAll(".context-tab__view-nav button")
+      .find((button) => button.text().includes("Recorded requests"))
+      ?.trigger("click");
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(2);
+
+    // While it shows, each refresh reads it again.
+    detailStore.detail = { ...detailStore.detail, eventCount: 14 };
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(3);
+
+    // Back on the timeline and again, with nothing new: no read.
+    const views = () => wrapper.findAll(".context-tab__view-nav button");
+    await views()
+      .find((button) => button.text().includes("Context timeline"))
+      ?.trigger("click");
+    await views()
+      .find((button) => button.text().includes("Recorded requests"))
+      ?.trigger("click");
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(3);
+  });
+
+  it("re-reads a live session's empty log now and then until its first records appear", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => void vi.useRealTimers());
+    detailStore.detail.source = "claudeCode";
+    vi.mocked(getSessionRequestLog).mockResolvedValue(requestLog(0));
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    const tick = async (ms: number) => {
+      vi.advanceTimersByTime(ms);
+      detailStore.detail = {
+        ...detailStore.detail,
+        eventCount: detailStore.detail.eventCount + 1,
+      };
+      await flushPromises();
+    };
+    await flushPromises();
+    expect(wrapper.find(".context-tab__view-nav").exists()).toBe(false);
+
+    // The session writes its first records; ticks within 30 s of the read don't re-read.
+    vi.mocked(getSessionRequestLog).mockResolvedValue(requestLog(4));
+    for (let i = 0; i < 3; i++) await tick(3_000);
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+
+    // A tick past that re-reads it, and the view is offered.
+    await tick(30_000);
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(2);
+    expect(wrapper.find(".context-tab__view-nav").text()).toContain("Recorded requests");
+
+    // Now it holds records and the timeline shows: ticks only mark it stale.
+    await tick(31_000);
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(2);
   });
 
   it("keeps a Claude Code session with no request records on the timeline alone", async () => {

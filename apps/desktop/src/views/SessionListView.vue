@@ -206,8 +206,16 @@ const hasSessionFilters = computed(
   () => !!store.searchQuery || !!store.filterRepo || !!store.filterSource,
 );
 
-/** The sessions the list shows. A plain count keeps the toolbar one width as filters change. */
+/**
+ * The sessions the list shows. A plain count keeps the toolbar one width as
+ * filters change. Until a first list arrives (loading, first-run indexing, or
+ * a failed first load) the count is unknown, not zero, so a dash of the same
+ * length stands in for it.
+ */
 const sessionCountLabel = computed(() => {
+  if (store.sessions.length === 0 && (store.loading || store.indexing || store.error)) {
+    return "– sessions";
+  }
   const shown = store.filteredSessions.length;
   return `${shown} session${shown === 1 ? "" : "s"}`;
 });

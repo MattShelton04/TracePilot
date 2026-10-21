@@ -47,6 +47,8 @@ const series = computed(() =>
   buildMixSeries(ctx.data?.modelUsageByDay ?? [], ctx.modelRows, {
     measure: measure.value === "spend" ? "spend" : "tokens",
     named: named.value,
+    // The selected range, so quiet days at either end stay on the axis.
+    range: ctx.store.dateRange,
   }),
 );
 
@@ -173,7 +175,7 @@ const tickText = (t: number) =>
       <ChartModeToggle v-model="measure" :options="MEASURES" label="Measure" />
     </div>
     <div ref="root" class="section-panel-body model-chart-body">
-      <div v-if="series.buckets.length < 2" class="chart-placeholder">
+      <div v-if="series.activeBuckets < 2" class="chart-placeholder">
         Needs activity on at least 2 {{ series.granularity === "day" ? "days" : "weeks" }} to show a trend.
       </div>
       <template v-else>

@@ -22,6 +22,7 @@ import {
 } from "lucide-vue-next";
 import { computed } from "vue";
 import type { SessionLiveState } from "@/composables/useSessionLiveState";
+import { distinctFilePaths } from "@/utils/metricsView";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { exitTitle, isNormalExit } from "@/utils/sessionExit";
 import { countIncidents, groupByFolder, splitSessionTime } from "@/utils/sessionOverview";
@@ -150,7 +151,9 @@ const incidentBreakdown = computed(() => {
 
 // Without listed edits, fall back to the files Claude Code backed up.
 const changedFiles = computed(() => {
-  if (props.codeChanges?.filesModified?.length) return props.codeChanges.filesModified;
+  if (props.codeChanges?.filesModified?.length) {
+    return distinctFilePaths(props.codeChanges.filesModified);
+  }
   const paths = new Set<string>();
   for (const snapshot of props.fileSnapshots) {
     for (const file of snapshot.files) paths.add(file.path);

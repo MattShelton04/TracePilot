@@ -15,6 +15,7 @@ import {
   type TokenCostBreakdown,
 } from "@tracepilot/types";
 import { modelTokenBreakdown, shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
+import { distinctFilePaths } from "@/utils/metricsView";
 
 export function totalTokens(m: ShutdownMetrics | null): number | null {
   return shutdownTokenBreakdown(m).total;
@@ -238,5 +239,6 @@ export function linesChanged(m: ShutdownMetrics | null): number | null {
 
 /** Files modified; null without a recorded file list. */
 export function filesModified(m: ShutdownMetrics | null): number | null {
-  return m?.codeChanges?.filesModified?.length ?? null;
+  const files = m?.codeChanges?.filesModified;
+  return files ? distinctFilePaths(files).length : null;
 }

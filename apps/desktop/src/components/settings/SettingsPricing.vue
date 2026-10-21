@@ -7,8 +7,9 @@ import {
   SectionPanel,
   useConfirmDialog,
 } from "@tracepilot/ui";
-import { computed, reactive, ref } from "vue";
+import { computed, nextTick, reactive, ref } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
+import { findListedWholesalePrice } from "@/stores/preferences/pricing";
 import {
   parseWholesaleRate,
   type WholesaleRateField as RateField,
@@ -43,7 +44,27 @@ const rateDrafts = reactive(new Map<ModelPriceEntry, Partial<Record<RateField, R
 const hasInvalidNewRate = computed(() =>
   RATE_COLUMNS.some(({ field }) => parseWholesaleRate(newRates[field]) === null),
 );
-const canAddRate = computed(() => Boolean(newModelName.value.trim()) && !hasInvalidNewRate.value);
+// Lookups use the first row for a model, so a second one would never apply.
+const listedNewModel = computed(() => {
+  const model = newModelName.value.trim();
+  return model ? findListedWholesalePrice(preferences.modelWholesalePrices, { model }) : undefined;
+});
+const canAddRate = computed(
+  () => Boolean(newModelName.value.trim()) && !hasInvalidNewRate.value && !listedNewModel.value,
+);
+const pricingRoot = ref<HTMLElement | null>(null);
+
+/** Filters the list to the model that is already listed and focuses its first rate. */
+async function showListedModel() {
+  const listed = listedNewModel.value;
+  if (!listed) return;
+  modelSearch.value = listed.model;
+  await nextTick();
+  const label = `${listed.model} input price per 1M tokens`;
+  [...(pricingRoot.value?.querySelectorAll<HTMLInputElement>("input[aria-label]") ?? [])]
+    .find((input) => input.getAttribute("aria-label") === label)
+    ?.focus();
+}
 
 const RATE_COLUMNS: readonly {
   field: RateField;
@@ -176,7 +197,7 @@ function commitRate(price: ModelPriceEntry, field: RateField) {
 </script>
 
 <template>
-  <div class="settings-section">
+  <div ref="pricingRoot" class="settings-section">
     <div class="settings-section-title">AI Credit Tracking</div>
     <p class="pricing-description">
       TracePilot uses the most reliable cost data available for each session. Local fallback rates
@@ -311,6 +332,8 @@ function commitRate(price: ModelPriceEntry, field: RateField) {
               v-model="newModelName"
               placeholder="model-name"
               class="pricing-model-input"
+              :aria-invalid="Boolean(listedNewModel)"
+              :aria-describedby="listedNewModel ? 'pricing-new-model-error' : undefined"
             />
           </label>
           <label v-for="column in RATE_COLUMNS" :key="column.field" class="custom-rate-field">
@@ -329,6 +352,12 @@ function commitRate(price: ModelPriceEntry, field: RateField) {
           <ActionButton size="sm" :disabled="!canAddRate" @click="addModelPrice">
             Add rate
           </ActionButton>
+        </div>
+        <div v-if="listedNewModel" class="custom-rate-listed">
+          <p id="pricing-new-model-error" class="rate-validation" role="alert">
+            {{ listedNewModel.model }} already has a fallback rate. Edit that row instead.
+          </p>
+          <ActionButton size="sm" variant="ghost" @click="showListedModel">Show it</ActionButton>
         </div>
         <p v-if="hasInvalidNewRate" id="pricing-new-rate-error" class="rate-validation" role="alert">
           Enter a number of 0 or greater in every rate field.
@@ -609,6 +638,17 @@ function commitRate(price: ModelPriceEntry, field: RateField) {
   gap: 10px;
   padding-top: 10px;
   overflow-x: auto;
+}
+
+.custom-rate-listed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.custom-rate-listed .rate-validation {
+  margin-top: 0;
 }
 
 .custom-rate-field {

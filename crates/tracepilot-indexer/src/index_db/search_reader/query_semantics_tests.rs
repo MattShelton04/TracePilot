@@ -2,7 +2,8 @@
 //! words are plain terms, normal words that start with "near" survive, a
 //! leading NOT never searches for the term it negates, and a query with no
 //! searchable terms matches nothing instead of browsing the whole index.
-//! Words joined by punctuation (`index.ts`, `build-std`) stay adjacent.
+//! Words joined by punctuation (`index.ts`, `build-std`) stay adjacent, and
+//! an operator word with a prefix star (`OR*`) is a prefix search.
 
 use super::SearchFilters;
 use crate::index_db::IndexDb;
@@ -11,7 +12,7 @@ use tracepilot_core::SessionId;
 
 const SESSION: &str = "00000000-0000-4000-8000-0000000000a1";
 
-const ROWS: [&str; 9] = [
+const ROWS: [&str; 10] = [
     "The cache tier was not recorded",
     "command not found",
     "the file was found",
@@ -21,6 +22,7 @@ const ROWS: [&str; 9] = [
     "The ts compiler rebuilt the search index",
     "Run cargo build-std with the nightly toolchain",
     "build the std library docs",
+    "Order the android notebook",
 ];
 
 fn fixture() -> (tempfile::TempDir, IndexDb) {
@@ -154,6 +156,26 @@ fn operators_wrapped_in_punctuation_still_apply() {
         ("[OR] cache", vec![0]),
         ("-NOT cache", vec![]),
         (".NOT cache", vec![]),
+    ] {
+        // `matches` fails on an FTS5 syntax error from the search or count.
+        assert_eq!(matches(&db, query), expected, "{query:?}");
+        let facets = db.facets(Some(query), &all).unwrap();
+        assert_eq!(facets.total_matches, expected.len() as i64, "{query:?}");
+    }
+}
+
+#[test]
+fn operator_words_with_a_prefix_star_search_as_prefixes() {
+    let (_tmp, db) = fixture();
+    let all = SearchFilters::default();
+    for (query, expected) in [
+        ("OR*", vec![9]),
+        ("AND*", vec![9]),
+        ("NOT*", vec![0, 1, 9]),
+        ("NOT* found", vec![1]),
+        ("cache tier AND*", vec![]),
+        ("jwt OR OR*", vec![3, 9]),
+        ("NEAR*", vec![4]),
     ] {
         // `matches` fails on an FTS5 syntax error from the search or count.
         assert_eq!(matches(&db, query), expected, "{query:?}");

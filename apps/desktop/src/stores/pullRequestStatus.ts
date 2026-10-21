@@ -23,6 +23,8 @@ export type PullRequestLookupNotice = Extract<
   "disabled" | "notInstalled" | "signedOut"
 >;
 
+const FAILED = { lookup: "failed", linksChanged: false } as const;
+
 export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => {
   const prefs = usePreferencesStore();
   const sessions = useSessionsStore();
@@ -38,7 +40,11 @@ export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => 
   /** When the session list last asked (ms), for its once-a-minute poll. */
   const lastListPollAt = ref<number | null>(null);
   const listPolling = ref(false);
-  const inFlight = new Map<string, Promise<PullRequestRefreshResult | null>>();
+  /** Each session's running lookup, and whether it re-fetches everything. */
+  const inFlight = new Map<
+    string,
+    { force: boolean; request: Promise<PullRequestRefreshResult | null> }
+  >();
   let listRequest: Promise<void> | null = null;
 
   /** Lookups run only from the main window, and only while the setting is on. */
@@ -79,8 +85,10 @@ export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => 
   /**
    * Look up the session's pull requests that are due (all of them with
    * `force`) and its pushed branches. One lookup per session at a time: a
-   * second call while one runs gets the first one's result. Null when it
-   * didn't run or failed.
+   * second call while one runs gets the first one's result, except a forced
+   * call during an unforced lookup, which runs once that one ends (so a
+   * Refresh click never gets the due-only answer). Null when it didn't run;
+   * a call that failed answers `lookup: "failed"`.
    */
   function refreshSession(
     sessionId: string,
@@ -88,22 +96,31 @@ export const usePullRequestStatusStore = defineStore("pullRequestStatus", () => 
   ): Promise<PullRequestRefreshResult | null> {
     if (!canLookUp.value || !sessionId) return Promise.resolve(null);
     const running = inFlight.get(sessionId);
-    if (running) return running;
+    if (running && (running.force || !force)) return running.request;
     setRefreshing(sessionId, true);
     // Each call keeps its own failure, so overlapping lookups never clear another's.
     const failure = ref<string | null>(null);
-    const request = runMutation(failure, async () => {
-      const result = await refreshSessionPullRequests(sessionId, force);
-      record(result);
-      return result;
-    }).finally(() => {
-      inFlight.delete(sessionId);
-      setRefreshing(sessionId, false);
-      sessionError.value = failure.value;
-      if (failure.value) logWarn("[pullRequestStatus] Session lookup failed:", failure.value);
-    });
-    inFlight.set(sessionId, request);
-    return request;
+    const run = () =>
+      runMutation(failure, async () => {
+        const result = await refreshSessionPullRequests(sessionId, force);
+        record(result);
+        return result;
+      });
+    const entry = { force, request: Promise.resolve<PullRequestRefreshResult | null>(null) };
+    entry.request = (running ? running.request.then(run) : run())
+      // A call that threw answers like a whole-call failure from the backend.
+      .then((result): PullRequestRefreshResult => result ?? { ...FAILED, updated: [] })
+      .finally(() => {
+        // A queued forced lookup now owns the session's entry and spinner.
+        if (inFlight.get(sessionId) === entry) {
+          inFlight.delete(sessionId);
+          setRefreshing(sessionId, false);
+        }
+        sessionError.value = failure.value;
+        if (failure.value) logWarn("[pullRequestStatus] Session lookup failed:", failure.value);
+      });
+    inFlight.set(sessionId, entry);
+    return entry.request;
   }
 
   /**
