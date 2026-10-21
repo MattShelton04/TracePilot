@@ -1,7 +1,7 @@
 # Linked pull requests per session
 
-Status: **phase 1 delivered** (extraction, storage, list and detail UI). Phases 2
-and 3 are planned in [§7](#7-delivery-plan).
+Status: **delivered** in three phases ([§7](#7-delivery-plan)): links from the
+transcript, state from GitHub through `gh`, and finding sessions by pull request.
 
 Goal: show the GitHub pull requests that a Copilot CLI or Claude Code session
 **created, updated, merged or reviewed**, so they're easy to see and open. Show them
@@ -569,5 +569,5 @@ Index reads only: no migration and no version bump.
 4. **Claude desktop metadata** (`prs[]` in the desktop app's session files) is
    not read. It adds almost nothing over `pr-link`, and it lives in a new folder
    under account IDs.
-5. **Phase 2 default:** look up status when `gh` is signed in. Confirm this
-   before phase 2 starts.
+5. **Status lookups are on by default** and use the user's own `gh` sign-in.
+   Settings → General turns them off; nothing else reaches the network.
