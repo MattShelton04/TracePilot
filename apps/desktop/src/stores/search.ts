@@ -57,9 +57,18 @@ export const useSearchStore = defineStore("search", () => {
     recordRecentSearch: history.addRecentSearch,
   });
 
+  /**
+   * Nothing typed or filtered, in the default order: the browse landing, which
+   * shows stats rather than a search of everything. Oldest-first still lists.
+   */
+  function isLanding() {
+    return !q.hasQuery.value && !q.hasActiveFilters.value && q.sortBy.value !== "oldest";
+  }
+
   const scheduler = createSearchScheduler({
     delay: DEBOUNCE_MS,
-    run: executeSearch,
+    // Emptying the query or removing the last filter lands like clearAll.
+    run: () => (isLanding() ? fetchStatsOnly() : executeSearch()),
     immediate: (cb) => {
       void nextTick(cb);
     },

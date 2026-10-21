@@ -212,6 +212,48 @@ fn test_query_code_impact_groups_paths_across_separators() {
     assert_eq!(rs.count, 2, "one per session");
 }
 
+/// Drive-letter case and doubled separators are one file, as Overview,
+/// Metrics and Compare count them (`filePathKey` in the frontend). Other
+/// letters keep their case, and a leading `\\server` or `//server` collapses
+/// to `/server` there too.
+#[test]
+fn code_impact_counts_drive_letter_and_doubled_separator_spellings_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let id = "drv-aaaa-1111-1111-1111-111111111111";
+    let s = write_session_with_tools(tmp.path(), id, "org/repo", "2026-03-10T07:15:00Z");
+    db.upsert_session(&s).unwrap();
+    db.conn
+        .execute_batch(&format!(
+            r"DELETE FROM session_modified_files;
+            INSERT INTO session_modified_files (session_id, file_path, extension) VALUES
+                ('{id}', 'C:\repo\a.rs', 'rs'), ('{id}', 'c:\repo\a.rs', 'rs'),
+                ('{id}', 'C:\\repo\\a.rs', 'rs'), ('{id}', 'c:/repo//a.rs', 'rs'),
+                ('{id}', 'C:\repo\/\\/A.rs', 'rs'),
+                ('{id}', '\\server\share\n.md', 'md'), ('{id}', '//server/share/n.md', 'md'),
+                ('{id}', '/server/share/n.md', 'md'),
+                ('{id}', 'src//lib.rs', 'rs'), ('{id}', 'src/lib.rs', 'rs');"
+        ))
+        .unwrap();
+
+    let result = db.query_code_impact(None, None, None, false, None).unwrap();
+    // C:/repo/a.rs, C:/repo/A.rs, /server/share/n.md, src/lib.rs
+    assert_eq!(result.files_modified, 4);
+    let types: Vec<(&str, u32)> = result
+        .file_type_breakdown
+        .iter()
+        .map(|e| (e.extension.as_str(), e.count))
+        .collect();
+    assert!(types.contains(&("rs", 3)), "{types:?}");
+    assert!(types.contains(&("md", 1)), "{types:?}");
+    let rows: Vec<&str> = result
+        .most_modified_files
+        .iter()
+        .map(|f| f.path.as_str())
+        .collect();
+    assert_eq!(rows.len(), 4, "{rows:?}");
+}
+
 /// `.MD` and `.md` rows (as already indexed) are one file type, `md`.
 #[test]
 fn test_query_code_impact_groups_extensions_case_insensitively() {

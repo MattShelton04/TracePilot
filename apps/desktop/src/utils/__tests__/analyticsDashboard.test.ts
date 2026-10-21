@@ -8,6 +8,7 @@ import {
 import { FIXTURE_ANALYTICS } from "../../__tests__/views/analyticsFixtures";
 import {
   activityRows,
+  analyticsScopeWords,
   binRows,
   busiestColumn,
   cumulativeRows,
@@ -75,6 +76,47 @@ describe("dashboard days", () => {
     expect(rangeText("7d")).toBe("the past 7 days");
     expect(rangeText("custom")).toBe("the selected period");
     expect(rangeText("all")).toBe("any session");
+  });
+});
+
+describe("analytics scope words", () => {
+  const base = { selectedRepo: null, selectedSource: null } as const;
+
+  it("says all only when nothing narrows the scope", () => {
+    expect(analyticsScopeWords({ ...base, selectedTimeRange: "all" })).toEqual({
+      all: "all ",
+      suffix: "",
+    });
+    expect(analyticsScopeWords({ ...base, selectedTimeRange: "30d" })).toEqual({
+      all: "",
+      suffix: " in the past 30 days",
+    });
+    expect(analyticsScopeWords({ ...base, selectedTimeRange: "month-to-date" }).suffix).toBe(
+      " this month",
+    );
+  });
+
+  it("names a custom range with a date as the selected period", () => {
+    for (const dates of [
+      { customFromDate: "2026-01-01" },
+      { customToDate: "2026-02-01" },
+      { customFromDate: "2026-01-01", customToDate: "2026-02-01" },
+    ]) {
+      expect(analyticsScopeWords({ ...base, selectedTimeRange: "custom", ...dates })).toEqual({
+        all: "",
+        suffix: " in the selected period",
+      });
+    }
+  });
+
+  it("reads a custom range with no dates as all time, since it fetches every session", () => {
+    expect(analyticsScopeWords({ ...base, selectedTimeRange: "custom" })).toEqual({
+      all: "all ",
+      suffix: "",
+    });
+    expect(
+      analyticsScopeWords({ ...base, selectedTimeRange: "custom", selectedSource: "claudeCode" }),
+    ).toEqual({ all: "", suffix: "" });
   });
 });
 

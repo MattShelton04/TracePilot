@@ -3,6 +3,7 @@ import {
   buildMixSeries,
   buildShareShift,
   decadeDomain,
+  formatTokens,
   logScale,
   logTicks,
   modelProfile,
@@ -67,6 +68,26 @@ describe("scales and ticks", () => {
 
   it("rounds linear axes up to a nice step", () => {
     expect(niceLinearTicks(1.62)).toEqual({ max: 2, ticks: [0, 0.5, 1, 1.5, 2] });
+  });
+});
+
+describe("formatTokens", () => {
+  it("abbreviates with precision that suits the magnitude", () => {
+    expect(formatTokens(999)).toBe("999");
+    expect(formatTokens(31_100)).toBe("31.1k");
+    expect(formatTokens(824_800)).toBe("825k");
+    expect(formatTokens(8_248_000)).toBe("8.2M");
+    expect(formatTokens(824_800_000)).toBe("825M");
+    expect(formatTokens(4_160_000_000)).toBe("4.16B");
+  });
+
+  it("reads a count that rounds up to the next tier in that tier", () => {
+    expect(formatTokens(999.6)).toBe("1.0k");
+    expect(formatTokens(99_950)).toBe("100k");
+    expect(formatTokens(999_950)).toBe("1.0M");
+    expect(formatTokens(99_950_000)).toBe("100M");
+    expect(formatTokens(999_500_000)).toBe("1.00B");
+    expect(formatTokens(999_499)).toBe("999k");
   });
 });
 

@@ -6,9 +6,27 @@ use tracepilot_core::provider::SessionSource;
 
 use super::super::helpers::*;
 
-/// A modified file's path with `/` for every `\`, so one file spelled with
-/// either separator (as tools and sessions mix them) counts once.
-const FILE_KEY: &str = r"REPLACE(f.file_path, '\', '/')";
+/// A modified file's path in one spelling, so a file that tools and sessions
+/// spell differently counts once. It is the frontend's `filePathKey`
+/// (`apps/desktop/src/utils/metricsView.ts`) in SQL, which Overview, Metrics
+/// and Compare count by:
+/// - a Windows drive letter is upper-cased (`c:\w` is `C:/w`), tested on the
+///   raw path, where `X:` followed by either separator is the same test as
+///   `X:/` on the collapsed one;
+/// - every run of `/` and `\` becomes one `/`, including a leading `\\server`
+///   or `//server`, which becomes `/server` as it does there.
+///
+/// Runs collapse by marking each `/` as `\x01\x02` and deleting every
+/// `\x02\x01` between neighbours, so `///` leaves one mark whatever its
+/// length. A path that itself holds those control characters (Windows
+/// forbids them) could collapse differently.
+const FILE_KEY: &str = r"REPLACE(REPLACE(REPLACE(REPLACE(
+        CASE WHEN substr(f.file_path, 2, 1) = ':'
+                  AND substr(f.file_path, 3, 1) IN ('/', '\')
+                  AND upper(substr(f.file_path, 1, 1)) BETWEEN 'A' AND 'Z'
+             THEN upper(substr(f.file_path, 1, 1)) || substr(f.file_path, 2)
+             ELSE f.file_path END,
+        '\', '/'), '/', char(1, 2)), char(2, 1), ''), char(1, 2), '/')";
 
 pub(super) fn query_code_impact(
     conn: &Connection,
