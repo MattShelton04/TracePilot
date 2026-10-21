@@ -97,3 +97,82 @@ describe("useSearchStore clearAll", () => {
     expect(store.results).toEqual([]);
   });
 });
+
+describe("useSearchStore landing after editing", () => {
+  beforeEach(() => {
+    setupPinia();
+    resetAllMocks();
+    setupDefaultMocks();
+  });
+
+  it("returns to the landing when the query is deleted, not a search of everything", async () => {
+    const store = useSearchStore();
+    mocks.searchContent.mockResolvedValue(found);
+    mocks.getSearchFacets.mockImplementation((query?: string) =>
+      Promise.resolve({ ...emptyFacets, totalMatches: query ? 1 : 90 }),
+    );
+    await search(store, "retry");
+    expect(store.results).toHaveLength(1);
+
+    await search(store, "");
+
+    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+    expect(store.results).toEqual([]);
+    expect(store.totalCount).toBe(0);
+    expect(mocks.getSearchFacets).toHaveBeenLastCalledWith(undefined, expect.any(Object));
+    expect(store.facets?.totalMatches).toBe(90);
+  });
+
+  it("drops the deleted query's search still in flight", async () => {
+    const store = useSearchStore();
+    const late = createDeferred<typeof found>();
+    mocks.searchContent.mockReturnValueOnce(late.promise);
+    await search(store, "retry");
+    expect(store.loading).toBe(true);
+
+    await search(store, "");
+    late.resolve(found);
+    await flushSearchQueue();
+
+    expect(store.results).toEqual([]);
+    expect(store.loading).toBe(false);
+  });
+
+  it("keeps browsing an active filter when the query is deleted", async () => {
+    const store = useSearchStore();
+    store.contentTypes = ["user_message"];
+    await flushSearchQueue();
+    await search(store, "retry");
+    mocks.searchContent.mockClear();
+    mocks.searchContent.mockResolvedValue(found);
+
+    await search(store, "");
+
+    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+    const [text, options] = mocks.searchContent.mock.calls[0];
+    expect(text).toBe("");
+    expect(options.contentTypes).toEqual(["user_message"]);
+    expect(store.results).toHaveLength(1);
+  });
+
+  it("returns to the landing when the last browse filter is removed", async () => {
+    const store = useSearchStore();
+    store.repository = "acme/app";
+    await flushSearchQueue();
+    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+
+    store.repository = null;
+    await flushSearchQueue();
+
+    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("still lists everything oldest first when that order is picked", async () => {
+    const store = useSearchStore();
+    store.sortBy = "oldest";
+    await flushSearchQueue();
+
+    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+    expect(mocks.searchContent.mock.calls[0][1].sortBy).toBe("oldest");
+  });
+});
