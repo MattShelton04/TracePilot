@@ -23,6 +23,7 @@ import {
   TabNav,
   useAsyncGuard,
   useAutoRefresh,
+  usePolling,
 } from "@tracepilot/ui";
 import { computed, onMounted, provide, ref, watch } from "vue";
 import type { Router } from "vue-router";
@@ -36,6 +37,10 @@ import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
 import { useSessionPullRequestPoll } from "@/composables/useSessionPullRequestPoll";
 import { useSessionPullRequestStatus } from "@/composables/useSessionPullRequestStatus";
 import { useSessionSource } from "@/composables/useSessionSource";
+import {
+  HIDDEN_LIVENESS_POLL_MS,
+  SESSION_VIEW_VISIBLE_KEY,
+} from "@/composables/useVisibleAutoRefresh";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -84,6 +89,10 @@ const { source, capabilities } = useSessionSource(
 );
 const sourceName = computed(() => sourceLabel(source.value));
 provide(MAIN_AGENT_LABEL_KEY, sourceName);
+provide(
+  SESSION_VIEW_VISIBLE_KEY,
+  computed(() => props.refreshEnabled ?? true),
+);
 provide(
   SESSION_LIVE_STATE_KEY,
   computed(() => ({ running: isSessionActive.value, status: runStatus.value })),
@@ -158,6 +167,7 @@ async function checkRunning() {
     if (!runningGuard.isValid(token)) return;
     isSessionActive.value = false;
     runStatus.value = null;
+    emit("update:isActive", false);
     if (isSessionNotFoundError(e)) {
       if (!sessionMissing.value) {
         logWarn("[sessionDetail] Session no longer exists; pausing auto-refresh:", e);
@@ -213,6 +223,19 @@ useRunningSessionPoll({
   active: () => runningPollActive.value,
   refresh: () => Promise.all([props.store.refreshIfSourceChanged(), checkRunning()]),
 });
+
+/**
+ * A hidden panel (a background session tab) refreshes nothing, but its tab
+ * still shows the live dot, so a running session is re-checked now and then
+ * until it ends. Only the running check runs; the data waits until it shows.
+ */
+usePolling(checkRunning, {
+  intervalMs: HIDDEN_LIVENESS_POLL_MS,
+  immediate: false,
+  active: computed(
+    () => !(props.refreshEnabled ?? true) && isSessionActive.value && !sessionMissing.value,
+  ),
+}).start();
 
 /**
  * Pull request state from GitHub: per session open and manual refresh, and

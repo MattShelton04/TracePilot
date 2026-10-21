@@ -15,7 +15,6 @@ import {
   normalizePath,
   pathDirname,
   toErrorMessage,
-  useAutoRefresh,
   useClipboard,
   usePersistedRef,
   useToast,
@@ -29,15 +28,14 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { useSessionTabNavigation } from "@/composables/useSessionTabNavigation";
+import { useSessionViewVisible, useVisibleAutoRefresh } from "@/composables/useVisibleAutoRefresh";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { ROUTE_NAMES } from "@/config/routes";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { pushRoute } from "@/router/navigation";
-import { usePreferencesStore } from "@/stores/preferences";
 import { plural } from "@/utils/format";
 
 const store = useSessionDetailContext();
-const prefs = usePreferencesStore();
 // Pop-out windows cannot launch the system file explorer (ADR 0011).
 const canOpenFolders = !useWindowRole().isViewer();
 
@@ -210,12 +208,13 @@ const {
 // ── Auto-refresh ────────────────────────────────────────────────────────────
 // Silent refresh: the composable defaults `reload()` to silent=true so the
 // file list / viewer DOM stays mounted and scroll position survives.
-useAutoRefresh({
+// A background session tab keeps this mounted; it refreshes only on screen.
+const sessionViewVisible = useSessionViewVisible();
+useVisibleAutoRefresh({
   onRefresh: async () => {
     await sessionFiles.reload();
   },
-  enabled: computed(() => prefs.autoRefreshEnabled),
-  intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+  visible: () => sessionViewVisible.value,
 });
 
 const manualRefreshing = ref(false);
