@@ -54,11 +54,12 @@ describe("mock pull requests", () => {
                 url: primary.url,
                 state: primary.status?.state ?? null,
               },
-              pullRequests: linked.map((pr) => ({
+              // Search uses the same links, with GitHub's title when known.
+              pullRequests: counted.map((pr) => ({
                 owner: pr.owner,
                 repo: pr.repo,
                 number: pr.number,
-                title: pr.title,
+                title: pr.status?.title ?? pr.title,
               })),
             }
           : null,
