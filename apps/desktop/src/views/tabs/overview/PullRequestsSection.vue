@@ -3,7 +3,8 @@
  * Overview: the GitHub pull requests the session is linked to, grouped by
  * what it did (created or updated, merged, reviewed). A group of more than
  * five starts collapsed. Hidden when there are none. The main window can
- * refresh their state from GitHub, and a note says when it can't.
+ * refresh their state from GitHub, and a note says when it can't; a toast
+ * says when a Refresh click failed.
  */
 import { useToast } from "@tracepilot/ui";
 import { ChevronRight, RefreshCw } from "lucide-vue-next";
@@ -30,9 +31,29 @@ const {
   available: canRefresh,
 } = useSessionPullRequestStatus(store);
 
-/** aria-disabled rather than disabled, so focus stays on the button while it runs. */
-function refreshAll() {
-  if (!refreshing.value) void refreshStatus(true);
+/** The session whose Refresh click is still running; another click waits for it. */
+const clickedFor = ref<string | null>(null);
+const clickRunning = computed(
+  () => clickedFor.value != null && clickedFor.value === store.sessionId,
+);
+
+/**
+ * aria-disabled rather than disabled, so focus stays on the button while it
+ * runs. A click during an automatic lookup runs once that one ends, so it
+ * still asks about every pull request. A click that fails says so; automatic
+ * lookups that fail stay quiet.
+ */
+async function refreshAll() {
+  const id = store.sessionId;
+  if (!id || clickRunning.value) return;
+  clickedFor.value = id;
+  try {
+    if ((await refreshStatus(true)) === "failed") {
+      toast.warning("Couldn't look up these pull requests on GitHub");
+    }
+  } finally {
+    if (clickedFor.value === id) clickedFor.value = null;
+  }
 }
 
 const related = usePullRequestSessionsStore();
@@ -101,7 +122,7 @@ async function jump(eventIndex: number | null) {
         v-if="canRefresh"
         type="button"
         class="btn btn-sm btn-ghost pr-refresh"
-        :aria-disabled="refreshing"
+        :aria-disabled="clickRunning"
         :aria-busy="refreshing"
         title="Look up their status on GitHub"
         data-testid="pull-requests-refresh"

@@ -33,6 +33,7 @@ import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import { useRunningSessionPoll } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
+import { useSessionPullRequestPoll } from "@/composables/useSessionPullRequestPoll";
 import { useSessionPullRequestStatus } from "@/composables/useSessionPullRequestStatus";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
@@ -213,8 +214,18 @@ useRunningSessionPoll({
   refresh: () => Promise.all([props.store.refreshIfSourceChanged(), checkRunning()]),
 });
 
-/** Pull request state from GitHub: once per session open and manual refresh. */
+/**
+ * Pull request state from GitHub: per session open and manual refresh, and
+ * about once a minute while the detail shows a pull request that may still
+ * change (the list's poll pauses under an open session tab).
+ */
 const pullRequestStatus = useSessionPullRequestStatus(props.store);
+useSessionPullRequestPoll({
+  sessionId: () => props.store.sessionId,
+  pullRequests: () => props.store.pullRequests,
+  active: () => (props.refreshEnabled ?? true) && !sessionMissing.value,
+  refresh: () => pullRequestStatus.refresh(),
+});
 
 /** A manual refresh: reloads every loaded section. */
 async function refresh() {

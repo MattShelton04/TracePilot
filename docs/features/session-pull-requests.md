@@ -320,8 +320,13 @@ reads and writes are in `tracepilot-indexer`'s `pull_request_lookups.rs` and
     `refresh_session_pull_requests(id, force: false)`. It fetches PRs that were
     never fetched, open or draft PRs older than 10 minutes, and failed lookups
     older than 1 hour.
+  - **An open session detail** makes the same call once a minute while the
+    window has focus, the detail is on screen and one of its PRs is open, draft
+    or still unknown. The 10-minute rule above keeps the `gh` calls rare.
   - **The Refresh button** in the Overview section passes `force: true`. That
-    re-fetches all of the session's PRs and branches.
+    re-fetches all of the session's PRs and branches. A click during an
+    automatic lookup runs once that one ends. A click that fails shows a toast;
+    automatic lookups that fail stay quiet.
   - **The session list** calls `refresh_list_pull_requests(ids)` for visible
     cards whose primary PR is open, draft or still unknown. It runs at most once a
     minute while the window has focus, and Rust enforces the same 60-second
@@ -479,10 +484,12 @@ Network only; no reindex, no migration and no version bump. The design is in
   - **Storage.** Results are upserted into `pull_request_status`, and each PR's
     failure goes in `error`.
   - **Terminal states.** Merged and closed PRs aren't re-fetched automatically.
-- **When it runs:** when a session detail opens or refreshes; from the
-  **Refresh** button in the Pull requests section; and at most once a minute while
-  the window has focus, for open or unknown PRs on list cards the list has
-  rendered.
+- **When it runs:** when a session detail opens or refreshes; once a minute
+  while an open session detail is on screen with an open, draft or unknown PR
+  (still subject to the 10-minute staleness rule); from the **Refresh** button in
+  the Pull requests section, which waits for a running automatic lookup and then
+  forces its own, and toasts if it fails; and at most once a minute while the
+  window has focus, for open or unknown PRs on list cards the list has rendered.
 - **Pushed-branch lookup.**
   - Matches are stored in `session_branch_pull_requests`.
   - `get_session_pull_requests` unions them in with the **updated** role.
