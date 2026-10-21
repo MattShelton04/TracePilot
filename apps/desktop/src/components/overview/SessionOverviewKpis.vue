@@ -8,6 +8,7 @@ import type { CodeChanges } from "@tracepilot/types";
 import { formatDuration, formatNumberFull, KPI, KPIRow } from "@tracepilot/ui";
 import { Archive, Clock, Coins, FileDiff, MessageSquare, Zap } from "lucide-vue-next";
 import { computed } from "vue";
+import { distinctFilePaths } from "@/utils/metricsView";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { splitSessionTime } from "@/utils/sessionOverview";
 import type { SectionStatus } from "./SessionOutcomeTiles.vue";
@@ -78,7 +79,9 @@ const diffBlocks = computed(() => {
     i < green ? "added" : i < green + red ? "removed" : "none",
   );
 });
-const changedFiles = computed(() => props.codeChanges?.filesModified?.length ?? 0);
+const changedFiles = computed(
+  () => distinctFilePaths(props.codeChanges?.filesModified ?? []).length,
+);
 // A session can list the files it edited without any line counts.
 const hasLineCounts = computed(
   () => (props.codeChanges?.linesAdded ?? 0) + (props.codeChanges?.linesRemoved ?? 0) > 0,

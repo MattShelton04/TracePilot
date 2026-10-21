@@ -126,6 +126,19 @@ function filePathKey(path: string): string {
   return /^[a-z]:\//i.test(slashed) ? slashed[0].toUpperCase() + slashed.slice(1) : slashed;
 }
 
+/**
+ * Changed files with each file once, in its first spelling, so the Overview
+ * and Compare count the same files as Metrics' tree.
+ */
+export function distinctFilePaths(paths: readonly string[]): string[] {
+  const seen = new Map<string, string>();
+  for (const path of paths) {
+    const key = filePathKey(path);
+    if (!seen.has(key)) seen.set(key, path);
+  }
+  return [...seen.values()];
+}
+
 /** Counts the files (leaves) under each folder, so a file is counted once. */
 function countFiles(node: FileTreeNode): number {
   node.files = node.isFile ? 1 : node.children.reduce((n, child) => n + countFiles(child), 0);

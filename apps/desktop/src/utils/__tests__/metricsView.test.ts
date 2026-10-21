@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFileTree,
   costSplit,
+  distinctFilePaths,
   filterFileTree,
   folderPaths,
   idlePercent,
@@ -105,5 +106,25 @@ describe("idle scale", () => {
 
   it("stacks dots that would overlap", () => {
     expect(stackDots([10, 10.1, 50, 10], 1000, 9)).toEqual([0, 1, 0, 2]);
+  });
+});
+
+describe("distinctFilePaths", () => {
+  it("keeps one spelling per file, as the Metrics tree counts them", () => {
+    const paths = [
+      "C:\\git\\repo\\src\\a.ts",
+      "c:/git/repo/src/a.ts",
+      "C:/git//repo/src/a.ts",
+      "src/b.ts",
+      "/home/u/A.ts",
+      "/home/u/a.ts",
+    ];
+    expect(distinctFilePaths(paths)).toEqual([
+      "C:\\git\\repo\\src\\a.ts",
+      "src/b.ts",
+      "/home/u/A.ts",
+      "/home/u/a.ts",
+    ]);
+    expect(distinctFilePaths(paths).length).toBe(buildFileTree(paths, ["C:/git/repo"]).files);
   });
 });
