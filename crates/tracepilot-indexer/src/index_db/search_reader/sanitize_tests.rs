@@ -286,3 +286,25 @@ fn test_snippet_multiple_marks() {
     let raw = "\x01MARK_OPEN\x01a\x01MARK_CLOSE\x01 b \x01MARK_OPEN\x01c\x01MARK_CLOSE\x01";
     assert_eq!(sanitize_snippet(raw), "<mark>a</mark> b <mark>c</mark>");
 }
+
+/// `gh pr create` output as indexed: spinner frames before the text and
+/// between it and the URL. They go, the marks stay, and the words they
+/// separated stay apart.
+#[test]
+fn test_snippet_strips_spinner_glyphs() {
+    let raw = "\u{28fe}\u{28fd}Creating pull request for fix/\x01MARK_OPEN\x01ripeness\x01MARK_CLOSE\x01-check into main in example/orchard\u{28fb}\u{28bf}https://github.com/example/orchard/pull/58";
+    assert_eq!(
+        sanitize_snippet(raw),
+        "Creating pull request for fix/<mark>ripeness</mark>-check into main in example/orchard https://github.com/example/orchard/pull/58"
+    );
+    // Beside whitespace or a newline a run is dropped, adding no space.
+    assert_eq!(sanitize_snippet("a \u{28fe}\u{28fd} b"), "a  b");
+    assert_eq!(sanitize_snippet("\u{28fe}\nok\u{28fd}"), "\nok");
+    // Next to a mark it still separates words.
+    assert_eq!(
+        sanitize_snippet("in\u{28fb}\x01MARK_OPEN\x01url\x01MARK_CLOSE\x01\u{28bf}x"),
+        "in <mark>url</mark> x"
+    );
+    // Other symbols are left alone.
+    assert_eq!(sanitize_snippet("✓ done ▶ next"), "✓ done ▶ next");
+}
