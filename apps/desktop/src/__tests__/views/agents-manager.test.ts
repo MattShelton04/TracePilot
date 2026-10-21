@@ -146,3 +146,49 @@ it("shows one loading placeholder until both initial requests settle", () => {
   expect(wrapper.find(".stats-strip").exists()).toBe(false);
   expect(wrapper.find(".filter-row").exists()).toBe(false);
 });
+
+describe("when the definitions fail to load", () => {
+  it("shows one error state with Retry instead of zero counts and an empty catalog", async () => {
+    const { store, wrapper } = mountView({
+      catalog: null,
+      usage: null,
+      error: "agents_list failed: access denied",
+      entries: [],
+      filteredEntries: [],
+      scopeCounts: { builtin: 0, personal: 0, project: 0, plugin: 0, unresolved: 0 },
+    });
+    await flushPromises();
+    expect(wrapper.text()).toContain("Agents could not be loaded");
+    expect(wrapper.text()).toContain("access denied");
+    expect(wrapper.find(".stats-strip").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("No agent definitions were found");
+    store.loadAll.mockClear();
+    await wrapper.get(".error-state__retry").trigger("click");
+    expect(store.loadAll).toHaveBeenCalledWith(true);
+  });
+
+  it("hides usage-only rows until the definitions load", async () => {
+    const { wrapper } = mountView({ catalog: null, error: "access denied" });
+    await flushPromises();
+    expect(wrapper.find(".agent-card").exists()).toBe(false);
+    expect(wrapper.find(".error-state").exists()).toBe(true);
+  });
+
+  it("shows the loading placeholder while Retry is in flight", () => {
+    const { wrapper } = mountView({ catalog: null, catalogLoading: true, error: null });
+    expect(wrapper.find(".definition-loading").exists()).toBe(true);
+    expect(wrapper.find(".error-state").exists()).toBe(false);
+  });
+
+  it("keeps loaded definitions and offers Retry when a refresh fails", async () => {
+    const { store, wrapper } = mountView({ error: "agents_list failed: timeout" });
+    await flushPromises();
+    expect(wrapper.find(".error-state").exists()).toBe(false);
+    expect(wrapper.findAll(".agent-card")).toHaveLength(1);
+    expect(wrapper.text()).toContain("Agents could not be refreshed");
+    store.loadAll.mockClear();
+    const retry = wrapper.findAll("button").find((b) => b.text() === "Retry");
+    await retry!.trigger("click");
+    expect(store.loadAll).toHaveBeenCalledWith(true);
+  });
+});

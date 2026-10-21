@@ -3,6 +3,7 @@ import { formatNumberFull, type SkillBatchImportResult } from "@tracepilot/types
 import {
   Banner,
   EmptyState,
+  ErrorState,
   PageHeader,
   PageShell,
   type SegmentOption,
@@ -119,7 +120,28 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => store.loadAll());
+/**
+ * Why the catalog failed to load, kept until a later load succeeds. The store's
+ * `error` also holds toggle and delete failures, which must not read as an
+ * empty catalog.
+ */
+const catalogError = ref<string | null>(null);
+// Any new catalog contents mean a load succeeded since.
+watch(
+  () => store.skills,
+  () => {
+    catalogError.value = null;
+  },
+);
+/** The catalog never loaded, so zero counts and "create your first" would be false. */
+const catalogUnavailable = computed(() => catalogError.value !== null && !store.skills.length);
+
+async function reload(force = false) {
+  await store.loadAll(undefined, force);
+  catalogError.value = store.error;
+}
+
+onMounted(() => reload());
 
 function formatTokensWithCommas(n: number): string {
   return formatNumberFull(n);
@@ -172,7 +194,7 @@ async function handleToggleEnabled(directory: string, enabled: boolean) {
           </svg>
         </template>
         <template #actions>
-          <button type="button" class="btn btn--ghost" :disabled="store.loading || store.usageLoading" @click="store.loadAll(undefined, true)">
+          <button type="button" class="btn btn--ghost" :disabled="store.loading || store.usageLoading" @click="reload(true)">
             <RefreshCw :size="14" /> Refresh
           </button>
           <button class="btn btn--ghost" @click="store.clearError(); showImportWizard = true">
@@ -191,7 +213,16 @@ async function handleToggleEnabled(directory: string, enabled: boolean) {
       </PageHeader>
 
       <!-- Stats Strip -->
-      <DefinitionLoading v-if="!store.initialized" noun="skills" />
+      <DefinitionLoading
+        v-if="!store.initialized || (catalogUnavailable && store.loading)"
+        noun="skills"
+      />
+      <ErrorState
+        v-else-if="catalogUnavailable"
+        heading="Skills could not be loaded"
+        :message="catalogError ?? undefined"
+        @retry="reload(true)"
+      />
       <template v-else>
       <div class="stats-strip">
         <span class="stat-chip">
@@ -255,7 +286,7 @@ async function handleToggleEnabled(directory: string, enabled: boolean) {
       <!-- Loading / Error -->
       <div v-if="store.error" class="state-message state-message--error">
         {{ store.error }}
-        <button class="btn btn--secondary btn--sm" @click="store.loadSkills()">Retry</button>
+        <button class="btn btn--secondary btn--sm" @click="reload()">Retry</button>
       </div>
 
         <details v-if="loadFailures.length" class="state-message state-message--warning">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatBytes, LoadingSpinner } from "@tracepilot/ui";
 import { computed } from "vue";
-import { useWorktreesStore } from "@/stores/worktrees";
+import type { WorktreeScopeSummary } from "@/composables/useWorktreeManager";
 
 const props = defineProps<{
   searchQuery: string;
@@ -10,6 +10,8 @@ const props = defineProps<{
   cleaningStale: boolean;
   /** Unlocked stale worktrees in the current repo filter. */
   cleanableStaleCount: number;
+  /** Counts for the selected repository, or every repository when none is selected. */
+  summary: WorktreeScopeSummary;
 }>();
 
 const emit = defineEmits<{
@@ -19,12 +21,6 @@ const emit = defineEmits<{
   (e: "prune"): void;
   (e: "refresh"): void;
 }>();
-
-const store = useWorktreesStore();
-
-const totalDiskUsage = computed(() =>
-  store.worktrees.reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
-);
 
 const searchModel = computed({
   get: () => props.searchQuery,
@@ -69,15 +65,18 @@ const searchModel = computed({
       />
     </div>
 
-    <div class="toolbar-summary">
-      <span class="summary-item">Total: <strong>{{ store.worktreeCount }}</strong></span>
-      <span class="summary-item summary-item--success">Active: <strong>{{ store.activeCount }}</strong></span>
-      <span class="summary-item summary-item--warning">Stale: <strong>{{ store.staleCount }}</strong></span>
+    <div
+      class="toolbar-summary"
+      :title="selectedRepoPath ? 'Worktrees in this repository' : 'Worktrees in all repositories'"
+    >
+      <span class="summary-item">Total: <strong>{{ summary.total }}</strong></span>
+      <span class="summary-item summary-item--success">Active: <strong>{{ summary.active }}</strong></span>
+      <span class="summary-item summary-item--warning">Stale: <strong>{{ summary.stale }}</strong></span>
       <span class="summary-item">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-        <strong>{{ store.lockedCount }}</strong>
+        <strong>{{ summary.locked }}</strong>
       </span>
-      <span class="summary-item">Disk: <strong>{{ formatBytes(totalDiskUsage) }}</strong></span>
+      <span class="summary-item">Disk: <strong>{{ formatBytes(summary.diskBytes) }}</strong></span>
     </div>
   </div>
 </template>
