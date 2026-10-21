@@ -113,13 +113,19 @@ export interface AnalyticsScopeWords {
 /**
  * Scope words for the active filters, so "across all tool invocations" is
  * never said of one month or one repository. "This Month" is month-to-date.
+ * A custom range with neither date set fetches every session, so it reads as
+ * All time rather than "the selected period".
  */
 export function analyticsScopeWords(filters: {
   selectedTimeRange: AnalyticsTimeRange;
   selectedRepo: string | null;
   selectedSource: SessionSource | null;
+  customFromDate?: string;
+  customToDate?: string;
 }): AnalyticsScopeWords {
-  const range = filters.selectedTimeRange;
+  const unbounded =
+    filters.selectedTimeRange === "custom" && !filters.customFromDate && !filters.customToDate;
+  const range = unbounded ? "all" : filters.selectedTimeRange;
   const repo = filters.selectedRepo;
   const repoSuffix = repo ? ` in ${repositoryFilterLabel(repo)}` : "";
   const rangeSuffix =

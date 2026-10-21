@@ -11,13 +11,28 @@ export function formatTokenTick(value: number): string {
   return `${value}`;
 }
 
+/** Token count tiers, largest first: the smallest count each covers and how it reads. */
+const TOKEN_TIERS = [
+  { min: 1e9, unit: 1e9, digits: 2, suffix: "B" },
+  { min: 1e8, unit: 1e6, digits: 0, suffix: "M" },
+  { min: 1e6, unit: 1e6, digits: 1, suffix: "M" },
+  { min: 1e5, unit: 1e3, digits: 0, suffix: "k" },
+  { min: 1e3, unit: 1e3, digits: 1, suffix: "k" },
+] as const;
+
 /** Compact token count: `4.16B`, `824.8M`, `31.1k`. */
 export function formatTokens(value: number): string {
-  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e8) return `${(value / 1e6).toFixed(0)}M`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(value >= 1e5 ? 0 : 1)}k`;
-  return `${Math.round(value)}`;
+  const i = TOKEN_TIERS.findIndex((tier) => value >= tier.min);
+  if (i < 0) {
+    const rounded = Math.round(value);
+    return rounded >= 1e3 ? formatTokens(rounded) : `${rounded}`;
+  }
+  const tier = TOKEN_TIERS[i];
+  const text = (value / tier.unit).toFixed(tier.digits);
+  // A count that rounds up into the tier above reads as that tier (999,950 → "1.0M", not "1000k").
+  const rounded = Number(text) * tier.unit;
+  if (i > 0 && rounded >= TOKEN_TIERS[i - 1].min) return formatTokens(rounded);
+  return `${text}${tier.suffix}`;
 }
 
 /** A 0–1 fraction as a percentage. */

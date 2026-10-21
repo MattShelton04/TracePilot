@@ -68,6 +68,14 @@ describe("SessionCard", () => {
     expect(wrapper.get('[title="1,153 conversation turns"]').text()).toBe("1.2K");
   });
 
+  it("agrees the hover nouns with a count of one", () => {
+    const wrapper = mount(SessionCard, {
+      props: { session: makeSession({ id: "one", eventCount: 1, turnCount: 1 }) },
+    });
+    expect(wrapper.find('[title="1 event"]').exists()).toBe(true);
+    expect(wrapper.find('[title="1 conversation turn"]').exists()).toBe(true);
+  });
+
   it("shows relative time for updatedAt", () => {
     const wrapper = mount(SessionCard, {
       props: {

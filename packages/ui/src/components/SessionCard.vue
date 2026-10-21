@@ -142,11 +142,11 @@ function activeTitle(): string {
 
     <div class="card-footer-new">
       <div class="card-stats-new">
-        <span class="stat-item-inline" :title="`${formatNumberFull(eventCount)} events`">
+        <span class="stat-item-inline" :title="`${formatNumberFull(eventCount)} event${eventCount !== 1 ? 's' : ''}`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           {{ formatNumber(eventCount) }}
         </span>
-        <span class="stat-item-inline" :title="`${formatNumberFull(turnCount)} conversation turns`">
+        <span class="stat-item-inline" :title="`${formatNumberFull(turnCount)} conversation turn${turnCount !== 1 ? 's' : ''}`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           {{ formatNumber(turnCount) }}
         </span>
