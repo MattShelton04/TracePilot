@@ -352,13 +352,13 @@ describe("useExportConfig", () => {
       });
     });
 
-    it("does not clear activePreset", () => {
+    it("clears activePreset, since the options no longer match it", () => {
       const { activePreset, updateContentDetail } = useExportConfig();
       expect(activePreset.value).toBe("full");
 
       updateContentDetail("includeSubagentInternals", false);
 
-      expect(activePreset.value).toBe("full");
+      expect(activePreset.value).toBeNull();
     });
   });
 
@@ -397,13 +397,13 @@ describe("useExportConfig", () => {
       });
     });
 
-    it("does not clear activePreset", () => {
+    it("clears activePreset, since the options no longer match it", () => {
       const { activePreset, updateRedaction } = useExportConfig();
       expect(activePreset.value).toBe("full");
 
       updateRedaction("stripSecrets", true);
 
-      expect(activePreset.value).toBe("full");
+      expect(activePreset.value).toBeNull();
     });
   });
 
