@@ -2,6 +2,7 @@
 import type { ContextToolTypeContribution } from "@tracepilot/types";
 import { formatNumber } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { plural } from "@/utils/format";
 
 const props = defineProps<{
   items: ContextToolTypeContribution[];
@@ -75,94 +76,103 @@ function handleChartPointerMove(event: MouseEvent) {
 
 <template>
   <div class="tool-donut">
-    <div class="tool-donut__chart">
-      <svg
-        ref="chartSvg"
-        viewBox="0 0 42 42"
-        role="img"
-        aria-label="Tool contribution donut chart"
-        @mousemove="handleChartPointerMove"
-        @mouseleave="hoveredLabel = null"
-      >
-        <rect width="42" height="42" fill="transparent" />
-        <circle
-          cx="21"
-          cy="21"
-          r="15.9155"
-          fill="none"
-          stroke="var(--border-muted)"
-          stroke-width="9"
-        />
-        <g transform="rotate(-90 21 21)">
+    <div class="tool-donut__layout">
+      <div class="tool-donut__chart">
+        <svg
+          ref="chartSvg"
+          viewBox="0 0 42 42"
+          role="img"
+          aria-label="Tool contribution donut chart"
+          @mousemove="handleChartPointerMove"
+          @mouseleave="hoveredLabel = null"
+        >
+          <rect width="42" height="42" fill="transparent" />
           <circle
-            v-for="item in segments"
-            :key="item.label"
             cx="21"
             cy="21"
             r="15.9155"
             fill="none"
-            :stroke="item.color"
-            :stroke-width="hoveredLabel === item.label ? 10 : 9"
-            pathLength="100"
-            data-reveal="arc"
-            :stroke-dasharray="`${item.percentage} ${100 - item.percentage}`"
-            :stroke-dashoffset="-item.offset"
-            class="tool-donut__segment"
-            tabindex="0"
-            role="img"
-            :aria-label="`${item.label}: ${item.percentage.toFixed(1)}%, ${formatNumber(item.tokens)} estimated tokens`"
-            @focus="hoveredLabel = item.label"
-            @blur="hoveredLabel = null"
+            stroke="var(--border-muted)"
+            stroke-width="9"
           />
-        </g>
-        <template v-if="hovered">
-          <text x="21" y="20" text-anchor="middle" class="tool-donut__center-value">
-            {{ hovered.percentage.toFixed(1) }}%
-          </text>
-          <text x="21" y="24" text-anchor="middle">{{ hovered.label }}</text>
-        </template>
-        <template v-else>
-          <text x="21" y="20" text-anchor="middle">Tool</text>
-          <text x="21" y="24" text-anchor="middle">input</text>
-        </template>
-      </svg>
+          <g transform="rotate(-90 21 21)">
+            <circle
+              v-for="item in segments"
+              :key="item.label"
+              cx="21"
+              cy="21"
+              r="15.9155"
+              fill="none"
+              :stroke="item.color"
+              :stroke-width="hoveredLabel === item.label ? 10 : 9"
+              pathLength="100"
+              data-reveal="arc"
+              :stroke-dasharray="`${item.percentage} ${100 - item.percentage}`"
+              :stroke-dashoffset="-item.offset"
+              class="tool-donut__segment"
+              tabindex="0"
+              role="img"
+              :aria-label="`${item.label}: ${item.percentage.toFixed(1)}%, ${formatNumber(item.tokens)} estimated tokens`"
+              @focus="hoveredLabel = item.label"
+              @blur="hoveredLabel = null"
+            />
+          </g>
+          <template v-if="hovered">
+            <text x="21" y="20" text-anchor="middle" class="tool-donut__center-value">
+              {{ hovered.percentage.toFixed(1) }}%
+            </text>
+            <text x="21" y="24" text-anchor="middle">{{ hovered.label }}</text>
+          </template>
+          <template v-else>
+            <text x="21" y="20" text-anchor="middle">Tool</text>
+            <text x="21" y="24" text-anchor="middle">input</text>
+          </template>
+        </svg>
 
-      <div v-if="hovered" class="tool-donut__tooltip" role="tooltip">
-        <strong>{{ hovered.label }}</strong>
-        <span>{{ hovered.percentage.toFixed(1) }}% · {{ formatNumber(hovered.tokens) }} tokens</span>
-        <small>
-          {{ hovered.calls }} calls · {{ formatNumber(hovered.argumentTokens) }} arguments ·
-          {{ formatNumber(hovered.resultTokens) }} results
-        </small>
+        <div v-if="hovered" class="tool-donut__tooltip" role="tooltip">
+          <strong>{{ hovered.label }}</strong>
+          <span>{{ hovered.percentage.toFixed(1) }}% · {{ formatNumber(hovered.tokens) }} tokens</span>
+          <small>
+            {{ plural(hovered.calls, "call") }} · {{ formatNumber(hovered.argumentTokens) }} arguments ·
+            {{ formatNumber(hovered.resultTokens) }} results
+          </small>
+        </div>
       </div>
-    </div>
 
-    <div class="tool-donut__legend">
-      <div
-        v-for="item in segments"
-        :key="item.label"
-        tabindex="0"
-        @mouseenter="hoveredLabel = item.label"
-        @mouseleave="hoveredLabel = null"
-        @focus="hoveredLabel = item.label"
-        @blur="hoveredLabel = null"
-      >
-        <span class="tool-donut__swatch" :style="{ background: item.color }" />
-        <strong>{{ item.label }}</strong>
-        <span>{{ item.percentage.toFixed(1) }}%</span>
-        <small>{{ formatNumber(item.tokens) }} estimated tokens</small>
+      <div class="tool-donut__legend">
+        <div
+          v-for="item in segments"
+          :key="item.label"
+          tabindex="0"
+          @mouseenter="hoveredLabel = item.label"
+          @mouseleave="hoveredLabel = null"
+          @focus="hoveredLabel = item.label"
+          @blur="hoveredLabel = null"
+        >
+          <span class="tool-donut__swatch" :style="{ background: item.color }" />
+          <strong>{{ item.label }}</strong>
+          <span>{{ item.percentage.toFixed(1) }}%</span>
+          <small>{{ formatNumber(item.tokens) }} estimated tokens</small>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Sized by its own width (a container), so it fits whatever column it is given. */
 .tool-donut {
   display: grid;
-  grid-template-columns: minmax(150px, 0.85fr) minmax(180px, 1.15fr);
+  align-items: center;
+  min-height: 240px;
+  container-type: inline-size;
+}
+
+.tool-donut__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
   align-items: center;
   gap: 24px;
-  min-height: 240px;
 }
 
 .tool-donut__chart {
@@ -270,8 +280,8 @@ function handleChartPointerMove(event: MouseEvent) {
   border-radius: 2px;
 }
 
-@media (max-width: 640px) {
-  .tool-donut {
+@container (max-width: 340px) {
+  .tool-donut__layout {
     grid-template-columns: 1fr;
     padding-bottom: 48px;
   }

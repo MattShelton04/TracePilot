@@ -81,10 +81,22 @@ fn collapse_subagent_internals(turn: &mut ConversationTurn, subagent_ids: &HashS
 }
 
 /// Strip verbose fields from tool calls, keeping only name, status, and summaries.
+///
+/// A loaded skill's `SKILL.md` body is the skill tool's result, so it goes too,
+/// whether it rides on the tool call or on the `skill.invoked` event. Its name,
+/// description and recorded length stay as the summary.
 fn strip_tool_details(turn: &mut ConversationTurn) {
     for tc in &mut turn.tool_calls {
         tc.arguments = None;
         tc.result_content = None;
+        if let Some(skill) = &mut tc.skill_invocation {
+            skill.content = None;
+        }
+    }
+    for event in &mut turn.session_events {
+        if let Some(skill) = &mut event.skill_invocation {
+            skill.content = None;
+        }
     }
 }
 
@@ -92,7 +104,10 @@ fn strip_tool_details(turn: &mut ConversationTurn) {
 mod tests {
     use super::*;
     use crate::test_helpers::{minimal_session, test_archive};
-    use tracepilot_core::models::conversation::{AttributedMessage, TurnToolCall};
+    use tracepilot_core::models::conversation::{
+        AttributedMessage, SessionEventSeverity, SkillInvocationEvent, TurnSessionEvent,
+        TurnToolCall,
+    };
 
     fn make_turn_with_subagent() -> ConversationTurn {
         ConversationTurn {
@@ -341,6 +356,76 @@ mod tests {
                 assert_eq!(tc.args_summary.as_deref(), Some("path: foo.rs"));
             }
         }
+    }
+
+    fn skill_invocation(content: &str) -> SkillInvocationEvent {
+        SkillInvocationEvent {
+            id: Some("ev-1".into()),
+            name: Some("deploy".into()),
+            path: Some("/repo/.github/skills/deploy/SKILL.md".into()),
+            description: Some("Deploys the app".into()),
+            content_length: Some(content.chars().count()),
+            content: Some(content.into()),
+            context_length: None,
+            context_folded: false,
+        }
+    }
+
+    #[test]
+    fn strip_tool_details_removes_skill_content() {
+        let mut turn = make_turn_with_subagent();
+        turn.tool_calls[0].skill_invocation = Some(skill_invocation("# Deploy: step one"));
+        turn.session_events = vec![TurnSessionEvent {
+            event_type: "skill.invoked".into(),
+            timestamp: None,
+            severity: SessionEventSeverity::Info,
+            summary: "Skill invoked: deploy".into(),
+            checkpoint_number: None,
+            request_id: None,
+            tool_call_id: None,
+            prompt_kind: None,
+            result_kind: None,
+            resolved_by_hook: None,
+            skill_invocation: Some(skill_invocation("# Deploy: step one")),
+        }];
+        let mut archive = archive_with_turn(turn);
+
+        let opts = ContentDetailOptions {
+            include_subagent_internals: true,
+            include_tool_details: false,
+            include_full_tool_results: false,
+        };
+        apply_content_filters(&mut archive, &opts);
+
+        let turn = &archive.sessions[0].conversation.as_ref().unwrap()[0];
+        let skills = [
+            turn.tool_calls[0].skill_invocation.as_ref().unwrap(),
+            turn.session_events[0].skill_invocation.as_ref().unwrap(),
+        ];
+        for skill in skills {
+            assert!(skill.content.is_none(), "skill body should be stripped");
+            assert_eq!(skill.name.as_deref(), Some("deploy"));
+            assert_eq!(skill.description.as_deref(), Some("Deploys the app"));
+            assert_eq!(skill.content_length, Some(18));
+        }
+    }
+
+    #[test]
+    fn skill_content_kept_with_tool_details() {
+        let mut turn = make_turn_with_subagent();
+        turn.tool_calls[0].skill_invocation = Some(skill_invocation("# Deploy"));
+        let mut archive = archive_with_turn(turn);
+
+        let opts = ContentDetailOptions {
+            include_subagent_internals: false,
+            include_tool_details: true,
+            include_full_tool_results: false,
+        };
+        apply_content_filters(&mut archive, &opts);
+
+        let tc = &archive.sessions[0].conversation.as_ref().unwrap()[0].tool_calls[0];
+        let skill = tc.skill_invocation.as_ref().unwrap();
+        assert_eq!(skill.content.as_deref(), Some("# Deploy"));
     }
 
     #[test]

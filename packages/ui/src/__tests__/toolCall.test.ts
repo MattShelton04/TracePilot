@@ -10,7 +10,16 @@ describe("toolCategory", () => {
   });
 
   it("returns 'shell' for shell-related tools", () => {
-    const tools = ["powershell", "read_powershell", "write_powershell", "stop_powershell"];
+    const tools = [
+      "powershell",
+      "read_powershell",
+      "write_powershell",
+      "stop_powershell",
+      "bash",
+      "read_bash",
+      "write_bash",
+      "stop_bash",
+    ];
     for (const tool of tools) {
       expect(toolCategory(tool)).toBe("shell");
     }
@@ -76,7 +85,14 @@ describe("formatArgsSummary", () => {
   });
 
   it("summarizes shell read/write identity without exposing submitted input", () => {
-    for (const tool of ["read_powershell", "write_powershell", "stop_powershell"]) {
+    for (const tool of [
+      "read_powershell",
+      "write_powershell",
+      "stop_powershell",
+      "read_bash",
+      "write_bash",
+      "stop_bash",
+    ]) {
       expect(toolIcon(tool)).toBe("terminal");
       expect(formatArgsSummary({ shellId: "17", chars: "private input" }, tool)).toBe("Shell 17");
       expect(formatArgsSummary({ shell_id: "18" }, tool)).toBe("Shell 18");
@@ -125,6 +141,14 @@ describe("formatArgsSummary", () => {
     const longCommand = "a".repeat(200);
     const expectedTruncated = `${"a".repeat(150)}…`;
     expect(formatArgsSummary({ command: longCommand }, "powershell")).toBe(expectedTruncated);
+  });
+
+  it("formats 'bash' and 'shell' commands like 'powershell'", () => {
+    expect(toolIcon("bash")).toBe("terminal");
+    expect(formatArgsSummary({ command: "ls -la" }, "bash")).toBe("ls -la");
+    expect(formatArgsSummary({ command: "c".repeat(200) }, "bash")).toBe(`${"c".repeat(150)}…`);
+    expect(formatArgsSummary({ command: "pnpm test" }, "shell")).toBe("pnpm test");
+    expect(formatArgsSummary({}, "bash")).toBe("");
   });
 
   it("does not truncate powershell command at exactly 150 chars", () => {
@@ -214,6 +238,34 @@ describe("formatArgsSummary", () => {
       `a ${"b".repeat(98)}…`,
     );
     expect(formatArgsSummary({ requestedSchema: {} }, "ask_user")).toBe("");
+  });
+
+  it("summarises Claude Code tools that keep their native names", () => {
+    expect(formatArgsSummary({ query: "select:Monitor", max_results: 5 }, "ToolSearch")).toBe(
+      "select:Monitor",
+    );
+    expect(
+      formatArgsSummary({ notebook_path: "/nb/a.ipynb", new_source: "x = 1" }, "NotebookEdit"),
+    ).toBe("/nb/a.ipynb");
+    expect(
+      formatArgsSummary({ description: "PR #12 checks", command: "gh pr checks 12" }, "Monitor"),
+    ).toBe("PR #12 checks");
+    expect(formatArgsSummary({ command: "watch\n  flag" }, "Monitor")).toBe("watch flag");
+    expect(formatArgsSummary({ timeout_ms: 1000 }, "Monitor")).toBe("");
+    expect(formatArgsSummary({ query: 3 }, "ToolSearch")).toBe("");
+  });
+
+  it("summarises MCP calls by a descriptive argument only", () => {
+    expect(formatArgsSummary({ limit: 5, query: "open bugs" }, "mcp__tracker__search")).toBe(
+      "open bugs",
+    );
+    expect(formatArgsSummary({ url: "https://example.com", title: "x" }, "mcp__web__open")).toBe(
+      "https://example.com",
+    );
+    expect(formatArgsSummary({ q: " ", name: "ready" }, "mcp__store__get")).toBe("ready");
+    // Arbitrary arguments may be secrets or blobs, so they stay out of the header.
+    expect(formatArgsSummary({ key: "ready", token: "secret" }, "mcp__store__get")).toBe("");
+    expect(formatArgsSummary({ query: "x" }, "not_mcp__tool")).toBe("");
   });
 
   it("summarises skill with its name", () => {

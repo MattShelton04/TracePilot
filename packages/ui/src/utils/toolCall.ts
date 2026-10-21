@@ -18,6 +18,10 @@ const TOOL_ICONS: Record<string, LucideName> = {
   read_powershell: "terminal",
   write_powershell: "terminal",
   stop_powershell: "terminal",
+  bash: "terminal",
+  read_bash: "terminal",
+  write_bash: "terminal",
+  stop_bash: "terminal",
   task: "bot",
   stop_agent: "bot",
   write_agent: "send",
@@ -37,15 +41,23 @@ export function toolIcon(toolName: string): LucideName {
   return TOOL_ICONS[toolName] ?? "wrench";
 }
 
+/** Shells that run a command: Windows (`powershell`) and macOS/Linux (`bash`) Copilot CLI. */
+const SHELL_COMMAND_TOOLS = ["shell", "powershell", "bash"];
+/** Tools that address an existing shell session by its id. */
+const SHELL_SESSION_TOOLS = [
+  "read_powershell",
+  "write_powershell",
+  "stop_powershell",
+  "read_bash",
+  "write_bash",
+  "stop_bash",
+];
+
 export type ToolCategory = "file" | "shell" | "agent" | "github" | "web" | "data" | "other";
 
 export function toolCategory(toolName: string): ToolCategory {
   if (["view", "edit", "create", "grep", "rg", "glob"].includes(toolName)) return "file";
-  if (
-    ["shell", "powershell", "read_powershell", "write_powershell", "stop_powershell"].includes(
-      toolName,
-    )
-  )
+  if (SHELL_COMMAND_TOOLS.includes(toolName) || SHELL_SESSION_TOOLS.includes(toolName))
     return "shell";
   if (["task", "read_agent", "write_agent", "list_agents", "stop_agent"].includes(toolName))
     return "agent";
@@ -101,6 +113,23 @@ function planSummary(plan: string): string {
   return truncateSummary(first);
 }
 
+/** A string argument as one truncated line, or "". */
+function stringArg(value: unknown): string {
+  return typeof value === "string" ? truncateSummary(value) : "";
+}
+
+/** Arguments that usually name what an MCP call is about, most specific first. */
+const MCP_SUMMARY_KEYS = ["query", "q", "url", "path", "file_path", "name", "title", "description"];
+
+/** An MCP call's first descriptive string argument. Other arguments may hold secrets or blobs. */
+function mcpSummary(a: Record<string, unknown>): string {
+  for (const key of MCP_SUMMARY_KEYS) {
+    const value = stringArg(a[key]);
+    if (value) return value;
+  }
+  return "";
+}
+
 /** Extract a useful one-line summary from tool call arguments. */
 export function formatArgsSummary(args: unknown, toolName: string): string {
   // apply_patch arguments are usually the raw patch string, not an object.
@@ -121,11 +150,11 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
     return `/${a.pattern}/${summary ? ` in ${summary}` : ""}`;
   }
   if (toolName === "glob" && a.pattern) return String(a.pattern);
-  if ((toolName === "powershell" || toolName === "shell") && a.command) {
+  if (SHELL_COMMAND_TOOLS.includes(toolName) && a.command) {
     const cmd = String(a.command);
     return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
   }
-  if (["read_powershell", "write_powershell", "stop_powershell"].includes(toolName)) {
+  if (SHELL_SESSION_TOOLS.includes(toolName)) {
     const shellId = a.shellId ?? a.shell_id;
     return shellId == null ? "" : `Shell ${shellId}`;
   }
@@ -164,6 +193,11 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === "web_search" && a.query) return String(a.query);
   if (toolName === "web_fetch" && a.url) return String(a.url);
   if (toolName.startsWith("github-mcp-server") && a.method) return String(a.method);
+  // Claude Code tools without a canonical mapping keep their native names.
+  if (toolName === "ToolSearch") return stringArg(a.query);
+  if (toolName === "NotebookEdit") return stringArg(a.notebook_path);
+  if (toolName === "Monitor") return stringArg(a.description) || stringArg(a.command);
+  if (toolName.startsWith("mcp__")) return mcpSummary(a);
   return "";
 }
 

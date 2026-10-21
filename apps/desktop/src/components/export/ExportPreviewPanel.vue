@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { ExportPreviewResult } from "@tracepilot/types";
-import { Badge, EmptyState, formatBytes, MarkdownContent, useToast } from "@tracepilot/ui";
+import {
+  Badge,
+  EmptyState,
+  formatBytes,
+  MarkdownContent,
+  useClipboard,
+  useToast,
+} from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import type { ExportTabFormat } from "@/composables/useExportConfig";
 import { openExternal } from "@/utils/openExternal";
@@ -15,7 +22,8 @@ const props = defineProps<{
   hasSelectedSession: boolean;
 }>();
 
-const { success: toastSuccess } = useToast();
+const { success: toastSuccess, error: toastError } = useToast();
+const { copy } = useClipboard();
 
 const previewView = ref<PreviewView>("raw");
 
@@ -33,10 +41,12 @@ const formattedPreviewContent = computed(() => {
   return props.preview.content;
 });
 
-function copyToClipboard() {
-  if (props.preview?.content) {
-    navigator.clipboard.writeText(props.preview.content);
+async function copyToClipboard() {
+  if (!props.preview?.content) return;
+  if (await copy(props.preview.content)) {
     toastSuccess("Copied to clipboard");
+  } else {
+    toastError("Copy failed");
   }
 }
 </script>

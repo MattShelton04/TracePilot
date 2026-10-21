@@ -47,6 +47,11 @@ function formatContextChange(value?: number | null): string {
   return `${value > 0 ? "+" : ""}${formatNumberFull(value)}`;
 }
 
+/** A count that may be unrecorded (a failed compaction): unknown is not zero. */
+function formatKnownTokens(value?: number | null): string {
+  return value == null ? "—" : formatNumberFull(value);
+}
+
 function systemTokensTooltip(point: ContextWindowPoint): string {
   return point.source === "observed"
     ? "Reported by Copilot at this telemetry anchor."
@@ -244,15 +249,15 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
       <dl class="context-tab__token-grid">
         <div>
           <dt>Before</dt>
-          <dd>{{ formatNumberFull(selectedCompaction.beforeTokens ?? 0) }}</dd>
+          <dd>{{ formatKnownTokens(selectedCompaction.beforeTokens) }}</dd>
         </div>
         <div>
           <dt>After</dt>
-          <dd>{{ formatNumberFull(selectedCompaction.afterTokens ?? 0) }}</dd>
+          <dd>{{ formatKnownTokens(selectedCompaction.afterTokens) }}</dd>
         </div>
         <div>
           <dt>Removed</dt>
-          <dd>{{ formatNumberFull(selectedCompaction.tokensRemoved ?? 0) }}</dd>
+          <dd>{{ formatKnownTokens(selectedCompaction.tokensRemoved) }}</dd>
         </div>
         <div>
           <dt>Checkpoint</dt>

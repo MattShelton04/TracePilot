@@ -137,26 +137,12 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
                 .as_ref()
                 .and_then(|r| r.count)
                 .map_or_else(|| "—".to_string(), |count| count.to_string());
-            let input = detail
-                .usage
-                .as_ref()
-                .and_then(|u| u.input_tokens)
-                .unwrap_or(0);
-            let output = detail
-                .usage
-                .as_ref()
-                .and_then(|u| u.output_tokens)
-                .unwrap_or(0);
-            let cache_r = detail
-                .usage
-                .as_ref()
-                .and_then(|u| u.cache_read_tokens)
-                .unwrap_or(0);
-            let cache_w = detail
-                .usage
-                .as_ref()
-                .and_then(|u| u.cache_write_tokens)
-                .unwrap_or(0);
+            // A count the source didn't report is unknown, not zero.
+            let usage = detail.usage.as_ref();
+            let input = token_cell(usage.and_then(|u| u.input_tokens));
+            let output = token_cell(usage.and_then(|u| u.output_tokens));
+            let cache_r = token_cell(usage.and_then(|u| u.cache_read_tokens));
+            let cache_w = token_cell(usage.and_then(|u| u.cache_write_tokens));
             md.push_fmt(format_args!("| {} | {} |", cell(model), reqs));
             if show_aic {
                 let ai_credits = detail
@@ -172,6 +158,10 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
         }
         md.push('\n');
     }
+}
+
+fn token_cell(tokens: Option<u64>) -> String {
+    tokens.map_or_else(|| "—".to_string(), |count| count.to_string())
 }
 
 /// Only providers without AI Credits (Claude Code) report a cost figure or

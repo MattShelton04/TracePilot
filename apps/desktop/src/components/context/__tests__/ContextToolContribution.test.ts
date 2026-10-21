@@ -63,6 +63,15 @@ describe("ContextToolContribution tool names", () => {
     expect(wrapper.get(".context-tab__ranked-tool-heading strong").text()).toBe("AskUserQuestion");
   });
 
+  it("agrees call and error counts with their nouns", () => {
+    const wrapper = mountWith([
+      { ...type, toolName: "view", callCount: 1, errorCount: 1, percentage: 50 },
+      { ...type, toolName: "edit", callCount: 3, errorCount: 0, percentage: 50 },
+    ]);
+    const counts = wrapper.findAll(".context-tab__tool-type-heading small").map((n) => n.text());
+    expect(counts).toEqual(["1 call · 1 error", "3 calls · 0 errors"]);
+  });
+
   it("keeps canonical names for Copilot sessions", () => {
     const wrapper = mountWith([{ ...type, toolName: "view", percentage: 100 }]);
     const name = wrapper.get(".context-tab__tool-type-heading strong");

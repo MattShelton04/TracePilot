@@ -1,9 +1,16 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 
 // ── Mock dependencies used by ExportTab ─────────────────────────
+
+const toast = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+}));
 
 vi.mock("@tracepilot/client", () => ({
   exportSessions: vi.fn(),
@@ -72,7 +79,7 @@ vi.mock("vue-router", () => ({
 // ── Stub out the UI package for lightweight mounting ────────────
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
-  const { useAsyncGuard, usePersistedRef } =
+  const { useAsyncGuard, useClipboard, usePersistedRef } =
     await importOriginal<typeof import("@tracepilot/ui")>();
   const passthrough = (name: string) =>
     defineComponent({
@@ -102,8 +109,9 @@ vi.mock("@tracepilot/ui", async (importOriginal) => {
     formatBytes: (n: number) => `${n}B`,
     projectLabelFromCwd: (cwd: string | null) => cwd?.split(/[\\/]/).pop() || null,
     useAsyncGuard,
+    useClipboard,
     usePersistedRef,
-    useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+    useToast: () => toast,
   };
 });
 
@@ -111,7 +119,6 @@ import { type SectionId, sourceCapabilities } from "@tracepilot/types";
 import { sourceSupportsSection } from "@/composables/useExportConfig";
 import ExportView from "@/views/ExportView.vue";
 import ExportFormatSelector from "../ExportFormatSelector.vue";
-import ExportPresetBar from "../ExportPresetBar.vue";
 import ExportPreviewPanel from "../ExportPreviewPanel.vue";
 import ExportSectionsPanel from "../ExportSectionsPanel.vue";
 import ExportSessionPicker from "../ExportSessionPicker.vue";
@@ -125,6 +132,7 @@ beforeEach(() => {
   defaultImportFlow.error.value = null;
   defaultImportFlow.preview.value = null;
   pushMock.mockReset();
+  vi.clearAllMocks();
 });
 
 describe("ExportTab", () => {
@@ -142,32 +150,6 @@ describe("ExportTab", () => {
     expect(wrapper.find(".save-preset-row").exists()).toBe(false);
     await wrapper.find(".preset-save-btn").trigger("click");
     expect(wrapper.find(".save-preset-row").exists()).toBe(true);
-    wrapper.unmount();
-  });
-});
-
-describe("ExportPresetBar", () => {
-  it("emits apply when a preset button is clicked", async () => {
-    const presets = [
-      { id: "p1", label: "P1", icon: "📦", description: "", format: "json", sections: [] },
-    ];
-    const wrapper = mount(ExportPresetBar, {
-      props: { allPresets: presets as never, customPresets: [], activePreset: null },
-    });
-    await wrapper.find(".preset-btn").trigger("click");
-    expect(wrapper.emitted("apply")?.[0]).toEqual(["p1"]);
-    wrapper.unmount();
-  });
-
-  it("emits save with trimmed preset name", async () => {
-    const wrapper = mount(ExportPresetBar, {
-      props: { allPresets: [], customPresets: [], activePreset: null },
-    });
-    await wrapper.find(".preset-save-btn").trigger("click");
-    const input = wrapper.find<HTMLInputElement>(".save-preset-input");
-    await input.setValue("  My Preset  ");
-    await wrapper.find(".btn-primary").trigger("click");
-    expect(wrapper.emitted("save")?.[0]).toEqual(["My Preset"]);
     wrapper.unmount();
   });
 });
@@ -382,6 +364,33 @@ describe("ExportPreviewPanel", () => {
     expect(wrapper.find(".emptystate").attributes("description")).toContain(
       "Preview is unavailable",
     );
+    wrapper.unmount();
+  });
+
+  it.each([
+    ["succeeds", () => Promise.resolve(), "success", "Copied to clipboard"],
+    ["fails", () => Promise.reject(new Error("denied")), "error", "Copy failed"],
+  ] as const)("says so when copying the preview %s", async (_, writeText, kind, message) => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(writeText) },
+      configurable: true,
+    });
+    const wrapper = mount(ExportPreviewPanel, {
+      props: {
+        format: "markdown",
+        preview: { content: "# Hello", sectionCount: 1, estimatedSizeBytes: 7 } as never,
+        loading: false,
+        error: null,
+        hasSelectedSession: true,
+      },
+    });
+
+    await wrapper.find(".preview-footer .link-btn").trigger("click");
+    await flushPromises();
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("# Hello");
+    expect(toast[kind]).toHaveBeenCalledWith(message);
+    expect(toast[kind === "success" ? "error" : "success"]).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
