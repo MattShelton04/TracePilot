@@ -1,6 +1,7 @@
 import { factoryReset, getConfig, saveConfig, updateConfig } from "@tracepilot/client";
 import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import { createDefaultConfig, type TracePilotConfig } from "@tracepilot/types";
+import { useToast } from "@tracepilot/ui";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -18,6 +19,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.useFakeTimers();
   vi.clearAllMocks();
+  useToast().clear();
   vi.mocked(factoryReset).mockReset().mockResolvedValue(undefined);
   persisted = createDefaultConfig();
   vi.mocked(getConfig).mockImplementation(async () => structuredClone(persisted));
@@ -76,6 +78,30 @@ it("keeps edits made during a save and persists them in the following write", as
   expect(store.theme).toBe("dark");
   expect(updateConfig).toHaveBeenLastCalledWith({ ui: { theme: "dark" } });
   expect(persisted.ui.theme).toBe("dark");
+});
+
+it("tells the user once when an autosave fails, and saves the value with the next change", async () => {
+  const store = usePreferencesStore();
+  await store.whenReady;
+  vi.mocked(updateConfig).mockRejectedValueOnce(new Error("config.toml is read-only"));
+  store.theme = "light";
+  await nextTick();
+  await vi.advanceTimersByTimeAsync(350);
+
+  const { toasts } = useToast();
+  expect(toasts.value.map(({ type, message }) => ({ type, message }))).toEqual([
+    { type: "error", message: "Failed to save settings: config.toml is read-only" },
+  ]);
+  expect(persisted.ui.theme).not.toBe("light");
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(updateConfig).toHaveBeenCalledTimes(1);
+
+  store.uiScale = 1.2;
+  await nextTick();
+  await vi.advanceTimersByTimeAsync(350);
+  expect(updateConfig).toHaveBeenLastCalledWith({ ui: { theme: "light", uiScale: 1.2 } });
+  expect(persisted.ui.theme).toBe("light");
+  expect(toasts.value.filter(({ type }) => type === "error")).toHaveLength(1);
 });
 
 it("cancels a pending debounced save when its store is disposed", async () => {

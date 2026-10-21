@@ -108,6 +108,13 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   const codeImpactFetcher = cachedFetch<CodeImpactData>("codeImpact", (p) => getCodeImpact(p));
   const agentsFetcher = cachedFetch<AgentUsageSummary>("agents", (p) => agentsUsageSummary(p));
   const skillsFetcher = cachedFetch<SkillUsageSummary>("skills", (p) => skillsUsageSummary(p));
+  const allFetchers = [
+    analyticsFetcher,
+    toolAnalysisFetcher,
+    codeImpactFetcher,
+    agentsFetcher,
+    skillsFetcher,
+  ];
 
   /** Ensure the sessions store is populated so the repository options have data. */
   async function fetchAvailableRepos() {
@@ -202,14 +209,15 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     selectedSource.value = source;
   }
 
+  /** Drop cached results but keep the filters, for example after a rebuild. */
+  function clearResults() {
+    for (const f of allFetchers) f.reset();
+    background.reset();
+  }
+
   /** Drop cached results and return the filters (and their stored copy) to defaults. */
   function $reset() {
-    analyticsFetcher.reset();
-    toolAnalysisFetcher.reset();
-    codeImpactFetcher.reset();
-    agentsFetcher.reset();
-    skillsFetcher.reset();
-    background.reset();
+    clearResults();
     selectedRepo.value = null;
     selectedSource.value = null;
     selectedTimeRange.value = "all";
@@ -218,16 +226,8 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   }
 
   // Invalidate analytics cache when hideEmptySessions preference changes
-  const allFetchers = [
-    analyticsFetcher,
-    toolAnalysisFetcher,
-    codeImpactFetcher,
-    agentsFetcher,
-    skillsFetcher,
-  ];
-  const prefs = usePreferencesStore();
   watch(
-    () => prefs.hideEmptySessions,
+    () => usePreferencesStore().hideEmptySessions,
     () => {
       for (const f of allFetchers) f.invalidate();
     },
@@ -294,6 +294,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     setSource,
     setTimeRange,
     watchIndexUpdates,
+    clearResults,
     $reset,
   };
 });

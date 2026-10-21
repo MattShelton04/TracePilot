@@ -3,7 +3,7 @@ import { setupPinia } from "@tracepilot/test-utils";
 import type { SessionListItem } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import { nextTick } from "vue";
-import "./setup";
+import { FIXTURE_ANALYTICS, mocks } from "./setup";
 import { STORAGE_KEYS } from "../../../config/storageKeys";
 import { readAnalyticsFilters } from "../../../composables/usePersistedAnalyticsFilters";
 import { useAnalyticsStore } from "../../../stores/analytics";
@@ -107,6 +107,34 @@ describe("analytics filter persistence", () => {
 
     expect(store.selectedRepo).toBe("org/app");
     expect(store.selectedSource).toBeNull();
+  });
+
+  it("clearResults drops cached results but keeps the filters and their stored copy", async () => {
+    mocks.getAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+    const store = useAnalyticsStore();
+    store.setRepo("org/app");
+    store.setSource("claudeCode");
+    store.setTimeRange("7d");
+    await store.fetchAnalytics();
+    await nextTick();
+
+    store.clearResults();
+    await nextTick();
+
+    expect(store.analytics).toBeNull();
+    expect(store.selectedRepo).toBe("org/app");
+    expect(store.selectedSource).toBe("claudeCode");
+    expect(store.selectedTimeRange).toBe("7d");
+    await store.fetchAnalytics();
+    expect(mocks.getAnalytics).toHaveBeenCalledTimes(2);
+    expect(mocks.getAnalytics).toHaveBeenLastCalledWith(
+      expect.objectContaining({ repo: "org/app", source: "claudeCode" }),
+    );
+
+    const restored = restart();
+    expect(restored.selectedRepo).toBe("org/app");
+    expect(restored.selectedSource).toBe("claudeCode");
+    expect(restored.selectedTimeRange).toBe("7d");
   });
 
   it("$reset returns the filters to defaults and forgets them", async () => {
