@@ -37,7 +37,8 @@ const JOIN: char = '\u{1F}';
 /// FTS5 has a specific query syntax. Raw user input can cause parse errors.
 /// This function handles:
 /// - Balanced quotes (phrase search), including mixed phrases + terms
-/// - Prefix queries (word*)
+/// - Prefix queries (word*), including on an operator word: `OR*` becomes
+///   `"OR"*`, a prefix search for words starting with "or"
 /// - Boolean operators: like FTS5, only the uppercase spellings `AND`, `OR`
 ///   and `NOT` are operators; `and`, `or` and `not` are ordinary words
 /// - Stripping problematic characters (parentheses, colons, carets) and the
@@ -208,6 +209,9 @@ fn bare_term(token: &str) -> Option<String> {
     }
     let term = match parts.as_slice() {
         [] => return None,
+        // An operator word written as a term (`OR*`) is quoted, or FTS5
+        // reads it as the operator and rejects the query.
+        [word] if OPERATORS.contains(&word.as_str()) || word == "NEAR" => format!("\"{word}\""),
         [word] => word.clone(),
         words => format!("\"{}\"", words.join(" ")),
     };

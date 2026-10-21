@@ -1,6 +1,7 @@
 //! Tool-specific extractors for converting JSON tool results into searchable text.
 //!
 //! Contains `extract_tool_result` (tool-specific extractors with fallback),
+//! `result_text` (a result's `content`/`detailedContent` text),
 //! `flatten_json_value` / `flatten_json_with_keys` (JSON→text flatteners),
 //! and `expand_camel_case` (identifier splitting, test-only).
 
@@ -40,7 +41,46 @@ pub(super) fn flatten_json_value(value: &serde_json::Value) -> String {
     }
 }
 
-/// Flatten a serde_json::Value preserving keys as "key: value" pairs.
+/// The text of a result shaped `{content, detailedContent}`, as both Copilot
+/// and the Claude Code provider write it, or a plain string; `None` when it
+/// has neither, so the caller flattens whatever else it holds.
+///
+/// `content` comes first. `detailedContent` is added only when it says more:
+/// it repeats or extends `content` for shells, and carries the diff that an
+/// edit's `content` ("File updated") lacks. Key names are never included,
+/// since search snippets show this text as it is.
+fn result_text(result: &serde_json::Value) -> Option<String> {
+    if let Some(text) = result.as_str() {
+        return Some(text.to_string()).filter(|t| !t.trim().is_empty());
+    }
+    let field = |key| {
+        result
+            .get(key)
+            .and_then(|v| v.as_str())
+            .filter(|t| !t.trim().is_empty())
+    };
+    match (field("content"), field("detailedContent")) {
+        (Some(content), Some(detailed)) => Some(if content.contains(detailed.trim()) {
+            content.to_string()
+        } else if detailed.starts_with(content) {
+            detailed.to_string()
+        } else {
+            format!("{content}\n{detailed}")
+        }),
+        (content, detailed) => content.or(detailed).map(str::to_string),
+    }
+}
+
+/// [`result_text`], or the flattened result when it has no text, cut to
+/// `max_bytes`.
+fn result_text_or_flattened(result: &serde_json::Value, max_bytes: usize) -> String {
+    let text = result_text(result).unwrap_or_else(|| flatten_json_with_keys(result));
+    truncate_utf8(&text, max_bytes).to_string()
+}
+
+/// Flatten a serde_json::Value preserving keys as "key: value" pairs. Only
+/// for results with no text field, where the keys are the only context
+/// (`{"ready": true}`).
 fn flatten_json_with_keys(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => s.clone(),
@@ -77,14 +117,21 @@ pub(super) fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Va
             if let Some(path) = result.get("path").and_then(|v| v.as_str()) {
                 parts.push(path.to_string());
             }
-            if let Some(content) = result.get("content").and_then(|v| v.as_str()) {
+            // `detailedContent` is the same file with line numbers, so it
+            // stands in only for an empty `content`.
+            let content = ["content", "detailedContent"].into_iter().find_map(|key| {
+                result
+                    .get(key)
+                    .and_then(|v| v.as_str())
+                    .filter(|t| !t.trim().is_empty())
+            });
+            if let Some(content) = content {
                 let t = truncate_utf8(content, EXTRACT_VIEW_CONTENT);
                 parts.push(t.to_string());
             }
             let joined = parts.join("\n");
             if joined.is_empty() {
-                let full = flatten_json_with_keys(result);
-                truncate_utf8(&full, EXTRACT_VIEW_PATH_PLUS).to_string()
+                result_text_or_flattened(result, EXTRACT_VIEW_PATH_PLUS)
             } else {
                 joined
             }
@@ -100,8 +147,8 @@ pub(super) fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Va
             }
             let joined = parts.join("\n");
             if joined.is_empty() {
-                let full = flatten_json_with_keys(result);
-                truncate_utf8(&full, EXTRACT_EDIT_FALLBACK).to_string()
+                // `content` is "File updated"; `detailedContent` is the diff.
+                result_text_or_flattened(result, EXTRACT_EDIT_FALLBACK)
             } else {
                 joined
             }
@@ -110,6 +157,9 @@ pub(super) fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Va
             if let Some(output) = result.get("output").and_then(|v| v.as_str()) {
                 let t = truncate_utf8(output, EXTRACT_SHELL_OUTPUT);
                 return t.to_string();
+            }
+            if let Some(text) = result_text(result) {
+                return truncate_utf8(&text, EXTRACT_SHELL_FALLBACK).to_string();
             }
             if let Some(stderr) = result.get("stderr").and_then(|v| v.as_str())
                 && !stderr.is_empty()
@@ -121,13 +171,9 @@ pub(super) fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Va
             truncate_utf8(&full, EXTRACT_SHELL_FALLBACK).to_string()
         }
         "grep" | "glob" | "github-mcp-server-search_code" => {
-            let full = flatten_json_with_keys(result);
-            truncate_utf8(&full, EXTRACT_GREP_BYTES).to_string()
+            result_text_or_flattened(result, EXTRACT_GREP_BYTES)
         }
-        _ => {
-            let full = flatten_json_with_keys(result);
-            truncate_utf8(&full, EXTRACT_GENERIC_BYTES).to_string()
-        }
+        _ => result_text_or_flattened(result, EXTRACT_GENERIC_BYTES),
     }
 }
 
@@ -338,5 +384,85 @@ mod tests {
     fn test_flatten_json_with_keys_null() {
         let v = serde_json::Value::Null;
         assert_eq!(flatten_json_with_keys(&v), "");
+    }
+
+    // ── content-shaped results (Copilot and Claude Code) ────────
+
+    #[test]
+    fn content_results_are_their_text_without_key_names() {
+        use serde_json::json;
+        for (tool, result, expected) in [
+            // Claude Code writes `{content}`, plus extra fields for shells.
+            ("monitor", json!({"content": "Ready."}), "Ready."),
+            (
+                "ask_user",
+                json!({"content": "{\"q1\":\"Ready\"}"}),
+                "{\"q1\":\"Ready\"}",
+            ),
+            (
+                "shell",
+                json!({"content": "tests ok", "persistedOutputPath": "/tmp/out.txt"}),
+                "tests ok",
+            ),
+            // Copilot writes `{content, detailedContent}`.
+            (
+                "powershell",
+                json!({"content": "PASS", "detailedContent": "PASS"}),
+                "PASS",
+            ),
+            (
+                "powershell",
+                json!({"content": "PASS", "detailedContent": "PASS\n<exited with exit code 0>"}),
+                "PASS\n<exited with exit code 0>",
+            ),
+            (
+                "edit",
+                json!({"content": "Edited.", "detailedContent": "@@ -1,1 +1,1 @@\n-old\n+new"}),
+                "Edited.\n@@ -1,1 +1,1 @@\n-old\n+new",
+            ),
+            (
+                "grep",
+                json!({"content": "src/a.rs:1:ready", "detailedContent": ""}),
+                "src/a.rs:1:ready",
+            ),
+            (
+                "web_fetch",
+                json!({"content": "", "detailedContent": "page"}),
+                "page",
+            ),
+            // A view's `detailedContent` repeats the file with line numbers.
+            (
+                "view",
+                json!({"content": "fn main() {}", "detailedContent": "1. fn main() {}"}),
+                "fn main() {}",
+            ),
+            (
+                "view",
+                json!({"content": " ", "detailedContent": "1. fn main() {}"}),
+                "1. fn main() {}",
+            ),
+        ] {
+            assert_eq!(
+                extract_tool_result(tool, &result),
+                expected,
+                "{tool}: {result}"
+            );
+        }
+    }
+
+    #[test]
+    fn results_without_text_keep_their_key_names() {
+        let result = serde_json::json!({"ready": true});
+        assert_eq!(extract_tool_result("unknown_tool", &result), "ready: true");
+    }
+
+    #[test]
+    fn key_names_no_longer_use_up_the_byte_limit() {
+        // The generic limit is 400 bytes; "content: " used to take 9 of them.
+        let text = format!("{} needle", "x".repeat(EXTRACT_GENERIC_BYTES - 8));
+        let result = serde_json::json!({"content": text});
+        assert!(extract_tool_result("unknown_tool", &result).ends_with("needle"));
+        let shell = serde_json::json!({"content": text, "detailedContent": text});
+        assert!(extract_tool_result("bash", &shell).ends_with("needle"));
     }
 }

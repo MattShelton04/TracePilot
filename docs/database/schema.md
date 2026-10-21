@@ -482,7 +482,7 @@ error and so on), written by the search pass. It is about 80% of the file.
 | `event_index` | INTEGER | Source event position. Several chunks can share one. |
 | `timestamp_unix` | INTEGER | Event time in Unix seconds. |
 | `tool_name` | TEXT | Canonical tool name for tool chunks. The native name is kept in `metadata_json`. |
-| `content` | TEXT NOT NULL | The searchable text. Must not be blank. Prompts are stored in full and assistant replies and reasoning up to 256 KB, one row per event; tool, error, compaction and system text is cut to a smaller per-kind limit (`content_extraction/limits.rs`). |
+| `content` | TEXT NOT NULL | The searchable text. Must not be blank. Prompts are stored in full and assistant replies and reasoning up to 256 KB, one row per event; tool, error, compaction and system text is cut to a smaller per-kind limit (`content_extraction/limits.rs`). A tool result is its `content` text, plus `detailedContent` when that adds to it (an edit's diff), with no JSON key names (`tool_extraction.rs`). |
 | `metadata_json` | TEXT | Per-kind extras (native tool name, checkpoint number, system role). |
 
 Indexes:
