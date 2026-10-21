@@ -7,6 +7,15 @@ import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { useWorktreesStore } from "@/stores/worktrees";
 
+/** Counts for the worktrees the user is looking at. */
+export interface WorktreeScopeSummary {
+  total: number;
+  active: number;
+  stale: number;
+  locked: number;
+  diskBytes: number;
+}
+
 function pluralStale(n: number): string {
   return `${n} stale worktree${n === 1 ? "" : "s"}`;
 }
@@ -41,15 +50,31 @@ export function useWorktreeManager() {
     }
   });
 
+  /** The selected repository's worktrees, or every repository's when none is selected. */
+  const worktreesInScope = computed(() =>
+    selectedRepoPath.value
+      ? store.worktrees.filter((w) => w.repoRoot === selectedRepoPath.value)
+      : store.worktrees,
+  );
+
   // A worktree is stale when its folder no longer exists, so stale entries hold
   // no disk space; they are counted, never sized. Clean-up acts on the repo the
   // user is looking at, and skips locked entries just as `git worktree prune` does.
-  const staleInScope = computed(() =>
-    store.worktrees.filter(
-      (w) =>
-        w.status === "stale" && (!selectedRepoPath.value || w.repoRoot === selectedRepoPath.value),
-    ),
-  );
+  const staleInScope = computed(() => worktreesInScope.value.filter((w) => w.status === "stale"));
+
+  // The toolbar describes the same scope as the stale banner and Clean Stale:
+  // the selected repository, before the text filter narrows the list.
+  const scopeSummary = computed<WorktreeScopeSummary>(() => {
+    const summary = { total: 0, active: 0, stale: 0, locked: 0, diskBytes: 0 };
+    for (const w of worktreesInScope.value) {
+      summary.total++;
+      if (w.status === "active") summary.active++;
+      if (w.status === "stale") summary.stale++;
+      if (w.isLocked) summary.locked++;
+      summary.diskBytes += w.diskUsageBytes ?? 0;
+    }
+    return summary;
+  });
 
   const cleanableStale = computed(() =>
     staleInScope.value.filter((w) => !w.isLocked && !w.isMainWorktree),
@@ -389,6 +414,7 @@ export function useWorktreeManager() {
     detailsLoading,
     refreshing,
     staleInScope,
+    scopeSummary,
     cleanableStale,
     worktreeCountByRepo,
     filteredWorktrees,

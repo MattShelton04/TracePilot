@@ -230,6 +230,42 @@ describe("useWorktreeManager", () => {
       ]);
     });
 
+    it("summarises the selected repo for the toolbar, matching the stale banner", async () => {
+      const { api } = harness();
+      expect(api.scopeSummary.value).toEqual({
+        total: 5,
+        active: 1,
+        stale: 4,
+        locked: 1,
+        diskBytes: 5000,
+      });
+
+      await api.handleSelectRepo("/other");
+      expect(api.scopeSummary.value).toEqual({
+        total: 1,
+        active: 0,
+        stale: 1,
+        locked: 0,
+        diskBytes: 1000,
+      });
+
+      // The text filter narrows the list, not the repository's figures.
+      await api.handleSelectRepo("/repo");
+      api.searchQuery.value = "no-such-branch";
+      await nextTick();
+      expect(api.scopeSummary.value.total).toBe(4);
+      expect(api.scopeSummary.value.stale).toBe(api.staleInScope.value.length);
+
+      await api.handleSelectRepo("/empty");
+      expect(api.scopeSummary.value).toEqual({
+        total: 0,
+        active: 0,
+        stale: 0,
+        locked: 0,
+        diskBytes: 0,
+      });
+    });
+
     it("asks before removing anything and does nothing when cancelled", async () => {
       const { api } = harness();
       await api.handleCleanStale();
