@@ -8,6 +8,7 @@ import type {
   SessionFileType,
 } from "@tracepilot/types";
 import {
+  EmptyState,
   FileBrowserTree,
   FileContentViewer,
   formatBytes,
@@ -20,13 +21,18 @@ import {
   useToast,
 } from "@tracepilot/ui";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import FileContextMenu from "@/components/session/FileContextMenu.vue";
 import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch";
 import { useExplorerPaneResize } from "@/composables/useExplorerPaneResize";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
+import { useSessionSource } from "@/composables/useSessionSource";
+import { useSessionTabNavigation } from "@/composables/useSessionTabNavigation";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { ROUTE_NAMES } from "@/config/routes";
 import { STORAGE_KEYS } from "@/config/storageKeys";
+import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 import { plural } from "@/utils/format";
 
@@ -60,6 +66,47 @@ const AREA_OPTIONS: { area: SessionFileArea; label: string; title: string }[] = 
     title: "Subagent transcripts and large tool outputs kept beside the session's transcript.",
   },
 ];
+
+// ── Nothing to browse ──────────────────────────────────────────────────────
+// A listing with no entries in any area (common for Claude Code sessions,
+// which write subagent and tool-output files only when they need them) gets
+// one empty state instead of an empty tree beside an idle file reader.
+const { source, capabilities } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const hasNoFiles = computed(
+  () =>
+    sessionFiles.layout !== null &&
+    !sessionFiles.filesLoading &&
+    !sessionFiles.filesError &&
+    sessionFiles.files.length === 0,
+);
+// Claude Code saves plans outside the session folder; Overview shows them.
+watch(
+  () => (hasNoFiles.value && capabilities.value.hasPlan ? store.sessionId : null),
+  (id) => {
+    if (id) store.loadPlan();
+  },
+  { immediate: true },
+);
+const emptyDescription = computed(() => {
+  const files =
+    source.value === "claudeCode"
+      ? "This session has no subagent transcripts, saved tool outputs or scratchpad files."
+      : "This session's folder has no files to browse.";
+  return store.plan ? `${files} Its plan is on the Overview tab.` : files;
+});
+// Tab mode (and pop-outs) switch their own sub-tab; route mode pushes the route.
+const navigateToTab = useSessionTabNavigation();
+const router = navigateToTab ? null : useRouter();
+
+function viewPlan() {
+  if (!store.sessionId) return;
+  if (navigateToTab) navigateToTab("overview");
+  else if (router)
+    pushRoute(router, ROUTE_NAMES.sessionOverview, { params: { id: store.sessionId } });
+}
 
 // ── Name/path and bounded content search ───────────────────────────────────
 interface ExplorerViewModes {
@@ -379,7 +426,20 @@ async function onOpenFolder() {
 </script>
 
 <template>
-  <div ref="explorerRoot" class="explorer-tab" :class="{ 'explorer-tab--dragging': isDragging }">
+  <EmptyState
+    v-if="hasNoFiles"
+    class="explorer-empty"
+    title="No session files"
+    :description="emptyDescription"
+    :primary-action="store.plan ? { label: 'View plan', onClick: viewPlan } : undefined"
+    :secondary-action="{ label: 'Refresh', onClick: refreshExplorer }"
+  />
+  <div
+    v-else
+    ref="explorerRoot"
+    class="explorer-tab"
+    :class="{ 'explorer-tab--dragging': isDragging }"
+  >
     <div class="explorer-tab__tree" :style="{ width: `${treeWidth}px` }">
       <FileBrowserTree
         :entries="filteredFiles"
@@ -604,6 +664,12 @@ async function onOpenFolder() {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.explorer-empty {
+  flex: 1;
+  min-height: 0;
+  align-content: center;
 }
 
 .explorer-tab--dragging {

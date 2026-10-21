@@ -24,6 +24,7 @@ import {
   getDefaultWholesalePrices,
   modelPriceEntriesToPricingRegistry,
   modelPriceEntryToPricingEntry,
+  normalizeModelName,
   resolvePricingEntry,
 } from "@tracepilot/types";
 import { computed, ref } from "vue";
@@ -45,6 +46,15 @@ function pricingEntryKey(
   price: Pick<ModelPriceEntry, "model" | "pricingTier" | "minimumInputTokens">,
 ) {
   return `${price.model}:${price.pricingTier ?? "default"}:${price.minimumInputTokens ?? 0}`;
+}
+
+/** The listed rate a new one would duplicate: same normalized model and context tier. */
+export function findListedWholesalePrice(
+  prices: readonly ModelPriceEntry[],
+  price: Pick<ModelPriceEntry, "model" | "pricingTier" | "minimumInputTokens">,
+): ModelPriceEntry | undefined {
+  const key = (p: typeof price) => pricingEntryKey({ ...p, model: normalizeModelName(p.model) });
+  return prices.find((listed) => key(listed) === key(price));
 }
 
 export function mergeWholesalePricesWithDefaults(
@@ -213,6 +223,7 @@ export function createPricingSlice() {
 
   function addWholesalePrice(price: ModelPriceEntry) {
     if (!hasValidWholesaleRates(price)) return false;
+    if (findListedWholesalePrice(modelWholesalePrices.value, price)) return false;
     removedModels.value = removedModels.value.filter((model) => model !== price.model);
     modelWholesalePrices.value.push(price);
     return true;
