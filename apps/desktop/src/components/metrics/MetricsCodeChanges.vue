@@ -26,6 +26,8 @@ const files = computed(() => changes.value?.filesModified ?? []);
 const added = computed(() => changes.value?.linesAdded ?? null);
 const removed = computed(() => changes.value?.linesRemoved ?? null);
 const tree = computed(() => buildFileTree(files.value, props.roots ?? []));
+/** Distinct files: one file recorded under several spellings counts once. */
+const fileCount = computed(() => tree.value.files);
 const query = ref("");
 const filtered = computed(() => filterFileTree(tree.value, query.value));
 const filtering = computed(() => query.value.trim() !== "");
@@ -102,7 +104,7 @@ const blocks = computed(() => {
       <span v-if="added != null" class="changes__add">+{{ formatNumberFull(added) }}</span>
       <span v-if="removed != null" class="changes__del">−{{ formatNumberFull(removed) }}</span>
       <span v-if="blocks.length" class="changes__blocks" aria-hidden="true"><i v-for="(kind, i) in blocks" :key="i" :class="kind && `changes__block--${kind}`" /></span>
-      <span>{{ formatNumberFull(files.length) }} file{{ files.length === 1 ? "" : "s" }}</span>
+      <span>{{ formatNumberFull(fileCount) }} file{{ fileCount === 1 ? "" : "s" }}</span>
     </template>
 
     <p v-if="!files.length" class="ad-empty">
@@ -115,7 +117,7 @@ const blocks = computed(() => {
           <Search :size="13" aria-hidden="true" />
           <input v-model="query" type="search" class="form-input" aria-label="Filter changed files" placeholder="Filter by path" />
         </label>
-        <span v-if="filtering" class="changes__count">{{ formatNumberFull(filtered?.files ?? 0) }} of {{ formatNumberFull(files.length) }} files</span>
+        <span v-if="filtering" class="changes__count">{{ formatNumberFull(filtered?.files ?? 0) }} of {{ formatNumberFull(fileCount) }} files</span>
         <button v-if="allFolders.length && !filtering" type="button" class="ad-link changes__all" @click="toggleAll">
           {{ allOpen ? "Collapse all" : "Expand all" }}
         </button>
