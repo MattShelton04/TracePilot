@@ -1,5 +1,6 @@
 import { factoryReset, type TracePilotConfigPatch, updateConfig } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
+import { toErrorMessage, useToast } from "@tracepilot/ui";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { logWarn } from "@/utils/logger";
 
@@ -121,6 +122,9 @@ export function createPreferencePersistence(
         await save();
       } catch (error) {
         logWarn("[preferences] Failed to persist config:", error);
+        // The changed value stays on screen, so say it was not saved. The
+        // next change sends it again; nothing retries on its own.
+        useToast().error(`Failed to save settings: ${toErrorMessage(error)}`);
       }
     }, 300);
   }

@@ -25,6 +25,7 @@ const mocks: {
   confirm: Mock;
   fetchSessions: Mock;
   resetAnalytics: Mock;
+  clearAnalyticsResults: Mock;
   /** Empty sessions in the session list after `fetchSessions`. */
   emptySessionCount: number;
   toast: { error: Mock; success: Mock };
@@ -46,6 +47,7 @@ const mocks: {
   confirm: vi.fn(),
   fetchSessions: vi.fn(),
   resetAnalytics: vi.fn(),
+  clearAnalyticsResults: vi.fn(),
   emptySessionCount: 0,
   toast: {
     error: vi.fn(),
@@ -82,7 +84,10 @@ vi.mock("@/stores/sessions", () => ({
   }),
 }));
 vi.mock("@/stores/analytics", () => ({
-  useAnalyticsStore: () => ({ $reset: mocks.resetAnalytics }),
+  useAnalyticsStore: () => ({
+    $reset: mocks.resetAnalytics,
+    clearResults: mocks.clearAnalyticsResults,
+  }),
 }));
 
 vi.mock("@/composables/useBrowseDirectory", () => ({
