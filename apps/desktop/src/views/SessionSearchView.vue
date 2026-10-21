@@ -253,7 +253,7 @@ useScrollRestore({
             </button>
           </div>
 
-          <div v-else-if="!store.hasResults" class="search-empty-state">
+          <div v-else-if="!store.hasResults" class="search-empty-state" data-testid="search-no-results">
             <svg class="search-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
               <circle cx="20" cy="20" r="14" />
               <line x1="30" y1="30" x2="44" y2="44" />
@@ -261,10 +261,17 @@ useScrollRestore({
               <line x1="25" y1="15" x2="15" y2="25" stroke-width="2" />
             </svg>
             <div class="empty-title">No results found</div>
-            <div class="empty-subtitle">
-              Try adjusting your search query or filters. Use quotes for exact phrases or * for prefix matching.
-            </div>
-            <button class="clear-search-btn" @click="store.clearAll()">Clear search</button>
+            <!-- Filters can hide every match: clear them and keep the query. -->
+            <template v-if="store.hasActiveFilters">
+              <div class="empty-subtitle">Nothing matches with the current filters.</div>
+              <button class="clear-search-btn" @click="handleClearFilters()">Clear filters</button>
+            </template>
+            <template v-else>
+              <div class="empty-subtitle">
+                Try a different query. Use quotes for exact phrases or * for prefix matching.
+              </div>
+              <button class="clear-search-btn" @click="store.clearAll()">Clear search</button>
+            </template>
           </div>
 
           <div v-else-if="store.resultViewMode === 'flat'" class="results-list">

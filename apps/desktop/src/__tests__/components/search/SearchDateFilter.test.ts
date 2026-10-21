@@ -87,13 +87,14 @@ afterEach(() => {
 });
 
 describe("Search date filter", () => {
-  it("highlights All Time again after the no-results Clear search button", async () => {
+  it("highlights All Time again after the no-results Clear filters button", async () => {
     const w = await mountView();
     await searchSevenDays(w);
 
     await w.find(".clear-search-btn").trigger("click");
     await flushSearchQueue();
 
+    expect(useSearchStore().query).toBe("auth");
     expect(useSearchStore().dateFrom).toBeNull();
     expect(pressedPresets(w)).toEqual(["All Time"]);
     expect(dateChip(w).exists()).toBe(false);
