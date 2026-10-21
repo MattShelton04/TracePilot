@@ -296,7 +296,7 @@ watch(
 .tool-call-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px; /* the desktop's .gap-2, which this row used before */
   flex-shrink: 0;
   margin-left: auto;
 }
