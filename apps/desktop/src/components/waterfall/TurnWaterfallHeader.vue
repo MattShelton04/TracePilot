@@ -2,7 +2,7 @@
 import type { ConversationTurn, TaskNotification } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
 import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-vue-next";
-import { type ComponentPublicInstance, computed } from "vue";
+import { type ComponentPublicInstance, computed, nextTick, ref, watch } from "vue";
 import { promptPreviewText } from "@/utils/pastedContent";
 
 interface TurnStats {
@@ -30,11 +30,76 @@ const emit = defineEmits<{
   (e: "next"): void;
   (e: "jump-to", index: number): void;
   (e: "toggle-jump"): void;
+  (e: "close-jump"): void;
   (e: "register-jump-ref", el: HTMLElement | null): void;
 }>();
 
+const jumpWrapper = ref<HTMLElement | null>(null);
+const jumpToggle = ref<HTMLButtonElement | null>(null);
+const jumpListEl = ref<HTMLElement | null>(null);
+
 function setJumpRef(el: Element | ComponentPublicInstance | null) {
-  emit("register-jump-ref", (el as HTMLElement | null) ?? null);
+  jumpWrapper.value = (el as HTMLElement | null) ?? null;
+  emit("register-jump-ref", jumpWrapper.value);
+}
+
+function jumpOptions(): HTMLElement[] {
+  return Array.from(jumpListEl.value?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+}
+
+// Opening the list moves focus to the current turn's option, so the arrow
+// keys work from there and a long list scrolls to it.
+watch(
+  () => props.jumpOpen,
+  async (open) => {
+    if (!open) return;
+    await nextTick();
+    jumpOptions()[props.turnIndex]?.focus();
+  },
+);
+
+// Picking a turn closes the list and removes the focused option; focus goes
+// back to the toggle so the arrow keys keep moving between turns.
+function pick(index: number) {
+  jumpToggle.value?.focus();
+  emit("jump-to", index);
+}
+
+function closeJump() {
+  jumpToggle.value?.focus();
+  emit("close-jump");
+}
+
+function onJumpKeydown(e: KeyboardEvent) {
+  if (!props.jumpOpen) return;
+  if (e.key === "Escape") {
+    // Handled here so the view's Escape (dismiss the detail panel) waits.
+    e.stopPropagation();
+    closeJump();
+    return;
+  }
+  const options = jumpOptions();
+  const current = options.indexOf(document.activeElement as HTMLElement);
+  if (current === -1) return;
+  const next =
+    e.key === "ArrowDown"
+      ? Math.min(current + 1, options.length - 1)
+      : e.key === "ArrowUp"
+        ? Math.max(current - 1, 0)
+        : e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? options.length - 1
+            : null;
+  if (next === null) return;
+  e.preventDefault();
+  options[next].focus();
+}
+
+// Tabbing out of the open list closes it (clicks elsewhere are handled by the view).
+function onJumpFocusOut(e: FocusEvent) {
+  const to = e.relatedTarget as Node | null;
+  if (props.jumpOpen && to && !jumpWrapper.value?.contains(to)) emit("close-jump");
 }
 
 const NOTIFICATION_KIND: Record<TaskNotification["kind"], string> = {
@@ -119,8 +184,14 @@ const currentPreview = computed(() => (props.currentTurn ? turnPreview(props.cur
       </div>
 
       <!-- Jump dropdown -->
-      <div :ref="setJumpRef" class="jump-wrapper">
+      <div
+        :ref="setJumpRef"
+        class="jump-wrapper"
+        @keydown="onJumpKeydown"
+        @focusout="onJumpFocusOut"
+      >
         <button
+          ref="jumpToggle"
           class="nav-btn"
           @click.stop="emit('toggle-jump')"
           :aria-expanded="jumpOpen"
@@ -129,7 +200,7 @@ const currentPreview = computed(() => (props.currentTurn ? turnPreview(props.cur
           Jump to… ▾
         </button>
         <div v-if="jumpOpen" class="jump-dropdown">
-          <div class="jump-list" role="listbox">
+          <div ref="jumpListEl" class="jump-list" role="listbox" aria-label="Jump to turn">
             <button
               v-for="(item, idx) in jumpItems"
               :key="idx"
@@ -137,7 +208,8 @@ const currentPreview = computed(() => (props.currentTurn ? turnPreview(props.cur
               :class="{ active: idx === turnIndex }"
               role="option"
               :aria-selected="idx === turnIndex"
-              @click="emit('jump-to', idx)"
+              :tabindex="idx === turnIndex ? 0 : -1"
+              @click="pick(idx)"
             >
               <span class="jump-idx">{{ item.turnIndex }}</span>
               <span class="jump-msg">

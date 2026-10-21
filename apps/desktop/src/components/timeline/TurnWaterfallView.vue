@@ -63,7 +63,10 @@ const { turnIndex, jumpOpen, turnLabel, canPrev, canNext, prevTurn, nextTurn, ju
     turns,
     rootRef,
     onEscape: () => {
-      if (pinnedRowId.value) {
+      // An open jump list closes first (with focus inside it, the header handles Escape).
+      if (jumpOpen.value) {
+        jumpOpen.value = false;
+      } else if (pinnedRowId.value) {
         dismissDetail();
       } else {
         selectedRowId.value = null;
@@ -107,16 +110,20 @@ const turnStats = computed(() => {
 /*  Collapse/expand subagents                                         */
 /* ------------------------------------------------------------------ */
 
-const { toggle: toggleExpanded, has: isExpanded } = useToggleSet<string>();
+const { toggle: toggleExpanded, has: isExpanded, add: expand } = useToggleSet<string>();
 
-// Subagents start expanded
+// Subagents start expanded, once each: a live refresh replaces the running
+// turn's object, and revisiting a turn re-runs this, so neither may undo a
+// collapse the user made.
+const expandDefaultApplied = new Set<string>();
 watch(
   currentTurn,
   (t) => {
     if (!t) return;
     for (const tc of t.toolCalls) {
-      if (tc.isSubagent && tc.toolCallId && !isExpanded(tc.toolCallId)) {
-        toggleExpanded(tc.toolCallId);
+      if (tc.isSubagent && tc.toolCallId && !expandDefaultApplied.has(tc.toolCallId)) {
+        expandDefaultApplied.add(tc.toolCallId);
+        expand(tc.toolCallId);
       }
     }
   },
@@ -229,6 +236,7 @@ const waterfallTerms = [
         @next="nextTurn"
         @jump-to="jumpTo"
         @toggle-jump="jumpOpen = !jumpOpen"
+        @close-jump="jumpOpen = false"
         @register-jump-ref="(el) => (jumpWrapperEl = el)"
       />
 

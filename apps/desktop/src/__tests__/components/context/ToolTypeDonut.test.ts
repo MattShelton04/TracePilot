@@ -55,4 +55,12 @@ describe("ToolTypeDonut", () => {
 
     expect(wrapper.find('[role="tooltip"]').text()).toContain("200 tokens");
   });
+
+  it("names a single call in the singular", async () => {
+    const wrapper = mount(ToolTypeDonut, { props: { items: [{ ...items[0], callCount: 1 }] } });
+
+    await wrapper.find(".tool-donut__segment").trigger("focus");
+
+    expect(wrapper.find('[role="tooltip"]').text()).toContain("1 call ·");
+  });
 });
