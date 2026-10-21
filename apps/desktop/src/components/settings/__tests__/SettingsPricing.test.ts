@@ -45,6 +45,46 @@ describe("SettingsPricing", () => {
     expect(wrapper.text()).not.toContain("gpt-5.4");
   });
 
+  it("points at the listed row instead of adding a rate that would never apply", async () => {
+    const wrapper = mount(SettingsPricing, { attachTo: document.body });
+    try {
+      await flushPromises();
+      const preferences = usePreferencesStore();
+      const before = preferences.modelWholesalePrices.length;
+      const listed = DEFAULT_WHOLESALE_PRICES[0].model;
+      const modelInput = wrapper.find('input[placeholder="model-name"]');
+      const addButton = () => wrapper.findAll("button").find((b) => b.text() === "Add rate");
+
+      await modelInput.setValue(` ${listed.toUpperCase()} `);
+      const alert = wrapper.find("#pricing-new-model-error");
+      expect(alert.text()).toBe(`${listed} already has a fallback rate. Edit that row instead.`);
+      expect(modelInput.attributes("aria-describedby")).toBe("pricing-new-model-error");
+      expect(addButton()?.attributes()).toHaveProperty("disabled");
+      await addButton()?.trigger("click");
+      expect(preferences.modelWholesalePrices).toHaveLength(before);
+      expect((modelInput.element as HTMLInputElement).value).toBe(` ${listed.toUpperCase()} `);
+
+      const showIt = wrapper.findAll("button").find((b) => b.text() === "Show it");
+      await showIt?.trigger("click");
+      await flushPromises();
+      expect(
+        (wrapper.find('input[aria-label="Search models or sources"]').element as HTMLInputElement)
+          .value,
+      ).toBe(listed);
+      expect(document.activeElement?.getAttribute("aria-label")).toBe(
+        `${listed} input price per 1M tokens`,
+      );
+
+      await modelInput.setValue("custom-model");
+      expect(wrapper.find("#pricing-new-model-error").exists()).toBe(false);
+      await addButton()?.trigger("click");
+      expect(preferences.modelWholesalePrices.map((p) => p.model)).toContain("custom-model");
+      expect((modelInput.element as HTMLInputElement).value).toBe("");
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it("asks before Reset defaults replaces custom rates, and keeps them on cancel", async () => {
     const host = mount(
       defineComponent({ setup: () => () => h("div", [h(SettingsPricing), h(ConfirmDialog)]) }),
