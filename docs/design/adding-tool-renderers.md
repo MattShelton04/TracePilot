@@ -176,7 +176,7 @@ ignored agent/output directories.
 
 ## Current registry
 
-There are 21 registered tool names and six argument-renderer registrations.
+There are 25 registered tool names and six argument-renderer registrations.
 
 | Tool | Result component | Argument component |
 | --- | --- | --- |
@@ -185,7 +185,7 @@ There are 21 registered tool names and six argument-renderer registrations.
 | `create` | CreateFileRenderer | CreateArgsRenderer |
 | `grep`, `rg` | GrepResultRenderer | — |
 | `glob` | GlobTreeRenderer | — |
-| `shell`, `powershell`, `read_powershell`, `write_powershell`, `stop_powershell` | ShellOutputRenderer | — |
+| `shell`, `powershell`, `read_powershell`, `write_powershell`, `stop_powershell`, `bash`, `read_bash`, `write_bash`, `stop_bash` | ShellOutputRenderer | — |
 | `sql` | SqlResultRenderer | — |
 | `web_search` | WebSearchRenderer | — |
 | `store_memory` | StoreMemoryRenderer | — |
