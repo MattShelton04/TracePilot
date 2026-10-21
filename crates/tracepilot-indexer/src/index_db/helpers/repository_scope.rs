@@ -8,7 +8,8 @@
 //! (often cwd-only) reach their repository. Analytics and Search receive the
 //! same filter values, so they resolve them here into the repositories and
 //! the exact `cwd` strings of the repository-less sessions they cover, and
-//! select the same sessions as the list.
+//! select the same sessions as the list. Per-repository figures attribute
+//! each session by the same folder rule through [`FolderRepositories`].
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -53,33 +54,13 @@ impl RepositoryScope {
         if keys.is_empty() {
             return Ok(None);
         }
-        let mut stmt = conn.prepare("SELECT DISTINCT repository, cwd FROM sessions")?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, Option<String>>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                ))
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-
-        // Folder → its one repository, or `None` when sessions there name more.
-        let mut folder_repos: HashMap<String, Option<String>> = HashMap::new();
+        let rows = session_folders(conn)?;
+        let folder_repos = FolderRepositories::from_rows(&rows);
         let mut known_repos = BTreeSet::new();
         let mut loose: Vec<LooseFolder> = Vec::new();
         for (repository, cwd) in rows {
-            match repository.filter(|r| !r.is_empty()) {
+            match repository {
                 Some(repo) => {
-                    if let Some(key) = folder_key(cwd.as_deref()) {
-                        folder_repos
-                            .entry(key)
-                            .and_modify(|known| {
-                                if known.as_deref() != Some(repo.as_str()) {
-                                    *known = None;
-                                }
-                            })
-                            .or_insert_with(|| Some(repo.clone()));
-                    }
                     known_repos.insert(repo);
                 }
                 None => {
@@ -105,10 +86,7 @@ impl RepositoryScope {
             }
             for (cwd, folder, name) in &loose {
                 let folded = label.is_none()
-                    && folder
-                        .as_ref()
-                        .and_then(|f| folder_repos.get(f))
-                        .is_some_and(|repo| repo.as_deref() == Some(key));
+                    && folder.as_deref().and_then(|f| folder_repos.by_key(f)) == Some(key);
                 if folded || (label.is_some() && name.as_deref() == label) {
                     scope.folders.insert(cwd.clone());
                 }
@@ -148,6 +126,72 @@ impl RepositoryScope {
         clause.push_str(" AND ");
         clause.push_str(&condition);
         values.append(&mut binds);
+    }
+}
+
+/// Each session's distinct `(repository, cwd)`, a blank repository read as none.
+fn session_folders(conn: &Connection) -> Result<Vec<(Option<String>, Option<String>)>> {
+    let mut stmt = conn.prepare("SELECT DISTINCT repository, cwd FROM sessions")?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, Option<String>>(0)?.filter(|r| !r.is_empty()),
+                row.get::<_, Option<String>>(1)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// The folder rule of [`RepositoryScope`] as an attribution: a
+/// repository-less session in a folder where sessions of exactly one
+/// repository ran belongs to that repository, as on the session list.
+#[derive(Debug)]
+pub(in crate::index_db) struct FolderRepositories {
+    /// Folder key → its one repository, or `None` when sessions there name more.
+    by_folder: HashMap<String, Option<String>>,
+}
+
+impl FolderRepositories {
+    pub(in crate::index_db) fn load(conn: &Connection) -> Result<Self> {
+        Ok(Self::from_rows(&session_folders(conn)?))
+    }
+
+    fn from_rows(rows: &[(Option<String>, Option<String>)]) -> Self {
+        let mut by_folder: HashMap<String, Option<String>> = HashMap::new();
+        for (repository, cwd) in rows {
+            let (Some(repo), Some(key)) = (repository, folder_key(cwd.as_deref())) else {
+                continue;
+            };
+            by_folder
+                .entry(key)
+                .and_modify(|known| {
+                    if known.as_deref() != Some(repo.as_str()) {
+                        *known = None;
+                    }
+                })
+                .or_insert_with(|| Some(repo.clone()));
+        }
+        Self { by_folder }
+    }
+
+    /// The one repository of a folder key, if exactly one ran there.
+    fn by_key(&self, key: &str) -> Option<&str> {
+        self.by_folder.get(key).and_then(Option::as_deref)
+    }
+
+    /// The repository a session counts under: its own when it records one,
+    /// otherwise its folder's single repository, otherwise none.
+    pub(in crate::index_db) fn attribute(
+        &self,
+        repository: Option<String>,
+        cwd: Option<&str>,
+    ) -> Option<String> {
+        repository.filter(|r| !r.is_empty()).or_else(|| {
+            folder_key(cwd)
+                .and_then(|key| self.by_key(&key))
+                .map(str::to_string)
+        })
     }
 }
 
