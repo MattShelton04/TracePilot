@@ -1,6 +1,6 @@
 import type { ConversationTurn } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { groupPhases, toolTooltip } from "../useSwimlaneLayout";
+import { groupPhases, phaseDurationMs, toolTooltip } from "../useSwimlaneLayout";
 
 let next = 0;
 function turn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
@@ -43,6 +43,23 @@ describe("groupPhases", () => {
       }),
     ]);
     expect(phases[0].label).toBe("Explain:\n\nstack trace");
+  });
+});
+
+describe("phaseDurationMs", () => {
+  const phase = (...durations: (number | undefined)[]) => ({
+    index: 0,
+    label: "a",
+    turns: durations.map((durationMs) => turn({ durationMs })),
+  });
+
+  it("is null, not 0, when no turn recorded a duration", () => {
+    expect(phaseDurationMs(phase(undefined))).toBeNull();
+    expect(phaseDurationMs(phase(undefined, undefined))).toBeNull();
+  });
+
+  it("sums the turns that recorded one", () => {
+    expect(phaseDurationMs(phase(2000, undefined, 3000))).toBe(5000);
   });
 });
 

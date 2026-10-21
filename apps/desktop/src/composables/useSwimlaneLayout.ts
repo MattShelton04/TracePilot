@@ -54,8 +54,17 @@ export function groupPhases(turns: ConversationTurn[]): Phase[] {
 /*  Phase summaries                                                   */
 /* ------------------------------------------------------------------ */
 
-export function phaseDurationMs(phase: Phase): number {
-  return phase.turns.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
+/**
+ * The phase's recorded turn time, or `null` when none of its turns recorded
+ * a duration (such as a final turn with no timestamped end), so it isn't
+ * shown as "0ms".
+ */
+export function phaseDurationMs(phase: Phase): number | null {
+  let total: number | null = null;
+  for (const t of phase.turns) {
+    if (t.durationMs != null) total = (total ?? 0) + t.durationMs;
+  }
+  return total;
 }
 
 export function phaseToolCount(phase: Phase): number {
