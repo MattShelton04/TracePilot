@@ -50,7 +50,7 @@ where
 /// - The child process cannot be waited on
 /// - Pipe reader threads disconnect
 /// - The process, or its output, exceeds `timeout_secs`
-pub(super) fn execute_with_timeout(
+pub(crate) fn execute_with_timeout(
     mut child: Child,
     timeout_secs: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError> {

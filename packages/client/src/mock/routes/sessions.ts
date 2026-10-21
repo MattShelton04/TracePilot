@@ -2,6 +2,7 @@ import type {
   ContextTimelineResponse,
   FreshnessResponse,
   PromptCacheResponse,
+  PullRequestSessionLink,
   SessionSectionsInfo,
   TurnActivityResponse,
   TurnsResponse,
@@ -11,6 +12,13 @@ import { MOCK_EMPTY_REQUEST_LOG } from "../claudeRequestLog.js";
 import { MOCK_EVENTS_MTIME } from "../common.js";
 import { MOCK_CONTEXT_TIMELINE } from "../contextTimeline.js";
 import { MOCK_PROMPT_CACHE } from "../promptCache.js";
+import {
+  getMockPullRequestRelatedCounts,
+  getMockSessionPullRequests,
+  mockPullRequestLinks,
+  mockRefreshListPullRequests,
+  mockRefreshSessionPullRequests,
+} from "../pullRequests.js";
 import {
   getMockSessionDetail,
   getMockSessionEvents,
@@ -44,6 +52,32 @@ export const SESSION_ROUTES: MockRoutes = {
       detailJson: { preCompactionTokens: 45000, postCompactionTokens: 12000 },
     },
   ],
+  get_session_pull_requests: (args) => getMockSessionPullRequests(mockSessionId(args)),
+  refresh_session_pull_requests: (args) => mockRefreshSessionPullRequests(mockSessionId(args)),
+  refresh_list_pull_requests: (args) => mockRefreshListPullRequests(args.sessionIds),
+  get_session_pull_request_related_counts: (args) =>
+    getMockPullRequestRelatedCounts(mockSessionId(args)),
+  get_pull_request_sessions: (args): PullRequestSessionLink[] =>
+    mockPullRequestLinks({
+      host: String(args.host ?? ""),
+      owner: String(args.owner ?? ""),
+      repo: String(args.repo ?? ""),
+      number: Number(args.number),
+    }).flatMap(({ sessionId, roles }) => {
+      const session = MOCK_SESSIONS.find((s) => s.id === sessionId);
+      if (!session) return [];
+      const { summary, repository, source, updatedAt } = session;
+      return [
+        {
+          sessionId,
+          summary: summary ?? null,
+          repository: repository ?? null,
+          source: source ?? "copilot",
+          updatedAt: updatedAt ?? null,
+          roles,
+        },
+      ];
+    }),
   get_session_turns: (args): TurnsResponse => ({
     turns: getMockSessionTurns(mockSessionId(args)),
     eventsFileSize: 1024,

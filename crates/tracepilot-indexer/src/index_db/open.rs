@@ -84,9 +84,29 @@ impl IndexDb {
     /// inside a transaction, `BEGIN` fails, `f` doesn't run, and the outer
     /// transaction is left untouched.
     pub fn with_transaction<R>(&self, f: impl FnOnce(&IndexDb) -> Result<R>) -> Result<R> {
+        self.transaction_with(TransactionBehavior::Deferred, f)
+    }
+
+    /// [`with_transaction`](Self::with_transaction), but `BEGIN IMMEDIATE`:
+    /// the write lock is taken up front (waiting out `busy_timeout`), so a
+    /// read inside `f` can't be invalidated by another writer's commit before
+    /// `f` first writes (`SQLITE_BUSY_SNAPSHOT`). Use it for short writes made
+    /// outside the indexer.
+    pub fn with_immediate_transaction<R>(
+        &self,
+        f: impl FnOnce(&IndexDb) -> Result<R>,
+    ) -> Result<R> {
+        self.transaction_with(TransactionBehavior::Immediate, f)
+    }
+
+    fn transaction_with<R>(
+        &self,
+        behavior: TransactionBehavior,
+        f: impl FnOnce(&IndexDb) -> Result<R>,
+    ) -> Result<R> {
         // This is `unchecked_transaction()` with the behavior pinned. Dropping
         // the guard (a failed commit or a panic in `f`) rolls back.
-        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Deferred)?;
+        let transaction = Transaction::new_unchecked(&self.conn, behavior)?;
         match f(self) {
             Ok(value) => {
                 transaction.commit()?;

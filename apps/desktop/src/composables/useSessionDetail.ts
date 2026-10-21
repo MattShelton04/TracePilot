@@ -232,6 +232,13 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     await refreshSections();
   }
 
+  /** Reload the pull requests even when loaded (a GitHub lookup changed them). */
+  function reloadPullRequests(): Promise<void> {
+    const id = sessionId.value;
+    if (!id) return Promise.resolve();
+    return sections.pullRequestsDef.buildRefresh(id, sessionGuard.current());
+  }
+
   /** Every section built only from the session's source files. */
   const SOURCE_KEYS: ReadonlySet<string> = new Set(["detail", "turns", ...SOURCE_SECTION_KEYS]);
 
@@ -397,6 +404,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     fileHistory: sections.fileHistorySection.data,
     shutdownMetrics: sections.metricsSection.data,
     incidents: sections.incidentsSection.data,
+    pullRequests: sections.pullRequestsSection.data,
     promptCache: sections.promptCacheSection.data,
     turnActivity: sections.activitySection.data,
     loading,
@@ -411,6 +419,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     fileHistoryError: sections.fileHistorySection.error,
     metricsError: sections.metricsSection.error,
     incidentsError: sections.incidentsSection.error,
+    pullRequestsError: sections.pullRequestsSection.error,
     promptCacheError: sections.promptCacheSection.error,
     turnActivityError: sections.activitySection.error,
     pendingCheckpointFocus,
@@ -426,6 +435,8 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     loadFileHistory: sections.fileHistoryDef.load,
     loadShutdownMetrics: sections.metricsDef.load,
     loadIncidents: sections.incidentsDef.load,
+    loadPullRequests: sections.pullRequestsDef.load,
+    reloadPullRequests,
     loadPromptCache: sections.promptCacheDef.load,
     loadTurnActivity: sections.activityDef.load,
     reset,

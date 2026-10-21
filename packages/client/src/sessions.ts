@@ -4,6 +4,9 @@ import type {
   EventsResponse,
   FreshnessResponse,
   PromptCacheResponse,
+  PullRequestRefreshResult,
+  PullRequestSessionLink,
+  RelatedPullRequestCount,
   RequestLog,
   SessionDbTable,
   SessionDetail,
@@ -14,6 +17,7 @@ import type {
   SessionIncident,
   SessionListItem,
   SessionPlan,
+  SessionPullRequest,
   SessionSectionsInfo,
   ShutdownMetrics,
   TodosResponse,
@@ -50,6 +54,60 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 
 export async function getSessionIncidents(sessionId: string): Promise<SessionIncident[]> {
   return invoke<SessionIncident[]>("get_session_incidents", { sessionId });
+}
+
+/** The GitHub pull requests the session is linked to: primary first, then by role and recency. */
+export async function getSessionPullRequests(sessionId: string): Promise<SessionPullRequest[]> {
+  return invoke<SessionPullRequest[]>("get_session_pull_requests", { sessionId });
+}
+
+/**
+ * Ask GitHub (through the `gh` CLI) for the session's pull requests that are
+ * due a lookup, or all of them with `force`, and look up its pushed branches.
+ * Main window only.
+ */
+export async function refreshSessionPullRequests(
+  sessionId: string,
+  force: boolean,
+): Promise<PullRequestRefreshResult> {
+  return invoke<PullRequestRefreshResult>("refresh_session_pull_requests", { sessionId, force });
+}
+
+/**
+ * The session list's poll: the due primary pull requests of these sessions,
+ * at most one GitHub call a minute. Main window only.
+ */
+export async function refreshListPullRequests(
+  sessionIds: string[],
+): Promise<PullRequestRefreshResult> {
+  return invoke<PullRequestRefreshResult>("refresh_list_pull_requests", { sessionIds });
+}
+
+/** For each of the session's pull requests that other sessions link too, how many other sessions do. */
+export async function getSessionPullRequestRelatedCounts(
+  sessionId: string,
+): Promise<RelatedPullRequestCount[]> {
+  return invoke<RelatedPullRequestCount[]>("get_session_pull_request_related_counts", {
+    sessionId,
+  });
+}
+
+/**
+ * Every session linked to the pull request, newest first, at most 100. Host,
+ * owner and repository match ignoring case; the asking session is included.
+ */
+export async function getPullRequestSessions(pr: {
+  host: string;
+  owner: string;
+  repo: string;
+  number: number;
+}): Promise<PullRequestSessionLink[]> {
+  return invoke<PullRequestSessionLink[]>("get_pull_request_sessions", {
+    host: pr.host,
+    owner: pr.owner,
+    repo: pr.repo,
+    number: pr.number,
+  });
 }
 
 export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {

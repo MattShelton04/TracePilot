@@ -60,11 +60,12 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("5");
   });
 
-  it("groups a large event count the way the session Overview does", () => {
+  it("abbreviates large counts so the footer stays on one line, exact on hover", () => {
     const wrapper = mount(SessionCard, {
-      props: { session: makeSession({ id: "big", eventCount: 12_345 }) },
+      props: { session: makeSession({ id: "big", eventCount: 12_345, turnCount: 1_153 }) },
     });
-    expect(wrapper.get('[title="Total Events"]').text()).toBe("12,345");
+    expect(wrapper.get('[title="12,345 events"]').text()).toBe("12.3K");
+    expect(wrapper.get('[title="1,153 conversation turns"]').text()).toBe("1.2K");
   });
 
   it("shows relative time for updatedAt", () => {
@@ -77,7 +78,8 @@ describe("SessionCard", () => {
         }),
       },
     });
-    expect(wrapper.text()).toContain("1h ago");
+    // Short form: the footer has no room for "ago"; the timestamp is on hover.
+    expect(wrapper.get(".card-time-new").text()).toBe("1h");
   });
 
   it("shows model badge when currentModel is present", () => {
@@ -261,5 +263,42 @@ describe("SessionCard", () => {
     const unsplit = stats({ errorCount: 2 });
     expect(unsplit.get(".stat-item-inline.error").text()).toBe("2");
     expect(unsplit.find('[data-testid="session-rate-limits"]').exists()).toBe(false);
+  });
+
+  it("shows the primary pull request in the footer, coloured by its state", () => {
+    const card = (linkedPullRequests: SessionListItem["linkedPullRequests"]) =>
+      mount(SessionCard, { props: { session: makeSession({ id: "s", linkedPullRequests }) } });
+    const primary = {
+      host: "github.com",
+      owner: "example",
+      repo: "orchard",
+      number: 1046,
+      url: "https://github.com/example/orchard/pull/1046",
+      state: null,
+    };
+
+    expect(card(null).find('[data-testid="session-pull-requests"]').exists()).toBe(false);
+
+    // Unknown state: neutral, no count for a single pull request.
+    const single = card({ count: 1, primary, pullRequests: [] }).get(
+      '[data-testid="session-pull-requests"]',
+    );
+    expect(single.text()).toBe("#1046");
+    expect(single.classes()).toContain("pr-stat--neutral");
+    expect(single.attributes("title")).toBe("example/orchard#1046");
+    // It sits in the footer stats, not the badge row.
+    expect(single.element.closest(".card-stats-new")).not.toBeNull();
+
+    const several = card({
+      count: 3,
+      primary: { ...primary, state: "merged" },
+      pullRequests: [],
+    }).get('[data-testid="session-pull-requests"]');
+    expect(several.get(".pr-stat__number").text()).toBe("#1046");
+    expect(several.get(".pr-stat__more").text()).toBe("+2");
+    expect(several.classes()).toContain("pr-stat--done");
+    expect(several.attributes("title")).toBe(
+      "example/orchard#1046 · Merged\n+2 more linked pull requests",
+    );
   });
 });

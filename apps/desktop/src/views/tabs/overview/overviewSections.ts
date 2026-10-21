@@ -16,6 +16,7 @@ import KpisSection from "./KpisSection.vue";
 import LoadErrorsSection from "./LoadErrorsSection.vue";
 import type { OverviewModel } from "./overviewModel";
 import PlanSection from "./PlanSection.vue";
+import PullRequestsSection from "./PullRequestsSection.vue";
 import SummarySection from "./SummarySection.vue";
 
 export interface OverviewSectionDefinition {
@@ -30,6 +31,8 @@ export const OVERVIEW_SECTIONS: readonly OverviewSectionDefinition[] = [
   { id: "kpis", component: KpisSection },
   // Context panel beside the outcome tiles.
   { id: "summary", component: SummarySection },
+  // What came out of the session; hidden when it linked none.
+  { id: "pullRequests", component: PullRequestsSection },
   { id: "activity", component: ActivitySection },
   { id: "incidents", component: IncidentsSection },
   { id: "plan", component: PlanSection },

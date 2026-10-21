@@ -14,12 +14,13 @@ import {
   useAutoRefresh,
 } from "@tracepilot/ui";
 import { Search } from "lucide-vue-next";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import SourceSwitch from "@/components/sources/SourceSwitch.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { useListPullRequestPoll } from "@/composables/useListPullRequestPoll";
 import { useLiveClock } from "@/composables/useLiveClock";
 import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
@@ -33,6 +34,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
+import { handlePullRequestPaste } from "@/utils/pullRequestUrl";
 import { prefetchRecentSessions } from "@/utils/sessionPrefetch";
 
 const router = useRouter();
@@ -49,6 +51,13 @@ const {
   complete: allCardsRendered,
   ensureRendered,
 } = useProgressiveList(() => store.filteredSessions);
+// Open pull requests on the shown cards pick up their GitHub state while the
+// list is on screen (App.vue keeps it mounted, hidden, under a session tab).
+const routeViewVisible = inject<Ref<boolean>>("routeViewVisible", ref(true));
+useListPullRequestPoll(
+  () => renderedSessions.value,
+  () => routeViewVisible.value,
+);
 const { refreshing, refresh } = useAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.
@@ -311,7 +320,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       <!-- Toolbar -->
       <div class="enhanced-toolbar" data-testid="session-toolbar">
         <div class="toolbar-search">
-          <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" data-testid="session-search" />
+          <SearchInput
+            v-model="store.searchQuery"
+            placeholder="Search sessions…"
+            data-testid="session-search"
+            @paste="handlePullRequestPaste"
+          />
         </div>
         <div class="toolbar-filters">
           <FilterSelect v-model="store.filterRepo" :options="store.repositoryOptions" placeholder="All Repos" />

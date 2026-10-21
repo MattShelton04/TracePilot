@@ -7,6 +7,10 @@ use tracepilot_core::provider::SourceFingerprint;
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v22: extract the pull requests a session created, updated, merged, reviewed
+/// or was given, and the branches it pushed, into `session_pull_requests` and
+/// `session_pushed_branches`, with the primary one on `sessions`.
+///
 /// v21: a Copilot session's `updated_at` is the later of `workspace.yaml`'s
 /// and its last event other than `session.shutdown`, since older CLIs write
 /// workspace times hours before the last turn. Re-read so list order,
@@ -61,11 +65,14 @@ use tracepilot_core::provider::SourceFingerprint;
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 21;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 22;
 
 /// The analytics version of Claude Code rows, bumped on its own so Copilot
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
+///
+/// v34: linked pull requests and pushed branches (see v22 above), including
+/// every `pr-link` record, not only the repository of the last one.
 ///
 /// v33: every error and rate limit keeps its incident row (see v20 above);
 /// Claude Code records a warning per rejected tool call and interrupt, so
@@ -128,7 +135,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 21;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 33;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 34;
 
 /// Maximum warning, compaction and truncation incidents stored per session,
 /// to prevent DB bloat. Errors and rate limits are never capped, so the
@@ -171,6 +178,14 @@ pub struct IndexedSession {
     /// Claude's recorded usage is always partial; a snapshot alone cannot
     /// prove exit. Derived from source, so old indexed Claude rows are safe too.
     pub metrics_partial: Option<bool>,
+    /// How many pull requests the session is linked to.
+    pub linked_pr_count: i64,
+    /// The pull request that stands for the session, when it has any.
+    pub primary_pr: Option<super::pull_request_reader::IndexedPrimaryPullRequest>,
+    /// Every linked pull request, primary first, up to
+    /// [`MAX_LISTED_PULL_REQUESTS`](super::pull_request_reader::MAX_LISTED_PULL_REQUESTS).
+    /// Filled by the list readers.
+    pub pull_requests: Vec<super::pull_request_reader::IndexedPullRequestSummary>,
 }
 
 /// Public return struct for session incident queries.

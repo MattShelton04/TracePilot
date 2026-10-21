@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   getSessionFileHistory: vi.fn(),
   getShutdownMetrics: vi.fn(),
   getSessionIncidents: vi.fn(),
+  getSessionPullRequests: vi.fn(),
   getSessionTodos: vi.fn(),
   getSessionPromptCache: vi.fn(),
   checkSessionFreshness: vi.fn(),
@@ -43,6 +44,7 @@ describe("Overview IPC calls", () => {
     mocks.getSessionFileHistory.mockResolvedValue([]);
     mocks.getShutdownMetrics.mockResolvedValue(null);
     mocks.getSessionIncidents.mockResolvedValue([]);
+    mocks.getSessionPullRequests.mockResolvedValue([]);
     mocks.getSessionTodos.mockResolvedValue(null);
     mocks.getSessionPromptCache.mockResolvedValue({ timeline: null });
     mocks.checkSessionFreshness.mockResolvedValue({
@@ -79,6 +81,7 @@ describe("Overview IPC calls", () => {
     expect(calls("getSessionPlan")).toBe(1);
     expect(calls("getSessionCheckpoints")).toBe(1);
     expect(calls("getSessionIncidents")).toBe(1);
+    expect(calls("getSessionPullRequests")).toBe(1);
     expect(calls("getShutdownMetrics")).toBe(1);
     wrapper.unmount();
   });
@@ -99,6 +102,7 @@ describe("Overview IPC calls", () => {
       await vi.advanceTimersByTimeAsync(RUNNING_SESSION_POLL_MS * ticks);
       expect(calls("checkSessionFreshness")).toBe(ticks);
       expect(calls("getSessionIncidents")).toBe(ticks);
+      expect(calls("getSessionPullRequests")).toBe(ticks);
       expect(calls("getSessionCheckpoints")).toBe(0);
       expect(calls("getSessionTodos")).toBe(0);
       // The source is unchanged, so nothing built from it is fetched again.
@@ -130,6 +134,7 @@ describe("Overview IPC calls", () => {
       expect(calls("getSessionLiveness")).toBe(ticks);
       // Read from files outside the source version, so they keep refreshing.
       expect(calls("getSessionIncidents")).toBe(ticks);
+      expect(calls("getSessionPullRequests")).toBe(ticks);
       expect(calls("getSessionCheckpoints")).toBe(ticks);
       expect(calls("getSessionDetail")).toBe(0);
       expect(calls("getSessionPlan")).toBe(0);

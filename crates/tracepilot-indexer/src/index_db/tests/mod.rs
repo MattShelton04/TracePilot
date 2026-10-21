@@ -16,6 +16,8 @@ mod maintenance;
 mod metadata_batches;
 mod pre_request_record_sessions;
 mod prompt_cache;
+mod pull_request_status;
+mod pull_requests;
 mod range_models;
 mod range_totals;
 mod repository_filter;

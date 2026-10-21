@@ -32,7 +32,7 @@ section_patch!(UiPatch, UiConfig, {
     theme: String, hide_empty_sessions: bool, auto_refresh_enabled: bool,
     auto_refresh_interval_seconds: u32, check_for_updates: bool,
     favourite_models: Vec<String>, recent_repo_paths: Vec<String>,
-    content_max_width: u32, ui_scale: f64,
+    content_max_width: u32, ui_scale: f64, pull_request_lookup: bool,
 });
 section_patch!(PricingPatch, PricingConfig, {
     cost_per_premium_request: f64, models: Vec<ModelPriceEntry>, removed_models: Vec<String>,

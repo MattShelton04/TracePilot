@@ -5,6 +5,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildClaudeCodeSessions } from "./claude-code.mjs";
+import { buildCopilotPullRequestSession } from "./pull-requests.mjs";
 import { buildReportIntentSession, buildRichToolsSession } from "./rich-tools.mjs";
 
 const owner = "tracepilot-rich-tool-fixtures-v1";
@@ -31,7 +32,11 @@ export function generateSessionFixtures(root) {
         `Refusing redirected directory: ${p}`,
       );
   }
-  const sessions = [buildRichToolsSession(), buildReportIntentSession()];
+  const sessions = [
+    buildRichToolsSession(),
+    buildReportIntentSession(),
+    buildCopilotPullRequestSession(),
+  ];
   const manifestPath = join(root, "synthetic-fixtures.json");
   const sessionRoot = join(root, "copilot/session-state");
   // The isolated default for the Claude Code folder; indexed only after
@@ -49,7 +54,7 @@ export function generateSessionFixtures(root) {
       },
       {
         path: join(directory, "workspace.yaml"),
-        content: `id: ${session.id}\nname: ${JSON.stringify(session.title)}\nuser_named: true\ncwd: C:/synthetic/orchard\nrepository: example/orchard\nbranch: fixture/rich-tools\nhost_type: github\ncreated_at: ${JSON.stringify(session.events[0].timestamp)}\nupdated_at: ${JSON.stringify(session.events.at(-1).timestamp)}\n`,
+        content: `id: ${session.id}\nname: ${JSON.stringify(session.title)}\nuser_named: true\ncwd: C:/synthetic/orchard\nrepository: example/orchard\nbranch: ${session.branch ?? "fixture/rich-tools"}\nhost_type: github\ncreated_at: ${JSON.stringify(session.events[0].timestamp)}\nupdated_at: ${JSON.stringify(session.events.at(-1).timestamp)}\n`,
       },
     ];
   });

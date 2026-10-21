@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -27,4 +27,15 @@ test("an explicit oversized file fails", (t) => {
   const result = run(big);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /big\.ts {2}501 > 500/);
+});
+
+test("generated bindings are exempt", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "tp-file-sizes-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const generated = join(dir, "src", "generated");
+  mkdirSync(generated, { recursive: true });
+  const big = join(generated, "bindings.ts");
+  writeFileSync(big, "export const x = 1;\n".repeat(501));
+  const result = run(big);
+  assert.equal(result.status, 0, result.stderr);
 });

@@ -1,5 +1,4 @@
 import {
-  modelDisplayName,
   resolveSessionSource,
   SESSION_SOURCES,
   type SessionListItem,
@@ -7,13 +6,17 @@ import {
 } from "@tracepilot/types";
 import { projectLabelFromCwd } from "@tracepilot/ui";
 import { type FolderRepositories, folderRepositories, folderRepository } from "./repositoryFolders";
+import { fieldsInclude, type SessionSearchFields } from "./searchFields";
+
+export { buildSearchFieldCache, parseSearchTerms, type SessionSearchFields } from "./searchFields";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export interface SessionFilterPredicates {
   /**
    * Lower-cased words from `parseSearchTerms`. Each must appear in at least
-   * one of id/summary/repository/branch/cwd/model; empty means no search.
+   * one of id/summary/repository/branch/cwd/model or a linked pull request;
+   * empty means no search.
    */
   searchTerms: readonly string[];
   /**
@@ -24,19 +27,6 @@ export interface SessionFilterPredicates {
   /** Only sessions from this source; `null` or absent means every source. */
   source?: SessionSource | null;
   hideEmptySessions: boolean;
-}
-
-export interface SessionSearchFields {
-  id: string;
-  summary: string;
-  repository: string;
-  branch: string;
-  cwd: string;
-  model: string;
-  /** The model as the card shows it (`claude-opus-5.5` for `claude-opus-5-5`). */
-  modelName: string;
-  /** The repository a cwd-only session's folder belongs to (see `repositoryFolders`). */
-  folderRepository: string | null;
 }
 
 /** Marks a repository-filter value as a working-directory project, not a repository. */
@@ -71,43 +61,6 @@ export function sessionRepositoryKey(s: SessionListItem): string | null {
   const project = projectLabelFromCwd(s.cwd);
   return project ? `${PROJECT_FILTER_PREFIX}${project}` : null;
 }
-
-/**
- * Split a session-list search query into lower-cased words, so that
- * "login fix" finds "Fix login bug". A blank query yields no words.
- */
-export function parseSearchTerms(query: string): string[] {
-  return query.toLowerCase().split(/\s+/).filter(Boolean);
-}
-
-/**
- * Build a per-session lower-cased search field cache.
- *
- * Pre-computes the strings used by `matchesSessionFilters` so the typing
- * keystroke path doesn't run `.toLowerCase()` per row per keystroke. Built
- * from the whole list, it also records which repository each cwd-only
- * session's folder belongs to.
- */
-export function buildSearchFieldCache(
-  sessions: readonly SessionListItem[],
-): Map<string, SessionSearchFields> {
-  const cache = new Map<string, SessionSearchFields>();
-  const folders = folderRepositories(sessions);
-  for (const s of sessions) {
-    cache.set(s.id, {
-      id: s.id.toLowerCase(),
-      summary: (s.summary ?? "").toLowerCase(),
-      repository: (s.repository ?? "").toLowerCase(),
-      branch: (s.branch ?? "").toLowerCase(),
-      cwd: (s.cwd ?? "").toLowerCase(),
-      model: (s.currentModel ?? "").toLowerCase(),
-      modelName: s.currentModel ? modelDisplayName(s.currentModel, s.source).toLowerCase() : "",
-      folderRepository: folderRepository(s, folders),
-    });
-  }
-  return cache;
-}
-
 /**
  * Pure single-session predicate combining all session-list filters.
  *
@@ -147,18 +100,6 @@ export function inRepositoryFilter(
   cache: Map<string, SessionSearchFields>,
 ): boolean {
   return sessionRepositoryKey(s) === repository || cache.get(s.id)?.folderRepository === repository;
-}
-
-function fieldsInclude(fields: SessionSearchFields, term: string): boolean {
-  return (
-    fields.summary.includes(term) ||
-    fields.repository.includes(term) ||
-    fields.branch.includes(term) ||
-    fields.cwd.includes(term) ||
-    fields.model.includes(term) ||
-    fields.modelName.includes(term) ||
-    fields.id.includes(term)
-  );
 }
 
 /** In-place sort comparator for the session list. */

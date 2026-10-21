@@ -19,6 +19,7 @@ export * from "./orchestration.js";
 export * from "./paths.js";
 export * from "./pricing.js";
 export * from "./promptCache.js";
+export * from "./pullRequests.js";
 export * from "./replay.js";
 export * from "./sdk.js";
 export * from "./search.js";

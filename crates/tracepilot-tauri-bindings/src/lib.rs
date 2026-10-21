@@ -51,6 +51,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .setup(|app, _api| {
             app.manage(Arc::new(IndexingSemaphores::new()));
             app.manage(config::ConfigCoordinator::default());
+            app.manage(Arc::new(
+                services::pull_request_status::PullRequestRefresher::new(Arc::new(
+                    tracepilot_orchestrator::github::pull_requests::GhCli,
+                )),
+            ));
             let session_cache_size = app
                 .state::<crate::config::SharedConfig>()
                 .read()

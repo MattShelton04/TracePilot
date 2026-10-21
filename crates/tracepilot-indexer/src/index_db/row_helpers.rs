@@ -15,8 +15,10 @@ use super::types::*;
 ///
 /// Expected columns: id, path, summary, repository, branch, cwd, host_type,
 /// created_at, updated_at, event_count, turn_count, current_model, copilot_version,
-/// error_count, rate_limit_count, compaction_count, truncation_count, source
+/// error_count, rate_limit_count, compaction_count, truncation_count, source, and
+/// the primary pull request columns (`pull_request_reader::primary_pr_columns`).
 pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSession> {
+    let (linked_pr_count, primary_pr) = super::pull_request_reader::primary_pr_from_row(row)?;
     Ok(IndexedSession {
         id: row.get("id")?,
         path: row.get("path")?,
@@ -40,6 +42,10 @@ pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSes
             .capabilities()
             .has_exit_metrics)
             .then_some(true),
+        linked_pr_count,
+        primary_pr,
+        // The list readers fill these in one query for every row.
+        pull_requests: Vec::new(),
     })
 }
 

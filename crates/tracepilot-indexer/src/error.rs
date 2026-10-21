@@ -72,6 +72,21 @@ impl IndexerError {
         }
     }
 
+    /// Whether SQLite refused because another connection holds the database
+    /// (`SQLITE_BUSY` / `SQLITE_LOCKED`), for example the indexer writing.
+    pub fn is_busy(&self) -> bool {
+        let source = match self {
+            Self::Database(source)
+            | Self::DatabaseOpen { source, .. }
+            | Self::DatabaseConfiguration { source, .. } => source,
+            _ => return false,
+        };
+        matches!(
+            source.sqlite_error_code(),
+            Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
+        )
+    }
+
     /// Create a DatabaseConfiguration error with context.
     pub fn database_config(details: impl Into<String>, source: rusqlite::Error) -> Self {
         Self::DatabaseConfiguration {

@@ -8,10 +8,16 @@ use tracepilot_core::ids::SessionId;
 use tracepilot_core::provider::{SessionLocator, SessionRole, SessionSource};
 
 use super::IndexDb;
+use super::pull_request_reader::primary_pr_columns;
 use super::row_helpers::*;
 use super::types::*;
 
 const SESSION_COLUMNS: &str = "id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count, source";
+
+/// [`SESSION_COLUMNS`] plus the primary pull request, for a query over `sessions`.
+fn session_columns() -> String {
+    format!("{SESSION_COLUMNS}, {}", primary_pr_columns("sessions"))
+}
 
 impl IndexDb {
     /// List indexed sessions with optional filters.
@@ -35,7 +41,7 @@ impl IndexDb {
     ) -> Result<Vec<IndexedSession>> {
         use super::helpers::build_eq_filter;
 
-        let mut sql = format!("SELECT {SESSION_COLUMNS} FROM sessions WHERE 1=1");
+        let mut sql = format!("SELECT {} FROM sessions WHERE 1=1", session_columns());
         let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
 
         if hide_empty {
@@ -74,6 +80,7 @@ impl IndexDb {
         for row in rows {
             sessions.push(row?);
         }
+        self.attach_listed_pull_requests(&mut sessions)?;
         Ok(sessions)
     }
 
@@ -176,23 +183,25 @@ impl IndexDb {
 
     /// Full-text search across session metadata returning full indexed rows.
     pub fn search_sessions(&self, query: &str) -> Result<Vec<IndexedSession>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare(&format!(
             "SELECT
                 s.id, s.path, s.summary, s.repository, s.branch, s.cwd, s.host_type,
                 s.created_at, s.updated_at, s.event_count, s.turn_count, s.current_model,
                 s.copilot_version, s.error_count, s.rate_limit_count, s.compaction_count, s.truncation_count,
-                s.source
+                s.source, {}
              FROM sessions_fts f
              INNER JOIN sessions s ON s.rowid = f.rowid
              WHERE sessions_fts MATCH ?1
              ORDER BY s.updated_at DESC, s.id ASC",
-        )?;
+            primary_pr_columns("s")
+        ))?;
         let rows = stmt.query_map([query], indexed_session_from_row)?;
 
         let mut sessions = Vec::new();
         for row in rows {
             sessions.push(row?);
         }
+        self.attach_listed_pull_requests(&mut sessions)?;
         Ok(sessions)
     }
 

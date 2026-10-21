@@ -1,5 +1,5 @@
 import { IPC_EVENTS, listSessions } from "@tracepilot/client";
-import type { SessionListItem, SessionSource } from "@tracepilot/types";
+import type { PullRequestRef, SessionListItem, SessionSource } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
@@ -20,6 +20,11 @@ import { folderRepositories } from "./sessions/repositoryFolders";
 export type { SortOption } from "./sessions/filtering";
 
 import type { SortOption } from "./sessions/filtering";
+
+/** Identifies a pull request across hosts; owner and repository names ignore case. */
+function pullRequestKey(pr: Pick<PullRequestRef, "host" | "owner" | "repo" | "number">): string {
+  return `${pr.host}/${pr.owner}/${pr.repo}#${pr.number}`.toLowerCase();
+}
 
 export const useSessionsStore = defineStore("sessions", () => {
   // shallowRef: session list is always replaced wholesale (never index-mutated).
@@ -126,6 +131,31 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  /**
+   * Give list items whose primary pull request GitHub just reported its new
+   * state, without reloading the list. The list is replaced only when a state
+   * changed.
+   */
+  function applyPullRequestStates(refs: readonly PullRequestRef[]) {
+    if (!refs.length) return;
+    const states = new Map(refs.map((ref) => [pullRequestKey(ref), ref.state]));
+    let changed = false;
+    const next = sessions.value.map((session) => {
+      const linked = session.linkedPullRequests;
+      if (!linked) return session;
+      const key = pullRequestKey(linked.primary);
+      if (!states.has(key)) return session;
+      const state = states.get(key) ?? null;
+      if (linked.primary.state === state) return session;
+      changed = true;
+      return {
+        ...session,
+        linkedPullRequests: { ...linked, primary: { ...linked.primary, state } },
+      };
+    });
+    if (changed) sessions.value = next;
+  }
+
   // Passes and source purges (turning Claude Code on or off) change the
   // list; keep the loaded list and the sidebar count in step with the index.
   const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
@@ -154,5 +184,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     watchIndexUpdates,
     setSortBy,
     setFilterSource,
+    applyPullRequestStates,
   };
 });

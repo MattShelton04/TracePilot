@@ -1,6 +1,11 @@
 import type { FileCheckpoint } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
-import type { SessionDetail, SessionIncident, ShutdownMetrics } from "@tracepilot/types";
+import type {
+  SessionDetail,
+  SessionIncident,
+  SessionPullRequest,
+  ShutdownMetrics,
+} from "@tracepilot/types";
 import { ErrorAlert, KPI } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
@@ -12,6 +17,7 @@ const store = reactive({
   detail: null as SessionDetail | null,
   shutdownMetrics: null as ShutdownMetrics | null,
   incidents: [] as SessionIncident[],
+  pullRequests: [] as SessionPullRequest[],
   checkpoints: [],
   plan: null,
   fileHistory: [] as FileCheckpoint[],

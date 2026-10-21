@@ -82,6 +82,8 @@ export function createUiSlice() {
   const autoRefreshEnabled = ref(false);
   const autoRefreshIntervalSeconds = ref(DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS);
   const checkForUpdates = ref(true);
+  /** Look up linked pull requests' state on GitHub with the `gh` CLI. */
+  const pullRequestLookup = ref(true);
   const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
   const recentRepoPaths = ref<string[]>([]);
   const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);
@@ -119,6 +121,7 @@ export function createUiSlice() {
     autoRefreshEnabled,
     autoRefreshIntervalSeconds,
     checkForUpdates,
+    pullRequestLookup,
     favouriteModels,
     recentRepoPaths,
     contentMaxWidth,

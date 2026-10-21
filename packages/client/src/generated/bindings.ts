@@ -38,6 +38,29 @@ export const commands = {
 	 *  directory. Read-only: nothing is ever restored.
 	 */
 	getSessionFileVersion: (sessionId: string, backup: string) => typedError<FileVersionContent, BindingsErrorIpc>(__TAURI_INVOKE("get_session_file_version", { sessionId, backup })),
+	getSessionPullRequests: (sessionId: string) => typedError<SessionPullRequest[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_pull_requests", { sessionId })),
+	/**
+	 *  Ask GitHub, through the user's `gh`, for the state of the session's pull
+	 *  requests and for pull requests on the branches it pushed, when due.
+	 *  `force` refreshes all of them. Starts no `gh` when nothing is due.
+	 */
+	refreshSessionPullRequests: (sessionId: string, force: boolean) => typedError<PullRequestRefreshResult, BindingsErrorIpc>(__TAURI_INVOKE("refresh_session_pull_requests", { sessionId, force })),
+	/**
+	 *  Refresh the due primary pull requests of the listed sessions: at most 50,
+	 *  and at most one `gh` batch a minute.
+	 */
+	refreshListPullRequests: (sessionIds: string[]) => typedError<PullRequestRefreshResult, BindingsErrorIpc>(__TAURI_INVOKE("refresh_list_pull_requests", { sessionIds })),
+	/**
+	 *  For each of the session's pull requests that other sessions link too, how
+	 *  many other sessions do. Pull requests no other session links are left out.
+	 */
+	getSessionPullRequestRelatedCounts: (sessionId: string) => typedError<RelatedPullRequestCount[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_pull_request_related_counts", { sessionId })),
+	/**
+	 *  Every session linked to the pull request (host, owner and repository
+	 *  compared ignoring case), most recently updated first, at most 100. The
+	 *  asking session is included when it links it.
+	 */
+	getPullRequestSessions: (host: string, owner: string, repo: string, number: number) => typedError<PullRequestSessionLink[], BindingsErrorIpc>(__TAURI_INVOKE("get_pull_request_sessions", { host, owner, repo, number })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
 	/**
@@ -244,6 +267,32 @@ export type IndexingProgressPayload = {
 	totalRepos: number,
 };
 
+// A linked pull request as the session list searches it.
+export type LinkedPullRequestSummary = {
+	owner: string,
+	repo: string,
+	number: number,
+	/**
+	 *  GitHub's title when it has been fetched, else the transcript's.
+	 *  Untrusted display text.
+	 */
+	title: string | null,
+};
+
+/**
+ *  How many pull requests a session is linked to, the one that stands for
+ *  it, and every linked one, for searching the list.
+ */
+export type LinkedPullRequests = {
+	count: number,
+	primary: PullRequestRef,
+	/**
+	 *  Every linked pull request, primary first, then by strongest role and
+	 *  recency; at most 200.
+	 */
+	pullRequests: LinkedPullRequestSummary[],
+};
+
 // Whether a live process owns a session.
 export type Liveness =
 /**
@@ -262,6 +311,96 @@ export type ProviderMetricsStatus = {
 
 export type ProviderRunState = {
 	runStatus?: RunStatus,
+};
+
+// Whether a refresh could ask GitHub.
+export type PullRequestLookup =
+// Looked up, or nothing was due.
+"ok" |
+// The setting is off.
+"disabled" |
+// `gh` is not installed.
+"notInstalled" |
+// `gh` is not signed in to the host.
+"signedOut" |
+// `gh` ran but gave no usable answer; nothing was written.
+"failed";
+
+// A pull request as the session list shows it.
+export type PullRequestRef = {
+	host: string,
+	owner: string,
+	repo: string,
+	number: number,
+	// Rebuilt from the parts above, never copied from a session file.
+	url: string,
+	// None until GitHub has been asked.
+	state: PullRequestState | null,
+};
+
+// What a pull request refresh changed.
+export type PullRequestRefreshResult = {
+	lookup: PullRequestLookup,
+	// Every pull request whose status row this call wrote, with its state.
+	updated: PullRequestRef[],
+	// A pushed-branch lookup added or removed a link for the session.
+	linksChanged: boolean,
+};
+
+// How a session took part in a pull request, strongest first.
+export type PullRequestRole =
+// The session opened it (`gh pr create` printed its address).
+"created" |
+/**
+ *  The session pushed to, edited, commented on, closed or bound it, or
+ *  Claude Code linked it without the session creating it.
+ */
+"updated" |
+// The session merged it.
+"merged" |
+/**
+ *  The session read it: viewed, diffed, checked out, reviewed or fetched
+ *  it through a GitHub tool.
+ */
+"reviewed" |
+// The user pasted its address into a prompt.
+"mentioned";
+
+// A session linked to a pull request, for listing the sessions that share it.
+export type PullRequestSessionLink = {
+	sessionId: SessionId,
+	summary: string | null,
+	repository: string | null,
+	source: SessionSource,
+	updatedAt: string | null,
+	// What this session did with the pull request, strongest first.
+	roles: PullRequestRole[],
+};
+
+// A pull request's state on GitHub.
+export type PullRequestState = "open" | "draft" | "closed" | "merged";
+
+// A pull request's last known state on GitHub.
+export type PullRequestStatus = {
+	state: PullRequestState | null,
+	title: string | null,
+	mergedAt: string | null,
+	closedAt: string | null,
+	reviewDecision: string | null,
+	checksState: string | null,
+	fetchedAt: string,
+	// The last lookup's failure.
+	error: string | null,
+};
+
+// How many other sessions link one of a session's pull requests.
+export type RelatedPullRequestCount = {
+	host: string,
+	owner: string,
+	repo: string,
+	number: number,
+	// Always at least 1: pull requests no other session links are left out.
+	otherSessionCount: number,
 };
 
 // What a running session's process is doing, when the source records it.
@@ -294,6 +433,11 @@ export type SessionListItem = {
 	rateLimitCount: number | null,
 	compactionCount: number | null,
 	truncationCount: number | null,
+	/**
+	 *  The pull requests the session is linked to. None when it has none or
+	 *  the list came from the disk-scan fallback.
+	 */
+	linkedPullRequests: LinkedPullRequests | null,
 } &
 /**
  *  Provider usage does not establish that a session ended or that all
@@ -305,6 +449,35 @@ export type SessionListItem = {
  *  for Copilot to preserve its wire output.
  */
 (ProviderRunState | null);
+
+// A pull request a session is linked to, with what the session did.
+export type SessionPullRequest = {
+	host: string,
+	owner: string,
+	repo: string,
+	number: number,
+	// Rebuilt from the parts above, never copied from a session file.
+	url: string,
+	// Strongest first.
+	roles: PullRequestRole[],
+	// The one that stands for the session in the list and header.
+	primary: boolean,
+	headRef: string | null,
+	baseRef: string | null,
+	// The title the transcript recorded. Untrusted display text.
+	title: string | null,
+	firstSeenAt: string | null,
+	lastSeenAt: string | null,
+	// The event that established the strongest role.
+	eventIndex: number | null,
+	// None until GitHub has been asked.
+	status: PullRequestStatus | null,
+	/**
+	 *  True when the pull request, or its `updated` role, came only from a
+	 *  lookup of a branch the session pushed, not from the transcript.
+	 */
+	foundByBranch: boolean,
+};
 
 // Which tool wrote a session.
 export type SessionSource = "copilot" | "claudeCode";

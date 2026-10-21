@@ -8,11 +8,12 @@ function modelFor(source: SessionSource) {
   return { capabilities: computed(() => sourceCapabilities(source)) } as unknown as OverviewModel;
 }
 
-it("renders the sections in the Overview's layout order, the summary row after the KPIs", () => {
+it("renders the sections in the Overview's layout order, pull requests after the summary row", () => {
   expect(OVERVIEW_SECTIONS.map((s) => s.id)).toEqual([
     "loadErrors",
     "kpis",
     "summary",
+    "pullRequests",
     "activity",
     "incidents",
     "plan",

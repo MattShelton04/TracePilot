@@ -11,6 +11,7 @@ use tracepilot_core::provider::{
     CopilotProvider, FormatObservations, ProviderSnapshot, SessionLocator, SessionProvider,
     SessionRole, SessionSource, SourceFingerprint,
 };
+use tracepilot_core::pull_requests::{RepositoryHint, SessionPullRequests, extract_pull_requests};
 
 use super::IndexDb;
 use super::types::*;
@@ -22,6 +23,7 @@ mod child_rows;
 mod format_observations;
 mod prompt_cache;
 mod prune;
+mod pull_requests;
 mod skill_invocations;
 
 pub(crate) use analytics::extract_session_analytics;
@@ -40,6 +42,8 @@ pub(crate) struct PreparedSessionData {
     pub identity: SessionIdentity,
     /// The source's format drift, when it reports any.
     pub format: Option<FormatObservations>,
+    /// The pull requests the session is linked to and the branches it pushed.
+    pub pull_requests: SessionPullRequests,
 }
 
 /// Which source wrote a session and where it sits in its family.
@@ -90,6 +94,17 @@ impl PreparedSessionData {
             &file_meta,
         );
         billing::apply(&mut analytics, provider.capabilities(), metrics.is_some());
+        let pull_requests = events
+            .as_deref()
+            .map_or_else(SessionPullRequests::default, |events| {
+                extract_pull_requests(
+                    events,
+                    RepositoryHint {
+                        repository: summary.repository.as_deref(),
+                        host_type: summary.host_type.as_deref(),
+                    },
+                )
+            });
         let index_info = SessionIndexInfo {
             repository: summary.repository.clone(),
             branch: summary.branch.clone(),
@@ -107,6 +122,7 @@ impl PreparedSessionData {
             fingerprint,
             identity,
             format,
+            pull_requests,
         }
     }
 }
@@ -315,6 +331,7 @@ impl IndexDb {
                 &analytics.skill_invocations,
             )?;
             format_observations::write(&self.conn, &session_id, prepared.format.as_ref())?;
+            pull_requests::write(&self.conn, &session_id, &prepared.pull_requests)?;
 
             Ok(())
         })();

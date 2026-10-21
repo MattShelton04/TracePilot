@@ -3,7 +3,10 @@
 use crate::config::{SharedConfig, TracePilotConfig};
 use crate::error::CmdResult;
 use crate::providers::registry_for;
-use crate::types::{ProviderRunState, SessionListItem};
+use crate::types::{
+    LinkedPullRequestSummary, LinkedPullRequests, ProviderRunState, PullRequestRef,
+    PullRequestState, SessionListItem,
+};
 use std::path::{Path, PathBuf};
 use tracepilot_core::SessionId;
 use tracepilot_core::provider::{Liveness, ProviderRegistry, SessionLocator, SessionRole};
@@ -54,6 +57,7 @@ pub(crate) fn summary_to_list_item(
         rate_limit_count: None,
         compaction_count: None,
         truncation_count: None,
+        linked_pull_requests: None,
     }
 }
 
@@ -144,6 +148,32 @@ fn indexed_session_to_list_item(session: IndexedSession, liveness: Liveness) -> 
         rate_limit_count: maybe_i64_to_usize(session.rate_limit_count),
         compaction_count: maybe_i64_to_usize(session.compaction_count),
         truncation_count: maybe_i64_to_usize(session.truncation_count),
+        linked_pull_requests: session.primary_pr.map(|primary| LinkedPullRequests {
+            count: u32::try_from(session.linked_pr_count)
+                .unwrap_or(u32::MAX)
+                .max(1),
+            primary: PullRequestRef {
+                url: primary.key.url(),
+                host: primary.key.host,
+                owner: primary.key.owner,
+                repo: primary.key.repo,
+                number: primary.key.number,
+                state: primary
+                    .state
+                    .as_deref()
+                    .and_then(|state| PullRequestState::from_stored(state, false)),
+            },
+            pull_requests: session
+                .pull_requests
+                .into_iter()
+                .map(|pr| LinkedPullRequestSummary {
+                    owner: pr.owner,
+                    repo: pr.repo,
+                    number: pr.number,
+                    title: pr.title,
+                })
+                .collect(),
+        }),
     }
 }
 
@@ -182,6 +212,9 @@ mod tests {
             truncation_count: None,
             source,
             metrics_partial: None,
+            linked_pr_count: 0,
+            primary_pr: None,
+            pull_requests: Vec::new(),
         }
     }
 
@@ -347,5 +380,42 @@ mod tests {
             Some(&serde_json::Value::Bool(true))
         );
         assert!(claude.get("metricsStatus").is_none());
+    }
+
+    #[test]
+    fn list_items_carry_every_linked_pull_request_on_the_wire() {
+        use tracepilot_core::pull_requests::PullRequestKey;
+        use tracepilot_indexer::index_db::{IndexedPrimaryPullRequest, IndexedPullRequestSummary};
+        let dir = tempfile::tempdir().unwrap();
+        let mut linked = row(SessionSource::Copilot, COPILOT, dir.path());
+        linked.linked_pr_count = 2;
+        linked.primary_pr = Some(IndexedPrimaryPullRequest {
+            key: PullRequestKey {
+                host: "github.com".into(),
+                owner: "example".into(),
+                repo: "orchard".into(),
+                number: 42,
+            },
+            state: None,
+        });
+        let summary = |number: u32, title: Option<&str>| IndexedPullRequestSummary {
+            owner: "example".into(),
+            repo: "orchard".into(),
+            number,
+            title: title.map(str::to_string),
+        };
+        linked.pull_requests = vec![summary(42, Some("Fix ripeness")), summary(7, None)];
+        let none = row(SessionSource::Copilot, RUNNING, dir.path());
+
+        let listed = items(&ProviderRegistry::new(), vec![linked, none]);
+        assert_eq!(
+            listed[0]["linkedPullRequests"]["pullRequests"],
+            serde_json::json!([
+                {"owner": "example", "repo": "orchard", "number": 42, "title": "Fix ripeness"},
+                {"owner": "example", "repo": "orchard", "number": 7, "title": null},
+            ])
+        );
+        assert_eq!(listed[0]["linkedPullRequests"]["count"], 2);
+        assert!(listed[1]["linkedPullRequests"].is_null());
     }
 }

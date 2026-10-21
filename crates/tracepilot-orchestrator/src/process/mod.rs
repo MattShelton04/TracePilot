@@ -42,7 +42,7 @@ pub use hidden::{
 };
 pub use start_time::{process_start_time, process_start_times};
 
-pub(crate) use timeout::run_async_with_limits;
+pub(crate) use timeout::{execute_with_timeout, run_async_with_limits};
 
 #[allow(deprecated)]
 pub use hidden::run_hidden_shell;

@@ -197,7 +197,7 @@ TracePilot cannot find keeps everything else:
 | --- | --- | --- | --- |
 | `copilot` | GitHub Copilot CLI | Session launch, SDK bridge discovery, resume commands, command previews. | Rust default is `tracepilot_core::constants::DEFAULT_CLI_COMMAND`; user override is `TracePilotConfig.general.cliCommand`; TS fallback is `DEFAULT_CLI_COMMAND`. |
 | `git` | Git | Repo discovery, worktrees, branch checkout, version checks, app git metadata. | Rust default is `DEFAULT_GIT_COMMAND`. Keep user repo paths as explicit arguments, never shell-concatenate unless platform launcher requires it. |
-| `gh` | GitHub CLI | Auth status and GitHub API imports. | Rust default is `DEFAULT_GH_COMMAND`. Future enhancement: expose an optional `githubCliCommand` only if users need non-standard installs. |
+| `gh` | GitHub CLI | Auth status, GitHub API imports, and linked pull request status (`gh api graphql`, only while Settings → General → pull request status is on). | Rust default is `DEFAULT_GH_COMMAND`. Future enhancement: expose an optional `githubCliCommand` only if users need non-standard installs. |
 | `powershell`, `cmd`, `explorer`, `open`, `xdg-open`, terminal emulators | OS | Terminal/file-manager integration and Windows fallbacks. | Keep platform-specific constants contained in `tracepilot-orchestrator::process`/launcher modules. Do not expose as general user config unless a concrete use case appears. |
 | `node`, `npx`, `pnpm`, `npm`, `cargo`, `vite`, `tauri`, `biome`, `tsx`, `vitest` | Development/build tooling | Package scripts, tests, examples, MCP fixture commands. | Build/test-only; keep centralized in package scripts/workflows. Runtime code should not depend on these except explicit user-configured MCP servers. |
 

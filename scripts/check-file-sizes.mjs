@@ -19,7 +19,8 @@
  *   node scripts/check-file-sizes.mjs --since origin/main  # changed on this branch
  *   node scripts/check-file-sizes.mjs <paths...>  # just these files (hooks)
  *
- * The landing page (site/) is exempt; see the skip list below.
+ * The landing page (site/) and generated bindings (src/generated/) are exempt;
+ * see the skip list below.
  * Existing exceptions and their review notes are listed in ALLOWLIST below.
  */
 
@@ -114,6 +115,9 @@ for (const f of files) {
   // The landing page renders static HTML replicas of app views; its modules are
   // illustrative, not product code, so they are exempt from these budgets.
   if (f.startsWith("site/")) continue;
+  // Generated IPC bindings grow with the command surface and can't be split by
+  // hand; `pnpm gen:bindings` owns them.
+  if (f.replaceAll(sep, "/").includes("/src/generated/")) continue;
 
   const budget = budgetFor(f);
   if (!budget) continue;

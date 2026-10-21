@@ -5,6 +5,8 @@
 //! This enables GitHub operations (including private repos) without
 //! requiring TracePilot to manage OAuth tokens directly.
 
+pub mod pull_requests;
+
 use crate::error::{OrchestratorError, Result};
 use crate::process::{run_hidden, run_hidden_stdout_timeout};
 use serde::{Deserialize, Serialize};

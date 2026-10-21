@@ -9,6 +9,8 @@
 //! - `migrations` — schema migration runner (`MIGRATION_1..n`)
 //! - `helpers` — SQL filter builders, day-query functions, duration stats
 //! - `session_writer` / `session_reader` — per-session ingest and reads
+//! - `pull_request_reader` / `pull_request_lookups` / `pull_request_status_writer`
+//!   — linked pull requests, and the GitHub state looked up for them
 //! - `search_writer` / `search_reader` — FTS5 content and search surface
 //! - `analytics_queries` — aggregate analytics, tool analysis, code impact
 
@@ -19,6 +21,10 @@ mod helpers;
 mod maintenance;
 mod migrations;
 mod open;
+mod pull_request_links;
+mod pull_request_lookups;
+mod pull_request_reader;
+mod pull_request_status_writer;
 mod row_helpers;
 pub mod search_reader;
 pub mod search_writer;
@@ -32,6 +38,19 @@ use rusqlite::Connection;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings).
 pub use format_diagnostics::{FormatDiagnostics, FormatNameCount};
+pub use pull_request_links::{
+    IndexedPullRequestSession, IndexedRelatedPullRequestCount, MAX_PULL_REQUEST_SESSIONS,
+};
+pub use pull_request_lookups::{
+    PullRequestFetchState, PushedBranchLookup, SessionPullRequestLookups,
+};
+pub use pull_request_reader::{
+    IndexedPrimaryPullRequest, IndexedPullRequest, IndexedPullRequestStatus,
+    IndexedPullRequestSummary, MAX_LISTED_PULL_REQUESTS,
+};
+pub use pull_request_status_writer::{
+    BranchLookupUpdate, PullRequestRefreshWrite, PullRequestStatusUpdate,
+};
 pub use search_reader::{
     ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats,
     SearchToolName,

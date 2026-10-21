@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
 import {
+  formatNumber,
   formatNumberFull,
   formatRelativeTime,
   isNonCopilotSource,
   modelDisplayName,
+  pullRequestSlug,
+  pullRequestStateLabel,
+  pullRequestTone,
   resolveSessionSource,
   runStatusBadge,
   sourceLabel,
@@ -12,6 +16,7 @@ import {
 import { Folder, TriangleAlert } from "lucide-vue-next";
 import { computed } from "vue";
 import { projectLabelFromCwd } from "../utils/pathUtils";
+import { pullRequestIcon } from "../utils/pullRequests";
 import Badge from "./Badge.vue";
 import SourceLogo from "./SourceLogo.vue";
 
@@ -39,6 +44,29 @@ const rateLimitCount = computed(() => props.session.rateLimitCount ?? 0);
 const errorCount = computed(() =>
   Math.max(0, (props.session.errorCount ?? 0) - rateLimitCount.value),
 );
+
+// The footer is one line however much it holds: counts are abbreviated and the
+// age drops "ago", with the exact values on hover.
+const eventCount = computed(() => props.session.eventCount ?? 0);
+const turnCount = computed(() => props.session.turnCount ?? 0);
+
+/** Called on every render, not cached, so the list's clock tick moves it on. */
+function age(updatedAt: string | null | undefined): string {
+  const relative = formatRelativeTime(updatedAt);
+  return relative === "just now" ? "now" : relative.replace(/ ago$/, "");
+}
+
+// The pull request that stands for the session, coloured by its state once known.
+const linkedPrs = computed(() => props.session.linkedPullRequests ?? null);
+const prTitle = computed(() => {
+  const linked = linkedPrs.value;
+  if (!linked) return "";
+  const state = pullRequestStateLabel(linked.primary.state);
+  const head = `${pullRequestSlug(linked.primary)}${state ? ` · ${state}` : ""}`;
+  const others = linked.count - 1;
+  if (others <= 0) return head;
+  return `${head}\n+${others} more linked pull request${others === 1 ? "" : "s"}`;
+});
 
 function isClaude(session: SessionListItem): boolean {
   return resolveSessionSource(session.source) === "claudeCode";
@@ -114,13 +142,13 @@ function activeTitle(): string {
 
     <div class="card-footer-new">
       <div class="card-stats-new">
-        <span class="stat-item-inline" title="Total Events">
+        <span class="stat-item-inline" :title="`${formatNumberFull(eventCount)} events`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          {{ formatNumberFull(session.eventCount ?? 0) }}
+          {{ formatNumber(eventCount) }}
         </span>
-        <span class="stat-item-inline" title="Conversation Turns">
+        <span class="stat-item-inline" :title="`${formatNumberFull(turnCount)} conversation turns`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          {{ session.turnCount ?? 0 }}
+          {{ formatNumber(turnCount) }}
         </span>
         <span v-if="errorCount" class="stat-item-inline error" :title="`${errorCount} error${errorCount !== 1 ? 's' : ''} encountered`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -139,9 +167,22 @@ function activeTitle(): string {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
           {{ session.compactionCount }}
         </span>
+        <span
+          v-if="linkedPrs"
+          class="stat-item-inline pr-stat"
+          :class="`pr-stat--${pullRequestTone(linkedPrs.primary.state)}`"
+          :title="prTitle"
+          role="img"
+          :aria-label="`Pull request ${prTitle}`"
+          data-testid="session-pull-requests"
+        >
+          <component :is="pullRequestIcon(linkedPrs.primary.state)" :size="14" aria-hidden="true" />
+          <span class="pr-stat__number">#{{ linkedPrs.primary.number }}</span>
+          <span v-if="linkedPrs.count > 1" class="pr-stat__more">+{{ linkedPrs.count - 1 }}</span>
+        </span>
       </div>
       <span class="card-footer-end">
-        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ age(session.updatedAt) }}</span>
         <span
           class="card-source-logo"
           :class="isClaude(session) ? 'card-source-logo--claude' : 'card-source-logo--copilot'"
@@ -202,6 +243,7 @@ function activeTitle(): string {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding-top: 16px;
   border-top: 1px solid var(--border-subtle);
 }
@@ -209,13 +251,17 @@ function activeTitle(): string {
 .card-stats-new {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  min-width: 0;
+  /* A last resort: clip rather than run into the age. */
+  overflow: hidden;
 }
 
 .stat-item-inline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
@@ -239,8 +285,30 @@ function activeTitle(): string {
   color: var(--warning-fg);
 }
 
+/* The primary pull request; unknown and draft states keep the quiet icon colour. */
+.pr-stat {
+  gap: 4px;
+}
+.pr-stat__number,
+.pr-stat__more {
+  font-variant-numeric: tabular-nums;
+}
+.pr-stat__more {
+  color: var(--text-tertiary);
+}
+.pr-stat--success svg {
+  color: var(--success-fg);
+}
+.pr-stat--done svg {
+  color: var(--done-fg);
+}
+.pr-stat--danger svg {
+  color: var(--danger-fg);
+}
+
 .card-footer-end {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
 }
@@ -257,6 +325,7 @@ function activeTitle(): string {
 }
 
 .card-time-new {
+  white-space: nowrap;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-tertiary);

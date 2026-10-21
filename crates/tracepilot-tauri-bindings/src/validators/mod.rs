@@ -7,10 +7,12 @@
 //! Split by input shape:
 //! * [`id`] — UUID-format identifiers (session)
 //! * [`path`] — path-safe filesystem names (template / skill / asset)
+//! * [`pull_request`] — pull request identities (host / owner / repo / number)
 //! * [`rules`] — generic rules (pagination, date/timestamp ranges, display helpers)
 
 mod id;
 mod path;
+mod pull_request;
 mod rules;
 
 #[cfg(test)]
@@ -21,6 +23,7 @@ pub(crate) use path::{
     validate_asset_name, validate_cli_command, validate_path_segment, validate_skill_name,
     validate_template_id,
 };
+pub(crate) use pull_request::validate_pull_request_key;
 pub(crate) use rules::{
     MAX_EVENTS_PAGE_LIMIT, clamp_limit, validate_iso_date_range, validate_unix_date_range,
 };

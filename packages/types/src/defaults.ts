@@ -110,6 +110,7 @@ export function createDefaultConfig(
       autoRefreshEnabled: false,
       autoRefreshIntervalSeconds: DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
       checkForUpdates: true,
+      pullRequestLookup: true,
       favouriteModels: [...DEFAULT_FAVOURITE_MODELS],
       recentRepoPaths: [],
       contentMaxWidth: DEFAULT_CONTENT_MAX_WIDTH,

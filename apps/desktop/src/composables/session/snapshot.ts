@@ -31,6 +31,7 @@ export function buildCachedSessionSnapshot(
     fileHistory: ctx.sections.fileHistorySection.data.value,
     shutdownMetrics: ctx.sections.metricsSection.data.value,
     incidents: ctx.sections.incidentsSection.data.value,
+    pullRequests: ctx.sections.pullRequestsSection.data.value,
     todos: ctx.sections.todosSection.data.value,
     promptCache: ctx.sections.promptCacheSection.data.value,
     turnActivity: ctx.sections.activitySection.data.value,
@@ -67,6 +68,7 @@ export function restoreFromCachedSession(ctx: SnapshotContext, cached: CachedSes
   ctx.sections.fileHistorySection.data.value = cached.fileHistory ?? [];
   ctx.sections.metricsSection.data.value = cached.shutdownMetrics;
   ctx.sections.incidentsSection.data.value = cached.incidents;
+  ctx.sections.pullRequestsSection.data.value = cached.pullRequests ?? [];
   ctx.sections.todosSection.data.value = cached.todos;
   ctx.sections.promptCacheSection.data.value = cached.promptCache ?? null;
   ctx.sections.activitySection.data.value = cached.turnActivity ?? [];

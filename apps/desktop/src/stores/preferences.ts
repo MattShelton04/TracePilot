@@ -44,11 +44,9 @@ import {
 } from "@/stores/preferences/ui";
 import { logWarn } from "@/utils/logger";
 
-export type { ModelWholesalePrice } from "@/stores/preferences/pricing";
-export { DEFAULT_WHOLESALE_PRICES } from "@/stores/preferences/pricing";
 // ── Public re-exports (back-compat) ─────────────────────────────
-export type { ThemeOption } from "@/stores/preferences/ui";
-export { BASE_FONT_SIZE_PX } from "@/stores/preferences/ui";
+export { DEFAULT_WHOLESALE_PRICES, type ModelWholesalePrice } from "@/stores/preferences/pricing";
+export { BASE_FONT_SIZE_PX, type ThemeOption } from "@/stores/preferences/ui";
 
 export const usePreferencesStore = defineStore("preferences", () => {
   const ui = createUiSlice();
@@ -73,6 +71,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ui.autoRefreshEnabled.value = config.ui.autoRefreshEnabled;
     ui.autoRefreshIntervalSeconds.value = config.ui.autoRefreshIntervalSeconds;
     ui.checkForUpdates.value = config.ui.checkForUpdates;
+    ui.pullRequestLookup.value = config.ui.pullRequestLookup ?? true;
     ui.favouriteModels.value = [...config.ui.favouriteModels];
     ui.recentRepoPaths.value = [...config.ui.recentRepoPaths];
 
@@ -103,7 +102,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
     );
     hydrateLive(config.live);
 
-    // Alert settings
     if (config.alerts) {
       alerts.alertsEnabled.value = config.alerts.enabled ?? false;
       alerts.alertsScope.value = config.alerts.scope === "all" ? "all" : "monitored";
@@ -130,6 +128,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         autoRefreshEnabled: ui.autoRefreshEnabled.value,
         autoRefreshIntervalSeconds: ui.autoRefreshIntervalSeconds.value,
         checkForUpdates: ui.checkForUpdates.value,
+        pullRequestLookup: ui.pullRequestLookup.value,
         favouriteModels: [...ui.favouriteModels.value],
         recentRepoPaths: [...ui.recentRepoPaths.value],
         contentMaxWidth: ui.contentMaxWidth.value,
@@ -259,6 +258,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       ui.autoRefreshEnabled,
       ui.autoRefreshIntervalSeconds,
       ui.checkForUpdates,
+      ui.pullRequestLookup,
       pricing.toolRendering,
       flags.featureFlags,
       ui.favouriteModels,
