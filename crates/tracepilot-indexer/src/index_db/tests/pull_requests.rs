@@ -238,3 +238,89 @@ fn pruning_a_session_removes_its_links() {
     assert_eq!(count(&db, "session_pull_requests"), 0);
     assert_eq!(count(&db, "session_pushed_branches"), 0);
 }
+
+fn listed(session: &crate::index_db::IndexedSession) -> Vec<(u32, Option<&str>)> {
+    session
+        .pull_requests
+        .iter()
+        .map(|pr| (pr.number, pr.title.as_deref()))
+        .collect()
+}
+
+#[test]
+fn the_list_carries_every_linked_pull_request_and_github_titles_win() {
+    let (_tmp, db) = indexed();
+    let session = &db.list_sessions(None, None, None, false).unwrap()[0];
+    let numbers: Vec<u32> = listed(session).iter().map(|(n, _)| *n).collect();
+    // The detail view's order: primary first, then by role.
+    assert_eq!(numbers, vec![42, 41, 40]);
+    assert_eq!(listed(session)[0].1, Some("Fix ripeness"));
+    assert!(
+        session
+            .pull_requests
+            .iter()
+            .all(|pr| pr.owner == "example" && pr.repo == "orchard")
+    );
+
+    db.conn
+        .execute_batch(
+            "INSERT INTO pull_request_status (host, owner, repo, number, title, fetched_at)
+             VALUES ('github.com', 'Example', 'Orchard', 41, 'Renamed on GitHub', 'x');
+             INSERT INTO pull_request_status (host, owner, repo, number, fetched_at)
+             VALUES ('github.com', 'example', 'orchard', 42, 'x');",
+        )
+        .unwrap();
+    let session = &db.list_sessions(None, None, None, false).unwrap()[0];
+    let titles = listed(session);
+    assert_eq!(titles[0], (42, Some("Fix ripeness")), "no fetched title");
+    assert_eq!(titles[1], (41, Some("Renamed on GitHub")));
+    // Quick search reads the same rows.
+    let found = db.search_sessions("Ship").unwrap();
+    assert_eq!(listed(&found[0]), titles);
+}
+
+#[test]
+fn listed_pull_requests_stay_with_their_session_and_are_capped() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let busy = "a1111111-1111-4111-8111-111111111111";
+    let quiet = "b2222222-2222-4222-8222-222222222222";
+    let none = "c3333333-3333-4333-8333-333333333333";
+    for (id, count) in [(busy, 205), (quiet, 1), (none, 0)] {
+        db.conn
+            .execute(
+                "INSERT INTO sessions (id, path, linked_pr_count, primary_pr_host,
+                    primary_pr_owner, primary_pr_repo, primary_pr_number)
+                 VALUES (?1, 'synthetic', ?2, 'github.com', 'example', 'orchard', 1)",
+                rusqlite::params![id, count],
+            )
+            .unwrap();
+    }
+    let link = |id: &str, number: u32, primary: bool| {
+        db.conn
+            .execute(
+                "INSERT INTO session_pull_requests
+                    (session_id, host, owner, repo, number, roles, evidence, is_primary)
+                 VALUES (?1, 'github.com', 'example', 'orchard', ?2, 2, 0, ?3)",
+                rusqlite::params![id, number, primary],
+            )
+            .unwrap();
+    };
+    for number in 1..=205 {
+        link(busy, number, number == 1);
+    }
+    link(quiet, 7, true);
+
+    let sessions = db.list_sessions(None, None, None, false).unwrap();
+    let by_id = |id: &str| sessions.iter().find(|s| s.id == id).unwrap();
+    let busy = by_id(busy);
+    assert_eq!(
+        busy.pull_requests.len(),
+        crate::index_db::MAX_LISTED_PULL_REQUESTS
+    );
+    // Primary first, then the highest numbers (same role, no timestamps).
+    assert_eq!(busy.pull_requests[0].number, 1);
+    assert_eq!(busy.pull_requests[1].number, 205);
+    assert_eq!(listed(by_id(quiet)), vec![(7, None)]);
+    assert!(by_id(none).pull_requests.is_empty());
+}

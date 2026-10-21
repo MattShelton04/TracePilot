@@ -80,6 +80,7 @@ impl IndexDb {
         for row in rows {
             sessions.push(row?);
         }
+        self.attach_listed_pull_requests(&mut sessions)?;
         Ok(sessions)
     }
 
@@ -200,6 +201,7 @@ impl IndexDb {
         for row in rows {
             sessions.push(row?);
         }
+        self.attach_listed_pull_requests(&mut sessions)?;
         Ok(sessions)
     }
 

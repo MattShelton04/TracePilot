@@ -406,3 +406,34 @@ fn context_changes_move_the_repository_for_bare_numbers() {
             .all(|p| p.roles.contains(Role::Merged))
     );
 }
+
+#[test]
+fn a_key_from_outside_is_valid_only_with_parts_the_extractor_keeps() {
+    use crate::pull_requests::PullRequestKey;
+    let key = |host: &str, owner: &str, repo: &str, number: u32| PullRequestKey {
+        host: host.into(),
+        owner: owner.into(),
+        repo: repo.into(),
+        number,
+    };
+    assert!(key("github.com", "Example", "orchard.rs_x-1", 58).is_valid());
+    assert!(key("ghe.example.com", "e", "o", 999_999_999).is_valid());
+    for bad in [
+        key("github.com", "example", "orchard", 0),
+        key("github.com", "example", "orchard", 1_000_000_000),
+        key("localhost", "example", "orchard", 1),
+        key("https://github.com", "example", "orchard", 1),
+        key("github.com/x", "example", "orchard", 1),
+        key(&format!("{}.com", "a".repeat(250)), "example", "orchard", 1),
+        key("github.com", "a/b", "c", 1),
+        key("github.com", "a", "b c", 1),
+        key("github.com", "'; DROP", "orchard", 1),
+        key("github.com", "-example", "orchard", 1),
+        key("github.com", &"a".repeat(40), "orchard", 1),
+        key("github.com", "example", &"r".repeat(101), 1),
+        key("github.com", "example", "..", 1),
+        key("github.com", "", "orchard", 1),
+    ] {
+        assert!(!bad.is_valid(), "{bad:?}");
+    }
+}

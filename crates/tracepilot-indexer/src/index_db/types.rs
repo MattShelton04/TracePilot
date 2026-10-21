@@ -182,6 +182,10 @@ pub struct IndexedSession {
     pub linked_pr_count: i64,
     /// The pull request that stands for the session, when it has any.
     pub primary_pr: Option<super::pull_request_reader::IndexedPrimaryPullRequest>,
+    /// Every linked pull request, primary first, up to
+    /// [`MAX_LISTED_PULL_REQUESTS`](super::pull_request_reader::MAX_LISTED_PULL_REQUESTS).
+    /// Filled by the list readers.
+    pub pull_requests: Vec<super::pull_request_reader::IndexedPullRequestSummary>,
 }
 
 /// Public return struct for session incident queries.

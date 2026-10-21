@@ -34,6 +34,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
+import { handlePullRequestPaste } from "@/utils/pullRequestUrl";
 import { prefetchRecentSessions } from "@/utils/sessionPrefetch";
 
 const router = useRouter();
@@ -319,7 +320,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       <!-- Toolbar -->
       <div class="enhanced-toolbar" data-testid="session-toolbar">
         <div class="toolbar-search">
-          <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" data-testid="session-search" />
+          <SearchInput
+            v-model="store.searchQuery"
+            placeholder="Search sessions…"
+            data-testid="session-search"
+            @paste="handlePullRequestPaste"
+          />
         </div>
         <div class="toolbar-filters">
           <FilterSelect v-model="store.filterRepo" :options="store.repositoryOptions" placeholder="All Repos" />

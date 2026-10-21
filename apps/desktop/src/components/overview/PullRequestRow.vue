@@ -124,6 +124,7 @@ const linkedAtTitle = computed(() =>
           </Badge>
         </span>
         <span v-if="linkedAt" class="pr-row__time" :title="linkedAtTitle">Linked {{ linkedAt }}</span>
+        <slot name="related" />
       </div>
     </div>
     <div class="pr-row__actions">

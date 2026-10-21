@@ -1,13 +1,26 @@
 //! Reads a session's linked pull requests, with their last known GitHub state.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use rusqlite::Row;
 use tracepilot_core::ids::SessionId;
 use tracepilot_core::pull_requests::{PullRequestKey, PullRequestRole, PullRequestRoles};
 
 use super::IndexDb;
+use super::types::IndexedSession;
 use crate::Result;
+
+/// The most linked pull requests one list item carries. Orchestrator
+/// sessions merge up to a few hundred; the detail view reads them all.
+pub const MAX_LISTED_PULL_REQUESTS: usize = 200;
+
+/// `ORDER BY` terms for one session's pull requests: the primary first, then
+/// by strongest role, then most recent.
+const SESSION_PR_ORDER: &str = "p.is_primary DESC,
+     CASE WHEN p.roles & 1 THEN 0 WHEN p.roles & 2 THEN 1
+          WHEN p.roles & 4 THEN 2 WHEN p.roles & 8 THEN 3 ELSE 4 END,
+     p.last_seen_at DESC, p.number DESC";
 
 /// A pull request's last known state on GitHub (`pull_request_status`).
 #[derive(Debug, Clone, PartialEq)]
@@ -48,6 +61,17 @@ pub struct IndexedPrimaryPullRequest {
     pub key: PullRequestKey,
     /// `open`, `draft`, `closed` or `merged`, once GitHub has been asked.
     pub state: Option<String>,
+}
+
+/// A linked pull request as the session list carries it, for searching the
+/// list by number, repository and title.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexedPullRequestSummary {
+    pub owner: String,
+    pub repo: String,
+    pub number: u32,
+    /// GitHub's title when it has been fetched, else the transcript's.
+    pub title: Option<String>,
 }
 
 /// List columns for the primary pull request, for a query over `sessions`
@@ -225,10 +249,7 @@ impl IndexDb {
                ON st.host = p.host AND st.owner = p.owner AND st.repo = p.repo
               AND st.number = p.number
              WHERE p.session_id = ?1
-             ORDER BY p.is_primary DESC,
-                      CASE WHEN p.roles & 1 THEN 0 WHEN p.roles & 2 THEN 1
-                           WHEN p.roles & 4 THEN 2 WHEN p.roles & 8 THEN 3 ELSE 4 END,
-                      p.last_seen_at DESC, p.number DESC"
+             ORDER BY {SESSION_PR_ORDER}"
         ))?;
         let mut prs = stmt
             .query_map([session_id.as_str()], pull_request_from_row)?
@@ -255,5 +276,57 @@ impl IndexDb {
             prs.sort_by(display_order);
         }
         Ok(prs)
+    }
+
+    /// Fill each listed session's `pull_requests`, in the detail view's
+    /// order and up to [`MAX_LISTED_PULL_REQUESTS`] each, with one query for
+    /// the whole list. Only sessions that link any are looked up.
+    pub(super) fn attach_listed_pull_requests(
+        &self,
+        sessions: &mut [IndexedSession],
+    ) -> Result<()> {
+        let ids: Vec<&str> = sessions
+            .iter()
+            .filter(|session| session.linked_pr_count > 0)
+            .map(|session| session.id.as_str())
+            .collect();
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT p.session_id, p.owner, p.repo, p.number, COALESCE(st.title, p.title)
+             FROM session_pull_requests p
+             LEFT JOIN pull_request_status st
+               ON st.host = p.host AND st.owner = p.owner AND st.repo = p.repo
+              AND st.number = p.number
+             WHERE p.session_id IN (SELECT value FROM json_each(?1))
+             ORDER BY p.session_id, {SESSION_PR_ORDER}"
+        ))?;
+        let rows = stmt.query_map([serde_json::to_string(&ids)?], |row| {
+            let number: i64 = row.get(3)?;
+            Ok((
+                row.get::<_, String>(0)?,
+                IndexedPullRequestSummary {
+                    owner: row.get(1)?,
+                    repo: row.get(2)?,
+                    number: u32::try_from(number).unwrap_or(0),
+                    title: row.get(4)?,
+                },
+            ))
+        })?;
+        let mut by_session: HashMap<String, Vec<IndexedPullRequestSummary>> = HashMap::new();
+        for row in rows {
+            let (session_id, pull_request) = row?;
+            let listed = by_session.entry(session_id).or_default();
+            if listed.len() < MAX_LISTED_PULL_REQUESTS {
+                listed.push(pull_request);
+            }
+        }
+        for session in sessions {
+            if let Some(listed) = by_session.remove(&session.id) {
+                session.pull_requests = listed;
+            }
+        }
+        Ok(())
     }
 }

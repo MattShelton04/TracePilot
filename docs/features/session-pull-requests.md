@@ -434,15 +434,16 @@ styling.
      179) collapse into "Merged 23 pull requests".
    - **Reviewed** and **mentioned** PRs are linked too. They follow the others,
      and a group collapses only past five rows.
-   - **Related sessions** (phase 3): "Also linked from 2 other sessions" links to
-     them. This uses `idx_session_pull_requests_pr`, and connects orchestrators to
-     their workers and the five sessions that touched #845.
-4. **Search** (phase 3):
-   - `pr:1046` and `pr:owner/repo#1046` qualifiers, using parameterized `EXISTS`
-     clauses over `session_pull_requests`;
-   - pasting a PR URL into search finds its sessions, like Claude's
-     `/resume <PR URL>`;
-   - a "Has pull request" filter on the session list.
+   - **Related sessions** (phase 3): "Also in 2 other sessions" opens a menu
+     of the other sessions linked to that PR. This uses
+     `idx_session_pull_requests_pr`, and connects orchestrators to their workers
+     and the five sessions that touched #845.
+4. **Session list search** (phase 3):
+   - the list's search box also matches each session's linked PRs: `#1046` and
+     `owner/repo#1046` match that PR exactly, and other words match the PR's
+     `owner/repo#n` or title as text;
+   - pasting a PR URL into it inserts `owner/repo#1046`, so it finds that PR's
+     sessions, like Claude's `/resume <PR URL>`.
 
 Not chosen: a new detail tab (too heavy for 1–3 items), and the Timeline or
 Conversation tabs (the "Show in conversation" jump covers them).
@@ -508,19 +509,33 @@ Deviations from the plan:
 - **Fork pull requests.** The lookup queries the repository that was pushed to.
   A PR opened from a fork against an upstream repository isn't found by branch.
 
-### Phase 3: find sessions by pull request
+### Phase 3: find sessions by pull request (delivered)
 
-Index reads only.
+Index reads only: no migration and no version bump.
 
-- **Search qualifiers.** `pr:1046` and `pr:owner/repo#1046`, as parameterized
-  `EXISTS` over `session_pull_requests` (`idx_session_pull_requests_pr`), listed
-  in the search syntax help.
-- **PR URLs in search.** Pasting a PR URL into search finds the sessions linked to
-  it, like Claude Code's `/resume <PR URL>`.
-- **Filter.** A "Has pull request" filter on the session list
-  (`linked_pr_count > 0`).
-- **Related sessions.** "Also linked from n other sessions" on each Overview PR
-  card, linking to them. This connects orchestrator sessions with their workers.
+- **Session list search.** `SessionListItem.linkedPullRequests.pullRequests`
+  lists every linked PR (owner, repo, number and title, with the GitHub title
+  winning over the transcript's), read in one query for the whole list and
+  capped at 200 per session, so search sees an orchestrator session's first
+  200 PRs. The list's search matches them in the frontend: `#n` and
+  `owner/repo#n` match whole PR numbers, ignoring case (`#57` never finds
+  `#570`), and other words match as substrings, the same as the other fields.
+- **PR URLs in search.** Pasting a PR URL (github.com or a GitHub Enterprise
+  host, with or without `/files`, a query or a fragment) into the list's search
+  inserts its `owner/repo#n` key. A typed URL is read the same way. The URL is
+  validated strictly and nothing is fetched.
+- **Related sessions.** Each Overview PR row shows "Also in n other sessions"
+  when other sessions link the same PR. One command per session
+  (`get_session_pull_request_related_counts`) counts them all, and
+  `get_pull_request_sessions` lists one PR's sessions, at most 100, only when
+  its menu opens; past that the menu says how many more there are.
+  Both are read-only and use `idx_session_pull_requests_pr`. Pop-out viewers
+  don't show it, because they can't open another session.
+- **Deviations from the plan.** The maintainer dropped the full-text `pr:`
+  qualifier and the "Has pull request" list filter, because matching PRs in the
+  list's search covers both. Search and related sessions read the extractor's
+  `session_pull_requests` only, so phase 2's branch-lookup links don't count
+  there, as they don't on list cards.
 
 ### Validation (phase 1)
 

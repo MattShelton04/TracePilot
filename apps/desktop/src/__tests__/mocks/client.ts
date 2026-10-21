@@ -58,6 +58,8 @@ export function createClientMock(overrides: ClientExports = {}): ClientExports {
     refreshListPullRequests: vi
       .fn()
       .mockResolvedValue({ lookup: "ok", updated: [], linksChanged: false }),
+    getSessionPullRequestRelatedCounts: vi.fn().mockResolvedValue([]),
+    getPullRequestSessions: vi.fn().mockResolvedValue([]),
     IPC_EVENTS,
   };
 

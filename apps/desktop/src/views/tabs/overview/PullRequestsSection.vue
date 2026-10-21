@@ -10,10 +10,13 @@ import { ChevronRight, RefreshCw } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import PullRequestLookupNote from "@/components/overview/PullRequestLookupNote.vue";
+import PullRequestRelatedSessions from "@/components/overview/PullRequestRelatedSessions.vue";
 import PullRequestRow from "@/components/overview/PullRequestRow.vue";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
 import { usePullRequestLinks } from "@/composables/usePullRequestLinks";
 import { useSessionPullRequestStatus } from "@/composables/useSessionPullRequestStatus";
+import { useWindowRole } from "@/composables/useWindowRole";
+import { usePullRequestSessionsStore } from "@/stores/pullRequestSessions";
 import { groupPullRequests, turnForEvent } from "@/utils/pullRequests";
 import { useOverviewModel } from "./overviewModel";
 
@@ -32,9 +35,27 @@ function refreshAll() {
   if (!refreshing.value) void refreshStatus(true);
 }
 
+const related = usePullRequestSessionsStore();
+const { isViewer } = useWindowRole();
+
 const pullRequests = computed(() => store.pullRequests);
 const groups = computed(() => groupPullRequests(pullRequests.value));
 const showGroupLabels = computed(() => groups.value.length > 1);
+
+// Other sessions linked to these pull requests: counted once per set of pull
+// requests (the store skips a refresh that lists the same ones), and again if
+// the store let this session's counts go. Pop-outs can't open another session.
+watch(
+  [
+    () => store.sessionId,
+    pullRequests,
+    () => (store.sessionId ? related.hasEntry(store.sessionId) : false),
+  ],
+  ([id, prs]) => {
+    if (id && !isViewer()) void related.loadRelatedCounts(id, prs);
+  },
+  { immediate: true },
+);
 
 /** Collapsed groups the user opened; a session switch closes them again. */
 const expanded = ref(new Set<string>());
@@ -122,7 +143,11 @@ async function jump(eventIndex: number | null) {
           @open="open(pr.url)"
           @copy="copyLink(pr.url)"
           @jump="jump(pr.eventIndex)"
-        />
+        >
+          <template v-if="store.sessionId" #related>
+            <PullRequestRelatedSessions :session-id="store.sessionId" :pr="pr" />
+          </template>
+        </PullRequestRow>
       </ul>
     </div>
   </OverviewPanel>

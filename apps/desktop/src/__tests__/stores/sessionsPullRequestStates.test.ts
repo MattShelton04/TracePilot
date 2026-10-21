@@ -35,16 +35,17 @@ describe("applyPullRequestStates", () => {
   it("patches the matching primary pull requests in place of a reload", () => {
     const store = useSessionsStore();
     const untouched = { ...MOCK_SESSION, id: "c" };
+    const searchable = [{ owner: "example", repo: "orchard", number: 1, title: "Example" }];
     store.sessions = [
       {
         ...MOCK_SESSION,
         id: "a",
-        linkedPullRequests: { count: 2, primary: primary(1, null) },
+        linkedPullRequests: { count: 2, primary: primary(1, null), pullRequests: searchable },
       },
       {
         ...MOCK_SESSION,
         id: "b",
-        linkedPullRequests: { count: 1, primary: primary(1, null) },
+        linkedPullRequests: { count: 1, primary: primary(1, null), pullRequests: [] },
       },
       untouched,
     ];
@@ -55,6 +56,7 @@ describe("applyPullRequestStates", () => {
       null,
     ]);
     expect(store.sessions[0].linkedPullRequests?.count).toBe(2);
+    expect(store.sessions[0].linkedPullRequests?.pullRequests).toBe(searchable);
     expect(store.sessions[2]).toBe(untouched);
     expect(mockListSessions).not.toHaveBeenCalled();
   });
@@ -65,7 +67,7 @@ describe("applyPullRequestStates", () => {
       {
         ...MOCK_SESSION,
         id: "a",
-        linkedPullRequests: { count: 1, primary: primary(1, "open") },
+        linkedPullRequests: { count: 1, primary: primary(1, "open"), pullRequests: [] },
       },
     ];
     const before = store.sessions;

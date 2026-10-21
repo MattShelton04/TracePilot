@@ -1,3 +1,4 @@
+// biome-ignore-all assist/source/organizeImports: mocks must register before the component import.
 import { refreshSessionPullRequests } from "@tracepilot/client";
 import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type {
@@ -14,6 +15,7 @@ import { NAVIGATE_CONVERSATION_KEY } from "@/composables/useConversationNavigati
 import { useWindowRole } from "@/composables/useWindowRole";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
+import { usePullRequestSessionsStore } from "@/stores/pullRequestSessions";
 import { usePullRequestStatusStore } from "@/stores/pullRequestStatus";
 import { OVERVIEW_MODEL_KEY } from "../overview/overviewModel";
 import PullRequestsSection from "../overview/PullRequestsSection.vue";
@@ -23,11 +25,14 @@ const mocks = vi.hoisted(() => ({
   success: vi.fn(),
   warning: vi.fn(),
   push: vi.fn(),
+  relatedCounts: vi.fn(),
 }));
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("@/__tests__/mocks/client");
-  return createClientMock();
+  return createClientMock({
+    getSessionPullRequestRelatedCounts: (...args: unknown[]) => mocks.relatedCounts(...args),
+  });
 });
 
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -74,6 +79,7 @@ describe("PullRequestsSection", () => {
     setupPinia();
     localStorage.clear();
     vi.clearAllMocks();
+    mocks.relatedCounts.mockResolvedValue([]);
     mocks.copy.mockResolvedValue(true);
     vi.mocked(refreshSessionPullRequests).mockResolvedValue(result());
     store.sessionId = "s1";
@@ -171,6 +177,44 @@ describe("PullRequestsSection", () => {
     expect(mocks.warning).toHaveBeenCalled();
   });
 
+  it("counts other sessions once per loaded list and offers them on the row", async () => {
+    const pr = makePullRequest(1046, ["created"], { primary: true });
+    mocks.relatedCounts.mockResolvedValue([
+      { host: pr.host, owner: pr.owner, repo: pr.repo, number: pr.number, otherSessionCount: 2 },
+    ]);
+    store.pullRequests = [pr, makePullRequest(1012, ["reviewed"])];
+    const wrapper = mountSection();
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledWith("s1");
+    const [row, other] = wrapper.findAll('[data-testid="pull-request-row"]');
+    expect(row.get('[data-testid="pull-request-related"]').text()).toBe("Also in 2 other sessions");
+    expect(other.find('[data-testid="pull-request-related"]').exists()).toBe(false);
+
+    // A refresh naming the same pull requests doesn't count again; another set does.
+    mountSection();
+    store.pullRequests = store.pullRequests.map((p) => ({ ...p }));
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(1);
+    store.pullRequests = [...store.pullRequests, makePullRequest(7, ["merged"])];
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(2);
+    expect(row.find('[data-testid="pull-request-related"]').exists()).toBe(true);
+  });
+
+  it("counts again when the store let the session's counts go", async () => {
+    store.pullRequests = [makePullRequest(1046, ["created"], { primary: true })];
+    mountSection();
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(1);
+    // Other sessions opened since; this one, still on screen, was evicted.
+    const related = usePullRequestSessionsStore();
+    for (let i = 0; i < 32; i++) await related.loadRelatedCounts(`other-${i}`, store.pullRequests);
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledWith("s1");
+    expect(mocks.relatedCounts.mock.calls.filter(([id]) => id === "s1")).toHaveLength(2);
+    expect(related.hasEntry("s1")).toBe(true);
+  });
+
   it("offers only Copy link in a pop-out window", () => {
     store.pullRequests = [makePullRequest(1, ["created"], { primary: true })];
     const wrapper = mountSection(null);
@@ -186,6 +230,10 @@ describe("PullRequestsSection", () => {
 
     beforeEach(() => {
       store.pullRequests = [makePullRequest(1, ["created"], { primary: true })];
+    });
+
+    afterEach(() => {
+      usePreferencesStore().pullRequestLookup = true;
     });
 
     it("refreshes every pull request on demand, spinning until GitHub answers", async () => {

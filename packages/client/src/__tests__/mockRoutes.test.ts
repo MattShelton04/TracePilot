@@ -4,6 +4,8 @@ import { IPC_COMMANDS } from "../commands.js";
 import { MOCK_ROUTE_TABLES, mockRoute } from "../mock/routes/index.js";
 import { MOCK_SESSIONS } from "../mock/sessions.js";
 import {
+  getPullRequestSessions,
+  getSessionPullRequestRelatedCounts,
   getSessionPullRequests,
   refreshListPullRequests,
   refreshSessionPullRequests,
@@ -52,6 +54,12 @@ describe("mock pull requests", () => {
                 url: primary.url,
                 state: primary.status?.state ?? null,
               },
+              pullRequests: linked.map((pr) => ({
+                owner: pr.owner,
+                repo: pr.repo,
+                number: pr.number,
+                title: pr.title,
+              })),
             }
           : null,
       );
@@ -109,5 +117,39 @@ describe("mock pull requests", () => {
       updated: [],
       linksChanged: false,
     });
+  });
+
+  it("lists the sessions linked to a pull request, ignoring case", async () => {
+    const sessions = await getPullRequestSessions({
+      host: "GitHub.com",
+      owner: "Example",
+      repo: "ORCHARD",
+      number: 1046,
+    });
+    const session = MOCK_SESSIONS.find((s) => s.id === "sess-claude-code-review");
+    expect(sessions).toEqual([
+      {
+        sessionId: "sess-claude-code-review",
+        summary: session?.summary ?? null,
+        repository: session?.repository ?? null,
+        source: session?.source ?? "copilot",
+        updatedAt: session?.updatedAt ?? null,
+        roles: ["created"],
+      },
+    ]);
+    expect(
+      mockRoute("get_pull_request_sessions", {
+        host: "github.com",
+        owner: "example",
+        repo: "orchard",
+        number: 10460,
+      }),
+    ).toEqual([]);
+  });
+
+  it("counts only pull requests other sessions link", async () => {
+    // No two mock sessions share a pull request.
+    expect(await getSessionPullRequestRelatedCounts("sess-claude-code-review")).toEqual([]);
+    expect(mockRoute("get_session_pull_request_related_counts", { sessionId: "nope" })).toEqual([]);
   });
 });
