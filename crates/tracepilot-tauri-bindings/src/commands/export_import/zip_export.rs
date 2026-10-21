@@ -93,7 +93,6 @@ fn zip_folder(session_path: &Path, file: File) -> CmdResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::BindingsError;
 
     fn session_dir(root: &Path) -> PathBuf {
         let session = root.join("session");
@@ -185,7 +184,10 @@ mod tests {
 
         let err = write_folder_zip(&session, &dest).unwrap_err();
 
-        assert!(matches!(err, BindingsError::Export(_)), "{err:?}");
+        assert!(
+            matches!(err, crate::error::BindingsError::Export(_)),
+            "{err:?}"
+        );
         assert!(err.to_string().contains("session.db"), "{err}");
         assert!(!dest.exists());
         assert!(leftovers(dir.path()).is_empty());
