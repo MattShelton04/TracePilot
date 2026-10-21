@@ -11,15 +11,19 @@ import { AI_CREDIT_USD } from "../pricing.js";
 /** Format milliseconds into a human-readable duration string. */
 export function formatDuration(ms?: number | null): string {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
-  if (ms < 1000) return `${Math.round(ms * 100) / 100}ms`;
+  // A value that rounds up to a whole second reads "1s", not "1000ms".
+  const roundedMs = Math.round(ms * 100) / 100;
+  if (roundedMs < 1000) return `${roundedMs}ms`;
   const totalSeconds = ms / 1000;
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${Math.floor(seconds)}s`;
-  // Show one decimal for sub-minute durations (e.g. "2.1s")
-  return `${formatCleanFloat(seconds, 1)}s`;
+  // Show one decimal for sub-minute durations (e.g. "2.1s"); one that rounds
+  // up to a whole minute reads "1m 0s", not "60s".
+  const text = formatCleanFloat(seconds, 1);
+  return Number(text) >= 60 ? "1m 0s" : `${text}s`;
 }
 
 /** Format an ISO date string to locale date+time. */
@@ -83,14 +87,29 @@ export function formatRelativeTime(value?: string | number | null): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+/** Units for {@link formatNumber}, largest first. */
+const NUMBER_UNITS = [
+  [1_000_000_000, "B"],
+  [1_000_000, "M"],
+  [1_000, "K"],
+] as const;
+
 /** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M", 2.5e9 → "2.5B"). */
 export function formatNumber(n?: number | null): string {
   if (n == null || !Number.isFinite(n)) return "0";
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
-  if (abs >= 1_000_000_000) return `${sign}${formatCleanFloat(abs / 1_000_000_000, 1)}B`;
-  if (abs >= 1_000_000) return `${sign}${formatCleanFloat(abs / 1_000_000, 1)}M`;
-  if (abs >= 1_000) return `${sign}${formatCleanFloat(abs / 1_000, 1)}K`;
+  for (let i = 0; i < NUMBER_UNITS.length; i++) {
+    const [size, suffix] = NUMBER_UNITS[i];
+    if (abs < size) continue;
+    const text = formatCleanFloat(abs / size, 1);
+    // A value that rounds up to 1000 of a unit reads as the next one (999,960 → "1M").
+    if (i > 0 && Number(text) >= 1000) {
+      const [nextSize, nextSuffix] = NUMBER_UNITS[i - 1];
+      return `${sign}${formatCleanFloat(abs / nextSize, 1)}${nextSuffix}`;
+    }
+    return `${sign}${text}${suffix}`;
+  }
   return n.toString();
 }
 
@@ -199,9 +218,14 @@ export function formatBytes(bytes?: number | null): string {
   if (bytes == null || !Number.isFinite(bytes)) return "—";
   if (bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** i;
-  return `${formatCleanFloat(value, i === 0 ? 0 : 1)} ${units[i]}`;
+  let i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  let text = formatCleanFloat(bytes / 1024 ** i, i === 0 ? 0 : 1);
+  // A value that rounds up to 1024 of a unit reads as the next one ("1 MB", not "1024 KB").
+  if (Number(text) >= 1024 && i < units.length - 1) {
+    i += 1;
+    text = formatCleanFloat(bytes / 1024 ** i, 1);
+  }
+  return `${text} ${units[i]}`;
 }
 
 /** Format milliseconds as a clock-style "MM:SS" string (e.g. 90000 → "01:30").

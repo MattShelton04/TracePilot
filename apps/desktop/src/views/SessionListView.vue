@@ -11,7 +11,6 @@ import {
   SearchInput,
   SessionCard,
   SkeletonLoader,
-  useAutoRefresh,
 } from "@tracepilot/ui";
 import { Search } from "lucide-vue-next";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
@@ -27,6 +26,7 @@ import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useProgressiveList } from "@/composables/useProgressiveList";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useScrollRestore } from "@/composables/useScrollRestore";
+import { useVisibleAutoRefresh } from "@/composables/useVisibleAutoRefresh";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { type AnalyticsDatasetName, useAnalyticsStore } from "@/stores/analytics";
@@ -58,12 +58,13 @@ useListPullRequestPoll(
   () => renderedSessions.value,
   () => routeViewVisible.value,
 );
-const { refreshing, refresh } = useAutoRefresh({
+const { refreshing, refresh } = useVisibleAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.
   onRefresh: () => store.ensureIndex({ force: true }),
-  enabled: computed(() => prefs.autoRefreshEnabled),
-  intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+  // A reindex also makes Analytics refetch, so none runs while a session tab
+  // covers the list.
+  visible: () => routeViewVisible.value,
 });
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);

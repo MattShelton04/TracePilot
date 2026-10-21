@@ -223,7 +223,9 @@ fn bare_term(token: &str) -> Option<String> {
 /// Convert FTS5 snippet sentinel markers into safe HTML-escapable markers.
 /// Input uses `\x01MARK_OPEN\x01` and `\x01MARK_CLOSE\x01` sentinels.
 /// Output uses `<mark>` / `</mark>` after escaping the content.
+/// Terminal spinner frames are dropped (see [`strip_spinner_glyphs`]).
 fn sanitize_snippet(raw: &str) -> String {
+    let raw = strip_spinner_glyphs(raw);
     // First, HTML-escape the content (but preserve our sentinels)
     let escaped = raw
         .replace('&', "&amp;")
@@ -234,6 +236,38 @@ fn sanitize_snippet(raw: &str) -> String {
     escaped
         .replace("\x01MARK_OPEN\x01", "<mark>")
         .replace("\x01MARK_CLOSE\x01", "</mark>")
+}
+
+/// Braille patterns (U+2800–U+28FF), the frames of the common terminal
+/// spinner (`⣾⣽⣻⢿`) that tools like `gh` print before their output.
+fn is_spinner_glyph(c: char) -> bool {
+    ('\u{2800}'..='\u{28FF}').contains(&c)
+}
+
+/// Remove spinner frames from a snippet. A run of them between two
+/// non-space characters becomes one space, since the spinner was all that
+/// separated them (`orchard⣻⢿https://…` reads `orchard https://…`); a run
+/// at either end or beside whitespace is dropped. Done when the snippet is
+/// shown, so indexed content and search matching are unchanged.
+fn strip_spinner_glyphs(raw: &str) -> std::borrow::Cow<'_, str> {
+    if !raw.chars().any(is_spinner_glyph) {
+        return std::borrow::Cow::Borrowed(raw);
+    }
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars().peekable();
+    while let Some(c) = chars.next() {
+        if !is_spinner_glyph(c) {
+            out.push(c);
+            continue;
+        }
+        while chars.next_if(|&c| is_spinner_glyph(c)).is_some() {}
+        let after_text = out.chars().next_back().is_some_and(|c| !c.is_whitespace());
+        let before_text = chars.peek().is_some_and(|c| !c.is_whitespace());
+        if after_text && before_text {
+            out.push(' ');
+        }
+    }
+    std::borrow::Cow::Owned(out)
 }
 
 #[cfg(test)]
