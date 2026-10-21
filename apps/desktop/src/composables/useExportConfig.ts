@@ -53,6 +53,13 @@ const DEFAULT_CONTENT_DETAIL: Readonly<ContentDetailOptions> = {
   includeFullToolResults: false,
 };
 
+/** The redaction options of a fresh install: nothing is redacted. */
+const NO_REDACTION: Readonly<RedactionOptions> = {
+  anonymizePaths: false,
+  stripSecrets: false,
+  stripPii: false,
+};
+
 export const EXPORT_PRESETS: readonly BuiltInExportPreset[] = [
   {
     id: "full",
@@ -191,7 +198,7 @@ export function defaultExportOptions(): ExportOptions {
     sections: [...ALL_SECTION_IDS],
     activePreset: "full",
     contentDetail: { ...DEFAULT_CONTENT_DETAIL },
-    redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
+    redaction: { ...NO_REDACTION },
     customPresets: [],
   };
 }
@@ -217,12 +224,24 @@ function readFlags<T extends object>(value: unknown, defaults: T): T {
 
 function readCustomPreset(value: unknown): ExportPreset | null {
   if (!value || typeof value !== "object") return null;
-  const { id, label, format, sections } = value as Record<string, unknown>;
+  const { id, label, format, sections, contentDetail, redaction } = value as Record<
+    string,
+    unknown
+  >;
   const presetSections = readSections(sections);
   if (typeof id !== "string" || !id.startsWith("custom-")) return null;
   if (typeof label !== "string" || !label.trim() || !presetSections) return null;
   if (format !== "json" && format !== "markdown") return null;
-  return customPreset(id, label, format, presetSections);
+  const preset = customPreset(id, label, format, presetSections);
+  // Presets saved before these options were kept have neither; applying one
+  // leaves the current options as they are, as it always did.
+  if (contentDetail && typeof contentDetail === "object") {
+    preset.contentDetail = readFlags(contentDetail, DEFAULT_CONTENT_DETAIL);
+  }
+  if (redaction && typeof redaction === "object") {
+    preset.redaction = readFlags(redaction, NO_REDACTION);
+  }
+  return preset;
 }
 
 function customPreset(
@@ -230,8 +249,17 @@ function customPreset(
   label: string,
   format: ExportFormat,
   sections: SectionId[],
+  options: Pick<ExportPreset, "contentDetail" | "redaction"> = {},
 ): ExportPreset {
-  return { id, label, icon: "⭐", description: `Custom preset: ${label}`, format, sections };
+  return {
+    id,
+    label,
+    icon: "⭐",
+    description: `Custom preset: ${label}`,
+    format,
+    sections,
+    ...options,
+  };
 }
 
 /** Keep each stored choice that is still valid; default the rest. */
@@ -327,7 +355,10 @@ export function useExportConfig() {
     const id = `custom-${Date.now()}`;
     customPresets.value = [
       ...customPresets.value,
-      customPreset(id, name, presetFormat, [...enabledSections.value]),
+      customPreset(id, name, presetFormat, [...enabledSections.value], {
+        contentDetail: { ...contentDetail.value },
+        redaction: { ...redaction.value },
+      }),
     ];
     activePreset.value = id;
   }
@@ -339,12 +370,15 @@ export function useExportConfig() {
     }
   }
 
+  // An option changed by hand no longer matches the preset, as with sections.
   function updateContentDetail(key: keyof ContentDetailOptions, value: boolean) {
     contentDetail.value = { ...contentDetail.value, [key]: value };
+    if (!applyingPreset) activePreset.value = null;
   }
 
   function updateRedaction(key: keyof RedactionOptions, value: boolean) {
     redaction.value = { ...redaction.value, [key]: value };
+    if (!applyingPreset) activePreset.value = null;
   }
 
   // Clear active preset when format changes manually.

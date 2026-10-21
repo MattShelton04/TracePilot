@@ -121,7 +121,8 @@ function openUsage(e: MouseEvent) {
       <span class="skill-row__icon" aria-hidden="true"><Zap :size="14" /></span>
       <span class="skill-row__tag">{{ toolLabel }}</span>
       <span class="skill-row__name">{{ headerLabel }}</span>
-      <span v-if="skillDescription" class="skill-row__desc">— {{ skillDescription }}</span>
+      <!-- Always rendered: it fills the row, so time and status sit at the far right. -->
+      <span class="skill-row__desc">{{ skillDescription ? `— ${skillDescription}` : "" }}</span>
       <span v-if="timestamp" class="skill-row__time">
         {{ formatTime(timestamp) }}
       </span>

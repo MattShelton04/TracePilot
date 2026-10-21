@@ -18,7 +18,14 @@ export function useToolDisplayResult(props: { tc: TurnToolCall; fullResult?: str
     return partials?.value.get(props.tc.toolCallId) ?? null;
   });
   const shell = computed(() =>
-    ["powershell", "read_powershell", "write_powershell"].includes(props.tc.toolName),
+    [
+      "powershell",
+      "read_powershell",
+      "write_powershell",
+      "bash",
+      "read_bash",
+      "write_bash",
+    ].includes(props.tc.toolName),
   );
   return {
     displayResult: computed(() => persisted.value ?? livePartial.value ?? ""),

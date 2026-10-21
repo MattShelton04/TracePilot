@@ -2,6 +2,7 @@
 import type { ContextTimeline, ContextToolCallContribution, TurnToolCall } from "@tracepilot/types";
 import { formatNumber, ToolCallItem } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { plural } from "@/utils/format";
 import { contextToolTypeLabel, toolDisplayName, uniqueToolLabels } from "@/utils/toolDisplayName";
 import ToolTypeDonut from "./ToolTypeDonut.vue";
 
@@ -84,7 +85,7 @@ function toolCallSummary(item: ContextToolCallContribution): string {
             <div class="context-tab__tool-type-heading">
               <span>
                 <strong :title="toolTypeLabels[index].hint">{{ toolTypeNames[index] }}</strong>
-                <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
+                <small>{{ plural(item.callCount, "call") }} · {{ plural(item.errorCount, "error") }}</small>
               </span>
               <span> {{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}% </span>
             </div>
@@ -185,6 +186,12 @@ function toolCallSummary(item: ContextToolCallContribution): string {
 </template>
 
 <style scoped>
+/* Breakpoints follow the panel's width, not the window's: the sidebar and the
+   page gutters take a varying share of the window. */
+.context-tab__analysis {
+  container-type: inline-size;
+}
+
 .context-tab__analysis-heading {
   display: flex;
   align-items: center;
@@ -488,13 +495,14 @@ function toolCallSummary(item: ContextToolCallContribution): string {
   line-height: 1.45;
 }
 
-@media (max-width: 900px) {
+/* Two columns until the donut card would be too narrow for its chart and legend. */
+@container (max-width: 760px) {
   .context-tab__tool-overview {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
+@container (max-width: 560px) {
   .context-tab__analysis-heading {
     align-items: flex-start;
     flex-direction: column;
