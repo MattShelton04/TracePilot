@@ -65,11 +65,14 @@ const showContextCapture = computed(
 // It takes the same second slot; a Claude session never offers capture.
 // The log is read up front and the view offered only when it holds records:
 // sessions from before 2.1.301, or from the desktop app, have none. The
-// panel shows this same log.
+// panel shows this same log. A live session's refreshes re-read it only while
+// the view shows (set below, once the view is known); otherwise on switching.
 const isClaudeCode = computed(() => source.value === "claudeCode");
+const recordedRequestsShown = ref(false);
 const requestLog = useClaudeRequestLog(
   () => (isClaudeCode.value ? store.sessionId : null),
   () => store.detail,
+  recordedRequestsShown,
 );
 const showRecordedRequests = computed(
   () => isClaudeCode.value && requestLog.log.value != null && !requestLog.isEmpty.value,
@@ -90,6 +93,13 @@ const contextView = computed({
     tabViews.value.context = view;
   },
 });
+watch(
+  () => showRecordedRequests.value && contextView.value === "snapshots",
+  (shown) => {
+    recordedRequestsShown.value = shown;
+  },
+  { immediate: true },
+);
 const contextViews = computed(() => [
   { value: "timeline", label: "Context timeline" },
   showRecordedRequests.value

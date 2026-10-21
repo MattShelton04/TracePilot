@@ -158,6 +158,46 @@ describe("ContextTab", () => {
     expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
   });
 
+  it("re-reads a live session's recorded requests only while that view shows", async () => {
+    detailStore.detail.source = "claudeCode";
+    loadTimeline.mockResolvedValue(response(timeline()));
+    const wrapper = mountTab();
+    await flushPromises();
+    // The up-front read decides whether the view is offered.
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+
+    // The running poll swaps the detail each tick; the timeline is showing.
+    for (const eventCount of [11, 12, 13]) {
+      detailStore.detail = { ...detailStore.detail, eventCount };
+      await flushPromises();
+    }
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(1);
+
+    // Switching to it reads the log once, since it went stale meanwhile.
+    await wrapper
+      .findAll(".context-tab__view-nav button")
+      .find((button) => button.text().includes("Recorded requests"))
+      ?.trigger("click");
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(2);
+
+    // While it shows, each refresh reads it again.
+    detailStore.detail = { ...detailStore.detail, eventCount: 14 };
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(3);
+
+    // Back on the timeline and again, with nothing new: no read.
+    const views = () => wrapper.findAll(".context-tab__view-nav button");
+    await views()
+      .find((button) => button.text().includes("Context timeline"))
+      ?.trigger("click");
+    await views()
+      .find((button) => button.text().includes("Recorded requests"))
+      ?.trigger("click");
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(3);
+  });
+
   it("keeps a Claude Code session with no request records on the timeline alone", async () => {
     detailStore.detail.source = "claudeCode";
     vi.mocked(getSessionRequestLog).mockResolvedValue(requestLog(0));

@@ -9,20 +9,28 @@ import { computed, type MaybeRefOrGetter, ref, toValue, watch } from "vue";
  * for each session, and again when `refreshKey` changes (the session's data
  * was refreshed), keeping the current log on screen meanwhile. A late answer
  * for an earlier load is dropped.
+ *
+ * Each load re-reads the whole transcript, and a running session refreshes
+ * every few seconds, so a refresh while `visible` is false (the log isn't on
+ * screen) only marks the log stale; it reloads once the log shows again.
  */
 export function useClaudeRequestLog(
   sessionId: MaybeRefOrGetter<string | null | undefined>,
   refreshKey?: MaybeRefOrGetter<unknown>,
+  visible: MaybeRefOrGetter<boolean> = true,
 ) {
   const guard = useAsyncGuard();
   const log = ref<RequestLog | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const selectedHash = ref<string | null>(null);
+  /** The session's data was refreshed while the log was out of sight. */
+  let stale = false;
 
   async function load() {
     const id = toValue(sessionId);
     const token = guard.start();
+    stale = false;
     if (!id) {
       log.value = null;
       loading.value = false;
@@ -58,7 +66,16 @@ export function useClaudeRequestLog(
   watch(
     () => toValue(refreshKey),
     () => {
-      if (log.value && !loading.value) void load();
+      if (!log.value || loading.value) return;
+      if (toValue(visible)) void load();
+      else stale = true;
+    },
+  );
+
+  watch(
+    () => toValue(visible),
+    (shown) => {
+      if (shown && stale && log.value && !loading.value) void load();
     },
   );
 

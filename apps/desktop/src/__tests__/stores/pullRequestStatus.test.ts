@@ -64,13 +64,44 @@ describe("pullRequestStatus store", () => {
     vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(pending.promise);
     const store = usePullRequestStatusStore();
     const first = store.refreshSession("s1");
-    const second = store.refreshSession("s1", true);
+    const second = store.refreshSession("s1");
     expect(store.isRefreshing("s1")).toBe(true);
     expect(store.isRefreshing("s2")).toBe(false);
     pending.resolve(result());
     expect(await first).toEqual(await second);
     expect(refreshSessionPullRequests).toHaveBeenCalledTimes(1);
     expect(store.isRefreshing("s1")).toBe(false);
+  });
+
+  it("runs a forced lookup after an unforced one in flight, not instead of it", async () => {
+    const due = createDeferred<PullRequestRefreshResult>();
+    const forced = createDeferred<PullRequestRefreshResult>();
+    vi.mocked(refreshSessionPullRequests)
+      .mockReturnValueOnce(due.promise)
+      .mockReturnValueOnce(forced.promise);
+    const store = usePullRequestStatusStore();
+    const passive = store.refreshSession("s1");
+    const click = store.refreshSession("s1", true);
+    // A second click while the forced one waits shares it.
+    const again = store.refreshSession("s1", true);
+    due.resolve(result({ updated: [ref(1, "open")] }));
+    expect(await passive).toEqual(result({ updated: [ref(1, "open")] }));
+    // The click's lookup hasn't answered yet: the spinner stays on.
+    expect(store.isRefreshing("s1")).toBe(true);
+    expect(refreshSessionPullRequests).toHaveBeenLastCalledWith("s1", true);
+    forced.resolve(result({ updated: [ref(1, "merged")] }));
+    expect(await click).toEqual(result({ updated: [ref(1, "merged")] }));
+    expect(await again).toBe(await click);
+    expect(refreshSessionPullRequests).toHaveBeenCalledTimes(2);
+    expect(store.isRefreshing("s1")).toBe(false);
+    // A forced lookup in flight answers a later unforced call too.
+    const pending = createDeferred<PullRequestRefreshResult>();
+    vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(pending.promise);
+    const forcedFirst = store.refreshSession("s1", true);
+    const passiveLater = store.refreshSession("s1");
+    pending.resolve(result());
+    expect(await passiveLater).toBe(await forcedFirst);
+    expect(refreshSessionPullRequests).toHaveBeenCalledTimes(3);
   });
 
   it("gives the session list the states GitHub reported", async () => {
@@ -89,10 +120,10 @@ describe("pullRequestStatus store", () => {
     expect(store.lastListPollAt).not.toBeNull();
   });
 
-  it("keeps the last lookup and logs when the call fails", async () => {
+  it("keeps the last lookup and answers failed when the call fails", async () => {
     vi.mocked(refreshSessionPullRequests).mockRejectedValueOnce(new Error("boom"));
     const store = usePullRequestStatusStore();
-    expect(await store.refreshSession("s1")).toBeNull();
+    expect(await store.refreshSession("s1")).toEqual(result({ lookup: "failed" }));
     expect(store.sessionError).toContain("boom");
     expect(store.lookup).toBeNull();
     expect(store.isRefreshing("s1")).toBe(false);
@@ -199,6 +230,23 @@ describe("useSessionPullRequestStatus", () => {
     pending.resolve(result({ updated: [ref(1, "open")] }));
     await done;
     expect(detail.reloadPullRequests).not.toHaveBeenCalled();
+  });
+
+  it("answers how the lookup went, or null when the session changed", async () => {
+    vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result({ lookup: "failed" }));
+    expect(await useSessionPullRequestStatus(target()).refresh(true)).toBe("failed");
+    vi.mocked(refreshSessionPullRequests).mockRejectedValueOnce(new Error("offline"));
+    expect(await useSessionPullRequestStatus(target()).refresh(true)).toBe("failed");
+    vi.mocked(refreshSessionPullRequests).mockResolvedValueOnce(result());
+    expect(await useSessionPullRequestStatus(target()).refresh()).toBe("ok");
+
+    const pending = createDeferred<PullRequestRefreshResult>();
+    vi.mocked(refreshSessionPullRequests).mockReturnValueOnce(pending.promise);
+    const detail = target();
+    const done = useSessionPullRequestStatus(detail).refresh(true);
+    detail.sessionId = "s2";
+    pending.resolve(result({ lookup: "failed" }));
+    expect(await done).toBeNull();
   });
 
   it("skips a session that is no longer the one it was asked for", async () => {
