@@ -67,6 +67,7 @@ const showContextCapture = computed(
 // sessions from before 2.1.301, or from the desktop app, have none. The
 // panel shows this same log. A live session's refreshes re-read it only while
 // the view shows (set below, once the view is known); otherwise on switching.
+// While it has no records yet, a refresh re-reads it at most every 30 s.
 const isClaudeCode = computed(() => source.value === "claudeCode");
 const recordedRequestsShown = ref(false);
 const requestLog = useClaudeRequestLog(

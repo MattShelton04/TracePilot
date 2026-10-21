@@ -3,6 +3,9 @@ import type { RecordedShape, RequestLog } from "@tracepilot/types";
 import { toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { computed, type MaybeRefOrGetter, ref, toValue, watch } from "vue";
 
+/** How often a refresh may re-read a log that has no records yet. */
+const EMPTY_RELOAD_INTERVAL_MS = 30_000;
+
 /**
  * What Claude Code recorded of a session's API requests, loaded when the
  * Context tab opens (it offers the view only when there are records), again
@@ -13,6 +16,9 @@ import { computed, type MaybeRefOrGetter, ref, toValue, watch } from "vue";
  * Each load re-reads the whole transcript, and a running session refreshes
  * every few seconds, so a refresh while `visible` is false (the log isn't on
  * screen) only marks the log stale; it reloads once the log shows again.
+ * An empty log is never on screen (the view isn't offered), so a refresh
+ * reloads it at most every 30 s instead, to notice the session's first
+ * records without re-reading a transcript that never gets any every tick.
  */
 export function useClaudeRequestLog(
   sessionId: MaybeRefOrGetter<string | null | undefined>,
@@ -26,11 +32,14 @@ export function useClaudeRequestLog(
   const selectedHash = ref<string | null>(null);
   /** The session's data was refreshed while the log was out of sight. */
   let stale = false;
+  /** When the last load started, for throttling an empty log's reloads. */
+  let lastLoadAt = 0;
 
   async function load() {
     const id = toValue(sessionId);
     const token = guard.start();
     stale = false;
+    lastLoadAt = Date.now();
     if (!id) {
       log.value = null;
       loading.value = false;
@@ -67,7 +76,9 @@ export function useClaudeRequestLog(
     () => toValue(refreshKey),
     () => {
       if (!log.value || loading.value) return;
-      if (toValue(visible)) void load();
+      if (log.value.records === 0) {
+        if (Date.now() - lastLoadAt >= EMPTY_RELOAD_INTERVAL_MS) void load();
+      } else if (toValue(visible)) void load();
       else stale = true;
     },
   );
