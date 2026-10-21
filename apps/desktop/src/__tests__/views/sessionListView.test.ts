@@ -450,3 +450,48 @@ describe("Session list count while filtered", () => {
     expect(wrapper.find('[data-testid="session-clear-filters"]').exists()).toBe(false);
   });
 });
+
+describe("Session list count before the first list arrives", () => {
+  let store: ReturnType<typeof useSessionsStore>;
+  let wrapper: ReturnType<typeof render> | undefined;
+
+  beforeEach(() => {
+    setupPinia();
+    preferences.hideEmptySessions = true;
+    store = useSessionsStore();
+    vi.spyOn(store, "fetchSessions").mockResolvedValue(undefined);
+    vi.spyOn(store, "reindex").mockResolvedValue(undefined);
+    vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
+  });
+
+  afterEach(() => wrapper?.unmount());
+  const count = () => wrapper?.get('[data-testid="session-count"]').text();
+
+  it.each([
+    ["loading", () => (store.loading = true)],
+    ["indexing for the first time", () => (store.indexing = true)],
+    ["after a failed first load", () => (store.error = "Index unavailable")],
+  ])("shows no count while %s", async (_state, enter) => {
+    enter();
+    wrapper = render();
+    await flushPromises();
+    // Unknown, not zero; one dash keeps the label as long as "0 sessions".
+    expect(count()).toBe("– sessions");
+  });
+
+  it("counts once the list arrives, including an empty one", async () => {
+    store.loading = true;
+    wrapper = render();
+    await flushPromises();
+    store.loading = false;
+    await flushPromises();
+    expect(count()).toBe("0 sessions");
+    store.sessions = [session];
+    await flushPromises();
+    expect(count()).toBe("1 session");
+    // A later refresh keeps the count it already has.
+    store.loading = true;
+    await flushPromises();
+    expect(count()).toBe("1 session");
+  });
+});

@@ -57,6 +57,29 @@ describe("file tree", () => {
     expect(folderPaths(tree)).toEqual(["src", "/elsewhere"]);
   });
 
+  it("counts one file once whatever its separators or drive-letter case", () => {
+    const spellings = [
+      "C:\\git\\repo\\src\\a.ts",
+      "C:/git/repo/src/a.ts",
+      "c:\\git\\repo\\src\\a.ts",
+    ];
+    const inRepo = buildFileTree([...spellings, "C:\\git\\repo\\src\\\\b.ts"], ["C:\\git\\repo"]);
+    expect(inRepo.files).toBe(2);
+    expect(inRepo.children[0]).toMatchObject({ name: "src", files: 2 });
+    expect(inRepo.children[0].children.map((c) => c.name)).toEqual(["a.ts", "b.ts"]);
+
+    // Outside every root, the spellings share one `C:/…` chain.
+    const outside = buildFileTree(spellings, []);
+    expect(outside.files).toBe(1);
+    expect(outside.children.map((c) => c.name)).toEqual(["C:/git/repo/src"]);
+  });
+
+  it("keeps POSIX paths that differ only in case apart", () => {
+    const tree = buildFileTree(["/repo/src/A.ts", "/repo/src/a.ts", "/repo//src/a.ts"], ["/repo"]);
+    expect(tree.files).toBe(2);
+    expect(tree.children[0].children.map((c) => c.name)).toEqual(["a.ts", "A.ts"]);
+  });
+
   it("filters to matching files and compacts the folders left", () => {
     const tree = buildFileTree(["a/b/one.ts", "a/c/two.ts"], []);
     expect(tree.children[0].name).toBe("a");

@@ -117,9 +117,26 @@ function compact(node: FileTreeNode): FileTreeNode {
 }
 
 /**
+ * One spelling per file: `/` separators, no repeated separators, and an
+ * upper-case drive letter on Windows paths. Other letters keep their case,
+ * since POSIX file systems tell `A.ts` and `a.ts` apart.
+ */
+function filePathKey(path: string): string {
+  const slashed = path.replace(/[\\/]+/g, "/");
+  return /^[a-z]:\//i.test(slashed) ? slashed[0].toUpperCase() + slashed.slice(1) : slashed;
+}
+
+/** Counts the files (leaves) under each folder, so a file is counted once. */
+function countFiles(node: FileTreeNode): number {
+  node.files = node.isFile ? 1 : node.children.reduce((n, child) => n + countFiles(child), 0);
+  return node.files;
+}
+
+/**
  * Changed files as a folder tree, relative to the repository or working
  * directory when they sit inside one. Folders come first, then files, each
- * alphabetically, so the tree is the same on every render.
+ * alphabetically, so the tree is the same on every render. One file spelled
+ * with either separator or drive-letter case is one row and counts once.
  */
 export function buildFileTree(
   paths: readonly string[],
@@ -128,7 +145,7 @@ export function buildFileTree(
   const root: FileTreeNode = { name: "", path: "", isFile: false, files: 0, children: [] };
   // Children by kind and name, so building stays linear in the path count.
   const byName = new Map<FileTreeNode, Map<string, FileTreeNode>>();
-  for (const path of new Set(paths)) {
+  for (const path of new Set(paths.map(filePathKey))) {
     // Paths outside every root stay absolute; their drive and folders
     // compact into one `C:/Users/…` chain, listed after the repository's.
     const relative = relativeToRoot(path, roots);
@@ -137,7 +154,6 @@ export function buildFileTree(
     if (parts.length === 0) continue;
     if (outside && /^[\\/]/.test(path)) parts[0] = `/${parts[0]}`;
     let node = root;
-    node.files += 1;
     parts.forEach((part, index) => {
       const isFile = index === parts.length - 1;
       const childPath = node.path ? `${node.path}/${part}` : part;
@@ -154,10 +170,10 @@ export function buildFileTree(
         node.children.push(child);
         children.set(key, child);
       }
-      child.files += 1;
       node = child;
     });
   }
+  countFiles(root);
   sortTree(root);
   return compact(root);
 }

@@ -94,6 +94,14 @@ export interface MixSeries {
   /** Series in stacking order (bottom first); `OTHERS_KEY` collects the rest. */
   keys: string[];
   buckets: MixBucket[];
+  /** Buckets with any usage; a trend needs two. */
+  activeBuckets: number;
+}
+
+/** A date filter's bounds, `YYYY-MM-DD`; neither for All time. */
+export interface MixRange {
+  fromDate?: string;
+  toDate?: string;
 }
 
 export const OTHERS_KEY = "__others";
@@ -111,6 +119,10 @@ const weekStart = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DA
  * filled in so gaps in activity stay visible. Spend spreads each model's
  * total cost over its days in proportion to tokens.
  *
+ * With a date filter the buckets cover the whole range, ending today (UTC)
+ * when it has no end, like the other analytics pages; quiet days at either
+ * end stay on the axis. All time covers the first to the last active day.
+ *
  * With a date filter, each model row counts the in-range usage of sessions
  * that ended (were last active) in the range. The day rows also count runs
  * from sessions resumed after the range, and not usage that no run accounts
@@ -122,15 +134,14 @@ const weekStart = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DA
 export function buildMixSeries(
   usage: readonly ModelUsageDay[],
   rows: readonly ModelRow[],
-  options: { measure: MixMeasure; named: readonly string[] },
+  options: { measure: MixMeasure; named: readonly string[]; range?: MixRange; now?: Date },
 ): MixSeries {
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const named = new Set(options.named);
   const keys = [...options.named, OTHERS_KEY];
   const days = usage.map((u) => parseDay(u.date)).filter((ms) => !Number.isNaN(ms));
-  if (days.length === 0) return { granularity: "day", keys, buckets: [] };
-  const first = Math.min(...days);
-  const last = Math.max(...days);
+  if (days.length === 0) return { granularity: "day", keys, buckets: [], activeBuckets: 0 };
+  const { first, last } = mixBounds(days, options.range ?? {}, options.now ?? new Date());
   const granularity: MixGranularity =
     (last - first) / DAY_MS + 1 <= MIX_DAILY_MAX_DAYS ? "day" : "week";
   const bucketOf = (ms: number) => (granularity === "day" ? ms : weekStart(ms));
@@ -145,6 +156,7 @@ export function buildMixSeries(
     });
   }
 
+  const active = new Set<number>();
   for (const u of usage) {
     const ms = parseDay(u.date);
     if (Number.isNaN(ms)) continue;
@@ -160,10 +172,30 @@ export function buildMixSeries(
         : tokens;
     const bucket = buckets.get(bucketOf(ms));
     if (!bucket) continue;
+    active.add(bucketOf(ms));
     const key = named.has(id) ? id : OTHERS_KEY;
     bucket.values[key] += value;
     bucket.total += value;
   }
 
-  return { granularity, keys, buckets: [...buckets.values()] };
+  return { granularity, keys, buckets: [...buckets.values()], activeBuckets: active.size };
+}
+
+/**
+ * The first and last day to draw: the range's bounds, or the data's for All
+ * time. Days outside the range still widen it, so no usage is dropped.
+ */
+function mixBounds(days: readonly number[], range: MixRange, now: Date) {
+  const dataFirst = Math.min(...days);
+  const dataLast = Math.max(...days);
+  const from = range.fromDate ? parseDay(range.fromDate) : Number.NaN;
+  const to = range.toDate
+    ? parseDay(range.toDate)
+    : range.fromDate
+      ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+      : Number.NaN;
+  return {
+    first: Number.isNaN(from) ? dataFirst : Math.min(from, dataFirst),
+    last: Number.isNaN(to) ? dataLast : Math.max(to, dataLast),
+  };
 }

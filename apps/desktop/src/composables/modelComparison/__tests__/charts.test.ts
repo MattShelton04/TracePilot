@@ -172,6 +172,60 @@ describe("buildMixSeries", () => {
     expect(series.buckets[2].values).toEqual({ "copilot:a": 200, [OTHERS_KEY]: 100 });
   });
 
+  it("covers the whole selected range, ending today when it has no end", () => {
+    // "This Month" on Oct 21 with activity on Oct 7 and Oct 16 only.
+    const usage = [day("2026-10-07", "a", 100), day("2026-10-16", "a", 50)];
+    const series = buildMixSeries(usage, rows, {
+      measure: "tokens",
+      named: ["copilot:a"],
+      range: { fromDate: "2026-10-01" },
+      now: new Date("2026-10-21T15:00:00Z"),
+    });
+    expect(series.granularity).toBe("day");
+    expect(series.buckets).toHaveLength(21);
+    expect(series.buckets[0]).toMatchObject({ start: "2026-10-01", total: 0 });
+    expect(series.buckets.at(-1)).toMatchObject({ start: "2026-10-21", total: 0 });
+    expect(series.buckets[6].total).toBe(100);
+    expect(series.activeBuckets).toBe(2);
+
+    // A custom range keeps its own end; All time keeps the data's bounds.
+    const custom = buildMixSeries(usage, rows, {
+      measure: "tokens",
+      named: ["copilot:a"],
+      range: { fromDate: "2026-10-05", toDate: "2026-10-18" },
+    });
+    expect(custom.buckets).toHaveLength(14);
+    expect(custom.buckets[0].start).toBe("2026-10-05");
+    expect(custom.buckets.at(-1)?.start).toBe("2026-10-18");
+    const all = buildMixSeries(usage, rows, { measure: "tokens", named: ["copilot:a"], range: {} });
+    expect(all.buckets[0].start).toBe("2026-10-07");
+    expect(all.buckets.at(-1)?.start).toBe("2026-10-16");
+  });
+
+  it("counts only active buckets towards a trend, so one day in 7 days stays empty", () => {
+    const series = buildMixSeries([day("2026-10-20", "a", 100)], rows, {
+      measure: "tokens",
+      named: ["copilot:a"],
+      range: { fromDate: "2026-10-15" },
+      now: new Date("2026-10-21T00:00:00Z"),
+    });
+    expect(series.buckets).toHaveLength(7);
+    expect(series.activeBuckets).toBe(1);
+  });
+
+  it("picks weeks for a long selected range even when activity is short", () => {
+    const series = buildMixSeries([day("2026-10-14", "a", 1), day("2026-10-15", "a", 1)], rows, {
+      measure: "tokens",
+      named: ["copilot:a"],
+      range: { fromDate: "2026-07-24" },
+      now: new Date("2026-10-21T00:00:00Z"),
+    });
+    expect(series.granularity).toBe("week");
+    expect(series.buckets[0].start).toBe("2026-07-20");
+    expect(series.buckets.at(-1)?.start).toBe("2026-10-19");
+    expect(series.activeBuckets).toBe(1);
+  });
+
   it("buckets long spans by Monday-start week", () => {
     const series = buildMixSeries([day("2026-08-05", "a", 1), day("2026-10-08", "a", 1)], rows, {
       measure: "tokens",

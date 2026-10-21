@@ -45,6 +45,29 @@ describe("MetricsCodeChanges", () => {
     expect(wrapper.text()).toContain("No files match this path.");
   });
 
+  it("counts a file recorded under several spellings once", async () => {
+    const wrapper = mount(MetricsCodeChanges, {
+      props: {
+        metrics: {
+          codeChanges: {
+            filesModified: [
+              "C:\\git\\repo\\src\\a.ts",
+              "C:/git/repo/src/a.ts",
+              "c:\\git\\repo\\src\\a.ts",
+              "C:\\git\\repo\\src\\b.ts",
+            ],
+            linesAdded: 3,
+          },
+        },
+        roots: ["C:\\git\\repo"],
+      },
+    });
+    expect(names(wrapper)).toEqual(["src/", "a.ts", "b.ts"]);
+    expect(wrapper.text()).toContain("2 files");
+    await wrapper.get("input").setValue("a.ts");
+    expect(wrapper.text()).toContain("1 of 2 files");
+  });
+
   it("opens only the top level of a long tree and bounds the rows", async () => {
     const files = Array.from({ length: 3000 }, (_, i) => `src/module-${i % 30}/file-${i}.ts`);
     const wrapper = mount(MetricsCodeChanges, {
