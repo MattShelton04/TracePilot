@@ -25,9 +25,12 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { useSkillsStore } from "@/stores/skills";
+import { analyticsEmptyScope } from "@/utils/analyticsDashboard";
 import { buildSkillEntries } from "@/utils/skills/entries";
 
 const store = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(store));
 const skillsStore = useSkillsStore();
 const router = useRouter();
 
@@ -267,7 +270,7 @@ function openSkills(search?: string) {
 
     <p v-else class="ad-empty">
       <b>No skill uses</b>
-      No skill uses were indexed for this range.
+      No {{ scope.source }}skill uses were indexed{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>

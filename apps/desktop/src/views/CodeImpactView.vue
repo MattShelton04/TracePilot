@@ -15,11 +15,7 @@ import CodeKpis from "@/components/codeImpact/CodeKpis.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useValueTween } from "@/composables/useValueTween";
-import {
-  analyticsScopeWords,
-  rangeText as describeRange,
-  rangeDays,
-} from "@/utils/analyticsDashboard";
+import { analyticsScopeWords, rangeDays } from "@/utils/analyticsDashboard";
 import { codeDayRows } from "@/utils/codeImpact";
 import "@/styles/features/analytics-dashboard.css";
 
@@ -51,7 +47,6 @@ const rows = computed(() => {
   );
   return codeDayRows(data.value, days);
 });
-const rangeText = computed(() => describeRange(store.selectedTimeRange));
 </script>
 
 <template>
@@ -73,7 +68,7 @@ const rangeText = computed(() => describeRange(store.selectedTimeRange));
         :aria-busy="refreshing"
       >
         <CodeKpis :data="data" :rows="rows" :one-repo="!!store.selectedRepo" />
-        <CodeChangesPanel :rows="rows" :range-text="rangeText" />
+        <CodeChangesPanel :rows="rows" />
         <div class="ad-pair">
           <CodeFileTypesPanel :breakdown="data.fileTypeBreakdown" />
           <CodeFilesPanel :files="data.mostModifiedFiles" :unique-files="data.filesModified" />

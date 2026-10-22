@@ -8,6 +8,8 @@ import type { CodeImpactData } from "@tracepilot/types";
 import { formatNumberFull, Tooltip } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope } from "@/utils/analyticsDashboard";
 import { splitFilePath } from "@/utils/codeImpact";
 
 const props = defineProps<{
@@ -15,6 +17,10 @@ const props = defineProps<{
   /** Unique paths in range, so the list can say how much it covers. */
   uniqueFiles: number;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const SHOWN = 10;
 const showAll = ref(false);
@@ -70,7 +76,7 @@ const rows = computed(() => {
     </template>
     <p v-else class="ad-empty">
       <b>No files modified</b>
-      No session in this range recorded a file change.
+      No {{ scope.source }}session{{ scope.suffix }} recorded a file change.
     </p>
   </OverviewPanel>
 </template>

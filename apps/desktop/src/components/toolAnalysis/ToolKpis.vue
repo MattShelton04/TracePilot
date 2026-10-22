@@ -164,7 +164,7 @@ const usage = computed(() => {
             day{{ rows.length === 1 ? "" : "s" }}
           </template>
           <template v-else-if="has">across {{ plural(usage.count, "tool") }}</template>
-          <template v-else>No tool calls in this range</template>
+          <template v-else>No tool calls</template>
         </span>
       </template>
     </KPI>

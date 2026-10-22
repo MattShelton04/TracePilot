@@ -30,7 +30,6 @@ import {
   activityRows,
   analyticsScopeWords,
   dashboardDays,
-  rangeText as describeRange,
   hasDailyUsage,
 } from "@/utils/analyticsDashboard";
 import { buildDashboardSummary } from "@/utils/analyticsSummary";
@@ -113,8 +112,6 @@ const dayRows = computed(() =>
     : [],
 );
 
-const rangeText = computed(() => describeRange(store.selectedTimeRange));
-
 const billedInAic = computed(() =>
   (data.value?.costBySource ?? []).every((entry) => sourceCapabilities(entry.source).hasAic),
 );
@@ -139,7 +136,7 @@ const billedInAic = computed(() =>
         :aria-busy="refreshing"
       >
         <AnalyticsKpis :data="data" :summary="summary" :rows="dayRows" />
-        <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" :range-text="rangeText" />
+        <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" />
         <div class="ad-pair">
           <AnalyticsModelMix
             :models="summary.models"
@@ -156,7 +153,6 @@ const billedInAic = computed(() =>
           :data="data"
           :summary="summary"
           :days="days"
-          :range-text="rangeText"
           :cost-per-premium-request="prefs.costPerPremiumRequest"
         />
         <AnalyticsPacePanel :data="data" />
@@ -165,7 +161,6 @@ const billedInAic = computed(() =>
             :data="data"
             :days="days"
             :sources="summary.sources"
-            :range-text="rangeText"
           />
           <AnalyticsCachePanel
             :composition="summary.composition"

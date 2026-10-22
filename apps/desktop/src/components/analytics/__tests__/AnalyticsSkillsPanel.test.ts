@@ -185,7 +185,7 @@ describe("AnalyticsSkillsPanel", () => {
     });
     const wrapper = mount(AnalyticsSkillsPanel);
     await flushPromises();
-    expect(wrapper.text()).toContain("No skill uses were indexed for this range.");
+    expect(wrapper.text()).toContain("No skill uses were indexed in the selected period.");
   });
 
   it("surfaces a query failure instead of an empty range", async () => {

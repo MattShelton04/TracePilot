@@ -22,8 +22,10 @@ import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { useAnalyticsStore } from "@/stores/analytics";
 import {
   activityRows,
+  analyticsEmptyScope,
   cumulativeRows,
   type DayRow,
   formatShare,
@@ -41,10 +43,13 @@ const props = defineProps<{
   data: AnalyticsData;
   summary: DashboardSummary;
   days: string[];
-  rangeText: string;
   /** Legacy premium requests are priced at this rate per request. */
   costPerPremiumRequest: number;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const router = useRouter();
 const views = useAnalyticsDashboardViews();
@@ -217,7 +222,7 @@ function openModels() {
       </template>
       <template v-else>
         <b>No cost</b>
-        Nothing was used in {{ rangeText }}.
+        No {{ scope.source }}usage{{ scope.suffix }}.
       </template>
     </p>
 
@@ -333,7 +338,7 @@ function openModels() {
       </div>
       <p v-else class="ad-empty">
         <b>Nothing priced</b>
-        No usage in {{ rangeText }} could be priced.
+        No {{ scope.source }}usage{{ scope.suffix }} could be priced.
       </p>
     </template>
   </OverviewPanel>

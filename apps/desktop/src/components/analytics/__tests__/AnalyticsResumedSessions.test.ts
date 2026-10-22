@@ -109,7 +109,6 @@ describe("per-day charts with runs from resumed sessions", () => {
       data: resumedOnly,
       summary,
       days,
-      rangeText: "the past 7 days",
       costPerPremiumRequest: 0.04,
     };
     const views = useAnalyticsDashboardViews();
@@ -117,7 +116,7 @@ describe("per-day charts with runs from resumed sessions", () => {
     views.value.costView = "sources";
     const sources = mount(AnalyticsCostPanel, { props });
     expect(sources.text()).toContain("No session ended in this range");
-    expect(sources.text()).not.toContain("Nothing was used");
+    expect(sources.text()).not.toContain("No usage");
 
     views.value.costView = "running";
     const running = mount(AnalyticsCostPanel, { props });
@@ -131,7 +130,7 @@ describe("per-day charts with runs from resumed sessions", () => {
     const rows = build(resumedOnly, "runs").rows;
     const kpis = mount(AnalyticsKpis, { props: { data: resumedOnly, summary, rows } });
     expect(kpis.text()).toContain("1 run · active 1 of 3");
-    expect(kpis.text()).not.toContain("No sessions in this range");
+    expect(kpis.text()).not.toContain("No sessions");
   });
 
   it("explains empty model and token mixes instead of saying nothing ran", () => {
@@ -143,6 +142,6 @@ describe("per-day charts with runs from resumed sessions", () => {
       props: { composition, models: [], dailyUsage: true },
     });
     expect(tokens.text()).toContain("No session ended in this range");
-    expect(tokens.text()).not.toContain("No model usage in this range");
+    expect(tokens.text()).not.toContain("No model usage.");
   });
 });

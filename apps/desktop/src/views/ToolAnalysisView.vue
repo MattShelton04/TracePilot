@@ -15,11 +15,7 @@ import ToolRankPanel from "@/components/toolAnalysis/ToolRankPanel.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useValueTween } from "@/composables/useValueTween";
-import {
-  analyticsScopeWords,
-  rangeText as describeRange,
-  rangeDays,
-} from "@/utils/analyticsDashboard";
+import { analyticsScopeWords, rangeDays } from "@/utils/analyticsDashboard";
 import { toolDayRows } from "@/utils/toolAnalysis";
 import "@/styles/features/analytics-dashboard.css";
 
@@ -55,7 +51,6 @@ const days = computed(() =>
 const dayRows = computed(() =>
   data.value ? toolDayRows(data.value, days.value, "calls").rows : [],
 );
-const rangeText = computed(() => describeRange(store.selectedTimeRange));
 </script>
 
 <template>
@@ -77,7 +72,7 @@ const rangeText = computed(() => describeRange(store.selectedTimeRange));
         :aria-busy="refreshing"
       >
         <ToolKpis :data="data" :rows="dayRows" />
-        <ToolCallsPanel :data="data" :days="days" :range-text="rangeText" />
+        <ToolCallsPanel :data="data" :days="days" />
         <ToolRankPanel :data="data" />
         <ToolHeatmapPanel :entries="data.activityHeatmap" />
       </div>

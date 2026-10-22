@@ -13,7 +13,8 @@ import { Database, Timer } from "lucide-vue-next";
 import { computed } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
-import { SOURCE_COLORS } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope, SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import type { SourceCacheRow, TokenComposition } from "@/utils/analyticsSummary";
 import { changeKindLabel, formatIdle } from "@/utils/promptCache";
 
@@ -28,6 +29,10 @@ const props = withDefaults(
   }>(),
   { timing: null, billedInAic: true },
 );
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const { missCredits } = usePromptCacheCost();
 
@@ -86,7 +91,7 @@ const sessionsText = computed(() => {
   <OverviewPanel title="Cache" :flush="input > 0" data-testid="analytics-cache">
     <p v-if="!input" class="ad-empty">
       <b>No cache data</b>
-      No model input in this range.
+      No {{ scope.source }}model input{{ scope.suffix }}.
     </p>
 
     <div v-else class="ad-tiles cache__tiles" :class="{ 'cache__tiles--one': timing == null }">
@@ -169,7 +174,7 @@ const sessionsText = computed(() => {
         <template v-else>
           <div class="ad-tile__value ad-tile__value--muted ad-tile__value--text">No cache timing</div>
           <p class="ad-note">
-            No cache timing in this range yet. Copilot CLI sessions need version 1.0.75 or later.
+            No cache timing{{ scope.suffix }} yet. Copilot CLI sessions need version 1.0.75 or later.
           </p>
         </template>
       </div>

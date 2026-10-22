@@ -125,7 +125,6 @@ describe("analytics cost panel", () => {
         data,
         summary,
         days: dashboardDays(data, {}),
-        rangeText: "any session",
         costPerPremiumRequest: 0.04,
       },
     });

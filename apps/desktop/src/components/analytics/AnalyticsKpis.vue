@@ -87,7 +87,7 @@ const cost = computed<CostKpi>(() => {
     return {
       label: "Cost",
       value: "—",
-      note: "No usage in this range",
+      note: "No usage",
       partial: false,
       tooltip: "",
       meter: [],
@@ -184,7 +184,7 @@ const pace = computed(() => {
             <b>{{ formatNumberFull(runs) }}</b> run{{ runs === 1 ? "" : "s" }} · active <b>{{ activeDays }}</b> of {{ rows.length }}
             day{{ rows.length === 1 ? "" : "s" }}
           </template>
-          <template v-else>No sessions in this range</template>
+          <template v-else>No sessions</template>
         </span>
       </template>
     </KPI>

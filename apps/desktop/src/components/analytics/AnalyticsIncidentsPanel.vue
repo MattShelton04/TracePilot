@@ -13,15 +13,24 @@ import { computed } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import { binRows, type DayRow, type DaySeries } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import {
+  analyticsEmptyScope,
+  binRows,
+  type DayRow,
+  type DaySeries,
+} from "@/utils/analyticsDashboard";
 import { countOf } from "@/utils/analyticsSummary";
 
 const props = defineProps<{
   data: AnalyticsData;
   days: string[];
   sources: SessionSource[];
-  rangeText: string;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const views = useAnalyticsDashboardViews();
 const VIEWS = [
@@ -145,7 +154,7 @@ function chartDetail(row: DayRow): string[] {
 
     <p v-if="data.totalSessions === 0" class="ad-empty">
       <b>No incidents</b>
-      No sessions in {{ rangeText }}.
+      No {{ scope.source }}sessions ended{{ scope.suffix }}.
     </p>
 
     <div v-else-if="view === 'tiles'" class="ad-tiles incidents__tiles">
@@ -186,7 +195,7 @@ function chartDetail(row: DayRow): string[] {
       </div>
       <p v-else class="ad-empty">
         <b>Nothing went wrong</b>
-        No errors, rate limits or compactions in {{ rangeText }}.
+        No errors, rate limits or compactions{{ scope.suffix }}.
       </p>
     </template>
   </OverviewPanel>

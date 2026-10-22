@@ -404,7 +404,7 @@ describe("AnalyticsCachePanel", () => {
     const wrapper = mountPanel({
       timing: { ...data, sessionsWithPredicted: 0, resumedWindows: 0 },
     });
-    expect(wrapper.text()).toContain("No cache timing in this range yet");
+    expect(wrapper.text()).toContain("No cache timing yet");
   });
 
   it("leaves timing out when the feature is off", () => {

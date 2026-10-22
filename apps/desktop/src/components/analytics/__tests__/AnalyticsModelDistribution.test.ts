@@ -1,11 +1,16 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { AnalyticsData } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDashboardSummary } from "@/utils/analyticsSummary";
 import { FIXTURE_ANALYTICS } from "../../../__tests__/views/analyticsFixtures";
 import AnalyticsModelMix from "../AnalyticsModelMix.vue";
 
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
+beforeEach(() => {
+  setupPinia();
+});
 
 type Entry = AnalyticsData["modelDistribution"][number];
 
