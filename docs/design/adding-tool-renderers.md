@@ -176,7 +176,7 @@ ignored agent/output directories.
 
 ## Current registry
 
-There are 25 registered tool names and six argument-renderer registrations.
+There are 30 registered tool names and 11 argument-renderer registrations.
 
 | Tool | Result component | Argument component |
 | --- | --- | --- |
@@ -196,10 +196,12 @@ There are 25 registered tool names and six argument-renderer registrations.
 | `list_agents` | ListAgentsRenderer | — |
 | `apply_patch` | ApplyPatchRenderer | ApplyPatchArgsRenderer |
 | `ExitPlanMode` (Claude Code) | ExitPlanModeRenderer | — |
+| `mcp__ccd_turn__update_plan`, `mcp__ccd_turn__wrap_up`, `TodoWrite`, `TaskCreate`, `TaskUpdate` (Claude) | TaskListRenderer | TaskListRenderer |
 
 `report_intent` reuses one component for its pending intent and returned
-acknowledgment. `task`, calls marked `isSubagent` (including named task aliases)
-and `web_fetch` use the dispatcher's Markdown fallback when rich rendering is
+acknowledgment. TaskListRenderer likewise reads the checklist from the call's
+input, so it serves both sides. `task`, calls marked `isSubagent` (including
+named task aliases) and `web_fetch` use the dispatcher's Markdown fallback when rich rendering is
 enabled. Other unregistered or disabled tools use `PlainTextRenderer`.
 
 Registry keys are canonical tool names. A source whose tools have other names
@@ -208,5 +210,5 @@ and keeps the original in `TurnToolCall.nativeToolName`. The canonical name
 picks the renderer, icon and category; headers show the native name. See
 `packages/ui/src/__tests__/nativeToolNames.test.ts`.
 
-`shell` and `stop_powershell` are registered but not yet listed in
-`RichRenderableToolName`.
+`shell`, `stop_powershell`, `ExitPlanMode` and the five task-list tools are
+registered but not listed in `RichRenderableToolName`.

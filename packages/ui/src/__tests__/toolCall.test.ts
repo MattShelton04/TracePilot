@@ -230,6 +230,10 @@ describe("formatArgsSummary", () => {
       "octo",
     );
     expect(formatArgsSummary({ perPage: 5 }, "github-mcp-server-list_issues")).toBe("");
+    // The joined summary is one truncated line, like the Rust IPC summary.
+    expect(
+      formatArgsSummary({ method: "get", query: "x".repeat(300) }, "github-mcp-server-search_code"),
+    ).toBe(`get · ${"x".repeat(94)}…`);
     // Other MCP servers keep their own summary.
     expect(formatArgsSummary({ ...repo, path: "a.ts" }, "mcp__github__get_file_contents")).toBe(
       "a.ts",

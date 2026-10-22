@@ -135,17 +135,14 @@ function mcpSummary(a: Record<string, unknown>): string {
 /**
  * A GitHub MCP call (Copilot's `github-mcp-server-*`): its `method`, then
  * `owner/repo`, then the path or query, e.g. "get · octo/app · src/a.ts".
+ * Mirrored by `compute_args_summary` in `crates/tracepilot-core/src/turns/ipc.rs`.
  */
 function githubSummary(a: Record<string, unknown>): string {
   const owner = stringArg(a.owner);
   const repo = stringArg(a.repo);
   const target = stringArg(a.path) || stringArg(a.query);
-  const parts = [
-    a.method ? String(a.method) : "",
-    owner && repo ? `${owner}/${repo}` : owner || repo,
-    target,
-  ];
-  return parts.filter(Boolean).join(" · ");
+  const parts = [stringArg(a.method), owner && repo ? `${owner}/${repo}` : owner || repo, target];
+  return truncateSummary(parts.filter(Boolean).join(" · "));
 }
 
 /** Extract a useful one-line summary from tool call arguments. */

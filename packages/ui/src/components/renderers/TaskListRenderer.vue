@@ -79,7 +79,7 @@ const copyText = computed(() => {
         </li>
       </ol>
       <ul v-if="view.changes.length" class="task-changes" aria-label="Changes">
-        <li v-for="change in view.changes" :key="change">{{ change }}</li>
+        <li v-for="(change, index) in view.changes" :key="index">{{ change }}</li>
       </ul>
       <div v-if="view.wrapUp" class="task-wrapup">
         <p v-if="view.wrapUp.recap" class="task-wrapup-recap">{{ view.wrapUp.recap }}</p>
@@ -87,7 +87,7 @@ const copyText = computed(() => {
           <span class="task-label">Question</span>
           <p>{{ view.wrapUp.ask }}</p>
           <ul v-if="view.wrapUp.options.length" class="task-wrapup-options" aria-label="Answer options">
-            <li v-for="option in view.wrapUp.options" :key="option">{{ option }}</li>
+            <li v-for="(option, index) in view.wrapUp.options" :key="index">{{ option }}</li>
           </ul>
           <span v-if="view.wrapUp.blocked" class="task-wrapup-blocked">Waits for an answer</span>
         </div>
