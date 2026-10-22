@@ -2,8 +2,8 @@
 //!
 //! This module provides a reusable pattern for analytics commands that:
 //! 1. Try to fetch from the SQLite index (fast path)
-//! 2. Fall back to disk scan if the index is unavailable and the scan covers
-//!    the requested sources; a failed query is reported, not hidden
+//! 2. Fall back to disk scan if the index can't answer and the scan covers
+//!    the requested sources; otherwise report why, with the next step
 //!
 //! This eliminates ~40% code duplication across the three analytics commands.
 
@@ -16,6 +16,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracepilot_core::provider::SessionSource;
 use tracepilot_indexer::index_db::IndexDb;
+
+/// The next step when the session index can't answer and nothing stands in.
+const REBUILD_HINT: &str = "Rebuild analytics in Settings to recreate the session index.";
 
 /// Result type alias for analytics operations.
 ///
@@ -74,7 +77,7 @@ impl AnalyticsQueryParams {
         };
         BindingsError::Internal(format!(
             "Analytics for {scope} need the session index, which couldn't be opened. \
-             Rebuild analytics in Settings to recreate it."
+             {REBUILD_HINT}"
         ))
     }
 
@@ -134,12 +137,14 @@ impl AnalyticsContext {
 /// Execute an analytics query with SQL fast-path and disk scan fallback.
 ///
 /// This generic function encapsulates the two-phase pattern used by all analytics commands:
-/// 1. If the index database has sessions, run the SQL query (fast path). A
-///    failed query is an error carrying its cause: no fallback answers for it.
-/// 2. If the index is missing, unreadable or empty, fall back to loading from
-///    disk and computing. The disk scan sees only Copilot sessions, so it never
-///    answers a request that covers another source: an empty index answers
-///    those, and a missing or unreadable one is an error.
+/// 1. If the index database has sessions, run the SQL query (fast path).
+/// 2. If the index is missing, unreadable or empty, or the query fails, fall
+///    back to loading from disk and computing. The disk scan sees only Copilot
+///    sessions, so it answers only a request it covers: Copilot sessions, or
+///    every source while Copilot is the only one enabled. It also answers every
+///    source in place of an empty index, which holds no other source's rows
+///    either. Otherwise an empty index answers, and a missing or unreadable
+///    index or a failed query is an error carrying its cause and the next step.
 ///
 /// # Type Parameters
 ///
@@ -196,23 +201,34 @@ where
         let db = match open_index_db(&index_path) {
             Some(opened) => opened.db,
             None if disk_scan_covers => return Ok(None),
-            // The scan would miss other sources' sessions; an index that
-            // opens but holds no sessions still answers correctly.
+            // The scan would miss other sources' sessions, unless the index
+            // opens but holds no sessions: it has none of theirs either, so
+            // the scan is at least as complete for every source. A request
+            // for another source alone answers from the empty index.
             None => match open_empty_index(&index_path) {
+                Some(_) if sql_params.source.is_none() => return Ok(None),
                 Some(db) => db,
-                None => return Ok(None),
+                None => return Err(sql_params.index_unavailable_error()),
             },
         };
-        sql_fn(&db, &sql_params).map(Some).inspect_err(|e| {
-            tracing::warn!("{query_name} query against the session index failed: {e}");
-        })
+        match sql_fn(&db, &sql_params) {
+            Ok(result) => Ok(Some(result)),
+            Err(e) if disk_scan_covers => {
+                tracing::warn!(
+                    "{query_name} query against the session index failed, \
+                     falling back to disk scan: {e}"
+                );
+                Ok(None)
+            }
+            Err(e) => {
+                tracing::warn!("{query_name} query against the session index failed: {e}");
+                Err(with_rebuild_hint(e))
+            }
+        }
     })
     .await??;
     if let Some(result) = sql {
         return Ok(result);
-    }
-    if !disk_scan_covers {
-        return Err(params.index_unavailable_error());
     }
 
     // Phase 2: disk-scan fallback, one at a time — each scan parses the whole
@@ -222,6 +238,20 @@ where
         None => None,
     };
     tokio::task::spawn_blocking(move || fallback_fn(&ctx.session_state_dir, &params)).await?
+}
+
+/// A failed query's indexer error with the next step appended, keeping its
+/// INDEXER code. Any other error passes through with its own code.
+fn with_rebuild_hint(error: BindingsError) -> BindingsError {
+    let BindingsError::Indexer(cause) = error else {
+        return error;
+    };
+    let cause = cause.to_string();
+    let cause = cause.trim_end();
+    let separator = if cause.ends_with('.') { " " } else { ". " };
+    BindingsError::Indexer(tracepilot_indexer::IndexerError::Io(std::io::Error::other(
+        format!("{cause}{separator}{REBUILD_HINT}"),
+    )))
 }
 
 /// The index at `path` when it opens and holds no sessions, which

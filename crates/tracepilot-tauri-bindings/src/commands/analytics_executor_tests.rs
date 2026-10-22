@@ -177,41 +177,63 @@ async fn disk_scan_never_answers_for_all_sources_while_claude_code_is_enabled() 
 }
 
 #[tokio::test]
-async fn an_empty_index_answers_what_the_disk_scan_cannot() {
-    for source in [None, Some(SessionSource::ClaudeCode)] {
-        let (result, scanned) = run(Index::Empty, false, source, Ok(0)).await;
-        assert_eq!(result.unwrap(), 0);
-        assert!(!scanned);
-    }
+async fn an_empty_index_answers_claude_code_alone() {
+    let (result, scanned) = run(Index::Empty, false, Some(SessionSource::ClaudeCode), Ok(0)).await;
+    assert_eq!(result.unwrap(), 0);
+    assert!(!scanned);
 }
 
-/// Run a query whose SQL fails, and check the failure reaches the caller.
-async fn assert_query_failure_reported(source: Option<SessionSource>, copilot_only: bool) {
-    let (result, scanned) = run(Index::Populated, copilot_only, source, Err(malformed())).await;
+#[tokio::test]
+async fn disk_scan_answers_all_sources_in_place_of_an_empty_index() {
+    // The empty index has no Claude Code rows either, so All sources matches
+    // the Copilot totals instead of reading zero.
+    let (result, scanned) = run(Index::Empty, false, None, Ok(0)).await;
+    assert_eq!(result.unwrap(), 7);
+    assert!(scanned);
+}
+
+/// Run a query whose SQL fails where the disk scan can't stand in, and check
+/// the failure reaches the caller with its cause and the next step.
+async fn assert_query_failure_reported(source: Option<SessionSource>) {
+    let (result, scanned) = run(Index::Populated, false, source, Err(malformed())).await;
     let error = result.expect_err("a failed query must not return disk-scan numbers");
     assert_eq!(error.code(), crate::error::ErrorCode::Indexer);
-    assert_eq!(error.to_string(), "database disk image is malformed");
+    assert_eq!(
+        error.to_string(),
+        "database disk image is malformed. \
+         Rebuild analytics in Settings to recreate the session index."
+    );
     assert!(
         !scanned,
-        "{source:?}: the disk scan must not hide the failure"
+        "{source:?}: the Copilot-only scan must not stand in"
     );
 }
 
 #[tokio::test]
 async fn a_failed_claude_code_query_reports_its_cause() {
-    assert_query_failure_reported(Some(SessionSource::ClaudeCode), false).await;
+    assert_query_failure_reported(Some(SessionSource::ClaudeCode)).await;
 }
 
 #[tokio::test]
-async fn a_failed_query_for_all_sources_never_returns_disk_scan_numbers() {
-    for copilot_only in [true, false] {
-        assert_query_failure_reported(None, copilot_only).await;
+async fn a_failed_query_for_all_sources_with_claude_code_on_reports_its_cause() {
+    assert_query_failure_reported(None).await;
+}
+
+#[tokio::test]
+async fn disk_scan_answers_a_failed_query_it_covers() {
+    for (source, copilot_only) in [
+        (None, true),
+        (Some(SessionSource::Copilot), true),
+        (Some(SessionSource::Copilot), false),
+    ] {
+        let (result, scanned) = run(Index::Populated, copilot_only, source, Err(malformed())).await;
+        assert_eq!(
+            result.unwrap(),
+            7,
+            "{source:?}, copilot_only={copilot_only}"
+        );
+        assert!(scanned);
     }
-}
-
-#[tokio::test]
-async fn a_failed_copilot_query_reports_its_cause() {
-    assert_query_failure_reported(Some(SessionSource::Copilot), true).await;
 }
 
 #[test]
