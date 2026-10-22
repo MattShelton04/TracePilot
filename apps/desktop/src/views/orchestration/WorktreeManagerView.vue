@@ -21,6 +21,7 @@ const {
   detailsLoading,
   refreshing,
   staleInScope,
+  scopeSummary,
   cleanableStale,
   worktreeCountByRepo,
   filteredWorktrees,
@@ -92,6 +93,7 @@ const {
           :refreshing="refreshing"
           :cleaning-stale="cleaningStale"
           :cleanable-stale-count="cleanableStale.length"
+          :summary="scopeSummary"
           @create="openCreateModal"
           @clean-stale="handleCleanStale"
           @prune="handlePrune"

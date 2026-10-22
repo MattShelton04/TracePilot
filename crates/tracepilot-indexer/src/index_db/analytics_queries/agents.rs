@@ -6,6 +6,8 @@
 
 mod detail;
 mod stats;
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -18,7 +20,7 @@ use tracepilot_core::SessionId;
 use tracepilot_core::analytics::{AgentSelectionStats, AgentUsageDetail, AgentUsageSummary};
 use tracepilot_core::provider::{SessionLocator, SessionRole, SessionSource};
 
-use super::super::helpers::{RepositoryScope, append_source_filter, to_refs};
+use super::super::helpers::{FolderRepositories, RepositoryScope, append_source_filter, to_refs};
 
 pub(super) use detail::build_detail;
 
@@ -57,6 +59,7 @@ impl AgentRunFilter<'_> {
 pub(super) struct RunRow {
     pub session_id: String,
     pub session_summary: Option<String>,
+    /// The session's repository, or the one its folder belongs to.
     pub repository: Option<String>,
     pub run_key: String,
     pub tool_call_id: Option<String>,
@@ -139,19 +142,21 @@ pub(super) fn load_runs(
                 r.total_tool_calls, r.total_tokens, r.duration_ms, r.own_nano_aiu,
                 r.follow_up_count, r.depth, r.peak_siblings, r.parent_agent_name,
                 r.turn_index, r.event_index, r.messages_sent, r.messages_received,
-                r.peer_messages, r.queued_messages
+                r.peer_messages, r.queued_messages, s.cwd
          FROM session_agent_runs r
          JOIN sessions s ON s.id = r.session_id{clause}
          ORDER BY {TIMESTAMP} DESC, r.session_id, r.run_key"
     );
     let refs = to_refs(&values);
+    let folders = FolderRepositories::load(conn)?;
     let mut stmt = conn.prepare(&sql)?;
     let unsigned = |value: Option<i64>| value.and_then(|v| u64::try_from(v).ok());
     let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
         Ok(RunRow {
             session_id: row.get(0)?,
             session_summary: row.get(1)?,
-            repository: row.get(2)?,
+            repository: folders
+                .attribute(row.get(2)?, row.get::<_, Option<String>>(33)?.as_deref()),
             run_key: row.get(3)?,
             tool_call_id: row.get(4)?,
             agent_name: row.get(5)?,

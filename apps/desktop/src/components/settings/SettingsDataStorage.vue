@@ -290,7 +290,8 @@ async function clearCache() {
     const [rebuilt] = await reindexSessionsFullApi();
     await sessionsStore.fetchSessions();
     reindexResult.value = rebuildMessage(rebuilt);
-    analyticsStore.$reset();
+    // The rebuilt index invalidates cached results, not the chosen filters.
+    analyticsStore.clearResults();
   } catch (e) {
     if (isAlreadyIndexingError(e)) {
       reindexResult.value = "Indexing already in progress…";

@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { formatNumber } from "@tracepilot/types";
-import { Banner, EmptyState, PageHeader, PageShell, type SegmentOption } from "@tracepilot/ui";
+import {
+  Banner,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  PageShell,
+  type SegmentOption,
+} from "@tracepilot/ui";
 import { Bot, Plus, RefreshCw } from "lucide-vue-next";
 import DefinitionFilters from "@/components/definitions/DefinitionFilters.vue";
 import DefinitionLoading from "@/components/definitions/DefinitionLoading.vue";
@@ -39,6 +46,12 @@ watch(
   { immediate: true },
 );
 onMounted(() => store.loadAll());
+
+/**
+ * The definitions never loaded. Usage alone would list built-in agents beside
+ * "0 personal · 0 project", which reads as "you have none".
+ */
+const catalogUnavailable = computed(() => store.initialized && !store.catalog);
 
 // A definition that failed to parse is a different story from a root that
 // simply is not there, so the two are reported separately.
@@ -110,7 +123,16 @@ function onCreated(path: string) {
         </template>
       </PageHeader>
 
-      <DefinitionLoading v-if="!store.initialized" noun="agents" />
+      <DefinitionLoading
+        v-if="!store.initialized || (catalogUnavailable && store.catalogLoading)"
+        noun="agents"
+      />
+      <ErrorState
+        v-else-if="catalogUnavailable"
+        heading="Agents could not be loaded"
+        :message="store.error ?? undefined"
+        @retry="store.loadAll(true)"
+      />
       <template v-else>
       <div class="stats-strip">
         <span class="stat-chip">{{ plural(store.entries.length, "agent") }}</span>
@@ -146,8 +168,18 @@ function onCreated(path: string) {
         @toggle-flag="store.toggleFlag($event as AgentFlag)" @clear="store.clearFilters"
       />
 
-      <Banner v-if="store.error" tone="danger" :title="'Agents could not be loaded'">
+      <Banner v-if="store.error" tone="danger" title="Agents could not be refreshed">
         {{ store.error }}
+        <template #actions>
+          <button
+            type="button"
+            class="btn btn--secondary btn--sm"
+            :disabled="store.catalogLoading"
+            @click="store.loadAll(true)"
+          >
+            Retry
+          </button>
+        </template>
       </Banner>
       <Banner v-else-if="store.usageError" tone="warning" title="Usage unavailable">
         {{ store.usage ? "Showing previously loaded usage:" : "Definitions are shown without cross-session usage:" }} {{ store.usageError }}

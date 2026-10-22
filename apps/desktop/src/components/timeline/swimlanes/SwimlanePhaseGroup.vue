@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { Badge, ExpandChevron, formatDuration, truncateText } from "@tracepilot/ui";
-import type { Ref } from "vue";
+import { computed, type Ref } from "vue";
 import {
   type Phase,
   phaseAgentCount,
@@ -48,6 +48,9 @@ const emit = defineEmits<{
   (e: "retry-full-result", toolCallId: string): void;
   (e: "set-assistant-idx", turnIndex: number, idx: number): void;
 }>();
+
+// Hidden when no turn recorded a duration, like the turn rows' own badge.
+const duration = computed(() => phaseDurationMs(props.phase));
 </script>
 
 <template>
@@ -67,7 +70,7 @@ const emit = defineEmits<{
         Phase {{ phase.index + 1 }}: {{ truncateText(phase.label, 80) }}
       </span>
       <span class="phase-stats">
-        <Badge variant="neutral">{{ formatDuration(phaseDurationMs(phase)) }}</Badge>
+        <Badge v-if="duration" variant="neutral">{{ formatDuration(duration) }}</Badge>
         <Badge variant="warning">
           {{ phaseToolCount(phase) }} tool{{ phaseToolCount(phase) !== 1 ? "s" : "" }}
         </Badge>

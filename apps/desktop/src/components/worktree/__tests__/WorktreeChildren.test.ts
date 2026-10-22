@@ -105,7 +105,37 @@ describe("WorktreeRepoSidebar", () => {
   });
 });
 
+const EMPTY_SUMMARY = { total: 0, active: 0, stale: 0, locked: 0, diskBytes: 0 };
+
 describe("WorktreeToolbar", () => {
+  it("shows the summary it is given, not every repository's totals", async () => {
+    const store = useWorktreesStore();
+    store.worktrees = [
+      makeWt({ path: "/other/a", repoRoot: "/other", diskUsageBytes: 5_000_000 }),
+      makeWt({ path: "/other/b", repoRoot: "/other", status: "stale", isLocked: true }),
+    ];
+    const wrapper = mount(WorktreeToolbar, {
+      props: {
+        searchQuery: "",
+        selectedRepoPath: "/repo",
+        refreshing: false,
+        cleaningStale: false,
+        cleanableStaleCount: 0,
+        summary: EMPTY_SUMMARY,
+      },
+    });
+    const summary = wrapper.get(".toolbar-summary");
+    const items = () => summary.findAll(".summary-item").map((item) => item.text());
+    expect(items()).toEqual(["Total: 0", "Active: 0", "Stale: 0", "0", "Disk: 0 B"]);
+    expect(summary.attributes("title")).toBe("Worktrees in this repository");
+    await wrapper.setProps({
+      selectedRepoPath: null,
+      summary: { total: 3, active: 1, stale: 2, locked: 1, diskBytes: 2048 },
+    });
+    expect(items()).toEqual(["Total: 3", "Active: 1", "Stale: 2", "1", "Disk: 2 KB"]);
+    expect(summary.attributes("title")).toBe("Worktrees in all repositories");
+  });
+
   it("emits action events when toolbar buttons clicked", async () => {
     const wrapper = mount(WorktreeToolbar, {
       props: {
@@ -114,6 +144,7 @@ describe("WorktreeToolbar", () => {
         refreshing: false,
         cleaningStale: false,
         cleanableStaleCount: 0,
+        summary: EMPTY_SUMMARY,
       },
     });
     const buttons = wrapper.findAll(".toolbar > button");
@@ -133,6 +164,7 @@ describe("WorktreeToolbar", () => {
         refreshing: false,
         cleaningStale: false,
         cleanableStaleCount: 0,
+        summary: EMPTY_SUMMARY,
       },
     });
     const input = wrapper.find(".search-input");
@@ -149,6 +181,7 @@ describe("WorktreeToolbar", () => {
       refreshing: false,
       cleaningStale: false,
       cleanableStaleCount: 0,
+      summary: EMPTY_SUMMARY,
     };
     const wrapper = mount(WorktreeToolbar, { props });
     const clean = () => wrapper.findAll(".toolbar > button")[1]!;

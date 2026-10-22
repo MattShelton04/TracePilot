@@ -144,6 +144,22 @@ describe("SettingsDataStorage paths and maintenance", () => {
     expect(wrapper.get(".setting-result").text()).toBe(message);
   });
 
+  it("drops cached analytics after a rebuild but keeps the chosen Analytics filters", async () => {
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    await action(wrapper, "Rebuild").trigger("click");
+    await flushPromises();
+    // `$reset` also returns the remembered repository, source and range to defaults.
+    expect(mocks.resetAnalytics).not.toHaveBeenCalled();
+    expect(mocks.clearAnalyticsResults).toHaveBeenCalledOnce();
+
+    mocks.reindexSessionsFull.mockRejectedValue(new Error("index locked"));
+    await action(wrapper, "Rebuild").trigger("click");
+    await flushPromises();
+    expect(wrapper.get(".setting-result").text()).toBe("Error: index locked");
+    expect(mocks.clearAnalyticsResults).toHaveBeenCalledOnce();
+  });
+
   it("keeps browsed path changes as a draft until Apply path changes is clicked", async () => {
     const wrapper = mountSettingsDataStorage();
     await flushPromises();

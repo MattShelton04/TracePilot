@@ -105,6 +105,19 @@ describe("NestedSwimlanesView", () => {
     expect(header.text()).toContain("2 tools");
   });
 
+  it("leaves out the phase duration when no turn recorded one, instead of 0ms", () => {
+    store.turns = [
+      makeTurn({ turnIndex: 0, userMessage: "First", durationMs: 3000 }),
+      makeTurn({ turnIndex: 1, userMessage: "Second", durationMs: undefined }),
+    ];
+    store.loading = false;
+
+    const headers = mountComponent().findAll(".phase-header");
+    expect(headers[0].text()).toContain("3s");
+    expect(headers[1].text()).not.toContain("0ms");
+    expect(headers[1].findAll(".badge-stub").map((b) => b.text())).toEqual(["0 tools"]);
+  });
+
   it("clicking phase header toggles collapse", async () => {
     store.turns = [makeTurn({ turnIndex: 0, userMessage: "Phase one" })];
     store.loading = false;
