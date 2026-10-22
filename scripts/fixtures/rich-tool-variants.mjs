@@ -42,6 +42,15 @@ export function richToolVariants(richToolSamples, { agent, reviewer, source }) {
     { length: 45 },
     (_, i) => `Fallback line ${i + 1}: unrecognized tool output stays complete and readable.`,
   ).join("\n")}\nFINAL FALLBACK MARKER`;
+  const longIssues = JSON.stringify(
+    Array.from({ length: 24 }, (_, i) => ({
+      number: i + 100,
+      title: `Fixture issue ${i + 100}`,
+      state: i % 4 === 0 ? "closed" : "open",
+      labels: i % 3 === 0 ? ["fixture"] : [],
+      comments: i,
+    })).concat([{ number: 999, title: "FINAL JSON MARKER", state: "open", labels: [] }]),
+  );
   const annotatedSearch =
     "## Known text envelope\n\n1. Preserve **lists**.\n2. Preserve `code`.\n\n```ts\nconst complete = true;\n```\n\nFive cited sources remain available without body URLs: [1] [2] [3] [4] [5].";
 
@@ -320,6 +329,18 @@ export function richToolVariants(richToolSamples, { agent, reviewer, source }) {
       fallback: "plain",
       content: "",
       viewState: "unknown renderer · completed empty output",
+    }),
+    variant("github-mcp-json", "github-mcp-json-preview", {
+      content: longIssues,
+      selector: ".plain-text-renderer",
+      viewState: "JSON result · 1024-byte preview stays plain text",
+    }),
+    variant("github-mcp-json", "github-mcp-json-full", {
+      content: longIssues,
+      actions: [full],
+      selector: ".plain-text-json",
+      expectText: "FINAL JSON MARKER",
+      viewState: "JSON result · fetched and pretty-printed",
     }),
   ];
 }
