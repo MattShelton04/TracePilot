@@ -9,6 +9,8 @@
  */
 import { type Component, defineAsyncComponent } from "vue";
 
+const TaskListRenderer = defineAsyncComponent(() => import("./TaskListRenderer.vue"));
+
 export interface RendererEntry {
   /** Human-friendly label shown in the settings UI. */
   label: string;
@@ -150,6 +152,43 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
   ExitPlanMode: {
     label: "Exit Plan Mode (Plan)",
     resultComponent: defineAsyncComponent(() => import("./ExitPlanModeRenderer.vue")),
+  },
+  // Claude task lists: the desktop app's plan tools, then the CLI's task tools.
+  // The checklist is the call's input, so one component serves both sides.
+  mcp__ccd_turn__update_plan: {
+    label: "Update Plan (Checklist)",
+    resultComponent: TaskListRenderer,
+    argsComponent: TaskListRenderer,
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
+  },
+  mcp__ccd_turn__wrap_up: {
+    label: "Wrap Up (Recap)",
+    resultComponent: TaskListRenderer,
+    argsComponent: TaskListRenderer,
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
+  },
+  TodoWrite: {
+    label: "Todo Write (Checklist)",
+    resultComponent: TaskListRenderer,
+    argsComponent: TaskListRenderer,
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
+  },
+  TaskCreate: {
+    label: "Task Create (Checklist)",
+    resultComponent: TaskListRenderer,
+    argsComponent: TaskListRenderer,
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
+  },
+  TaskUpdate: {
+    label: "Task Update (Checklist)",
+    resultComponent: TaskListRenderer,
+    argsComponent: TaskListRenderer,
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
   },
 };
 

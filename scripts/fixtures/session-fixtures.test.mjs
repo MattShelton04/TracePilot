@@ -140,7 +140,7 @@ test("native sessions are deterministic, have unique ancestry and match every br
 test("report_intent is isolated so ordinary native renderer scenarios have no objective", () => {
   const gallery = buildRichToolsSession();
   const intent = buildReportIntentSession();
-  assert.equal(gallery.expected.scenarios, 69);
+  assert.equal(gallery.expected.scenarios, 74);
   assert.equal(intent.expected.scenarios, 1);
   assert.equal(gallery.expected.scenarios + intent.expected.scenarios, richToolSamples.length);
   const starts = (session) =>
