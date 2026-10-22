@@ -1,8 +1,9 @@
-import type { TurnToolCall } from "@tracepilot/types";
+import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import {
   chunkTurns,
   getCollapsedToolNames,
+  orderTurnContent,
   segmentToolCalls,
   splitAtTurnStart,
 } from "./chatViewUtils";
@@ -66,6 +67,89 @@ describe("segmentToolCalls", () => {
     expect(segments[1].items).toHaveLength(1);
     expect(segments[1].items[0]?.type).toBe("tool");
     expect(segments[1].items[0]?.toolCall.toolName).toBe("powershell");
+  });
+});
+
+describe("orderTurnContent", () => {
+  function turn(overrides: Partial<ConversationTurn>): ConversationTurn {
+    return { turnIndex: 0, assistantMessages: [], toolCalls: [], isComplete: true, ...overrides };
+  }
+  const shell = (eventIndex?: number) => makeToolCall({ toolName: "powershell", eventIndex });
+
+  /** Each rendered item, by its text or its tools' event indexes. */
+  function layout(content: ReturnType<typeof orderTurnContent>): string[] {
+    return content.order.map((ref) => {
+      if (ref.kind === "reasoning") return `think:${content.reasoning[ref.index]}`;
+      if (ref.kind === "message") return `reply:${content.messages[ref.index].content}`;
+      const segment = content.segments[ref.index];
+      return segment.type === "tool-group"
+        ? `tools:${segment.items.map((i) => i.toolCall.eventIndex).join(",")}`
+        : `agents:${segment.subagents.map((s) => s.eventIndex).join(",")}`;
+    });
+  }
+
+  it("places replies between the tool calls they followed, splitting the tool group", () => {
+    // The Copilot fixture: two tool calls, a reply, two more, a final reply.
+    const content = orderTurnContent(
+      turn({
+        assistantMessages: [
+          { content: "Found it", eventIndex: 7 },
+          { content: "Fixed", eventIndex: 12 },
+        ],
+        reasoningTexts: [{ content: "plan", eventIndex: 7 }],
+        toolCalls: [shell(3), shell(5), shell(8), shell(10)],
+      }),
+    );
+    expect(layout(content)).toEqual([
+      "tools:3,5",
+      "think:plan",
+      "reply:Found it",
+      "tools:8,10",
+      "reply:Fixed",
+    ]);
+  });
+
+  it("keeps a reply that came before any tool call above them", () => {
+    const content = orderTurnContent(
+      turn({
+        assistantMessages: [{ content: "Let me look", eventIndex: 2 }],
+        toolCalls: [shell(3), shell(4)],
+      }),
+    );
+    expect(layout(content)).toEqual(["reply:Let me look", "tools:3,4"]);
+  });
+
+  it("ignores subagent children and subagent text when placing main replies", () => {
+    const content = orderTurnContent(
+      turn({
+        assistantMessages: [
+          { content: "child says", eventIndex: 6, parentToolCallId: "agent-1" },
+          { content: "Agent done", eventIndex: 9 },
+        ],
+        toolCalls: [
+          makeToolCall({
+            toolName: "task",
+            toolCallId: "agent-1",
+            isSubagent: true,
+            eventIndex: 4,
+          }),
+          makeToolCall({ toolName: "view", parentToolCallId: "agent-1" }),
+          shell(11),
+        ],
+      }),
+    );
+    expect(layout(content)).toEqual(["agents:4", "reply:Agent done", "tools:11"]);
+  });
+
+  it("keeps the previous layout when an item has no event index", () => {
+    const content = orderTurnContent(
+      turn({
+        assistantMessages: [{ content: "streamed" }],
+        reasoningTexts: [{ content: "plan", eventIndex: 1 }],
+        toolCalls: [shell(3), shell(5)],
+      }),
+    );
+    expect(layout(content)).toEqual(["think:plan", "reply:streamed", "tools:3,5"]);
   });
 });
 

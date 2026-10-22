@@ -2,32 +2,27 @@
 import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
   formatDuration,
-  formatTime,
   MarkdownContent,
   ReasoningBlock,
   useMainAgentLabel,
   type useToggleSet,
 } from "@tracepilot/ui";
 import { Bot } from "lucide-vue-next";
+import { computed } from "vue";
 import MessageCopyButton from "@/components/conversation/chat/MessageCopyButton.vue";
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
-import type { ToolSegment } from "@/components/conversation/chatViewUtils";
+import type { OrderedTurnContent, ToolSegment } from "@/components/conversation/chatViewUtils";
 import type { PermissionPair } from "@/components/conversation/sessionEventPairing";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { usePreferencesStore } from "@/stores/preferences";
 
 type ToggleSet = ReturnType<typeof useToggleSet<string>>;
 
-interface TurnRenderData {
-  reasoning: string[];
-  messages: AttributedMessage[];
-  segments: ToolSegment[];
-}
-
 const props = defineProps<{
   turn: ConversationTurn;
-  renderData: TurnRenderData;
+  /** Main-agent content; `order` interleaves replies and reasoning with tool segments. */
+  renderData: OrderedTurnContent;
   /** Permission events keyed by `toolCallId`, surfaced inline on the
    *  matching tool call row instead of as a standalone permission card.
    *  Only populated for tool calls whose `toolCallId` was paired with a
@@ -64,6 +59,22 @@ const emit = defineEmits<{
 const preferences = usePreferencesStore();
 const mainAgentLabel = useMainAgentLabel();
 
+type TurnItem =
+  | { kind: "reasoning"; index: number; content: string }
+  | { kind: "message"; index: number; message: AttributedMessage }
+  | { kind: "segment"; index: number; segment: ToolSegment };
+
+// Replies carry no time of their own (only the turn's start is known), so
+// their bubbles show none; the prompt above already shows when the turn began.
+const items = computed<TurnItem[]>(() => {
+  const { reasoning, messages, segments, order } = props.renderData;
+  return order.map((ref): TurnItem => {
+    if (ref.kind === "reasoning") return { ...ref, content: reasoning[ref.index] };
+    if (ref.kind === "message") return { ...ref, message: messages[ref.index] };
+    return { ...ref, segment: segments[ref.index] };
+  });
+});
+
 function tcProps(tc: TurnToolCall) {
   const idx = props.findToolCallIndex(props.turn, tc);
   const key = `${props.turn.turnIndex}-${idx}`;
@@ -97,42 +108,29 @@ function toggleToolDetail(tc: TurnToolCall) {
     :data-turn-idx="turn.turnIndex"
     :style="turnColor ? { borderLeft: `3px solid ${turnColor}`, paddingLeft: '12px' } : {}"
   >
-    <!-- Main reasoning -->
-    <ReasoningBlock
-      v-for="(reasoning, rIdx) in renderData.reasoning"
-      :key="`r-${turn.turnIndex}-${rIdx}`"
-      :reasoning="[reasoning]"
-      :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${rIdx}`)"
-      @toggle="expandedReasoning.toggle(`${turn.turnIndex}-main-${rIdx}`)"
-    />
+    <!-- Main reasoning, replies and tool segments, in the order they happened -->
+    <template v-for="item in items" :key="`${item.kind}-${turn.turnIndex}-${item.index}`">
+      <ReasoningBlock
+        v-if="item.kind === 'reasoning'"
+        :reasoning="[item.content]"
+        :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${item.index}`)"
+        @toggle="expandedReasoning.toggle(`${turn.turnIndex}-main-${item.index}`)"
+      />
 
-    <!-- Main messages -->
-    <div
-      v-for="(msg, mIdx) in renderData.messages"
-      :key="`m-${turn.turnIndex}-${mIdx}`"
-      class="cv-agent-bubble cv-msg-copy-host"
-    >
-      <div class="cv-agent-bubble-header">
-        <span class="cv-agent-avatar" aria-hidden="true"><Bot :size="16" /></span>
-        <span class="cv-agent-name">{{ mainAgentLabel }}</span>
-        <MessageCopyButton :text="msg.content" label="Copy reply" />
-        <span v-if="turn.timestamp" class="cv-agent-time">
-          {{ formatTime(turn.timestamp) }}
-        </span>
+      <div v-else-if="item.kind === 'message'" class="cv-agent-bubble cv-msg-copy-host">
+        <div class="cv-agent-bubble-header">
+          <span class="cv-agent-avatar" aria-hidden="true"><Bot :size="16" /></span>
+          <span class="cv-agent-name">{{ mainAgentLabel }}</span>
+          <MessageCopyButton :text="item.message.content" label="Copy reply" />
+        </div>
+        <MarkdownContent :content="item.message.content" :render="renderMarkdown" />
       </div>
-      <MarkdownContent :content="msg.content" :render="renderMarkdown" />
-    </div>
 
-    <!-- Tool segments -->
-    <template
-      v-for="(segment, sIdx) in renderData.segments"
-      :key="`seg-${turn.turnIndex}-${sIdx}`"
-    >
       <ToolGroupSegment
-        v-if="segment.type === 'tool-group'"
+        v-else-if="item.segment.type === 'tool-group'"
         :turn="turn"
-        :items="segment.items"
-        :group-key="`${turn.turnIndex}-group-${sIdx}`"
+        :items="item.segment.items"
+        :group-key="`${turn.turnIndex}-group-${item.index}`"
         :expanded-groups="expandedGroups"
         :tc-props="tcProps"
         :toggle-tool-detail="toggleToolDetail"
@@ -141,8 +139,8 @@ function toggleToolDetail(tc: TurnToolCall) {
       />
 
       <SubagentGroupSegment
-        v-else-if="segment.type === 'subagent-group'"
-        :subagents="segment.subagents"
+        v-else
+        :subagents="item.segment.subagents"
         :subagent-map="subagentMap"
         :selected-agent-id="selectedAgentId"
         @select-subagent="emit('select-subagent', $event)"
@@ -247,20 +245,9 @@ function toggleToolDetail(tc: TurnToolCall) {
   font-weight: 600;
 }
 
-/* The copy button takes the free space, so the time stays put when "Copied" widens it. */
+/* The copy button sits at the far end of the header. */
 .cv-agent-bubble-header .cv-msg-copy {
   margin-left: auto;
-}
-
-/* Room for the focus ring. */
-.cv-msg-copy + .cv-agent-time {
-  margin-left: 4px;
-}
-
-.cv-agent-time {
-  font-size: 11px;
-  color: var(--text-placeholder);
-  font-weight: 400;
 }
 
 /* ─── Subagent completion pill ─────────────────────────────────── */
