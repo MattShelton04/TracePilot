@@ -76,10 +76,13 @@ const confirmingOperation = ref(false);
 // ── Indexing progress ────────────────────────────────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
+// A pass can already be running when this panel opens (first run, a version
+// bump reindex, a long startup index), before any indexing-started event here.
+const indexPassRunning = computed(() => isIndexing.value || sessionsStore.indexing);
 const dataOperationBusy = computed(
   () =>
     pathsLoading.value ||
-    isIndexing.value ||
+    indexPassRunning.value ||
     pathsSaving.value ||
     browsingPath.value ||
     clearing.value ||
@@ -97,6 +100,8 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
   },
   onProgress: (p) => {
     indexingProgress.value = p;
+    // Progress proves a pass is running even when this panel missed its start.
+    isIndexing.value = true;
   },
   onFinished: () => {
     indexingProgress.value = null;
