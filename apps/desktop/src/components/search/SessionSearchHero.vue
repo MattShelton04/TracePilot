@@ -19,6 +19,8 @@ const props = defineProps<{
   showSource?: boolean;
   /** The query opens with NOT, which FTS can't search on its own. */
   startsWithNot?: boolean;
+  /** `type:` values that name no content type and so filter nothing. */
+  unknownTypes?: readonly string[];
 }>();
 
 const emit = defineEmits<{
@@ -85,6 +87,14 @@ defineExpose({ inputRef, focusFilterToggle });
       <span>
         <code>NOT</code> needs a term before it, like <code>error NOT timeout</code>.
         A leading <code>NOT</code> and the term after it are left out of the search.
+      </span>
+    </p>
+    <p v-if="unknownTypes?.length" class="search-query-hint" role="status" data-testid="search-type-hint">
+      <Info :size="14" aria-hidden="true" />
+      <span>
+        Unknown {{ unknownTypes.length === 1 ? "type" : "types" }}<template v-for="(type, i) in unknownTypes" :key="type">{{ i === 0 ? " " : ", " }}<code>{{ type }}</code></template>
+        {{ unknownTypes.length === 1 ? "isn't used as a filter" : "aren't used as filters" }}.
+        More syntax lists the types.
       </span>
     </p>
     <div class="search-hints">
