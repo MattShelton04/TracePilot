@@ -121,5 +121,16 @@ describe("ExplorerTab with no session files", () => {
     expect(wrapper.find('[data-tp-component="EmptyState"]').exists()).toBe(false);
     expect(wrapper.text()).toContain("Session folder unreadable");
     expect(button(wrapper, "Retry")).toBeDefined();
+    // The error stands alone: no empty tree or idle reader contradicts it.
+    expect(wrapper.text()).not.toContain("No files");
+    expect(wrapper.text()).not.toContain("Select a file to view its contents");
+
+    mocks.sessionListFiles.mockResolvedValue({ ...empty, entries: [subagent] });
+    await button(wrapper, "Retry")?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("Session folder unreadable");
+    expect(wrapper.text()).toContain("agent-a.jsonl");
+    expect(wrapper.text()).toContain("Select a file to view its contents");
   });
 });

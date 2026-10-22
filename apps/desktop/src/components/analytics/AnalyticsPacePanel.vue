@@ -11,9 +11,14 @@ import { Gauge, MessageSquare, Timer, Wrench, Zap } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useElementWidth } from "@/composables/useElementWidth";
-import { durationStrip, type StripKey } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope, durationStrip, type StripKey } from "@/utils/analyticsDashboard";
 
 const props = defineProps<{ data: AnalyticsData }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const MARK_COLORS: Record<StripKey, string> = {
   min: "var(--text-tertiary)",
@@ -126,7 +131,7 @@ const tiles = computed(() => {
           >{{ mark.label }} <b>{{ mark.text }}</b></span>
         </template>
       </div>
-      <p v-else class="ad-note pace__none">No session in this range recorded model time.</p>
+      <p v-else class="ad-note pace__none">No {{ scope.source }}session{{ scope.suffix }} recorded model time.</p>
     </div>
     <div class="ad-tiles ad-tiles--4 pace__tiles">
       <div v-for="tile in tiles" :key="tile.key" class="ad-tile">

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { ParsedQualifiers } from "@/utils/parseQualifiers";
+import { type ParsedQualifiers, parseQualifiers } from "@/utils/parseQualifiers";
 import { mergeSearchInputs } from "../query";
 
 const baseParsed: ParsedQualifiers = {
   cleanQuery: "",
   types: [],
+  unknownTypes: [],
   repo: null,
   tool: null,
   session: null,
@@ -13,6 +14,27 @@ const baseParsed: ParsedQualifiers = {
 };
 
 describe("stores/search/query – mergeSearchInputs", () => {
+  it("never forwards an unknown type: value as a content type filter", () => {
+    const state = {
+      contentTypes: [],
+      repository: null,
+      toolName: null,
+      sessionId: null,
+      source: null,
+      sortBy: "relevance",
+      isBrowseMode: false,
+    } as const;
+    const unknownOnly = mergeSearchInputs(parseQualifiers("type:bogus retry"), state);
+    expect(unknownOnly.contentTypes).toEqual([]);
+    expect(unknownOnly.searchQuery).toBe("retry");
+
+    const mixed = mergeSearchInputs(parseQualifiers("type:Tool-Call type:bogus retry"), {
+      ...state,
+      contentTypes: ["error"],
+    });
+    expect(mixed.contentTypes).toEqual(["error", "tool_call"]);
+  });
+
   it("falls back to slice state when no qualifiers are present", () => {
     const merged = mergeSearchInputs(
       { ...baseParsed, cleanQuery: "needle" },
@@ -86,6 +108,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
       {
         cleanQuery: "x",
         types: [],
+        unknownTypes: [],
         repo: "qual/repo",
         tool: "qualtool",
         session: "qual-session",

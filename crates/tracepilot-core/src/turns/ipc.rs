@@ -93,15 +93,38 @@ pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String
                 return u;
             }
         }
+        // Mirrors `githubSummary()`: method, owner/repo, then path or query.
         name if name.starts_with("github-mcp-server") => {
-            if let Some(m) = get_str("method") {
-                return m;
-            }
+            let line = |key: &str| get_str(key).map(|s| one_line(&s)).filter(|s| !s.is_empty());
+            let repo = match (line("owner"), line("repo")) {
+                (Some(owner), Some(repo)) => Some(format!("{owner}/{repo}")),
+                (owner, repo) => owner.or(repo),
+            };
+            let target = line("path").or_else(|| line("query"));
+            let parts: Vec<String> = [line("method"), repo, target]
+                .into_iter()
+                .flatten()
+                .collect();
+            return truncate_summary(&parts.join(" · "), 100);
         }
         _ => {}
     }
 
     String::new()
+}
+
+/// Collapse whitespace runs to single spaces and trim.
+fn one_line(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Mirrors the frontend `truncateSummary()`: one line, at most `max` characters plus "…".
+fn truncate_summary(text: &str, max: usize) -> String {
+    let line = one_line(text);
+    match line.char_indices().nth(max) {
+        Some((cut, _)) => format!("{}…", &line[..cut]),
+        None => line,
+    }
 }
 
 /// Prepare turns for IPC transfer: compute args summaries and strip
@@ -155,6 +178,50 @@ mod tests {
             "scope: siblings"
         );
         assert_eq!(compute_args_summary("list_agents", &json!({})), "");
+    }
+
+    #[test]
+    fn summarizes_github_mcp_calls_like_the_frontend() {
+        let summary = |tool: &str, args: serde_json::Value| compute_args_summary(tool, &args);
+        assert_eq!(
+            summary(
+                "github-mcp-server-pull_request_read",
+                json!({ "method": "get", "owner": "octo", "repo": "app", "pullNumber": 3 }),
+            ),
+            "get · octo/app"
+        );
+        assert_eq!(
+            summary(
+                "github-mcp-server-get_file_contents",
+                json!({ "owner": "octo", "repo": "app", "path": "src/a.ts" }),
+            ),
+            "octo/app · src/a.ts"
+        );
+        assert_eq!(
+            summary(
+                "github-mcp-server-search_pull_requests",
+                json!({ "query": "is:pr  is:open" }),
+            ),
+            "is:pr is:open"
+        );
+        assert_eq!(
+            summary(
+                "github-mcp-server-list_repositories",
+                json!({ "owner": "octo" })
+            ),
+            "octo"
+        );
+        assert_eq!(summary("github-mcp-server-list_issues", json!({})), "");
+        assert_eq!(
+            summary("github-mcp-server-list_issues", json!({ "perPage": 5 })),
+            ""
+        );
+        let long = summary(
+            "github-mcp-server-search_code",
+            json!({ "method": "get", "query": "x".repeat(300) }),
+        );
+        // 100 characters (not bytes) plus the marker, as in the frontend.
+        assert_eq!(long, format!("get · {}…", "x".repeat(94)));
     }
 
     #[test]

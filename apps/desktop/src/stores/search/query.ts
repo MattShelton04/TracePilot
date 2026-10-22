@@ -126,6 +126,8 @@ export function createQuerySlice() {
   );
   /** The text opens with `NOT`, which needs a term before it. */
   const startsWithNot = computed(() => searchTextTerms.value.startsWithNot);
+  /** `type:` values that name no content type, so they filter nothing. */
+  const unknownTypes = computed(() => parseQualifiers(query.value).unknownTypes);
   /** The source searched: the query's `source:` qualifier, else the switch's. */
   const effectiveSource = computed(() => parseQualifiers(query.value).source ?? source.value);
   const hasActiveFilters = computed(() => {
@@ -267,6 +269,7 @@ export function createQuerySlice() {
     hasActiveFilters,
     hasNoSearchableTerms,
     startsWithNot,
+    unknownTypes,
     effectiveSource,
     groupedResults,
     resultSessionCount,

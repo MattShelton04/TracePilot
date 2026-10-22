@@ -55,7 +55,6 @@ function incidentsPanel(data: AnalyticsData) {
       data,
       days: dashboardDays(data, {}),
       sources: ["claudeCode"],
-      rangeText: "any session",
     },
   });
   const tile = (kind: string) => wrapper.get(`[data-kind="${kind}"] .ad-tile__value span`).text();

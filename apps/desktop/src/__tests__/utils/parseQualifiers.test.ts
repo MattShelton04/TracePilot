@@ -97,6 +97,27 @@ describe("parseQualifiers", () => {
     expect(result.repo).toBe("myapp");
   });
 
+  it("matches type values in any case and with - or _ between words", () => {
+    const result = parseQualifiers("type:Error type:TOOL_CALL type:tool-result type:Tool-Error x");
+    expect(result.types).toEqual(["error", "tool_call", "tool_result", "tool_error"]);
+    expect(result.unknownTypes).toEqual([]);
+    expect(result.cleanQuery).toBe("x");
+  });
+
+  it("strips unknown type values without filtering on them, and reports them once", () => {
+    const result = parseQualifiers("type:bogus retry type:error type:bogus type:constructor");
+    expect(result.types).toEqual(["error"]);
+    expect(result.unknownTypes).toEqual(["bogus", "constructor"]);
+    expect(result.cleanQuery).toBe("retry");
+    expect(parseQualifiers("retry").unknownTypes).toEqual([]);
+  });
+
+  it("matches sort values in any case", () => {
+    expect(parseQualifiers("sort:Newest query").sort).toBe("newest");
+    expect(parseQualifiers("SORT:OLDEST query").sort).toBe("oldest");
+    expect(parseQualifiers("sort:Relevance").sort).toBe("relevance");
+  });
+
   it("handles empty string input", () => {
     const result = parseQualifiers("");
     expect(result.cleanQuery).toBe("");

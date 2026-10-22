@@ -8,10 +8,15 @@ import type { CodeImpactData } from "@tracepilot/types";
 import { formatNumberFull, Tooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
-import { formatShare } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope, formatShare } from "@/utils/analyticsDashboard";
 import { fileTypeRows, fileTypeSplit } from "@/utils/codeImpact";
 
 const props = defineProps<{ breakdown: CodeImpactData["fileTypeBreakdown"] }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const SHOWN = 8;
 const rows = computed(() => fileTypeRows(props.breakdown));
@@ -80,7 +85,7 @@ const edits = (n: number) => `${formatNumberFull(n)} modification${n === 1 ? "" 
     </template>
     <p v-else class="ad-empty">
       <b>No files modified</b>
-      No session in this range recorded a file change.
+      No {{ scope.source }}session{{ scope.suffix }} recorded a file change.
     </p>
   </OverviewPanel>
 </template>

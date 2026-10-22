@@ -110,6 +110,33 @@ describe("SessionSearchHero", () => {
     await wrapper.find("input").setValue("error NOT jwt");
     expect(wrapper.emitted("update:query")?.[0]).toEqual(["error NOT jwt"]);
   });
+
+  it("says when a type: value names no content type", () => {
+    const props = {
+      query: "type:bogus retry",
+      filtersOpen: false,
+      activeFilterCount: 0,
+      sortBy: "relevance",
+      isBrowseMode: false,
+    };
+    expect(
+      mount(SessionSearchHero, { props: { ...props, unknownTypes: [] } })
+        .find('[data-testid="search-type-hint"]')
+        .exists(),
+    ).toBe(false);
+
+    const one = mount(SessionSearchHero, { props: { ...props, unknownTypes: ["bogus"] } });
+    const hint = one.get('[data-testid="search-type-hint"]');
+    expect(hint.attributes("role")).toBe("status");
+    expect(hint.text().replace(/\s+/g, " ")).toBe(
+      "Unknown type bogus isn't used as a filter. More syntax lists the types.",
+    );
+
+    const two = mount(SessionSearchHero, { props: { ...props, unknownTypes: ["bogus", "nope"] } });
+    expect(two.get('[data-testid="search-type-hint"]').text().replace(/\s+/g, " ")).toBe(
+      "Unknown types bogus, nope aren't used as filters. More syntax lists the types.",
+    );
+  });
 });
 
 describe("SearchSyntaxHelpModal", () => {

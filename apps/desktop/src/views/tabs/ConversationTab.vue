@@ -268,7 +268,7 @@ function richEnabledFor(toolName: string): boolean {
     />
 
     <!-- Mini stat row -->
-    <div class="grid-3 mb-4">
+    <div class="grid-3 conv-stats mb-4">
       <StatCard :value="turnsKnown ? store.turns.length : '—'" label="Turns" color="accent" mini />
       <StatCard :value="turnsKnown ? totalToolCalls : '—'" label="Tool Calls" color="accent" mini />
       <StatCard :value="turnsKnown ? formatRecordedDuration(totalDurationMs) : '—'" label="Turn Time" color="done" mini :tooltip="DURATION_HINTS.turnTime" />
@@ -355,6 +355,14 @@ function richEnabledFor(toolName: string): boolean {
 </template>
 
 <style scoped>
+/* The global .grid-3 drops to two columns at 1200px; these three short mini
+   cards still fit one row until its single-column rule at 900px. */
+@media (width > 900px) {
+  .conv-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .conv-objective-strip {
   display: flex;
   margin: 0 0 12px;

@@ -51,6 +51,64 @@ describe("SettingsDataStorage paths and maintenance", () => {
     expect(exposed.databaseSize).toBe("8192 B");
   });
 
+  it("locks maintenance while a pass it only saw progress for runs, then unlocks", async () => {
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+
+    // Opened mid-pass: the started event fired before this panel listened.
+    mocks.indexing.onProgress?.({
+      current: 3,
+      total: 10,
+      sessionRepo: null,
+      sessionBranch: null,
+      sessionModel: null,
+      sessionTokens: 0,
+      sessionEvents: 0,
+      sessionTurns: 0,
+      totalTokens: 0,
+      totalEvents: 0,
+      totalRepos: 0,
+    });
+    await nextTick();
+    expect(wrapper.text()).toContain("3 / 10 sessions");
+    expectBusy(wrapper);
+    action(wrapper, "Rebuild").vm.$emit("click");
+    action(wrapper, "Rebuild", 1).vm.$emit("click");
+    expect(mocks.reindexSessionsFull).not.toHaveBeenCalled();
+    expect(mocks.rebuildSearchIndex).not.toHaveBeenCalled();
+
+    mocks.indexing.onFinished?.();
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("3 / 10 sessions");
+    expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
+    expect(action(wrapper, "Apply path changes").props("disabled")).toBe(true); // nothing to apply
+    expect(action(wrapper, "Reset Everything…").props("disabled")).toBe(false);
+  });
+
+  it("locks maintenance when it opens while the sessions store is indexing", async () => {
+    mocks.storeIndexing.value = true;
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    // A draft typed as the lock took hold stays a draft.
+    wrapper
+      .findAllComponents({ name: "FormInput" })[0]
+      .vm.$emit("update:modelValue", "D:\\AuditCopilot");
+    await nextTick();
+
+    expectBusy(wrapper);
+    action(wrapper, "Rebuild").vm.$emit("click");
+    action(wrapper, "Apply path changes").vm.$emit("click");
+    expect(mocks.reindexSessionsFull).not.toHaveBeenCalled();
+    expect(mocks.validateSessionDir).not.toHaveBeenCalled();
+
+    mocks.storeIndexing.value = false;
+    await nextTick();
+    expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
+    expect(action(wrapper, "Rebuild", 1).props("disabled")).toBe(false);
+    expect(action(wrapper, "Apply path changes").props("disabled")).toBe(false);
+    expect(action(wrapper, "Reset Everything…").props("disabled")).toBe(false);
+  });
+
   it("keeps path controls locked until the initial config arrives", async () => {
     const pending = deferred<ReturnType<typeof config>>();
     mocks.getConfig.mockReturnValue(pending.promise);

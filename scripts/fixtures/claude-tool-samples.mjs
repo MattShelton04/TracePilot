@@ -262,6 +262,94 @@ export const claudeToolSamples = [
     undefined,
     ".plan-markdown",
   ),
+  // Task lists. Inputs follow each tool's published schema; result texts are synthetic.
+  sample(
+    "update-plan",
+    "mcp__ccd_turn__update_plan",
+    "mcp__ccd_turn__update_plan",
+    {
+      items: [
+        { content: "Read the synthetic config", status: "completed" },
+        { content: "Flip the ready flag", status: "in_progress" },
+        { content: "Run the synthetic tests", status: "pending" },
+        { content: "Add a changelog fragment", status: "pending" },
+      ],
+      scope: "first_task",
+    },
+    {},
+    "Plan updated.",
+    undefined,
+    ".task-list",
+  ),
+  sample(
+    "update-plan-advance",
+    "mcp__ccd_turn__update_plan",
+    "mcp__ccd_turn__update_plan",
+    { advance: true },
+    {},
+    "Plan updated.",
+    undefined,
+    ".task-changes",
+  ),
+  sample(
+    "wrap-up",
+    "mcp__ccd_turn__wrap_up",
+    "mcp__ccd_turn__wrap_up",
+    {
+      recap:
+        "The ready flag is on and the synthetic tests pass. Nothing is committed yet.\nThe changelog fragment is still to write.",
+      ask: "Commit the change?",
+      actions: [
+        { action: "commit" },
+        { label: "Not yet", message: "Leave it uncommitted for now." },
+      ],
+    },
+    {},
+    "Recap shown with the question.",
+    undefined,
+    ".task-wrapup",
+  ),
+  // Legacy CLI tools (on by default only for older models).
+  sample(
+    "todo-write",
+    "TodoWrite",
+    "TodoWrite",
+    {
+      todos: [
+        { content: "Flip the ready flag", status: "completed", activeForm: "Flipping the flag" },
+        { content: "Run the synthetic tests", status: "in_progress", activeForm: "Running tests" },
+        { content: "Add a changelog fragment", status: "pending", activeForm: "Adding a fragment" },
+      ],
+    },
+    { oldTodos: [], newTodos: [] },
+    "Todos have been modified successfully.",
+    undefined,
+    ".task-list",
+  ),
+  sample(
+    "task-create",
+    "TaskCreate",
+    "TaskCreate",
+    {
+      subject: "Run the synthetic tests",
+      description: "Run the suite after the ready flag flips.",
+      activeForm: "Running the synthetic tests",
+    },
+    { task: { id: "1", subject: "Run the synthetic tests" } },
+    "Task #1 created successfully: Run the synthetic tests",
+    undefined,
+    ".task-list",
+  ),
+  sample(
+    "task-update",
+    "TaskUpdate",
+    "TaskUpdate",
+    { taskId: "1", status: "completed" },
+    { success: true, taskId: "1", updatedFields: ["status"] },
+    "Updated task #1 status",
+    undefined,
+    ".task-changes",
+  ),
   // Unverified public MCP shape; no server is contacted.
   sample(
     "mcp",
@@ -272,4 +360,57 @@ export const claudeToolSamples = [
     "ready: true",
   ),
   sample("generic", "Monitor", "Monitor", { command: "watch synthetic flag" }, {}, "Ready."),
+];
+
+/**
+ * Claude task-list calls still open, in the Copilot rich-tool gallery's shape:
+ * the checklist is the input, so the Parameters view carries it until a result
+ * arrives. (The native gallery always records a result.)
+ */
+const pending = (id, toolName, args, selector) => ({
+  id: `${id}-pending`,
+  toolName,
+  arguments: args,
+  content: null,
+  selector,
+  openArgs: true,
+});
+
+export const pendingTaskListSamples = [
+  pending(
+    "update-plan",
+    "mcp__ccd_turn__update_plan",
+    {
+      items: [
+        { content: "Review the fixture screenshots", status: "completed" },
+        { content: "Compare the narrow viewport", status: "in_progress" },
+        { content: "Record the findings", status: "pending" },
+      ],
+    },
+    ".task-list",
+  ),
+  pending(
+    "wrap-up",
+    "mcp__ccd_turn__wrap_up",
+    { recap: "The fixture screenshots are reviewed; nothing is committed." },
+    ".task-wrapup",
+  ),
+  pending(
+    "todo-write",
+    "TodoWrite",
+    { todos: [{ content: "Review the fixture screenshots", status: "in_progress" }] },
+    ".task-list",
+  ),
+  pending(
+    "task-create",
+    "TaskCreate",
+    { subject: "Record the findings", description: "Summarize the fixture review." },
+    ".task-list",
+  ),
+  pending(
+    "task-update",
+    "TaskUpdate",
+    { taskId: "2", status: "in_progress", addBlockedBy: ["1"] },
+    ".task-changes",
+  ),
 ];

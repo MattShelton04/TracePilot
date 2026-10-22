@@ -4,6 +4,7 @@
  */
 
 import { getToolArgs } from "@tracepilot/types";
+import { TASK_LIST_TOOLS, taskListSummary } from "../components/renderers/taskList";
 import type { LucideName } from "../icons/templateCatalogue";
 
 const TOOL_ICONS: Record<string, LucideName> = {
@@ -35,6 +36,7 @@ const TOOL_ICONS: Record<string, LucideName> = {
   sql: "database",
   skill: "zap",
   ExitPlanMode: "clipboard-list",
+  ...Object.fromEntries(TASK_LIST_TOOLS.map((name) => [name, "clipboard-list" as const])),
 };
 
 export function toolIcon(toolName: string): LucideName {
@@ -130,6 +132,19 @@ function mcpSummary(a: Record<string, unknown>): string {
   return "";
 }
 
+/**
+ * A GitHub MCP call (Copilot's `github-mcp-server-*`): its `method`, then
+ * `owner/repo`, then the path or query, e.g. "get · octo/app · src/a.ts".
+ * Mirrored by `compute_args_summary` in `crates/tracepilot-core/src/turns/ipc.rs`.
+ */
+function githubSummary(a: Record<string, unknown>): string {
+  const owner = stringArg(a.owner);
+  const repo = stringArg(a.repo);
+  const target = stringArg(a.path) || stringArg(a.query);
+  const parts = [stringArg(a.method), owner && repo ? `${owner}/${repo}` : owner || repo, target];
+  return truncateSummary(parts.filter(Boolean).join(" · "));
+}
+
 /** Extract a useful one-line summary from tool call arguments. */
 export function formatArgsSummary(args: unknown, toolName: string): string {
   // apply_patch arguments are usually the raw patch string, not an object.
@@ -192,7 +207,8 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === "ExitPlanMode" && typeof a.plan === "string") return planSummary(a.plan);
   if (toolName === "web_search" && a.query) return String(a.query);
   if (toolName === "web_fetch" && a.url) return String(a.url);
-  if (toolName.startsWith("github-mcp-server") && a.method) return String(a.method);
+  if (toolName.startsWith("github-mcp-server")) return githubSummary(a);
+  if (TASK_LIST_TOOLS.includes(toolName)) return truncateSummary(taskListSummary(toolName, a));
   // Claude Code tools without a canonical mapping keep their native names.
   if (toolName === "ToolSearch") return stringArg(a.query);
   if (toolName === "NotebookEdit") return stringArg(a.notebook_path);

@@ -167,7 +167,7 @@ describe("AnalyticsDashboardView", () => {
       apiDurationStats: undefined,
     });
     expect(wrapper.text()).toContain("No model timing recorded");
-    expect(wrapper.text()).toContain("No session in this range recorded model time.");
+    expect(wrapper.text()).toContain("No session recorded model time.");
   });
 });
 
@@ -293,7 +293,7 @@ describe("ToolAnalysisView", () => {
       callsByDay: [],
     });
     const kpis = wrapper.get('[data-testid="tool-kpis"]').text();
-    expect(kpis).toContain("No tool calls in this range");
+    expect(kpis).toContain("No tool calls");
     expect(kpis).toContain("No timed calls");
     expect(kpis).not.toContain("0ms");
     expect(wrapper.get('[data-testid="tool-calls-per-day"]').text()).toContain("No tool calls");

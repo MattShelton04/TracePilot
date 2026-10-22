@@ -89,6 +89,7 @@ useScrollRestore({
       :sources="sourceOptions"
       :show-source="showSourceFilter"
       :starts-with-not="store.startsWithNot"
+      :unknown-types="store.unknownTypes"
       @update:query="store.query = $event"
       @update:filters-open="filtersOpen = $event"
       @update:sort-by="(v) => store.sortBy = v as typeof store.sortBy"

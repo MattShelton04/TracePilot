@@ -8,11 +8,16 @@
 import { formatNumberFull } from "@tracepilot/types";
 import { computed, ref } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
+import { useAnalyticsStore } from "@/stores/analytics";
 import { type HeatmapEntry, localizeHeatmap } from "@/utils/analytics";
-import { formatShare } from "@/utils/analyticsDashboard";
+import { analyticsEmptyScope, formatShare } from "@/utils/analyticsDashboard";
 import { formatCellCount, HEAT_LEVELS, heatLevel, summarizeHeatmap } from "@/utils/toolAnalysis";
 
 const props = defineProps<{ entries: readonly HeatmapEntry[] }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -129,7 +134,7 @@ const ariaLabel = computed(() => {
     </template>
     <p v-else class="ad-empty">
       <b>No tool calls</b>
-      Nothing ran in this range.
+      No {{ scope.source }}session{{ scope.suffix }} called a tool.
     </p>
   </OverviewPanel>
 </template>
