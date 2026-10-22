@@ -4,7 +4,12 @@
  * landed, what it saved, and where its time went. One tile per question.
  */
 import type { FileCheckpoint } from "@tracepilot/client";
-import type { CheckpointEntry, CodeChanges, SessionIncident } from "@tracepilot/types";
+import type {
+  CheckpointEntry,
+  CodeChanges,
+  IncidentTotals,
+  SessionIncident,
+} from "@tracepilot/types";
 import { formatNumberFull, formatRelativeTime } from "@tracepilot/ui";
 import {
   Archive,
@@ -25,7 +30,12 @@ import type { SessionLiveState } from "@/composables/useSessionLiveState";
 import { distinctFilePaths } from "@/utils/metricsView";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { exitTitle, isNormalExit } from "@/utils/sessionExit";
-import { countIncidents, groupByFolder, splitSessionTime } from "@/utils/sessionOverview";
+import {
+  countIncidents,
+  describeIncidents,
+  groupByFolder,
+  splitSessionTime,
+} from "@/utils/sessionOverview";
 import OverviewPanel from "./OverviewPanel.vue";
 
 export type OverviewSection = "incidents" | "checkpoints" | "fileHistory" | "plan";
@@ -51,6 +61,8 @@ const props = defineProps<{
   runCount: number;
   updatedAt: string | null | undefined;
   incidents: SessionIncident[];
+  /** The session's incident totals; the incident rows stop at the index's cap. */
+  incidentTotals?: IncidentTotals | null;
   codeChanges: CodeChanges | null | undefined;
   fileSnapshots: FileCheckpoint[];
   checkpoints: CheckpointEntry[];
@@ -122,7 +134,8 @@ const exit = computed<{
   return { tone: "danger", title, detail: runs, icon: OctagonX };
 });
 
-const incidentCounts = computed(() => countIncidents(props.incidents));
+const incidentCounts = computed(() => countIncidents(props.incidents, props.incidentTotals));
+const incidentText = computed(() => describeIncidents(incidentCounts.value));
 // Recorded incidents always show; "No incidents" waits for a completed load.
 const incidentStatus = computed<SectionStatus>(() =>
   incidentCounts.value.total ? "ready" : props.status.incidents,
@@ -131,18 +144,7 @@ const incidentTone = computed<Tone>(() =>
   incidentCounts.value.errors ? "danger" : incidentCounts.value.total ? "attention" : "success",
 );
 const incidentBreakdown = computed(() => {
-  const c = incidentCounts.value;
-  const parts = (
-    [
-      [c.errors, "error", "errors"],
-      [c.rateLimits, "rate limit", "rate limits"],
-      [c.warnings, "warning", "warnings"],
-      [c.compactions, "compaction", "compactions"],
-      [c.truncations, "truncation", "truncations"],
-    ] as const
-  )
-    .filter(([n]) => n > 0)
-    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
+  const { parts } = incidentText.value;
   if (parts.length) return parts.join(" · ");
   if (incidentStatus.value === "error") return "Incidents couldn't be loaded";
   if (incidentStatus.value === "pending") return "";
@@ -278,11 +280,7 @@ const otherMs = computed(() =>
             <CircleCheck v-if="!incidentCounts.total" :size="13" aria-hidden="true" />
             <TriangleAlert v-else :size="13" aria-hidden="true" />
           </span>
-          {{
-            incidentCounts.total
-              ? `${incidentCounts.total} incident${incidentCounts.total === 1 ? "" : "s"}`
-              : "No incidents"
-          }}
+          {{ incidentText.headline }}
         </div>
         <div class="tile__detail tile__detail--wrap">{{ incidentBreakdown }}</div>
       </div>

@@ -70,8 +70,26 @@ pub struct SessionDetailResponse {
     /// against its allowed roots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
+    /// Every incident in the session's events, counted as the index counts
+    /// the session's totals. Absent when the events couldn't be loaded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub incident_totals: Option<IncidentTotals>,
     #[serde(flatten)]
     pub summary: tracepilot_core::SessionSummary,
+}
+
+/// A session's incident totals. The index keeps a row for every error but at
+/// most 100 warning, compaction and truncation rows, so a long session's
+/// `get_session_incidents` list undercounts those kinds; these don't.
+#[derive(Debug, Default, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IncidentTotals {
+    /// Errors, rate limits included (as `sessions.error_count`).
+    pub errors: usize,
+    pub rate_limits: usize,
+    pub warnings: usize,
+    pub compactions: usize,
+    pub truncations: usize,
 }
 
 #[derive(Debug, Serialize)]

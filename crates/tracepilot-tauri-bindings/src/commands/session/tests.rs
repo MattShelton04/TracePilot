@@ -358,6 +358,8 @@ fn detail_names_its_source_and_folder_and_otherwise_matches_the_summary() {
     // Otherwise Copilot's wire output is the summary.
     wire.as_object_mut().unwrap().remove("source");
     wire.as_object_mut().unwrap().remove("folder");
+    let totals = wire.as_object_mut().unwrap().remove("incidentTotals");
+    assert_eq!(totals.unwrap()["errors"], 0);
     let summary = load_cached_summary(&cache, &copilot).unwrap();
     assert_eq!(wire, serde_json::to_value(&summary).unwrap());
 
@@ -371,4 +373,90 @@ fn detail_names_its_source_and_folder_and_otherwise_matches_the_summary() {
     // transcript, not a Copilot-style `<id>` directory.
     let project = claude_dir.path().join("projects").join("demo");
     assert_eq!(wire["folder"], project.to_string_lossy().as_ref());
+}
+
+/// The index keeps at most 100 warning, compaction and truncation rows, so
+/// the Overview counts a long session's incidents from the detail's totals.
+/// Those must equal the totals the index stores for the session card and
+/// Analytics.
+#[test]
+fn detail_incident_totals_match_the_index_beyond_the_row_cap() {
+    use super::detail::session_detail;
+    use tracepilot_indexer::index_db::IndexDb;
+
+    let dir = tempfile::tempdir().unwrap();
+    let session_path = dir.path().join("cafe0000-0000-4000-8000-000000000150");
+    std::fs::create_dir_all(&session_path).unwrap();
+    std::fs::write(
+        session_path.join("workspace.yaml"),
+        "id: cafe0000-0000-4000-8000-000000000150\ncwd: /repo\n",
+    )
+    .unwrap();
+    let mut events = vec![
+        (
+            "user.message",
+            serde_json::json!({ "content": "go", "interactionId": "i1" }),
+        ),
+        (
+            "session.error",
+            serde_json::json!({ "errorType": "rate_limit", "message": "slow down" }),
+        ),
+        (
+            "session.error",
+            serde_json::json!({ "errorType": "api_error", "message": "boom" }),
+        ),
+    ];
+    for i in 0..150 {
+        if i % 5 == 0 {
+            events.push((
+                "session.warning",
+                serde_json::json!({ "message": "careful" }),
+            ));
+        }
+        if i % 50 == 0 {
+            events.push((
+                "session.compaction_complete",
+                serde_json::json!({ "success": true, "checkpointNumber": i }),
+            ));
+        }
+        events.push((
+            "session.truncation",
+            serde_json::json!({ "tokensRemovedDuringTruncation": 10, "performedBy": "BasicTruncator" }),
+        ));
+    }
+    let lines: Vec<String> = events
+        .iter()
+        .enumerate()
+        .map(|(n, (kind, data))| {
+            serde_json::json!({
+                "type": kind, "data": data, "id": format!("e{n}"), "parentId": null,
+                "timestamp": format!("2025-01-01T00:{:02}:{:02}.000Z", n / 60, n % 60),
+            })
+            .to_string()
+        })
+        .collect();
+    std::fs::write(session_path.join("events.jsonl"), lines.join("\n")).unwrap();
+
+    let db = IndexDb::open_or_create(&dir.path().join("index.db")).unwrap();
+    db.upsert_session(&session_path).unwrap();
+    let row = db.list_sessions(None, None, None, false).unwrap().remove(0);
+    let rows = db
+        .get_session_incidents(&SessionId::from_validated(row.id.clone()))
+        .unwrap();
+    // The rows stop at the cap: 2 errors plus 100 of the 183 capped kinds.
+    assert_eq!(rows.len(), 102);
+
+    let session = copilot_session(&session_path, &row.id);
+    let wire = serde_json::to_value(session_detail(&event_cache(2), &session).unwrap()).unwrap();
+    let totals = &wire["incidentTotals"];
+    assert_eq!(totals["errors"], row.error_count.unwrap());
+    assert_eq!(totals["rateLimits"], row.rate_limit_count.unwrap());
+    assert_eq!(totals["compactions"], row.compaction_count.unwrap());
+    assert_eq!(totals["truncations"], row.truncation_count.unwrap());
+    assert_eq!(
+        *totals,
+        serde_json::json!({
+            "errors": 2, "rateLimits": 1, "warnings": 30, "compactions": 3, "truncations": 150
+        })
+    );
 }

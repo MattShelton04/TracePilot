@@ -84,6 +84,21 @@ export interface SessionDetail {
   hasCheckpoints: boolean;
   checkpointCount?: number | null;
   shutdownMetrics?: ShutdownMetrics | null;
+  /**
+   * Every incident in the session's events, counted as the index counts its
+   * totals. The incident list stops at 100 warning, compaction and truncation
+   * rows; these don't. Absent when the events couldn't be loaded.
+   */
+  incidentTotals?: IncidentTotals | null;
+}
+
+/** A session's incidents by kind. `errors` includes `rateLimits`. */
+export interface IncidentTotals {
+  errors: number;
+  rateLimits: number;
+  warnings: number;
+  compactions: number;
+  truncations: number;
 }
 
 /** Shutdown metrics from session.shutdown event */

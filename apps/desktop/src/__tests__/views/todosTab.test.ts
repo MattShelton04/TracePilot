@@ -190,3 +190,61 @@ describe("TodosTab view choice", () => {
     claudeAgain.unmount();
   });
 });
+
+describe("TodosTab progress", () => {
+  beforeEach(() => {
+    setupPinia();
+    vi.clearAllMocks();
+    localStorage.clear();
+    resetSessionTabViews();
+  });
+
+  async function progressFor(done: number, total: number) {
+    mockGetSessionTodos.mockResolvedValue({
+      todos: Array.from({ length: total }, (_, i) => ({
+        id: `t${i}`,
+        title: `Todo ${i}`,
+        status: i < done ? "done" : "pending",
+      })),
+      deps: [],
+    });
+    const store = useSessionDetailStore();
+    store.loaded.delete("todos");
+    store.sessionId = `session-progress-${done}-${total}`;
+    const wrapper = mount(TodosTab, {
+      global: {
+        stubs: {
+          LoadingOverlay: LoadingOverlayStub,
+          EmptyState: EmptyStateStub,
+          ErrorAlert: ErrorAlertStub,
+          SectionPanel: { template: '<div class="section-panel"><slot /></div>' },
+          Badge: true,
+          StatusIcon: true,
+          TodoDependencyGraph: true,
+        },
+      },
+    });
+    await flushPromises();
+    const header = wrapper.find(".progress-section").text();
+    const bar = wrapper.find('[role="progressbar"]').attributes("aria-valuenow");
+    wrapper.unmount();
+    return { header, bar };
+  }
+
+  it("reads 100% only once every todo is done", async () => {
+    const almost = await progressFor(199, 200);
+    expect(almost.header).toContain("99%");
+    expect(almost.header).not.toContain("100%");
+    expect(almost.bar).toBe("99");
+    expect((await progressFor(200, 200)).header).toContain("100%");
+  });
+
+  it("reads 0% only while no todo is done", async () => {
+    const sliver = await progressFor(1, 300);
+    expect(sliver.header).toContain("<1%");
+    expect(sliver.header).not.toContain("0%");
+    expect(sliver.bar).toBe("1");
+    expect((await progressFor(0, 300)).header).toContain("0%");
+    expect((await progressFor(1, 4)).header).toContain("25%");
+  });
+});
