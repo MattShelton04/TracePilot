@@ -80,6 +80,8 @@ const hasNoFiles = computed(
     !sessionFiles.filesError &&
     sessionFiles.files.length === 0,
 );
+// A failed listing (not a background refresh) shows its error alone in the tree.
+const listingFailed = computed(() => !!sessionFiles.filesError && !sessionFiles.files.length);
 // Claude Code saves plans outside the session folder; Overview shows them.
 watch(
   () => (hasNoFiles.value && capabilities.value.hasPlan ? store.sessionId : null),
@@ -448,7 +450,7 @@ async function onOpenFolder() {
         :title="treeTitle"
         :auto-collapse-threshold="10"
         :force-expanded="Boolean(searchQuery.trim())"
-        :hide-list="showSearchPanel && searchMode === 'content'"
+        :hide-list="listingFailed || (showSearchPanel && searchMode === 'content')"
         @view-file="onViewFile"
         @contextmenu-entry="onContextMenuEntry"
       >
@@ -618,6 +620,7 @@ async function onOpenFolder() {
 
     <div class="explorer-tab__viewer" :class="{ 'explorer-tab__viewer--changed': viewerChanged }">
       <FileContentViewer
+        v-if="!listingFailed || sessionFiles.selectedPath"
         :file-path="sessionFiles.selectedPath ?? undefined"
         :absolute-path="selectedAbsolutePath"
         :content="sessionFiles.fileContent ?? undefined"
