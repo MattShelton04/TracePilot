@@ -4,6 +4,8 @@ import type { SearchContentType, SessionSource } from "@tracepilot/types";
 export interface ParsedQualifiers {
   cleanQuery: string;
   types: SearchContentType[];
+  /** `type:` values, as typed, that name no content type; not applied as filters. */
+  unknownTypes: string[];
   repo: string | null;
   tool: string | null;
   session: string | null;
@@ -21,12 +23,42 @@ const SOURCE_ALIASES = new Map<string, SessionSource>([
   ["claude-code", "claudeCode"],
 ]);
 
+type SortValue = NonNullable<ParsedQualifiers["sort"]>;
+
+/** Every content type; a `Record` so a new variant can't be missed here. */
+const CONTENT_TYPES: Record<SearchContentType, true> = {
+  user_message: true,
+  assistant_message: true,
+  reasoning: true,
+  tool_call: true,
+  tool_result: true,
+  tool_error: true,
+  error: true,
+  compaction_summary: true,
+  system_message: true,
+  subagent: true,
+  checkpoint: true,
+};
+const SORT_VALUES: readonly SortValue[] = ["relevance", "newest", "oldest"];
+
+/** `type:` and `sort:` values match in any case, with `-` or `_` between words. */
+function normaliseValue(val: string): string {
+  return val.toLowerCase().replace(/-/g, "_");
+}
+
+function contentTypeFor(val: string): SearchContentType | null {
+  const key = normaliseValue(val);
+  return Object.hasOwn(CONTENT_TYPES, key) ? (key as SearchContentType) : null;
+}
+
 /**
  * Parse inline qualifier syntax from a search query string.
  *
  * Recognised qualifiers: `type:`, `repo:`, `tool:`, `session:`, `source:`
- * (`copilot`, `claude` or `claudecode`), `sort:`. Unknown `source:` and
- * `sort:` values are stripped and ignored.
+ * (`copilot`, `claude` or `claudecode`), `sort:`. `type:` and `sort:` ignore case
+ * and `-`/`_` (`type:Tool-Call` is `tool_call`). Unknown `source:` and `sort:` values are
+ * stripped and ignored; unknown `type:` values are stripped, not applied, and listed in
+ * `unknownTypes` so the search can say so.
  * Quoted values are supported (e.g. `repo:"my org/repo"`).
  * Returns the cleaned query (qualifiers stripped) alongside extracted values.
  */
@@ -34,6 +66,7 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
   const result: ParsedQualifiers = {
     cleanQuery: raw,
     types: [],
+    unknownTypes: [],
     repo: null,
     tool: null,
     session: null,
@@ -49,9 +82,12 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
     const val = match[2] ?? match[3]; // quoted value or unquoted
     consumed.push([match.index, match.index + match[0].length]);
     switch (key) {
-      case "type":
-        result.types.push(val as SearchContentType);
+      case "type": {
+        const type = contentTypeFor(val);
+        if (type) result.types.push(type);
+        else if (!result.unknownTypes.includes(val)) result.unknownTypes.push(val);
         break;
+      }
       case "repo":
         result.repo = val;
         break;
@@ -64,11 +100,11 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
       case "source":
         result.source = SOURCE_ALIASES.get(val.toLowerCase()) ?? result.source;
         break;
-      case "sort":
-        if (["relevance", "newest", "oldest"].includes(val)) {
-          result.sort = val as "relevance" | "newest" | "oldest";
-        }
+      case "sort": {
+        const sort = normaliseValue(val);
+        if ((SORT_VALUES as readonly string[]).includes(sort)) result.sort = sort as SortValue;
         break;
+      }
     }
   }
 

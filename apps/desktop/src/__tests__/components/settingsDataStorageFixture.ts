@@ -1,5 +1,5 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import { createDefaultConfig } from "@tracepilot/types";
+import { createDefaultConfig, type IndexingProgressPayload } from "@tracepilot/types";
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, expect, type Mock, vi } from "vitest";
 
@@ -28,9 +28,16 @@ const mocks: {
   clearAnalyticsResults: Mock;
   /** Empty sessions in the session list after `fetchSessions`. */
   emptySessionCount: number;
+  /** The sessions store's `indexing` flag (a pass it started is running). */
+  storeIndexing: { value: boolean };
   toast: { error: Mock; success: Mock };
   /** The callbacks the component passed to `useIndexingEvents`. */
-  indexing: { onFinished?: () => void; onSearchIndexingFinished?: () => void };
+  indexing: {
+    onStarted?: () => void;
+    onProgress?: (payload: IndexingProgressPayload) => void;
+    onFinished?: () => void;
+    onSearchIndexingFinished?: () => void;
+  };
 } = vi.hoisted(() => ({
   checkConfigExists: vi.fn(),
   browseForDirectory: vi.fn(),
@@ -49,6 +56,7 @@ const mocks: {
   resetAnalytics: vi.fn(),
   clearAnalyticsResults: vi.fn(),
   emptySessionCount: 0,
+  storeIndexing: { value: false },
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -75,14 +83,22 @@ vi.mock("@tracepilot/client", async () => {
   });
 });
 
-vi.mock("@/stores/sessions", () => ({
-  useSessionsStore: () => ({
-    fetchSessions: mocks.fetchSessions,
-    get emptySessionCount() {
-      return mocks.emptySessionCount;
-    },
-  }),
-}));
+vi.mock("@/stores/sessions", async () => {
+  // Reactive, so the component sees the store's pass end as Pinia would show it.
+  const { ref } = await import("vue");
+  mocks.storeIndexing = ref(false);
+  return {
+    useSessionsStore: () => ({
+      fetchSessions: mocks.fetchSessions,
+      get emptySessionCount() {
+        return mocks.emptySessionCount;
+      },
+      get indexing() {
+        return mocks.storeIndexing.value;
+      },
+    }),
+  };
+});
 vi.mock("@/stores/analytics", () => ({
   useAnalyticsStore: () => ({
     $reset: mocks.resetAnalytics,
@@ -95,10 +111,9 @@ vi.mock("@/composables/useBrowseDirectory", () => ({
 }));
 
 vi.mock("@/composables/useIndexingEvents", () => ({
-  useIndexingEvents: (callbacks: {
-    onFinished: () => void;
-    onSearchIndexingFinished?: () => void;
-  }) => {
+  useIndexingEvents: (callbacks: typeof mocks.indexing) => {
+    mocks.indexing.onStarted = callbacks.onStarted;
+    mocks.indexing.onProgress = callbacks.onProgress;
     mocks.indexing.onFinished = callbacks.onFinished;
     mocks.indexing.onSearchIndexingFinished = callbacks.onSearchIndexingFinished;
     return { setup: vi.fn().mockResolvedValue(undefined) };
@@ -208,6 +223,7 @@ beforeEach(() => {
   mocks.contextCaptureDeleteAll.mockResolvedValue(3);
   mocks.fetchSessions.mockResolvedValue(undefined);
   mocks.emptySessionCount = 0;
+  mocks.storeIndexing.value = false;
   mocks.reindexSessionsFull.mockResolvedValue([74, 74]);
   mocks.rebuildSearchIndex.mockResolvedValue([74, 0]);
   mocks.confirm.mockResolvedValue({ confirmed: false });
