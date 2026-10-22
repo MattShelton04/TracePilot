@@ -10,7 +10,7 @@ use crate::types::{EventCache, IncidentTotals, SessionDetailResponse, SessionInc
 use tracepilot_core::parsing::events::{TypedEvent, TypedEventData};
 use tracepilot_core::provider::ResolvedSession;
 
-use super::shared::{load_cached_summary, load_cached_typed_events};
+use super::shared::load_cached_events_and_summary;
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
@@ -36,10 +36,8 @@ pub(super) fn session_detail(
     // Cached per source_version, so active sessions get fresh data when
     // any of their files changes. On a load error, degrade to a summary
     // without event data (the original load_session_summary behaviour).
-    let loaded = load_cached_typed_events(event_cache, session)
-        .and_then(|(events, _)| Ok((load_cached_summary(event_cache, session)?, events)));
-    let (summary, incident_totals) = match loaded {
-        Ok((summary, events)) => (summary, count_incidents(&events)),
+    let (summary, incident_totals) = match load_cached_events_and_summary(event_cache, session) {
+        Ok((events, summary)) => (summary, count_incidents(&events)),
         Err(e) => {
             tracing::warn!(
                 path = %session.locator.primary_path.display(),

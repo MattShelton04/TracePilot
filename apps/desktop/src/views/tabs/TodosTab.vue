@@ -136,6 +136,7 @@ function getTodoTitle(id: string): string {
           <div class="segmented-progress-bar"
             role="progressbar"
             :aria-valuenow="progressValue"
+            :aria-valuetext="progressLabel"
             :aria-valuemin="0"
             :aria-valuemax="100"
             :aria-label="`${completedCount} of ${todos.length} todos completed`"

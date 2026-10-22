@@ -367,6 +367,25 @@ export function countIncidents(
   return counts;
 }
 
+/** The incident total as a number, e.g. `1,185`, or `102+` when it is a floor. */
+export function formatIncidentTotal(counts: IncidentCounts): string {
+  return `${formatNumberFull(counts.total)}${counts.atLeast ? "+" : ""}`;
+}
+
+/**
+ * Whether the listed rows stop at the index's cap while the session holds
+ * more incidents than they show.
+ */
+export function listsCappedIncidents(
+  incidents: readonly IncidentLike[],
+  counts: IncidentCounts,
+): boolean {
+  const cappedRows = incidents.filter((incident) =>
+    ["warning", "compaction", "truncation"].includes(incident.eventType),
+  ).length;
+  return cappedRows >= INCIDENT_ROW_CAP && (counts.atLeast || counts.total > incidents.length);
+}
+
 /** The headline and per-kind breakdown, e.g. `1,200 truncations` or `40+ warnings`. */
 export function describeIncidents(counts: IncidentCounts): { headline: string; parts: string[] } {
   const count = (n: number, capped: boolean, one: string, many: string) => {
@@ -385,7 +404,7 @@ export function describeIncidents(counts: IncidentCounts): { headline: string; p
     .filter(([n]) => n > 0)
     .map(([n, capped, one, many]) => count(n, capped, one, many));
   const headline = counts.total
-    ? count(counts.total, true, "incident", "incidents")
+    ? `${formatIncidentTotal(counts)} ${counts.total === 1 && !counts.atLeast ? "incident" : "incidents"}`
     : "No incidents";
   return { headline, parts };
 }

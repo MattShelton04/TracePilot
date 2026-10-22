@@ -94,13 +94,23 @@ pub(super) fn load_cached_summary(
     cache: &EventCache,
     session: &ResolvedSession,
 ) -> Result<SessionSummary, BindingsError> {
+    Ok(load_cached_events_and_summary(cache, session)?.1)
+}
+
+/// The session's events and display summary from one cache lookup, so both
+/// describe the same source state. Blocking.
+pub(super) fn load_cached_events_and_summary(
+    cache: &EventCache,
+    session: &ResolvedSession,
+) -> Result<(Arc<Vec<TypedEvent>>, SessionSummary), BindingsError> {
     let (events, summary, _) = load_cached(cache, session)?;
-    match summary {
-        Some(summary) => Ok(SessionSummary::clone(&summary)),
-        None => Ok(session
+    let summary = match summary {
+        Some(summary) => SessionSummary::clone(&summary),
+        None => session
             .provider
-            .summary_from_events(&session.locator, &events)?),
-    }
+            .summary_from_events(&session.locator, &events)?,
+    };
+    Ok((events, summary))
 }
 
 type Cached = (

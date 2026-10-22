@@ -226,9 +226,11 @@ describe("TodosTab progress", () => {
     });
     await flushPromises();
     const header = wrapper.find(".progress-section").text();
-    const bar = wrapper.find('[role="progressbar"]').attributes("aria-valuenow");
+    const progressbar = wrapper.find('[role="progressbar"]');
+    const bar = progressbar.attributes("aria-valuenow");
+    const barText = progressbar.attributes("aria-valuetext");
     wrapper.unmount();
-    return { header, bar };
+    return { header, bar, barText };
   }
 
   it("reads 100% only once every todo is done", async () => {
@@ -244,7 +246,11 @@ describe("TodosTab progress", () => {
     expect(sliver.header).toContain("<1%");
     expect(sliver.header).not.toContain("0%");
     expect(sliver.bar).toBe("1");
+    // Screen readers announce the label, not the rounded-up value.
+    expect(sliver.barText).toBe("<1%");
     expect((await progressFor(0, 300)).header).toContain("0%");
-    expect((await progressFor(1, 4)).header).toContain("25%");
+    const quarter = await progressFor(1, 4);
+    expect(quarter.header).toContain("25%");
+    expect(quarter.barText).toBe("25%");
   });
 });
