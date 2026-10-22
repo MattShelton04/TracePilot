@@ -62,9 +62,16 @@ const metricsUnknown = computed(() =>
       : null,
 );
 
-const eventsPerTurn = computed(() =>
-  props.turnCount > 0 ? (props.eventCount / props.turnCount).toFixed(1) : null,
-);
+/** A per-turn rate to one decimal, grouped like the counts beside it (`1,543.1`). */
+function perTurn(count: number): string | null {
+  if (props.turnCount <= 0) return null;
+  return (count / props.turnCount).toLocaleString("en-US", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+const eventsPerTurn = computed(() => perTurn(props.eventCount));
+const callsPerTurn = computed(() => (props.calls != null ? perTurn(props.calls) : null));
 const split = computed(() => splitSessionTime(props.spanMs, props.apiMs, props.toolMs));
 const duration = computed(() => (props.spanMs ? formatDuration(props.spanMs) || "—" : "—"));
 
@@ -154,7 +161,7 @@ const hasLineCounts = computed(
       <template #icon><Zap :size="13" /></template>
       <template #footer>
         <span class="kpi-note">
-          <template v-if="calls != null && turnCount > 0">{{ (calls / turnCount).toFixed(1) }} per turn</template>
+          <template v-if="callsPerTurn">{{ callsPerTurn }} per turn</template>
           <template v-else-if="calls == null && metricsUnknown">{{ metricsUnknown.note }}</template>
           <template v-else>Not recorded</template>
           <template v-if="fileSnapshots"> · <b>{{ fileSnapshots }}</b> file snapshots</template>

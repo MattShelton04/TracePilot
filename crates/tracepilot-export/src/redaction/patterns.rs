@@ -24,8 +24,68 @@ pub struct RedactionPattern {
 
 // ── Path Patterns ───────────────────────────────────────────────────────────
 
-static WINDOWS_PATH: Lazy<Regex> =
-    Lazy::new(|| static_regex(r#"[A-Za-z]:\\(?:[^\s\\/:*?"<>|]+\\)*[^\s\\/:*?"<>|]*"#));
+/// A drive-letter path, written with `\`, with `\\` as JSON or a shell escapes
+/// it, or with `/`. A separator must follow the colon, so "the C: drive" and
+/// `a:b` labels don't match.
+///
+/// A `\` path may start anywhere, so one glued to a switch (`-oC:\out`,
+/// `-IC:\include`, `/FoC:\build\`) or to a literal `\n` escape is still
+/// covered. A `/` path must start a word, so URL schemes (`https://`) don't
+/// match while `file:///D:/notes.md` does.
+///
+/// A folder name may hold single spaces (`John Smith\`) when a separator closes
+/// it, so prose after a path isn't swallowed up to the next slash. The last
+/// name takes further words only when they start with an uppercase letter (in
+/// any script) or a digit and run on past it, so `C:\Users\John Smith` and
+/// `C:\Users\Ali Ünal` are covered, "C:\src\a.rs and more" keeps its prose,
+/// and a following ` D:\…` path is left to a match of its own.
+///
+/// Names stop at `;` too, so each entry of a `PATH`-style list is its own match.
+static WINDOWS_PATH: Lazy<Regex> = Lazy::new(|| {
+    // One character of a file or folder name.
+    macro_rules! name_char {
+        () => {
+            r#"[^\s\\/:;*?"<>|]"#
+        };
+    }
+    // Folders: spaced names must end in the path's own separator, and plain
+    // names may end in either.
+    macro_rules! folders {
+        ($sep:literal) => {
+            concat!(
+                "(?:",
+                name_char!(),
+                "+(?: ",
+                name_char!(),
+                "+)*",
+                $sep,
+                "+|",
+                name_char!(),
+                r"+[\\/]+)*"
+            )
+        };
+    }
+    // The last name, with further words that start uppercase or with a digit.
+    macro_rules! last_name {
+        () => {
+            concat!(
+                "(?:",
+                name_char!(),
+                r"+(?: [\p{Lu}0-9]",
+                name_char!(),
+                "+)*)?"
+            )
+        };
+    }
+    static_regex(concat!(
+        r"[A-Za-z]:\\+",
+        folders!(r"\\"),
+        last_name!(),
+        r"|\b[A-Za-z]:/",
+        folders!("/"),
+        last_name!(),
+    ))
+});
 
 static UNIX_HOME_PATH: Lazy<Regex> =
     Lazy::new(|| static_regex(r#"(?:/home/|/Users/)[^\s:,;)}\]"']+"#));
@@ -163,6 +223,91 @@ mod tests {
         let result = apply_patterns(input, PATH_PATTERNS).unwrap();
         assert!(result.contains("<REDACTED_PATH>"));
         assert!(!result.contains("matt"));
+    }
+
+    fn redact_paths(input: &str) -> String {
+        apply_patterns(input, PATH_PATTERNS).unwrap_or_else(|| input.to_string())
+    }
+
+    #[test]
+    fn redacts_whole_windows_paths_in_every_spelling() {
+        let cases = [
+            // Escaped by JSON or a shell.
+            (
+                r#""cwd": "C:\\Users\\matt\\proj\\a.ts""#,
+                r#""cwd": "<REDACTED_PATH>""#,
+            ),
+            (r"C:\\\\Users\\\\matt\\\\a.ts", "<REDACTED_PATH>"),
+            // Spaces in folder names, and in a trailing user name.
+            (
+                r"Opened C:\Users\John Smith\proj\a.ts today",
+                "Opened <REDACTED_PATH> today",
+            ),
+            (r"cwd: C:\Users\John Smith", "cwd: <REDACTED_PATH>"),
+            (r"C:\\Users\\John Smith\\proj\\a.ts", "<REDACTED_PATH>"),
+            (r"C:\Program Files (x86)\Tool\t.exe", "<REDACTED_PATH>"),
+            // Forward slashes, and both separators in one path.
+            ("Read C:/Users/matt/proj/a.ts", "Read <REDACTED_PATH>"),
+            ("cd C:/git/repo/src", "cd <REDACTED_PATH>"),
+            ("C:/Users/John Smith/proj/a.ts", "<REDACTED_PATH>"),
+            (r"C:\git\repo/src/a.ts", "<REDACTED_PATH>"),
+            ("file:///D:/work/notes.md", "file:///<REDACTED_PATH>"),
+            // After a literal escape, and next to other paths.
+            (
+                r#"{"out":"done\nC:\\Users\\matt\\a.ts","err":"\r\nD:\\x"}"#,
+                r#"{"out":"done\n<REDACTED_PATH>","err":"\r\n<REDACTED_PATH>"}"#,
+            ),
+            (r"C:\a.ts;D:\b.ts", "<REDACTED_PATH>;<REDACTED_PATH>"),
+            // Two paths separated by a space each get their own match.
+            (
+                r"copy C:\Users\matt\a.txt D:\Users\matt\b.txt",
+                "copy <REDACTED_PATH> <REDACTED_PATH>",
+            ),
+            (
+                r#""copy C:\\Users\\matt\\a.txt D:\\Users\\matt\\b.txt""#,
+                r#""copy <REDACTED_PATH> <REDACTED_PATH>""#,
+            ),
+            (
+                r"fc C:\a.txt C:\Users\matt\b.txt",
+                "fc <REDACTED_PATH> <REDACTED_PATH>",
+            ),
+            (
+                r"Moved C:\Users\matt\a.txt To C:\Users\matt\b.txt",
+                "Moved <REDACTED_PATH> <REDACTED_PATH>",
+            ),
+            // Glued to a command-line switch.
+            (
+                r"7z x a.zip -oC:\Users\matt\out -y",
+                "7z x a.zip -o<REDACTED_PATH> -y",
+            ),
+            (r"gcc -IC:\Users\matt\include", "gcc -I<REDACTED_PATH>"),
+            (
+                r"cl /FoC:\Users\matt\build\ a.c",
+                "cl /Fo<REDACTED_PATH> a.c",
+            ),
+            // A trailing user name that starts with a non-ASCII capital.
+            (r"cwd: C:\Users\Ali Ünal", "cwd: <REDACTED_PATH>"),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(redact_paths(input), expected, "input: {input}");
+        }
+    }
+
+    #[test]
+    fn keeps_prose_that_only_looks_like_a_drive() {
+        for input in [
+            "Free space on the C: drive",
+            "See https://example.com/docs and http://x.io/a/b",
+            "label a:b and key:value, at 12:30",
+            "Note: done",
+        ] {
+            assert_eq!(redact_paths(input), input);
+        }
+        // Prose after a path survives, even when a slash follows later.
+        assert_eq!(
+            redact_paths(r"Edited C:\src\a.rs and the tests in tests/unit pass"),
+            "Edited <REDACTED_PATH> and the tests in tests/unit pass"
+        );
     }
 
     #[test]

@@ -4,7 +4,15 @@ import { Badge, truncateText } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import type { SectionStatus } from "@/components/overview/SessionOutcomeTiles.vue";
 import { formatObjectResult } from "@/utils/formatResult";
-import { eventTimeLabel, isRateLimit, timestampsSpanDays } from "@/utils/sessionOverview";
+import {
+  countIncidents,
+  eventTimeLabel,
+  formatIncidentTotal,
+  INCIDENT_ROW_CAP,
+  isRateLimit,
+  listsCappedIncidents,
+  timestampsSpanDays,
+} from "@/utils/sessionOverview";
 import { useOverviewModel } from "./overviewModel";
 
 const { incidents, detail, outcomeStatus, anchor } = useOverviewModel();
@@ -13,6 +21,13 @@ const root = anchor("incidents");
 const incidentsStatus = computed<SectionStatus>(() =>
   incidents.value.length ? "ready" : outcomeStatus.value.incidents,
 );
+
+// Counted as the outcome tile counts them: the session's totals, since the
+// listed rows stop at the index's cap.
+const incidentCounts = computed(() =>
+  countIncidents(incidents.value, detail.value?.incidentTotals),
+);
+const listCapped = computed(() => listsCappedIncidents(incidents.value, incidentCounts.value));
 
 // Clock times alone can't place incidents in a session that crosses midnight.
 const withDates = computed(() =>
@@ -79,8 +94,11 @@ function hasDetail(incident: { detailJson?: unknown }): boolean {
   <div ref="root" class="card mb-6 overview-anchor">
     <div class="flex items-center gap-2 mb-3">
       <h3 class="incidents-heading">Incidents</h3>
-      <Badge v-if="incidentsStatus === 'ready'" :variant="incidents.length > 0 ? 'warning' : 'neutral'">{{ incidents.length }}</Badge>
+      <Badge v-if="incidentsStatus === 'ready'" :variant="incidentCounts.total > 0 ? 'warning' : 'neutral'">{{ formatIncidentTotal(incidentCounts) }}</Badge>
     </div>
+    <p v-if="listCapped" class="text-muted incidents-note" data-testid="incidents-capped-note">
+      Listing the first {{ INCIDENT_ROW_CAP }} warnings, compactions and truncations.
+    </p>
     <div v-if="incidents.length > 0" class="incidents-list">
       <div v-for="(incident, idx) in incidents" :key="idx" class="incident-row">
         <div class="incident-item">
@@ -147,6 +165,11 @@ function hasDetail(incident: { detailJson?: unknown }): boolean {
 .incidents-empty {
   font-size: 0.875rem;
   margin: 0;
+}
+
+.incidents-note {
+  font-size: 0.75rem;
+  margin: -0.25rem 0 0.5rem;
 }
 
 .incidents-list {

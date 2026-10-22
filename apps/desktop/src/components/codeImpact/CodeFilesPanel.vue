@@ -16,6 +16,8 @@ const props = defineProps<{
   files: CodeImpactData["mostModifiedFiles"];
   /** Unique paths in range, so the list can say how much it covers. */
   uniqueFiles: number;
+  /** Lines changed in range, so an empty list can say no file list was recorded. */
+  linesChanged: boolean;
 }>();
 
 const filters = useAnalyticsStore();
@@ -74,6 +76,10 @@ const rows = computed(() => {
         </button>
       </div>
     </template>
+    <p v-else-if="linesChanged" class="ad-empty">
+      <b>No file list recorded</b>
+      Sessions recorded the line counts above but not which files changed.
+    </p>
     <p v-else class="ad-empty">
       <b>No files modified</b>
       No {{ scope.source }}session{{ scope.suffix }} recorded a file change.

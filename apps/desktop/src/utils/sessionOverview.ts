@@ -2,7 +2,7 @@
  * Pure helpers behind the session Overview: the activity chart's bins and
  * markers, where file changes landed, and how the session's time divides.
  */
-import { formatTime } from "@tracepilot/types";
+import { formatNumberFull, formatTime, type IncidentTotals } from "@tracepilot/types";
 
 /** A time window in Unix milliseconds. */
 export interface TimeWindow {
@@ -297,7 +297,18 @@ export interface IncidentCounts {
   compactions: number;
   truncations: number;
   total: number;
+  /**
+   * Counted from rows that reached the index's cap, so the warning,
+   * compaction and truncation counts (and the total) are a floor.
+   */
+  atLeast: boolean;
 }
+
+/**
+ * The most warning, compaction and truncation rows the index stores per
+ * session (`MAX_INCIDENTS_PER_SESSION`); errors and rate limits are uncapped.
+ */
+export const INCIDENT_ROW_CAP = 100;
 
 interface IncidentLike {
   eventType: string;
@@ -312,8 +323,29 @@ export function isRateLimit(incident: IncidentLike): boolean {
   return detail?.errorType === "rate_limit" || incident.summary === "Rate limit hit";
 }
 
-/** Incidents counted by kind, with rate limits split out of errors. */
-export function countIncidents(incidents: readonly IncidentLike[]): IncidentCounts {
+/**
+ * Incidents counted by kind, with rate limits split out of errors. The
+ * session's own totals win: the indexed rows stop at {@link INCIDENT_ROW_CAP}
+ * warnings, compactions and truncations. Without totals, rows at the cap
+ * make the counts a floor.
+ */
+export function countIncidents(
+  incidents: readonly IncidentLike[],
+  totals?: IncidentTotals | null,
+): IncidentCounts {
+  if (totals) {
+    const errors = Math.max(0, totals.errors - totals.rateLimits);
+    const { rateLimits, warnings, compactions, truncations } = totals;
+    return {
+      errors,
+      rateLimits,
+      warnings,
+      compactions,
+      truncations,
+      total: errors + rateLimits + warnings + compactions + truncations,
+      atLeast: false,
+    };
+  }
   const counts = {
     errors: 0,
     rateLimits: 0,
@@ -321,6 +353,7 @@ export function countIncidents(incidents: readonly IncidentLike[]): IncidentCoun
     compactions: 0,
     truncations: 0,
     total: 0,
+    atLeast: false,
   };
   for (const incident of incidents) {
     counts.total += 1;
@@ -330,5 +363,48 @@ export function countIncidents(incidents: readonly IncidentLike[]): IncidentCoun
     else if (incident.eventType === "compaction") counts.compactions += 1;
     else if (incident.eventType === "truncation") counts.truncations += 1;
   }
+  counts.atLeast = counts.warnings + counts.compactions + counts.truncations >= INCIDENT_ROW_CAP;
   return counts;
+}
+
+/** The incident total as a number, e.g. `1,185`, or `102+` when it is a floor. */
+export function formatIncidentTotal(counts: IncidentCounts): string {
+  return `${formatNumberFull(counts.total)}${counts.atLeast ? "+" : ""}`;
+}
+
+/**
+ * Whether the listed rows stop at the index's cap while the session holds
+ * more incidents than they show.
+ */
+export function listsCappedIncidents(
+  incidents: readonly IncidentLike[],
+  counts: IncidentCounts,
+): boolean {
+  const cappedRows = incidents.filter((incident) =>
+    ["warning", "compaction", "truncation"].includes(incident.eventType),
+  ).length;
+  return cappedRows >= INCIDENT_ROW_CAP && (counts.atLeast || counts.total > incidents.length);
+}
+
+/** The headline and per-kind breakdown, e.g. `1,200 truncations` or `40+ warnings`. */
+export function describeIncidents(counts: IncidentCounts): { headline: string; parts: string[] } {
+  const count = (n: number, capped: boolean, one: string, many: string) => {
+    const floor = capped && counts.atLeast;
+    return `${formatNumberFull(n)}${floor ? "+" : ""} ${n === 1 && !floor ? one : many}`;
+  };
+  const parts = (
+    [
+      [counts.errors, false, "error", "errors"],
+      [counts.rateLimits, false, "rate limit", "rate limits"],
+      [counts.warnings, true, "warning", "warnings"],
+      [counts.compactions, true, "compaction", "compactions"],
+      [counts.truncations, true, "truncation", "truncations"],
+    ] as const
+  )
+    .filter(([n]) => n > 0)
+    .map(([n, capped, one, many]) => count(n, capped, one, many));
+  const headline = counts.total
+    ? `${formatIncidentTotal(counts)} ${counts.total === 1 && !counts.atLeast ? "incident" : "incidents"}`
+    : "No incidents";
+  return { headline, parts };
 }

@@ -49,7 +49,7 @@
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
 | 🤖 Worker A | ✅ | 20s | — · gpt-5.6-luna · 123 tok · 2 calls |
-| view | ✅ | 1s | — |
+| view | ✅ | 1s | fixture.txt |
 | 🤖 Worker B | ❌ | 3s | — · gpt-5.6-luna |
 
 #### 🤖 Worker A
@@ -113,7 +113,7 @@ Cancelled
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 1s | — |
+| read_agent | ✅ | 1s | uuid-a |
 
 #### 🔧 read_agent
 

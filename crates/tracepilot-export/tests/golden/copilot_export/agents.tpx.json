@@ -117,7 +117,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Fixture content."
+              "resultContent": "Fixture content.",
+              "argsSummary": "fixture.txt"
             },
             {
               "toolCallId": "launch-b",
@@ -219,7 +220,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Worker finished."
+              "resultContent": "Worker finished.",
+              "argsSummary": "uuid-a"
             }
           ],
           "durationMs": 10000,

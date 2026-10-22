@@ -90,6 +90,9 @@ const typesTip = computed(() =>
     .map((row) => `${row.label} ${formatShare(row.share)}`)
     .join(" · "),
 );
+/** Sessions reported line counts, but none listed the files they changed. */
+const noFileList = computed(() => has.value && !props.data.filesModified);
+const NO_FILE_LIST_TIP = "Sessions recorded line counts but not which files changed.";
 const filesTip = computed(
   () =>
     `Unique paths${props.oneRepo ? "" : " across repositories"}: a file counts once however many sessions touched it, though the same file in another worktree or clone counts again. Modifications count it once per session.`,
@@ -162,10 +165,11 @@ const filesTip = computed(
       </template>
     </KPI>
 
-    <KPI label="Files touched" :value="formatNumberFull(data.filesModified)">
+    <!-- Line counts without a file list: the file count is unknown, not zero. -->
+    <KPI label="Files touched" :value="noFileList ? '—' : formatNumberFull(data.filesModified)">
       <template #icon><FileCode :size="13" /></template>
       <template #footer>
-        <Tooltip :text="typesTip ? `${filesTip} Types: ${typesTip}.` : filesTip">
+        <Tooltip :text="noFileList ? NO_FILE_LIST_TIP : typesTip ? `${filesTip} Types: ${typesTip}.` : filesTip">
           <div v-if="types.length" class="ad-meter" aria-hidden="true">
             <i
               v-for="part in types"
@@ -179,6 +183,7 @@ const filesTip = computed(
               <b>{{ formatNumberFull(modifications) }}</b> modification{{ modifications === 1 ? "" : "s" }} ·
               {{ (modifications / data.filesModified).toFixed(1) }} per file
             </template>
+            <template v-else-if="noFileList">No file list recorded</template>
             <template v-else>No files modified</template>
           </span>
         </Tooltip>

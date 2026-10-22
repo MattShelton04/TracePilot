@@ -52,6 +52,17 @@ const inProgressCount = computed(() => todoStats.value.inProgress);
 const blockedCount = computed(() => todoStats.value.blocked);
 const pendingCount = computed(() => todoStats.value.pending);
 const progressPercent = computed(() => todoStats.value.progressPercent);
+// Rounded, but 100% only once every todo is done and 0% only while none is.
+const progressValue = computed(() => {
+  const percent = progressPercent.value;
+  if (completedCount.value === 0 || completedCount.value >= todos.value.length) {
+    return Math.round(percent);
+  }
+  return Math.min(99, Math.max(1, Math.round(percent)));
+});
+const progressLabel = computed(() =>
+  completedCount.value > 0 && progressPercent.value < 1 ? "<1%" : `${progressValue.value}%`,
+);
 
 // Each source remembers its own choice: Copilot's todos default to the
 // dependency graph, Claude Code's to the list.
@@ -119,12 +130,13 @@ function getTodoTitle(id: string): string {
               {{ completedCount }}/{{ todos.length }} completed
             </span>
             <span class="text-[0.8125rem] font-semibold text-[var(--success-fg)] tabular-nums">
-              {{ Math.round(progressPercent) }}%
+              {{ progressLabel }}
             </span>
           </div>
           <div class="segmented-progress-bar"
             role="progressbar"
-            :aria-valuenow="Math.round(progressPercent)"
+            :aria-valuenow="progressValue"
+            :aria-valuetext="progressLabel"
             :aria-valuemin="0"
             :aria-valuemax="100"
             :aria-label="`${completedCount} of ${todos.length} todos completed`"

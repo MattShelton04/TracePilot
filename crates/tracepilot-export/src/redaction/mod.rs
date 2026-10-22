@@ -19,6 +19,8 @@ mod primitives;
 mod stats;
 
 pub use engine::apply_redaction;
+pub(crate) use policy::collect_active_patterns;
+pub(crate) use primitives::redact_json_value;
 pub use stats::RedactionStats;
 
 #[cfg(test)]

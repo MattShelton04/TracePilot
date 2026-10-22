@@ -53,6 +53,7 @@ const runCount = computed(() => Math.max(segments.value.length, 1));
       :run-count="runCount"
       :updated-at="detail.updatedAt"
       :incidents="incidents"
+      :incident-totals="detail.incidentTotals"
       :code-changes="codeChanges"
       :file-snapshots="store.fileHistory"
       :checkpoints="store.checkpoints"

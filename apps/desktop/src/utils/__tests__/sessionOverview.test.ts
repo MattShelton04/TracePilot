@@ -6,6 +6,7 @@ import {
   clockNeedsSeconds,
   clusterMarkers,
   countIncidents,
+  describeIncidents,
   eventTimeLabel,
   formatClock,
   groupByFolder,
@@ -199,6 +200,37 @@ describe("countIncidents", () => {
         { eventType: "compaction", summary: "c" },
         { eventType: "truncation", summary: "t" },
       ]),
-    ).toEqual({ errors: 1, rateLimits: 1, warnings: 1, compactions: 2, truncations: 1, total: 6 });
+    ).toEqual({
+      errors: 1,
+      rateLimits: 1,
+      warnings: 1,
+      compactions: 2,
+      truncations: 1,
+      total: 6,
+      atLeast: false,
+    });
+  });
+
+  it("prefers the session's totals and splits rate limits out of their errors", () => {
+    const totals = { errors: 3, rateLimits: 1, warnings: 0, compactions: 0, truncations: 150 };
+    expect(countIncidents([{ eventType: "truncation", summary: "t" }], totals)).toEqual({
+      errors: 2,
+      rateLimits: 1,
+      warnings: 0,
+      compactions: 0,
+      truncations: 150,
+      total: 153,
+      atLeast: false,
+    });
+  });
+
+  it("is a floor when the capped kinds reach the index's row cap", () => {
+    const capped = Array.from({ length: 100 }, () => ({ eventType: "warning", summary: "w" }));
+    expect(countIncidents(capped).atLeast).toBe(true);
+    expect(countIncidents(capped.slice(1)).atLeast).toBe(false);
+    expect(describeIncidents(countIncidents(capped))).toEqual({
+      headline: "100+ incidents",
+      parts: ["100+ warnings"],
+    });
   });
 });
