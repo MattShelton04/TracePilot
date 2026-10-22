@@ -71,7 +71,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 9s | — |
+| read_agent | ✅ | 9s | worker-uuid |
 
 #### 🔧 read_agent
 
@@ -94,7 +94,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| write_agent | ✅ | 1s | — |
+| write_agent | ✅ | 1s | → worker-uuid |
 
 #### 🔧 write_agent
 
@@ -117,7 +117,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 6s | — |
+| read_agent | ✅ | 6s | worker-uuid |
 
 #### 🔧 read_agent
 

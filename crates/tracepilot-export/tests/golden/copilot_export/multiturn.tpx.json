@@ -169,7 +169,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": null
+              "resultContent": null,
+              "argsSummary": "worker-uuid"
             }
           ],
           "durationMs": 12000,
@@ -218,7 +219,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": null
+              "resultContent": null,
+              "argsSummary": "→ worker-uuid"
             }
           ],
           "durationMs": 4000,
@@ -269,7 +271,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": null
+              "resultContent": null,
+              "argsSummary": "worker-uuid"
             }
           ],
           "durationMs": 9000,

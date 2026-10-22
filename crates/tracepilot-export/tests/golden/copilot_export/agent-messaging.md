@@ -64,9 +64,9 @@
 | 🤖 alpha | ✅ | 20s | Coordinate alpha messaging · claude-haiku-4.5 |
 | 🤖 beta | ✅ | 12s | Answer alpha question · claude-haiku-4.5 |
 | list_agents | ✅ | 6ms | — |
-| list_agents | ✅ | 1ms | — |
-| write_agent | ✅ | 1ms | — |
-| write_agent | ✅ | 0ms | — |
+| list_agents | ✅ | 1ms | scope: siblings |
+| write_agent | ✅ | 1ms | → agent-beta · alpha asks: what is 6*7? |
+| write_agent | ✅ | 0ms | → agent-alpha · 6 * 7 = 42. |
 
 #### 🤖 alpha
 
@@ -177,7 +177,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 6.8s | — |
+| read_agent | ✅ | 6.8s | agent-alpha |
 
 #### 🔧 read_agent
 
@@ -205,7 +205,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 2.1s | — |
+| read_agent | ✅ | 2.1s | agent-beta |
 
 #### 🔧 read_agent
 
@@ -240,7 +240,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| write_agent | ✅ | 1ms | — |
+| write_agent | ✅ | 1ms | → all children · Final check: reply with the single word DONE. |
 
 #### 🔧 write_agent
 
@@ -267,7 +267,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 5.2s | — |
+| read_agent | ✅ | 5.2s | agent-alpha |
 
 #### 🔧 read_agent
 
@@ -313,7 +313,7 @@ _No user message._
 
 | Tool | Status | Duration | Summary |
 |------|--------|----------|---------|
-| read_agent | ✅ | 0ms | — |
+| read_agent | ✅ | 0ms | agent-beta |
 
 #### 🔧 read_agent
 
