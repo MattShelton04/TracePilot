@@ -12,7 +12,11 @@ import { useAnalyticsStore } from "@/stores/analytics";
 import { analyticsEmptyScope, formatShare } from "@/utils/analyticsDashboard";
 import { fileTypeRows, fileTypeSplit } from "@/utils/codeImpact";
 
-const props = defineProps<{ breakdown: CodeImpactData["fileTypeBreakdown"] }>();
+const props = defineProps<{
+  breakdown: CodeImpactData["fileTypeBreakdown"];
+  /** Lines changed in range, so an empty list can say no file list was recorded. */
+  linesChanged: boolean;
+}>();
 
 const filters = useAnalyticsStore();
 /** Names the filters that emptied the panel. */
@@ -83,6 +87,10 @@ const edits = (n: number) => `${formatNumberFull(n)} modification${n === 1 ? "" 
         a file counts once for each session that modified it
       </p>
     </template>
+    <p v-else-if="linesChanged" class="ad-empty">
+      <b>No file list recorded</b>
+      Sessions recorded the line counts above but not which files changed.
+    </p>
     <p v-else class="ad-empty">
       <b>No files modified</b>
       No {{ scope.source }}session{{ scope.suffix }} recorded a file change.

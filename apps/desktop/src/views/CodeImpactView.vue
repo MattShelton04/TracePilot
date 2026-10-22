@@ -39,6 +39,10 @@ const pageSubtitle = computed(() => {
   return `Code changes and file modifications across ${all}${store.sourcePrefix}sessions${suffix}`;
 });
 
+const linesChanged = computed(
+  () => !!data.value && data.value.linesAdded + data.value.linesRemoved > 0,
+);
+
 const rows = computed(() => {
   if (!data.value) return [];
   const days = rangeDays(
@@ -70,8 +74,12 @@ const rows = computed(() => {
         <CodeKpis :data="data" :rows="rows" :one-repo="!!store.selectedRepo" />
         <CodeChangesPanel :rows="rows" />
         <div class="ad-pair">
-          <CodeFileTypesPanel :breakdown="data.fileTypeBreakdown" />
-          <CodeFilesPanel :files="data.mostModifiedFiles" :unique-files="data.filesModified" />
+          <CodeFileTypesPanel :breakdown="data.fileTypeBreakdown" :lines-changed="linesChanged" />
+          <CodeFilesPanel
+            :files="data.mostModifiedFiles"
+            :unique-files="data.filesModified"
+            :lines-changed="linesChanged"
+          />
         </div>
       </div>
     </LoadingOverlay>
