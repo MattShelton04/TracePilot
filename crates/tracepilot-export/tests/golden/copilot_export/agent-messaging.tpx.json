@@ -185,7 +185,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Background agents (scope: siblings):\n\nRunning (2):\n  🔄 alpha (agent-alpha): general-purpose - \"Coordinate alpha messaging\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)\n  🔄 beta (agent-beta): general-purpose - \"Answer alpha question\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)"
+              "resultContent": "Background agents (scope: siblings):\n\nRunning (2):\n  🔄 alpha (agent-alpha): general-purpose - \"Coordinate alpha messaging\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)\n  🔄 beta (agent-beta): general-purpose - \"Answer alpha question\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)",
+              "argsSummary": "scope: siblings"
             },
             {
               "toolCallId": "call-6",
@@ -209,7 +210,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Message delivered to agent agent-beta. The recipient can reply with write_agent."
+              "resultContent": "Message delivered to agent agent-beta. The recipient can reply with write_agent.",
+              "argsSummary": "→ agent-beta · alpha asks: what is 6*7?"
             },
             {
               "toolCallId": "call-8",
@@ -233,7 +235,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Message delivered to agent agent-alpha. The recipient can reply with write_agent."
+              "resultContent": "Message delivered to agent agent-alpha. The recipient can reply with write_agent.",
+              "argsSummary": "→ agent-alpha · 6 * 7 = 42."
             }
           ],
           "durationMs": 5004,
@@ -358,7 +361,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 8s, total_turns: 1, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**."
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 8s, total_turns: 1, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**.",
+              "argsSummary": "agent-alpha"
             }
           ],
           "durationMs": 8489,
@@ -402,7 +406,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 12s, total_turns: 2, model: claude-haiku-4.5\n\n[Turn 0]\nAwaiting alpha's message.\n\n[Turn 1]\n[Message from agent-alpha]\nalpha asks: what is 6*7?\n\n[Response]\n"
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 12s, total_turns: 2, model: claude-haiku-4.5\n\n[Turn 0]\nAwaiting alpha's message.\n\n[Turn 1]\n[Message from agent-alpha]\nalpha asks: what is 6*7?\n\n[Response]\n",
+              "argsSummary": "agent-beta"
             }
           ],
           "durationMs": 3662,
@@ -445,7 +450,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running"
+              "resultContent": "Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running",
+              "argsSummary": "→ all children · Final check: reply with the single word DONE."
             }
           ],
           "durationMs": 1435,
@@ -489,7 +495,8 @@
               "agentDescription": null,
               "model": "gpt-5.6-luna",
               "intentionSummary": null,
-              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 20s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**.\n\n[Turn 1]\n[Message from agent-beta]\n6 * 7 = 42.\n\n[Response]\nBeta’s answer was **42**.\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE"
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 20s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**.\n\n[Turn 1]\n[Message from agent-beta]\n6 * 7 = 42.\n\n[Response]\nBeta’s answer was **42**.\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE",
+              "argsSummary": "agent-alpha"
             }
           ],
           "durationMs": 6863,
@@ -539,7 +546,8 @@
               "agentDescription": null,
               "model": null,
               "intentionSummary": null,
-              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 14s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE"
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 14s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE",
+              "argsSummary": "agent-beta"
             }
           ],
           "durationMs": 1365,

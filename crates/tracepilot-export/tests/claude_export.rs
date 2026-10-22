@@ -210,6 +210,8 @@ fn markdown_export_names_the_source() {
         "{output}"
     );
     assert!(!output.contains("AI Credits"), "{output}");
+    // A Bash call is summarized by its command, as in the app's turn view.
+    assert!(output.contains(" | npm test |"), "{output}");
 }
 
 /// Export a session without private records to Markdown.

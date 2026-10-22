@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::document::{ConversationTurn, SectionId};
-use crate::options::ExportOptions;
+use crate::options::{ExportOptions, RedactionOptions};
+use crate::redaction::{RedactionStats, collect_active_patterns, redact_json_value};
 use tracepilot_core::parsing::events::{TypedEvent, TypedEventData};
-use tracepilot_core::turns::reconstruct_turns;
+use tracepilot_core::turns::{compute_args_summary, reconstruct_turns};
 
 pub(in crate::builder) fn build_conversation(
     options: &ExportOptions,
@@ -31,10 +32,44 @@ pub(in crate::builder) fn build_conversation(
         }
     }
 
+    fill_args_summaries(&mut turns, &options.redaction);
+
     if !turns.is_empty() {
         available.push(SectionId::Conversation);
     }
     Some(turns)
+}
+
+/// Give each tool call the one-line argument summary the app's turn view shows
+/// (a command, a path, a search pattern), which renderers fall back to when a
+/// call has no intention summary.
+///
+/// It is built from the arguments before any content filter drops them, so a
+/// "no tool details" export keeps the summary as it keeps the intention
+/// summary. When redaction is on, it summarizes redacted arguments: a summary
+/// cuts long commands short, and a cut through a secret or path could leave a
+/// fragment its pattern no longer matches. Redaction still runs over the
+/// summary afterwards like every other field.
+fn fill_args_summaries(turns: &mut [ConversationTurn], redaction: &RedactionOptions) {
+    let patterns = collect_active_patterns(redaction);
+    for tc in turns.iter_mut().flat_map(|turn| turn.tool_calls.iter_mut()) {
+        if tc.args_summary.is_some() {
+            continue;
+        }
+        let Some(args) = tc.arguments.as_ref() else {
+            continue;
+        };
+        let summary = if patterns.is_empty() {
+            compute_args_summary(&tc.tool_name, args)
+        } else {
+            let mut redacted = args.clone();
+            redact_json_value(&mut redacted, &patterns, &mut RedactionStats::default());
+            compute_args_summary(&tc.tool_name, &redacted)
+        };
+        if !summary.is_empty() {
+            tc.args_summary = Some(summary);
+        }
+    }
 }
 
 /// Build a map from tool_call_id → full (non-truncated) result string.
