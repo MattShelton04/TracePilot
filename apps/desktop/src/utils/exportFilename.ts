@@ -31,14 +31,16 @@ const FALLBACK_SLUG = "session-export";
 const MAX_SLUG_LENGTH = 60;
 
 /**
- * Slugify a candidate string the same way `ExportTab.vue` does:
- *   - strip non-word/space/hyphen characters
+ * Slugify a candidate string:
+ *   - treat path separators as word breaks (`owner/repo` → `owner-repo`)
+ *   - strip other non-word/space/hyphen characters
  *   - collapse whitespace into single hyphens
  *   - lowercase
  *   - trim to {@link MAX_SLUG_LENGTH} characters
  */
 function slugifyCandidate(value: string): string {
   return value
+    .replace(/[/\\]/g, " ")
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
@@ -46,17 +48,26 @@ function slugifyCandidate(value: string): string {
     .slice(0, MAX_SLUG_LENGTH);
 }
 
+/** `YYYY-MM-DD-HH-mm` in local time, as the user's clock shows it. */
+function localStamp(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+  ].join("-");
+}
+
 /**
  * Build a default filename for a session export.
  *
- * Output shape: `<slug>-<YYYY-MM-DD-HH-mm>.<extension>`, matching the
- * existing logic in `ExportTab.vue` (ISO timestamp truncated to minute,
- * with `T` and `:` replaced by `-`).
+ * Output shape: `<slug>-<YYYY-MM-DD-HH-mm>.<extension>`, stamped in local time.
  */
 export function buildExportFilename(options: BuildExportFilenameOptions): string {
   const { summary, repository, extension, now } = options;
   const candidate = summary || repository || "";
   const slug = slugifyCandidate(candidate) || FALLBACK_SLUG;
-  const stamp = (now ?? new Date()).toISOString().slice(0, 16).replace(/[T:]/g, "-");
-  return `${slug}-${stamp}.${extension}`;
+  return `${slug}-${localStamp(now ?? new Date())}.${extension}`;
 }
