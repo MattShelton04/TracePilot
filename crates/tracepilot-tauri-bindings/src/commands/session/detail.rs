@@ -6,10 +6,11 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_locator};
-use crate::types::{EventCache, SessionDetailResponse, SessionIncidentItem};
+use crate::types::{EventCache, IncidentTotals, SessionDetailResponse, SessionIncidentItem};
+use tracepilot_core::parsing::events::{TypedEvent, TypedEventData};
 use tracepilot_core::provider::ResolvedSession;
 
-use super::shared::load_cached_summary;
+use super::shared::load_cached_events_and_summary;
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
@@ -35,25 +36,51 @@ pub(super) fn session_detail(
     // Cached per source_version, so active sessions get fresh data when
     // any of their files changes. On a load error, degrade to a summary
     // without event data (the original load_session_summary behaviour).
-    let summary = match load_cached_summary(event_cache, session) {
-        Ok(summary) => summary,
+    let (summary, incident_totals) = match load_cached_events_and_summary(event_cache, session) {
+        Ok((events, summary)) => (summary, count_incidents(&events)),
         Err(e) => {
             tracing::warn!(
                 path = %session.locator.primary_path.display(),
                 error = %e,
                 "Failed to load cached events for session detail; proceeding without event data"
             );
-            session
+            let summary = session
                 .provider
-                .summary_from_events(&session.locator, &[])?
+                .summary_from_events(&session.locator, &[])?;
+            (summary, None)
         }
     };
     Ok(SessionDetailResponse {
         source: session.locator.source,
         folder: session_folder(&session.locator.primary_path)
             .map(|folder| folder.to_string_lossy().into_owned()),
+        incident_totals,
         summary,
     })
+}
+
+/// The session's incidents by kind, counted by the index's rules
+/// (`sessions.error_count`, `compaction_count`, ...). `None` without events,
+/// so views fall back to the indexed incident rows.
+pub(super) fn count_incidents(events: &[TypedEvent]) -> Option<IncidentTotals> {
+    if events.is_empty() {
+        return None;
+    }
+    let mut totals = IncidentTotals::default();
+    for event in events {
+        match &event.typed_data {
+            TypedEventData::SessionError(error) => {
+                totals.errors += 1;
+                totals.rate_limits +=
+                    usize::from(error.error_type.as_deref() == Some("rate_limit"));
+            }
+            TypedEventData::SessionWarning(_) => totals.warnings += 1,
+            TypedEventData::CompactionComplete(_) => totals.compactions += 1,
+            TypedEventData::SessionTruncation(_) => totals.truncations += 1,
+            _ => {}
+        }
+    }
+    Some(totals)
 }
 
 /// The folder to open for a session: its own directory when the source keeps

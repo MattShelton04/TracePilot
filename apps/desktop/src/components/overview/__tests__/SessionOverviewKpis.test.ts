@@ -129,3 +129,15 @@ describe("SessionOverviewKpis cost", () => {
     expect(kpi("Est. cost")?.text()).toContain("partial");
   });
 });
+
+describe("SessionOverviewKpis per-turn rates", () => {
+  it("groups thousands in events per turn, as in the event count beside it", () => {
+    const { kpi } = mountKpis({ checkpoints: 0, eventCount: 15_431, turnCount: 10 });
+    expect(kpi("Turns")?.text()).toContain("15,431 events · 1,543.1 per turn");
+  });
+
+  it("groups thousands in model calls per turn", () => {
+    const { kpi } = mountKpis({ checkpoints: null, calls: 2_500, turnCount: 2 });
+    expect(kpi("Model calls")?.text()).toContain("1,250.0 per turn");
+  });
+});
