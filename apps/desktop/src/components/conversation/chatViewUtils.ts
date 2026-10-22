@@ -2,8 +2,8 @@
  * Utility functions for the Chat View rendering pipeline.
  *
  * Segments a turn's tool calls into renderable groups (regular tools,
- * subagent groups, pills) and provides helpers for extracting main-agent
- * content from a turn.
+ * subagent groups, pills), extracts main-agent content from a turn, and
+ * orders that content as the agent produced it.
  */
 import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
 
@@ -97,16 +97,113 @@ function classifyTool(tc: TurnToolCall): ToolGroupItem {
 
 // ─── Turn Content Helpers ─────────────────────────────────────────
 
+function mainReasoningTexts(turn: ConversationTurn): AttributedMessage[] {
+  return (turn.reasoningTexts ?? []).filter((r) => !r.parentToolCallId && r.content?.trim());
+}
+
 /** Extract main-agent reasoning (not from subagents). */
 export function getMainReasoning(turn: ConversationTurn): string[] {
-  return (turn.reasoningTexts ?? [])
-    .filter((r) => !r.parentToolCallId && r.content?.trim())
-    .map((r) => r.content);
+  return mainReasoningTexts(turn).map((r) => r.content);
 }
 
 /** Extract main-agent messages (not from subagents). */
 export function getMainMessages(turn: ConversationTurn): AttributedMessage[] {
   return turn.assistantMessages.filter((m) => !m.parentToolCallId && m.content?.trim());
+}
+
+// ─── Turn content order ───────────────────────────────────────────
+
+/** One item of a turn's main-agent content, by index into its own list. */
+export type TurnContentRef =
+  | { kind: "reasoning"; index: number }
+  | { kind: "message"; index: number }
+  | { kind: "segment"; index: number };
+
+export interface OrderedTurnContent {
+  reasoning: string[];
+  messages: AttributedMessage[];
+  segments: ToolSegment[];
+  /** Every reasoning block, message and segment, in the order to render them. */
+  order: TurnContentRef[];
+}
+
+/** Tool calls the chat renders in the turn itself (children live in the subagent panel). */
+function isShownInTurn(tc: TurnToolCall): boolean {
+  return !!tc.isSubagent || !tc.parentToolCallId;
+}
+
+/**
+ * Builds a turn's main-agent content in the order the agent produced it:
+ * reasoning and replies sit between the tool calls they came before and
+ * after, using each item's event index. A tool group is split where text
+ * falls inside it. Reasoning from the same event as a reply comes first.
+ *
+ * If any of those items lacks an event index (the synthetic live tail, older
+ * data), the order cannot be known, so the previous layout is kept: all
+ * reasoning, then all replies, then the tool segments.
+ */
+export function orderTurnContent(turn: ConversationTurn): OrderedTurnContent {
+  const reasoningTexts = mainReasoningTexts(turn);
+  const reasoning = reasoningTexts.map((r) => r.content);
+  const messages = getMainMessages(turn);
+  const text = [
+    ...reasoningTexts.map((r, index) => ({
+      ref: { kind: "reasoning", index } as TurnContentRef,
+      eventIndex: r.eventIndex,
+      rank: 0,
+    })),
+    ...messages.map((m, index) => ({
+      ref: { kind: "message", index } as TurnContentRef,
+      eventIndex: m.eventIndex,
+      rank: 1,
+    })),
+  ];
+  const shown = turn.toolCalls.filter(isShownInTurn);
+  const ordered =
+    text.length > 0 &&
+    shown.length > 0 &&
+    text.every((t) => t.eventIndex != null) &&
+    shown.every((tc) => tc.eventIndex != null);
+
+  if (!ordered) {
+    const segments = segmentToolCalls(turn.toolCalls);
+    return {
+      reasoning,
+      messages,
+      segments,
+      order: [
+        ...text.map((t) => t.ref),
+        ...segments.map((_, index) => ({ kind: "segment" as const, index })),
+      ],
+    };
+  }
+
+  text.sort((a, b) => (a.eventIndex ?? 0) - (b.eventIndex ?? 0) || a.rank - b.rank);
+  const segments: ToolSegment[] = [];
+  const order: TurnContentRef[] = [];
+  let run: TurnToolCall[] = [];
+  let next = 0;
+
+  function flushRun() {
+    for (const segment of segmentToolCalls(run)) {
+      order.push({ kind: "segment", index: segments.length });
+      segments.push(segment);
+    }
+    run = [];
+  }
+
+  for (const tc of turn.toolCalls) {
+    const at = tc.eventIndex ?? 0;
+    if (isShownInTurn(tc) && next < text.length && (text[next].eventIndex ?? 0) < at) {
+      flushRun();
+      while (next < text.length && (text[next].eventIndex ?? 0) < at) order.push(text[next++].ref);
+    }
+    run.push(tc);
+  }
+  flushRun();
+  while (next < text.length) order.push(text[next++].ref);
+
+  return { reasoning, messages, segments, order };
 }
 
 /**

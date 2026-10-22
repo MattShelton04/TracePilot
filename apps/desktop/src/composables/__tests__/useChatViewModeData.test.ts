@@ -34,7 +34,7 @@ vi.mock("@/stores/preferences", () => ({
 }));
 vi.mock("@/components/conversation/chatViewUtils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/components/conversation/chatViewUtils")>();
-  return { ...actual, segmentToolCalls: vi.fn(actual.segmentToolCalls) };
+  return { ...actual, orderTurnContent: vi.fn(actual.orderTurnContent) };
 });
 vi.mock("@/components/conversation/sessionEventPairing", async (importOriginal) => {
   const actual =
@@ -42,7 +42,7 @@ vi.mock("@/components/conversation/sessionEventPairing", async (importOriginal) 
   return { ...actual, pairPermissionEvents: vi.fn(actual.pairPermissionEvents) };
 });
 
-import { segmentToolCalls } from "@/components/conversation/chatViewUtils";
+import { orderTurnContent } from "@/components/conversation/chatViewUtils";
 import { pairPermissionEvents } from "@/components/conversation/sessionEventPairing";
 import { useChatViewModeData } from "../useChatViewModeData";
 
@@ -181,7 +181,7 @@ describe("useChatViewModeData streaming derivations", () => {
     expect(api.findToolCallIndex(saved, saved.toolCalls[0])).toBe(0);
     api.getArgsSummary(saved.turnIndex, 0);
     await nextTick();
-    vi.mocked(segmentToolCalls).mockClear();
+    vi.mocked(orderTurnContent).mockClear();
     vi.mocked(pairPermissionEvents).mockClear();
 
     for (let delta = 0; delta < 100; delta++) {
@@ -196,7 +196,7 @@ describe("useChatViewModeData streaming derivations", () => {
       await nextTick();
     }
 
-    expect(segmentToolCalls).toHaveBeenCalledTimes(100);
+    expect(orderTurnContent).toHaveBeenCalledTimes(100);
     expect(pairPermissionEvents).not.toHaveBeenCalled();
   });
 
@@ -235,6 +235,7 @@ describe("useChatViewModeData streaming derivations", () => {
       messages: [],
       reasoning: [],
       segments: [],
+      order: [],
     });
     expect(
       api.permissionDataFor(attributedLaunch).permissionByToolCallId.get("tool-0")?.completed

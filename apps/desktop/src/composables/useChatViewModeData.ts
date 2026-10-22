@@ -5,12 +5,7 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { computed, nextTick, provide, type Ref, watch } from "vue";
-import {
-  getMainMessages,
-  getMainReasoning,
-  segmentToolCalls,
-  type ToolSegment,
-} from "@/components/conversation/chatViewUtils";
+import { type OrderedTurnContent, orderTurnContent } from "@/components/conversation/chatViewUtils";
 import {
   type PermissionPair,
   pairPermissionEvents,
@@ -27,29 +22,26 @@ import { useSdkStore } from "@/stores/sdk";
 import { revealScrollBehavior } from "@/utils/revealScroll";
 import { mapByTurnIndex } from "@/utils/turnMaps";
 
-export interface TurnRenderData {
-  reasoning: string[];
-  messages: ReturnType<typeof getMainMessages>;
-  segments: ToolSegment[];
-}
+export type TurnRenderData = OrderedTurnContent;
 
 export interface TurnPermissionData {
   entries: ReturnType<typeof pairPermissionEvents>["entries"];
   permissionByToolCallId: Map<string, PermissionPair>;
 }
 
-const EMPTY_RENDER_DATA: TurnRenderData = { reasoning: [], messages: [], segments: [] };
+const EMPTY_RENDER_DATA: TurnRenderData = {
+  reasoning: [],
+  messages: [],
+  segments: [],
+  order: [],
+};
 const EMPTY_PERMISSION_DATA: TurnPermissionData = {
   entries: [],
   permissionByToolCallId: new Map(),
 };
 
 function buildTurnRenderData(turn: ConversationTurn): TurnRenderData {
-  return {
-    reasoning: getMainReasoning(turn),
-    messages: getMainMessages(turn),
-    segments: segmentToolCalls(turn.toolCalls),
-  };
+  return orderTurnContent(turn);
 }
 
 /**

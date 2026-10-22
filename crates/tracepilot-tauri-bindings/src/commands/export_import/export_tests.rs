@@ -121,3 +121,89 @@ fn writes_one_file_to_the_chosen_path_and_several_beside_it() {
     assert_eq!(std::fs::read_to_string(parent.join("a.md")).unwrap(), "aa");
     assert_eq!(std::fs::read_to_string(parent.join("b.md")).unwrap(), "bbb");
 }
+
+/// An earlier export that another process holds a lock on (as editors and
+/// sync clients do) is never left truncated by a failed overwrite.
+#[cfg(windows)]
+#[test]
+fn locked_earlier_export_is_not_truncated() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("session.md");
+    std::fs::write(&out, "earlier export").unwrap();
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&out)
+        .unwrap();
+    held.lock().unwrap();
+
+    let result = write_export_files(&out, &[export_file("session.md", "# New")]);
+    drop(held);
+
+    let content = std::fs::read_to_string(&out).unwrap();
+    match result {
+        Ok(_) => assert_eq!(content, "# New"),
+        Err(err) => assert_eq!(content, "earlier export", "{err}"),
+    }
+}
+
+#[test]
+fn unusable_output_folder_is_named() {
+    let dir = tempfile::tempdir().unwrap();
+    // A file where the folder should be makes creating the folder fail.
+    let blocker = dir.path().join("exports");
+    std::fs::write(&blocker, "").unwrap();
+    let out = blocker.join("session.md");
+
+    let err = write_export_files(&out, &[export_file("session.md", "# New")]).unwrap_err();
+
+    assert!(matches!(err, BindingsError::Export(_)), "{err:?}");
+    let message = err.to_string();
+    assert!(message.contains("session.md"), "{message}");
+}
+
+fn session_db(dir: &Path, sql: &str) {
+    rusqlite::Connection::open(dir.join("session.db"))
+        .unwrap()
+        .execute_batch(sql)
+        .unwrap();
+}
+
+const TODOS_TABLE: &str = "CREATE TABLE todos (id TEXT PRIMARY KEY, title TEXT NOT NULL, \
+    description TEXT, status TEXT NOT NULL, created_at TEXT, updated_at TEXT);";
+
+fn sections_of(dir: &Path) -> SessionSectionsInfo {
+    directory_sections(SessionId::from_validated("s1".to_string()), dir)
+}
+
+#[test]
+fn todos_are_offered_only_when_the_database_has_todo_rows() {
+    let none = tempfile::tempdir().unwrap();
+    assert!(!sections_of(none.path()).has_todos, "no session.db");
+
+    let empty = tempfile::tempdir().unwrap();
+    session_db(empty.path(), TODOS_TABLE);
+    assert!(!sections_of(empty.path()).has_todos, "empty todos table");
+
+    let other = tempfile::tempdir().unwrap();
+    session_db(other.path(), "CREATE TABLE notes (body TEXT);");
+    let sections = sections_of(other.path());
+    assert!(!sections.has_todos, "no todos table");
+    assert!(sections.has_custom_tables);
+
+    let corrupt = tempfile::tempdir().unwrap();
+    std::fs::write(corrupt.path().join("session.db"), "not a database").unwrap();
+    assert!(
+        !sections_of(corrupt.path()).has_todos,
+        "unreadable database"
+    );
+
+    let with_rows = tempfile::tempdir().unwrap();
+    session_db(
+        with_rows.path(),
+        &format!(
+            "{TODOS_TABLE} INSERT INTO todos VALUES ('a', 'Ship it', NULL, 'pending', NULL, NULL);"
+        ),
+    );
+    assert!(sections_of(with_rows.path()).has_todos);
+}
