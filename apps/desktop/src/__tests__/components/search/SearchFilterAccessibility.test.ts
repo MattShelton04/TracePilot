@@ -5,6 +5,7 @@ import { computed, defineComponent, h, nextTick, reactive, ref } from "vue";
 import SearchFilterSidebar from "@/components/search/SearchFilterSidebar.vue";
 import SessionSearchHero from "@/components/search/SessionSearchHero.vue";
 import { useSearchKeyboardNavigation } from "@/composables/useSearchKeyboardNavigation";
+import { parseQualifiers, stripTypeQualifier } from "@/utils/parseQualifiers";
 
 vi.mock("@/stores/search", () => ({ useSearchStore: () => store }));
 vi.mock("@/stores/sessions", () => ({ useSessionsStore: () => sessionsState }));
@@ -15,8 +16,15 @@ vi.mock("@/stores/preferences", () => ({
 const sessionsState = reactive({ repositories: [] as string[], sessions: [] as SessionListItem[] });
 
 const store = reactive({
+  query: "",
   contentTypes: [] as SearchContentType[],
   excludeContentTypes: [] as SearchContentType[],
+  get queryContentTypes(): SearchContentType[] {
+    return parseQualifiers(this.query).types;
+  },
+  removeQueryContentTypes(types: readonly SearchContentType[]) {
+    for (const type of types) this.query = stripTypeQualifier(this.query, type);
+  },
   stats: null,
   facets: null,
   availableRepositories: ["audit/demo"],
@@ -37,6 +45,7 @@ let keyboard: ReturnType<typeof useSearchKeyboardNavigation>;
 const toggleResult = vi.fn();
 
 beforeEach(() => {
+  store.query = "";
   store.contentTypes = [];
   store.excludeContentTypes = [];
   store.repository = null;
@@ -143,6 +152,28 @@ describe("Search filter accessibility", () => {
     await filter.trigger("click");
     expect(store.excludeContentTypes).toEqual([]);
     expect(filter.attributes("aria-label")).toBe("User Message: off");
+  });
+
+  it("checks a content type the query's type: qualifier filters by", async () => {
+    store.query = "type:error retry";
+    const view = renderFilters();
+    expect(view.find('button[aria-label="Error: include"]').exists()).toBe(true);
+    expect(view.get(".filter-select-all-btn").text()).toBe("Clear All");
+
+    // The next state drops the qualifier, or the query would keep Error included.
+    await view.get('button[aria-label="Error: include"]').trigger("click");
+    expect(store.query).toBe("retry");
+    expect(store.excludeContentTypes).toEqual(["error"]);
+    expect(view.find('button[aria-label="Error: exclude"]').exists()).toBe(true);
+
+    store.excludeContentTypes = [];
+    store.query = "type:tool-error retry type:bogus";
+    await nextTick();
+    expect(view.find('button[aria-label="Tool Error: include"]').exists()).toBe(true);
+    await view.get(".filter-select-all-btn").trigger("click");
+    expect(store.query).toBe("retry type:bogus");
+    expect(view.find('button[aria-label="Tool Error: off"]').exists()).toBe(true);
+    expect(view.get(".filter-select-all-btn").text()).toBe("Select All");
   });
 
   it("leaves Enter on filter buttons available after keyboard result navigation", () => {

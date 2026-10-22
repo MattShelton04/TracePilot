@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseQualifiers, stripQualifier } from "../../utils/parseQualifiers";
+import { parseQualifiers, stripQualifier, stripTypeQualifier } from "../../utils/parseQualifiers";
 
 describe("parseQualifiers", () => {
   it("returns unchanged query when no qualifiers are present", () => {
@@ -129,6 +129,17 @@ describe("parseQualifiers", () => {
     const result = parseQualifiers("hello type:error   world");
     expect(result.cleanQuery).toBe("hello world");
   });
+
+  it("reads a qualifier only at the start or after whitespace", () => {
+    for (const text of ["config.session:abc", "pre-type:error", "src/repo:demo", "mcp.tool:grep"]) {
+      const result = parseQualifiers(text);
+      expect(result.cleanQuery).toBe(text);
+      expect(result).toMatchObject({ types: [], repo: null, tool: null, session: null });
+    }
+    const spaced = parseQualifiers("config.session:abc\tsession:s1");
+    expect(spaced.session).toBe("s1");
+    expect(spaced.cleanQuery).toBe("config.session:abc");
+  });
 });
 
 describe("stripQualifier", () => {
@@ -139,5 +150,18 @@ describe("stripQualifier", () => {
 
   it("returns a query without that key unchanged", () => {
     expect(stripQualifier("  retry  tool:shell ", "source")).toBe("  retry  tool:shell ");
+  });
+
+  it("leaves text that only contains a qualifier name alone", () => {
+    expect(stripQualifier("config.source:claude", "source")).toBe("config.source:claude");
+  });
+});
+
+describe("stripTypeQualifier", () => {
+  it("removes every spelling of one type and keeps the other types", () => {
+    expect(
+      stripTypeQualifier("type:Tool-Error retry type:error type:tool_error", "tool_error"),
+    ).toBe("retry type:error");
+    expect(stripTypeQualifier("retry type:error", "tool_call")).toBe("retry type:error");
   });
 });

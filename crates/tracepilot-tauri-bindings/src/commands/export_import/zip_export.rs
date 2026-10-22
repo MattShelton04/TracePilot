@@ -1,10 +1,11 @@
 //! Tauri command for exporting a session folder as a raw zip archive.
 
-use std::fs::{File, OpenOptions};
-use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::path::Path;
 
 use tracepilot_export::ExportError;
 
+use super::replace_file::replace_file_with;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::{require_copilot_layout, with_session_locator};
@@ -30,32 +31,10 @@ pub async fn export_session_folder_zip(
 
 /// Zip `session_path` into `dest`.
 ///
-/// The archive is written beside `dest` under a temporary name and moved into
-/// place only once it is complete, so a failure leaves no truncated zip and
-/// keeps a file the user chose to overwrite. Only that temporary file, which
-/// this call created, is removed on failure.
+/// The archive is moved into place only once it is complete, so a failure
+/// leaves no truncated zip and keeps a file the user chose to overwrite.
 fn write_folder_zip(session_path: &Path, dest: &Path) -> CmdResult<()> {
-    tracepilot_core::utils::fs::ensure_parent_dir(dest)?;
-    let partial = partial_path(dest);
-    let file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&partial)
-        .map_err(|e| ExportError::io(dest, e))?;
-
-    let result = zip_folder(session_path, file).and_then(|()| {
-        std::fs::rename(&partial, dest).map_err(|e| ExportError::io(dest, e).into())
-    });
-    if result.is_err() {
-        let _ = std::fs::remove_file(&partial);
-    }
-    result
-}
-
-/// A dot-prefixed sibling of `dest` (hidden on Unix), unique to this process.
-fn partial_path(dest: &Path) -> PathBuf {
-    let name = dest.file_name().unwrap_or_default().to_string_lossy();
-    dest.with_file_name(format!(".{name}.{}.partial", std::process::id()))
+    replace_file_with(dest, |file| zip_folder(session_path, file))
 }
 
 /// Write every entry under `session_path` into `file`. A source file that
@@ -93,6 +72,8 @@ fn zip_folder(session_path: &Path, file: File) -> CmdResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::export_import::replace_file::tests::leftovers;
+    use std::path::PathBuf;
 
     fn session_dir(root: &Path) -> PathBuf {
         let session = root.join("session");
@@ -100,14 +81,6 @@ mod tests {
         std::fs::write(session.join("events.jsonl"), "{}\n").unwrap();
         std::fs::write(session.join("checkpoints").join("001.md"), "# One").unwrap();
         session
-    }
-
-    fn leftovers(dir: &Path) -> Vec<String> {
-        std::fs::read_dir(dir)
-            .unwrap()
-            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-            .filter(|name| name.ends_with(".partial"))
-            .collect()
     }
 
     #[test]
@@ -169,6 +142,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn unreadable_source_file_is_named() {
+        use std::fs::OpenOptions;
         use std::os::windows::fs::OpenOptionsExt;
 
         let dir = tempfile::tempdir().unwrap();

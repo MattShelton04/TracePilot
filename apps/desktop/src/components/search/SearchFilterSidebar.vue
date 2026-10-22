@@ -44,9 +44,20 @@ const visibleContentTypes = computed(() => {
   // Always include types that are currently selected as filters
   return ALL_CONTENT_TYPES.filter(
     (ct) =>
-      withData.has(ct) || store.contentTypes.includes(ct) || store.excludeContentTypes.includes(ct),
+      withData.has(ct) ||
+      store.contentTypes.includes(ct) ||
+      store.queryContentTypes.includes(ct) ||
+      store.excludeContentTypes.includes(ct),
   );
 });
+
+/** Content types filtered by the sidebar or by the query's `type:` qualifiers. */
+const hasContentTypeFilter = computed(
+  () =>
+    store.contentTypes.length > 0 ||
+    store.excludeContentTypes.length > 0 ||
+    store.queryContentTypes.length > 0,
+);
 
 const prefs = usePreferencesStore();
 
@@ -82,14 +93,17 @@ const toolOptions = computed(() => {
 // ── Content type tri-state toggle ─────────────────────────────
 type FilterState = "off" | "include" | "exclude";
 
+// A typed `type:error` includes Error just as the checkbox does, so it shows checked.
 function getContentTypeState(ct: SearchContentType): FilterState {
-  if (store.contentTypes.includes(ct)) return "include";
+  if (store.contentTypes.includes(ct) || store.queryContentTypes.includes(ct)) return "include";
   if (store.excludeContentTypes.includes(ct)) return "exclude";
   return "off";
 }
 
 function cycleContentType(ct: SearchContentType) {
   const state = getContentTypeState(ct);
+  // Moving on from include drops a typed `type:` for it, or the query keeps it included.
+  if (state === "include") store.removeQueryContentTypes([ct]);
   // shallowRef: mutate via wholesale replacement so the store watcher fires.
   const nextInclude = store.contentTypes.filter((t) => t !== ct);
   const nextExclude = store.excludeContentTypes.filter((t) => t !== ct);
@@ -105,7 +119,8 @@ function cycleContentType(ct: SearchContentType) {
 }
 
 function toggleAllContentTypes() {
-  if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) {
+  if (hasContentTypeFilter.value) {
+    store.removeQueryContentTypes(store.queryContentTypes);
     store.contentTypes = [];
     store.excludeContentTypes = [];
   } else {
@@ -173,7 +188,7 @@ function setDatePreset(preset: (typeof DATE_PRESETS)[number]["key"]) {
       <div class="filter-group-title">
         Content Type
         <button class="filter-select-all-btn" @click="toggleAllContentTypes">
-          {{ (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) ? 'Clear All' : 'Select All' }}
+          {{ hasContentTypeFilter ? 'Clear All' : 'Select All' }}
         </button>
       </div>
       <div class="filter-group">

@@ -8,7 +8,7 @@ import { STORAGE_KEYS } from "./config/storageKeys";
 import { runStorageKeyMigrations } from "./config/storageKeysMigration";
 import router from "./router";
 import "./styles.css";
-import { initLogging, logError } from "./utils/logger";
+import { initLogging, logDebug, logError } from "./utils/logger";
 
 // Expose `window.__TRACEPILOT_IPC_PERF__` for e2e automation and devtools
 // access to the IPC perf ring buffer. Explicit opt-in (Wave 60) — the client
@@ -67,6 +67,17 @@ resolveWindowRole().then(async () => {
 
 // Window-level error handlers — catch errors that escape Vue's boundary
 window.addEventListener("error", (event) => {
+  // The browser reports a ResizeObserver callback that resized observed
+  // elements again as an error with no `error` object. It's harmless: the
+  // remaining notifications arrive next frame.
+  if (event.error == null && event.message.startsWith("ResizeObserver loop")) {
+    logDebug(`[window.onerror] ${event.message}`);
+    return;
+  }
+  if (event.error == null) {
+    logError(`[window.onerror] ${event.message || "Unknown error"}`);
+    return;
+  }
   logError(`[window.onerror] ${toErrorMessage(event.error)}`, event.error);
 });
 

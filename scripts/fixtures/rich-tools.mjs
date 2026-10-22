@@ -31,6 +31,9 @@ const searchBody = [
   "- [Fixture response format](https://example.com/response-format)",
 ].join("\n\n");
 
+const githubIssues =
+  '[{"number":12,"title":"Greeting drops Unicode names — café 日本語","state":"open","labels":["bug","i18n"],"assignee":null,"comments":0,"draft":false,"updated_at":"2026-03-19T09:30:00Z"},{"number":14,"title":"Add a ready flag to the fixture app","state":"open","labels":[],"assignee":{"login":"fixture-reviewer"},"comments":3,"draft":true,"updated_at":"2026-03-20T08:15:00Z"}]';
+
 const sample = (id, toolName, args, content, selector, extra = {}) => ({
   id,
   toolName,
@@ -255,6 +258,15 @@ export const richToolSamples = [
         durationMs: 2000,
       },
     },
+  ),
+  // GitHub MCP tools have no registered renderer; a JSON result is pretty-printed.
+  sample(
+    "github-mcp-json",
+    "github-mcp-server-list_issues",
+    { owner: "example", repo: "orchard", state: "open", perPage: 2 },
+    githubIssues,
+    ".plain-text-json",
+    { registered: false, fallback: "plain JSON" },
   ),
   sample(
     "shell-error",

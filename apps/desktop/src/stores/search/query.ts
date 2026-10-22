@@ -2,71 +2,14 @@ import type { SearchContentType, SearchResult, SessionSource } from "@tracepilot
 import { toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
-import { type ParsedQualifiers, parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
+import { parseQualifiers, stripQualifier, stripTypeQualifier } from "@/utils/parseQualifiers";
 import { groupResultsBySession } from "./grouping";
 import { describeSearchText } from "./queryTerms";
 
 export type { SessionGroup } from "./grouping";
 
-export type SortMode = "relevance" | "newest" | "oldest";
-
-export interface MergeSearchInputsState {
-  contentTypes: readonly SearchContentType[];
-  repository: string | null;
-  toolName: string | null;
-  sessionId: string | null;
-  source: SessionSource | null;
-  sortBy: SortMode;
-  isBrowseMode: boolean;
-}
-
-export interface MergedSearchInputs {
-  searchQuery: string;
-  contentTypes: SearchContentType[];
-  repository: string | null;
-  toolName: string | null;
-  sessionId: string | null;
-  source: SessionSource | null;
-  sortBy: SortMode;
-}
-
-/**
- * The sort results really use: with no text query there is nothing to rank
- * by relevance, so browse mode lists the newest first.
- */
-export function effectiveSortMode(sortBy: SortMode, isBrowseMode: boolean): SortMode {
-  return isBrowseMode && sortBy === "relevance" ? "newest" : sortBy;
-}
-
-/**
- * Merge inline qualifier syntax (e.g. `type:error repo:foo`) with the
- * explicit UI filters held by the query slice. Pure function — no Vue
- * reactivity, safe to unit-test in isolation.
- *
- * Browse mode (no text query) downgrades a `relevance` sort to `newest`
- * because relevance is meaningless when there is nothing to rank against.
- */
-export function mergeSearchInputs(
-  parsed: ParsedQualifiers,
-  state: MergeSearchInputsState,
-): MergedSearchInputs {
-  const effectiveSort = effectiveSortMode(state.sortBy, state.isBrowseMode);
-
-  const contentTypes =
-    parsed.types.length > 0
-      ? [...new Set([...state.contentTypes, ...parsed.types])]
-      : [...state.contentTypes];
-
-  return {
-    searchQuery: parsed.cleanQuery,
-    contentTypes,
-    repository: parsed.repo ?? state.repository,
-    toolName: parsed.tool ?? state.toolName,
-    sessionId: parsed.session ?? state.sessionId,
-    source: parsed.source ?? state.source,
-    sortBy: parsed.sort ?? effectiveSort,
-  };
-}
+export type { MergedSearchInputs, MergeSearchInputsState, SortMode } from "./merge";
+export { effectiveSortMode, mergeSearchInputs } from "./merge";
 
 export interface ParsedDateRange {
   dateFromUnix?: number;
@@ -113,13 +56,17 @@ export function createQuerySlice() {
   // ── Computed ─────────────────────────────────────────────────
   const hasResults = computed(() => results.value.length > 0);
   const hasQuery = computed(() => query.value.trim().length > 0);
-  const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
   /** The typed text without its qualifiers, and what it will search for. */
   const searchTextTerms = computed(() => {
     const text = parseQualifiers(query.value).cleanQuery.trim();
     return { text, ...describeSearchText(text) };
   });
+  /**
+   * No text to rank by: nothing typed, or only qualifiers (`type:error`). Results
+   * list newest first, as when browsing.
+   */
+  const isBrowseMode = computed(() => searchTextTerms.value.text === "");
   /** Text was typed, but nothing in it is searchable (`*`, `!!!`, a bare `NOT`). */
   const hasNoSearchableTerms = computed(
     () => searchTextTerms.value.text !== "" && !searchTextTerms.value.hasTerms,
@@ -128,6 +75,8 @@ export function createQuerySlice() {
   const startsWithNot = computed(() => searchTextTerms.value.startsWithNot);
   /** `type:` values that name no content type, so they filter nothing. */
   const unknownTypes = computed(() => parseQualifiers(query.value).unknownTypes);
+  /** Content types the query's `type:` qualifiers include, on top of the filters'. */
+  const queryContentTypes = computed(() => parseQualifiers(query.value).types);
   /** The source searched: the query's `source:` qualifier, else the switch's. */
   const effectiveSource = computed(() => parseQualifiers(query.value).source ?? source.value);
   const hasActiveFilters = computed(() => {
@@ -217,6 +166,13 @@ export function createQuerySlice() {
     source.value = next;
   }
 
+  /** Drop the query's `type:` qualifiers for these types, so a filter change can replace them. */
+  function removeQueryContentTypes(types: readonly SearchContentType[]) {
+    let next = query.value;
+    for (const type of types) next = stripTypeQualifier(next, type);
+    if (next !== query.value) query.value = next;
+  }
+
   function clearError() {
     error.value = null;
   }
@@ -270,6 +226,7 @@ export function createQuerySlice() {
     hasNoSearchableTerms,
     startsWithNot,
     unknownTypes,
+    queryContentTypes,
     effectiveSource,
     groupedResults,
     resultSessionCount,
@@ -279,6 +236,7 @@ export function createQuerySlice() {
     clearFilters,
     clearError,
     setSource,
+    removeQueryContentTypes,
     setDateRange,
     setPage,
     nextPage,

@@ -28,6 +28,40 @@ describe("search/query slice", () => {
     }
   });
 
+  it("browses a qualifier-only query, since there is no text to rank by", () => {
+    const { value: q, dispose } = inScope(() => createQuerySlice());
+    try {
+      for (const query of ["type:error", "repo:foo", "  tool:grep session:s1 sort:oldest "]) {
+        q.query.value = query;
+        expect(q.hasQuery.value).toBe(true);
+        expect(q.isBrowseMode.value).toBe(true);
+      }
+      q.query.value = "type:error timeout";
+      expect(q.isBrowseMode.value).toBe(false);
+      q.query.value = "config.session:abc";
+      expect(q.isBrowseMode.value).toBe(false);
+    } finally {
+      dispose();
+    }
+  });
+
+  it("lists the query's type: content types and drops them on request", () => {
+    const { value: q, dispose } = inScope(() => createQuerySlice());
+    try {
+      q.query.value = "type:Error retry type:tool-call type:bogus";
+      expect(q.queryContentTypes.value).toEqual(["error", "tool_call"]);
+
+      q.removeQueryContentTypes(["error"]);
+      expect(q.query.value).toBe("retry type:tool-call type:bogus");
+      expect(q.queryContentTypes.value).toEqual(["tool_call"]);
+
+      q.removeQueryContentTypes(["user_message"]);
+      expect(q.query.value).toBe("retry type:tool-call type:bogus");
+    } finally {
+      dispose();
+    }
+  });
+
   it("flags hasActiveFilters when any filter is set and clearFilters resets them", () => {
     const { value: q, dispose } = inScope(() => createQuerySlice());
     try {

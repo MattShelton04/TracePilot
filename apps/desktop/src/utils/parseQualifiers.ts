@@ -13,7 +13,8 @@ export interface ParsedQualifiers {
   sort: "relevance" | "newest" | "oldest" | null;
 }
 
-const QUALIFIER_RE = /\b(type|repo|tool|session|source|sort):(?:"([^"]+)"|(\S+))/gi;
+/** A qualifier starts the query or follows whitespace, so `config.session:abc` stays text. */
+const QUALIFIER_RE = /(?<!\S)(type|repo|tool|session|source|sort):(?:"([^"]+)"|(\S+))/gi;
 
 /** `source:` values, lower-cased, with the spellings people type for Claude Code. */
 const SOURCE_ALIASES = new Map<string, SessionSource>([
@@ -126,14 +127,24 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
 /**
  * `raw` without its `key:` qualifiers (`key` lower-case), so a UI filter that replaces one
  * (picking a source in the switch) is not overridden by the typed text.
+ * With `value`, only the `key:` qualifiers whose value it accepts are removed.
  * Returns `raw` unchanged when it has none.
  */
-export function stripQualifier(raw: string, key: string): string {
+export function stripQualifier(raw: string, key: string, value?: (val: string) => boolean): string {
   let stripped = false;
-  const clean = raw.replace(QUALIFIER_RE, (match, name: string) => {
-    if (name.toLowerCase() !== key) return match;
-    stripped = true;
-    return "";
-  });
+  const clean = raw.replace(
+    QUALIFIER_RE,
+    (match, name: string, quoted: string | undefined, bare: string | undefined) => {
+      if (name.toLowerCase() !== key) return match;
+      if (value && !value(quoted ?? bare ?? "")) return match;
+      stripped = true;
+      return "";
+    },
+  );
   return stripped ? clean.replace(/\s+/g, " ").trim() : raw;
+}
+
+/** `raw` without the `type:` qualifiers that name `type` (in any spelling `type:` accepts). */
+export function stripTypeQualifier(raw: string, type: SearchContentType): string {
+  return stripQualifier(raw, "type", (val) => contentTypeFor(val) === type);
 }

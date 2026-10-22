@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use super::preview_cache::{self, PREVIEW_CACHE, PreviewCache, PreviewInputs, PreviewKey};
+use super::replace_file::replace_file;
 use super::sources::{ExportSession, INCIDENT_TYPES, provider_sections};
 
 use crate::blocking_cmd;
@@ -14,12 +15,12 @@ use crate::helpers::{read_config, resolve_session, with_session_locator};
 use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInfo};
 
 use tracepilot_core::SessionId;
-use tracepilot_core::parsing::session_db::list_tables;
+use tracepilot_core::parsing::session_db::{list_tables, read_todos};
 use tracepilot_core::provider::ResolvedSession;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
 };
-use tracepilot_export::{ExportError, ExportFile, SectionId};
+use tracepilot_export::{ExportFile, SectionId};
 
 // ── Helper Functions ──────────────────────────────────────────────────────
 
@@ -121,13 +122,10 @@ fn check_custom_tables(db_path: &Path) -> bool {
 }
 
 /// Write the rendered files: a single file to `out`, several beside it under
-/// their own names. Returns the bytes written. A failed write names the file.
+/// their own names. Returns the bytes written. A failed write names the file
+/// and keeps whatever was there before.
 fn write_export_files(out: &Path, files: &[ExportFile]) -> CmdResult<u64> {
-    tracepilot_core::utils::fs::ensure_parent_dir(out)?;
-
-    let write = |dest: &Path, file: &ExportFile| {
-        std::fs::write(dest, &file.content).map_err(|e| ExportError::io(dest, e))
-    };
+    let write = |dest: &Path, file: &ExportFile| replace_file(dest, &file.content);
     let mut total_size: u64 = 0;
     if let [file] = files {
         write(out, file)?;
@@ -349,42 +347,56 @@ pub async fn get_session_sections(
                 return Ok(provider_sections(session_id, &snapshot, &artifacts));
             }
         };
-        let sp = tracepilot_core::paths::SessionPaths::from_root(&session_path);
-        let events_path = sp.events_jsonl();
-        let db_path = sp.session_db();
-        let plan_path = sp.plan_md();
-        let checkpoints_path = sp.checkpoints_dir();
-
-        let summary = tracepilot_core::summary::load_session_summary(&session_path).ok();
-
-        let has_events =
-            events_path.exists() && events_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
-        let has_todos = db_path.exists();
-        let has_plan =
-            plan_path.exists() && plan_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
-        let has_checkpoints = checkpoints_path.exists() && checkpoints_path.is_dir();
-        let has_conversation = has_events;
-        let has_metrics = summary
-            .as_ref()
-            .and_then(|s| s.shutdown_metrics.as_ref())
-            .is_some();
-
-        Ok(SessionSectionsInfo {
-            session_id: SessionId::from_validated(session_id),
-            has_conversation,
-            has_events,
-            has_todos,
-            has_plan,
-            has_checkpoints,
-            has_metrics,
-            has_incidents: has_events && scan_events_for_incidents(&events_path),
-            has_rewind_snapshots: sp.rewind_snapshots_dir().exists(),
-            has_custom_tables: check_custom_tables(&db_path),
-            event_count: summary.as_ref().and_then(|s| s.event_count),
-            turn_count: summary.as_ref().and_then(|s| s.turn_count),
-        })
+        Ok(directory_sections(
+            SessionId::from_validated(session_id),
+            &session_path,
+        ))
     })
     .await
+}
+
+/// Which sections a Copilot session folder has data for. A section is offered
+/// only when the export would have something to put in it.
+fn directory_sections(session_id: SessionId, session_path: &Path) -> SessionSectionsInfo {
+    let sp = tracepilot_core::paths::SessionPaths::from_root(session_path);
+    let events_path = sp.events_jsonl();
+    let db_path = sp.session_db();
+    let plan_path = sp.plan_md();
+    let checkpoints_path = sp.checkpoints_dir();
+
+    let summary = tracepilot_core::summary::load_session_summary(session_path).ok();
+
+    let has_events =
+        events_path.exists() && events_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+    let has_todos = has_todo_rows(&db_path);
+    let has_plan = plan_path.exists() && plan_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+    let has_checkpoints = checkpoints_path.exists() && checkpoints_path.is_dir();
+    let has_conversation = has_events;
+    let has_metrics = summary
+        .as_ref()
+        .and_then(|s| s.shutdown_metrics.as_ref())
+        .is_some();
+
+    SessionSectionsInfo {
+        session_id,
+        has_conversation,
+        has_events,
+        has_todos,
+        has_plan,
+        has_checkpoints,
+        has_metrics,
+        has_incidents: has_events && scan_events_for_incidents(&events_path),
+        has_rewind_snapshots: sp.rewind_snapshots_dir().exists(),
+        has_custom_tables: check_custom_tables(&db_path),
+        event_count: summary.as_ref().and_then(|s| s.event_count),
+        turn_count: summary.as_ref().and_then(|s| s.turn_count),
+    }
+}
+
+/// Whether the session database has todo rows, as the export would read them.
+/// A database that can't be read has none to export.
+fn has_todo_rows(db_path: &Path) -> bool {
+    read_todos(db_path).is_ok_and(|todos| !todos.is_empty())
 }
 
 #[cfg(test)]

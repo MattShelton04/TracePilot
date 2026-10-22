@@ -71,6 +71,25 @@ describe("stores/search/query – mergeSearchInputs", () => {
     expect(merged.sortBy).toBe("newest");
   });
 
+  it("lists a qualifier-only query newest first, even with sort:relevance", () => {
+    const state = {
+      contentTypes: [],
+      repository: null,
+      toolName: null,
+      sessionId: null,
+      source: null,
+      sortBy: "relevance",
+      isBrowseMode: true,
+    } as const;
+    expect(mergeSearchInputs(parseQualifiers("type:error"), state).sortBy).toBe("newest");
+    expect(mergeSearchInputs(parseQualifiers("type:error sort:relevance"), state).sortBy).toBe(
+      "newest",
+    );
+    expect(mergeSearchInputs(parseQualifiers("type:error sort:oldest"), state).sortBy).toBe(
+      "oldest",
+    );
+  });
+
   it("keeps relevance when there is a query", () => {
     const merged = mergeSearchInputs(
       { ...baseParsed, cleanQuery: "foo" },
