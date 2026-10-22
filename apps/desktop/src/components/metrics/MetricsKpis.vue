@@ -49,6 +49,10 @@ const hitRate = computed(() =>
 const perTurn = computed(() =>
   props.cost.usd != null && props.turns > 0 ? formatUsd(props.cost.usd / props.turns) : null,
 );
+/** A share too small for one decimal still isn't none, so it never reads "0%". */
+function formatShare(percent: number): string {
+  return percent > 0 && percent < 0.05 ? "<0.1%" : formatPercent(percent);
+}
 /** Parallel subagents can add up to more model time than the session lasted. */
 const modelShare = computed(() =>
   props.apiMs && props.wallMs ? (props.apiMs / props.wallMs) * 100 : null,
@@ -112,7 +116,7 @@ const modelShare = computed(() =>
         <span class="kpi-note">
           <template v-if="modelShare == null">{{ apiMs ? "Session length unknown" : "No model timing recorded" }}</template>
           <template v-else-if="modelShare > 100"><b>{{ (modelShare / 100).toFixed(1) }}×</b> the {{ formatRecordedDuration(wallMs) }} session</template>
-          <template v-else><b>{{ formatPercent(modelShare) }}</b> of {{ formatRecordedDuration(wallMs) }} wall time</template>
+          <template v-else><b>{{ formatShare(modelShare) }}</b> of {{ formatRecordedDuration(wallMs) }} wall time</template>
         </span>
       </template>
     </KPI>
