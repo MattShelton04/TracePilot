@@ -185,25 +185,33 @@ async fn an_empty_index_answers_what_the_disk_scan_cannot() {
     }
 }
 
+/// Run a query whose SQL fails, and check the failure reaches the caller.
+async fn assert_query_failure_reported(source: Option<SessionSource>, copilot_only: bool) {
+    let (result, scanned) = run(Index::Populated, copilot_only, source, Err(malformed())).await;
+    let error = result.expect_err("a failed query must not return disk-scan numbers");
+    assert_eq!(error.code(), crate::error::ErrorCode::Indexer);
+    assert_eq!(error.to_string(), "database disk image is malformed");
+    assert!(
+        !scanned,
+        "{source:?}: the disk scan must not hide the failure"
+    );
+}
+
 #[tokio::test]
-async fn a_failed_query_reports_its_cause_instead_of_scanning() {
-    for source in [
-        None,
-        Some(SessionSource::Copilot),
-        Some(SessionSource::ClaudeCode),
-    ] {
-        for copilot_only in [true, false] {
-            let (result, scanned) =
-                run(Index::Populated, copilot_only, source, Err(malformed())).await;
-            let error = result.expect_err("a failed query must not return numbers");
-            assert_eq!(error.code(), crate::error::ErrorCode::Indexer);
-            assert_eq!(error.to_string(), "database disk image is malformed");
-            assert!(
-                !scanned,
-                "{source:?}: the disk scan must not hide the failure"
-            );
-        }
+async fn a_failed_claude_code_query_reports_its_cause() {
+    assert_query_failure_reported(Some(SessionSource::ClaudeCode), false).await;
+}
+
+#[tokio::test]
+async fn a_failed_query_for_all_sources_never_returns_disk_scan_numbers() {
+    for copilot_only in [true, false] {
+        assert_query_failure_reported(None, copilot_only).await;
     }
+}
+
+#[tokio::test]
+async fn a_failed_copilot_query_reports_its_cause() {
+    assert_query_failure_reported(Some(SessionSource::Copilot), true).await;
 }
 
 #[test]
