@@ -8,7 +8,8 @@ import { formatNumber, formatPercent } from "@tracepilot/types";
 import { SourceLogo } from "@tracepilot/ui";
 import { computed } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
-import { formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope, formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import { COMPOSITION, type ModelRow, type TokenComposition } from "@/utils/analyticsSummary";
 
 const props = defineProps<{
@@ -17,6 +18,10 @@ const props = defineProps<{
   /** The per-day series have runs in the range, though the totals may be empty. */
   dailyUsage?: boolean;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const parts = computed(() =>
   COMPOSITION.filter((part) => props.composition[part.key] > 0).map((part) => ({
@@ -94,7 +99,7 @@ const rows = computed(() =>
     </p>
     <p v-else class="ad-empty">
       <b>No tokens</b>
-      No model usage in this range.
+      No {{ scope.source }}model usage{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>

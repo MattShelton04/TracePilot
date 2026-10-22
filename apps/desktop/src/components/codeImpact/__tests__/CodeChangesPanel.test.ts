@@ -29,7 +29,7 @@ describe("CodeChangesPanel", () => {
   it("names the busiest drawn column when days merge into bins", async () => {
     // 240 days draw as 2-day columns: Jan 11–12 (120) outgrows Feb 20 (100).
     const wrapper = mount(CodeChangesPanel, {
-      props: { rows: days(240, { 10: 60, 11: 60, 50: 100 }), rangeText: "all time" },
+      props: { rows: days(240, { 10: 60, 11: 60, 50: 100 }) },
     });
     await flushPromises();
     const text = wrapper.text();
@@ -40,7 +40,7 @@ describe("CodeChangesPanel", () => {
 
   it("keeps single days when every day has its own column", async () => {
     const wrapper = mount(CodeChangesPanel, {
-      props: { rows: days(30, { 10: 60, 11: 60, 20: 100 }), rangeText: "the past 30 days" },
+      props: { rows: days(30, { 10: 60, 11: 60, 20: 100 }) },
     });
     await flushPromises();
     const text = wrapper.text();

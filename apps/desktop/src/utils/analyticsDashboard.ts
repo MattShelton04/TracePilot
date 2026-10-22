@@ -15,6 +15,7 @@ import {
   resolveSessionSource,
   SESSION_SOURCES,
   type SessionSource,
+  sourceLabel,
 } from "@tracepilot/types";
 import { repositoryFilterLabel } from "@/stores/sessions/filtering";
 import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
@@ -92,14 +93,14 @@ export function dashboardDays(
   return rangeDays(dated, range, now);
 }
 
-/** The range in words, for empty states: `No sessions ended in the past 7 days`. */
+/** A bounded range in words: `the past 7 days`. Scope words leave All time unsaid. */
 export function rangeText(range: AnalyticsTimeRange): string {
   if (range === "7d") return "the past 7 days";
   if (range === "30d") return "the past 30 days";
   if (range === "90d") return "the past 90 days";
   if (range === "month-to-date") return "this month";
   if (range === "custom") return "the selected period";
-  return "any session";
+  return "all time";
 }
 
 /** The words an analytics subtitle scopes its noun with. */
@@ -110,19 +111,22 @@ export interface AnalyticsScopeWords {
   suffix: string;
 }
 
+/** The filters scope words describe: the analytics store satisfies it. */
+export interface AnalyticsScopeFilters {
+  selectedTimeRange: AnalyticsTimeRange;
+  selectedRepo: string | null;
+  selectedSource: SessionSource | null;
+  customFromDate?: string;
+  customToDate?: string;
+}
+
 /**
  * Scope words for the active filters, so "across all tool invocations" is
  * never said of one month or one repository. "This Month" is month-to-date.
  * A custom range with neither date set fetches every session, so it reads as
  * All time rather than "the selected period".
  */
-export function analyticsScopeWords(filters: {
-  selectedTimeRange: AnalyticsTimeRange;
-  selectedRepo: string | null;
-  selectedSource: SessionSource | null;
-  customFromDate?: string;
-  customToDate?: string;
-}): AnalyticsScopeWords {
+export function analyticsScopeWords(filters: AnalyticsScopeFilters): AnalyticsScopeWords {
   const unbounded =
     filters.selectedTimeRange === "custom" && !filters.customFromDate && !filters.customToDate;
   const range = unbounded ? "all" : filters.selectedTimeRange;
@@ -136,6 +140,18 @@ export function analyticsScopeWords(filters: {
         : ` in ${rangeText(range)}`;
   const narrowed = Boolean(repo || filters.selectedSource) || range !== "all";
   return { all: narrowed ? "" : "all ", suffix: `${repoSuffix}${rangeSuffix}` };
+}
+
+/**
+ * Empty-state scope words, naming the filters that emptied it: `No ${source}sessions
+ * ended${suffix}.` reads "No Copilot sessions ended in harbor in the past 7 days.",
+ * or "No sessions ended." with nothing filtered. `source` is `"Copilot "` or `""`.
+ */
+export function analyticsEmptyScope(filters: AnalyticsScopeFilters) {
+  return {
+    source: filters.selectedSource ? `${sourceLabel(filters.selectedSource)} ` : "",
+    suffix: analyticsScopeWords(filters).suffix,
+  };
 }
 
 /**

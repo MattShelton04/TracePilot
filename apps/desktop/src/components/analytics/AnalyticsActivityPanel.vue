@@ -10,9 +10,11 @@ import { computed, ref } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
+import { useAnalyticsStore } from "@/stores/analytics";
 import {
   type ActivityMetric,
   activityRows,
+  analyticsEmptyScope,
   busiestColumn,
   type DayRow,
 } from "@/utils/analyticsDashboard";
@@ -26,9 +28,11 @@ const props = defineProps<{
   data: AnalyticsData;
   summary: DashboardSummary;
   days: string[];
-  /** e.g. `the last 30 days`, for the empty state. */
-  rangeText: string;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const views = useAnalyticsDashboardViews();
 
@@ -151,7 +155,7 @@ const ariaLabel = computed(() => {
     </template>
     <p v-else class="ad-empty">
       <b>No activity</b>
-      No sessions ended in {{ rangeText }}.
+      No {{ scope.source }}sessions ended{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>

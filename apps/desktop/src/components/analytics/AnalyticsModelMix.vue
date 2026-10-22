@@ -11,7 +11,8 @@ import { useRouter } from "vue-router";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope, formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import type { ModelRow } from "@/utils/analyticsSummary";
 
 const props = defineProps<{
@@ -21,6 +22,10 @@ const props = defineProps<{
   /** No provider filter is selected, so each model shows its source's logo. */
   allSources?: boolean;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const router = useRouter();
 const SHOWN = 6;
@@ -120,7 +125,7 @@ function openModels() {
     </p>
     <p v-else class="ad-empty">
       <b>No model usage</b>
-      No model calls were recorded in this range.
+      No {{ scope.source }}model calls were recorded{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>

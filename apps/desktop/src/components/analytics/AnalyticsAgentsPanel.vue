@@ -21,8 +21,11 @@ import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { NO_FINAL_REPORT } from "@/utils/agentEndState";
 import { FAILING_RATE } from "@/utils/agents/entries";
+import { analyticsEmptyScope } from "@/utils/analyticsDashboard";
 
 const store = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(store));
 const router = useRouter();
 
 const summary = computed<AgentUsageSummary | null>(() => store.agentsSummary);
@@ -248,7 +251,7 @@ function openAgents(search?: string) {
 
     <p v-else class="ad-empty">
       <b>No agent runs</b>
-      No subagents were indexed for this range.
+      No {{ scope.source }}subagents were indexed{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>

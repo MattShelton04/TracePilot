@@ -8,6 +8,7 @@ import {
 import { FIXTURE_ANALYTICS } from "../../__tests__/views/analyticsFixtures";
 import {
   activityRows,
+  analyticsEmptyScope,
   analyticsScopeWords,
   binRows,
   busiestColumn,
@@ -72,10 +73,10 @@ describe("dashboard days", () => {
     expect(rangeDays([], { fromDate: "2026-03-01" }, now)).toEqual(["2026-03-01", "2026-03-02"]);
   });
 
-  it("names the range for empty states", () => {
+  it("names the range in words", () => {
     expect(rangeText("7d")).toBe("the past 7 days");
     expect(rangeText("custom")).toBe("the selected period");
-    expect(rangeText("all")).toBe("any session");
+    expect(rangeText("all")).toBe("all time");
   });
 });
 
@@ -117,6 +118,46 @@ describe("analytics scope words", () => {
     expect(
       analyticsScopeWords({ ...base, selectedTimeRange: "custom", selectedSource: "claudeCode" }),
     ).toEqual({ all: "", suffix: "" });
+  });
+});
+
+describe("analytics empty scope", () => {
+  const sentence = (filters: Parameters<typeof analyticsEmptyScope>[0]) => {
+    const { source, suffix } = analyticsEmptyScope(filters);
+    return `No ${source}sessions ended${suffix}.`;
+  };
+
+  it.each([
+    ["all", null, null, "No sessions ended."],
+    ["all", "project:harbor", null, "No sessions ended in harbor."],
+    ["all", null, "copilot", "No Copilot sessions ended."],
+    ["all", "project:harbor", "copilot", "No Copilot sessions ended in harbor."],
+    ["7d", null, null, "No sessions ended in the past 7 days."],
+    ["7d", "project:harbor", null, "No sessions ended in harbor in the past 7 days."],
+    ["7d", null, "claudeCode", "No Claude Code sessions ended in the past 7 days."],
+    ["7d", "project:harbor", "copilot", "No Copilot sessions ended in harbor in the past 7 days."],
+    [
+      "month-to-date",
+      "project:harbor",
+      "copilot",
+      "No Copilot sessions ended in harbor this month.",
+    ],
+    ["custom", null, null, "No sessions ended."],
+  ] as const)("reads naturally for %s, repo %s, source %s", (range, repo, source, expected) => {
+    expect(sentence({ selectedTimeRange: range, selectedRepo: repo, selectedSource: source })).toBe(
+      expected,
+    );
+  });
+
+  it("names a dated custom range as the selected period", () => {
+    expect(
+      sentence({
+        selectedTimeRange: "custom",
+        selectedRepo: "project:harbor",
+        selectedSource: null,
+        customFromDate: "2026-01-01",
+      }),
+    ).toBe("No sessions ended in harbor in the selected period.");
   });
 });
 

@@ -9,14 +9,22 @@ import { computed, ref } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import { busiestColumn, type DayRow, perColumnTitle } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import {
+  analyticsEmptyScope,
+  busiestColumn,
+  type DayRow,
+  perColumnTitle,
+} from "@/utils/analyticsDashboard";
 import { CODE_SERIES } from "@/utils/codeImpact";
 
 const props = defineProps<{
   rows: DayRow[];
-  /** e.g. `the past 30 days`, for the empty state. */
-  rangeText: string;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const views = useAnalyticsDashboardViews();
 const STYLES = [
@@ -102,7 +110,7 @@ const footer = computed(() => {
     </template>
     <p v-else class="ad-empty">
       <b>No line changes</b>
-      No session that ended in {{ rangeText }} reported lines added or removed.
+      No {{ scope.source }}session{{ scope.suffix }} reported lines added or removed.
     </p>
   </OverviewPanel>
 </template>

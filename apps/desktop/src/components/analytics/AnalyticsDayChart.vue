@@ -491,7 +491,7 @@ const readout = computed(() => {
         </template>
       </template>
       <slot v-else name="empty">
-        <p class="day-chart__empty">Nothing to chart in this range.</p>
+        <p class="day-chart__empty">Nothing to chart.</p>
       </slot>
     </div>
 

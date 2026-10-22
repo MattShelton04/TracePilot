@@ -1,3 +1,4 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { ToolAnalysisData, ToolUsageEntry } from "@tracepilot/types";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -55,6 +56,7 @@ async function failedCells(tool: ToolUsageEntry) {
 
 describe("ToolRankPanel native rows", () => {
   beforeEach(() => {
+    setupPinia();
     localStorage.clear();
     resetAnalyticsDashboardViews();
   });

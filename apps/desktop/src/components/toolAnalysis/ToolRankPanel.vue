@@ -19,7 +19,8 @@ import { ChevronRight } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import { formatShare } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { analyticsEmptyScope, formatShare } from "@/utils/analyticsDashboard";
 import {
   failureRate,
   formatCallTime,
@@ -35,6 +36,10 @@ import {
 import { canonicalOnlyCalls, toolUsageLabel, toolUsageNames } from "@/utils/toolDisplayName";
 
 const props = defineProps<{ data: ToolAnalysisData }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const SORTS = [
   { value: "calls", label: "Most used" },
@@ -276,7 +281,7 @@ const column = (key: ToolSort) => (sort.value === key ? "ad-num" : "ad-num ad-nu
     </template>
     <p v-else class="ad-empty">
       <b>No tools used</b>
-      No tool calls were recorded in this range.
+      No {{ scope.source }}tool calls were recorded{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>

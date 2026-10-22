@@ -9,15 +9,23 @@ import { computed, ref } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import { busiestColumn, type DayRow, perColumnTitle } from "@/utils/analyticsDashboard";
+import { useAnalyticsStore } from "@/stores/analytics";
+import {
+  analyticsEmptyScope,
+  busiestColumn,
+  type DayRow,
+  perColumnTitle,
+} from "@/utils/analyticsDashboard";
 import { formatToolTime, type ToolDayMetric, toolDayRows } from "@/utils/toolAnalysis";
 
 const props = defineProps<{
   data: ToolAnalysisData;
   days: string[];
-  /** e.g. `the past 30 days`, for the empty state. */
-  rangeText: string;
 }>();
+
+const filters = useAnalyticsStore();
+/** Names the filters that emptied the panel. */
+const scope = computed(() => analyticsEmptyScope(filters));
 
 const views = useAnalyticsDashboardViews();
 
@@ -113,7 +121,7 @@ const ariaLabel = computed(() => {
         @columns="drawn = $event"
       />
       <div class="ad-foot">
-        <span v-if="footer.noFailures">No failed calls in {{ rangeText }}</span>
+        <span v-if="footer.noFailures">No failed calls{{ scope.suffix }}</span>
         <template v-else>
           <span v-if="footer.peak">Busiest <b>{{ footer.peak.day }}</b> ({{ footer.peak.value }})</span>
           <span v-if="footer.average">Average <b>{{ footer.average }}</b> per active day</span>
@@ -128,7 +136,7 @@ const ariaLabel = computed(() => {
     </template>
     <p v-else class="ad-empty">
       <b>No tool calls</b>
-      No sessions with tool calls ended in {{ rangeText }}.
+      No {{ scope.source }}sessions with tool calls ended{{ scope.suffix }}.
     </p>
   </OverviewPanel>
 </template>
