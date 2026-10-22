@@ -394,6 +394,33 @@ describe("CodeImpactView", () => {
     expect(wrapper.get('[data-testid="code-changes-per-day"]').text()).toContain("No line changes");
     expect(wrapper.get('[data-testid="code-file-types"]').text()).toContain("No files modified");
     expect(wrapper.get('[data-testid="code-files"]').text()).toContain("No files modified");
+    expect(wrapper.text()).not.toContain("No file list recorded");
+  });
+
+  it("says no file list was recorded when lines changed without one", async () => {
+    // A Claude Code cost snapshot, or edits made through a shell, report line
+    // totals without the files: the file count is unknown, not zero.
+    const wrapper = await mountCode({
+      filesModified: 0,
+      linesAdded: 4,
+      linesRemoved: 1,
+      netChange: 3,
+      fileTypeBreakdown: [],
+      mostModifiedFiles: [],
+      changesByDay: [{ date: "2026-10-16", additions: 4, deletions: 1 }],
+    });
+    const kpis = wrapper.get('[data-testid="code-kpis"]');
+    const files = kpis.findAll(".kpi").find((kpi) => kpi.text().includes("Files touched"));
+    expect(files?.text()).toContain("—");
+    expect(files?.text()).toContain("No file list recorded");
+    expect(kpis.text()).not.toContain("No files modified");
+    for (const id of ["code-file-types", "code-files"]) {
+      const text = wrapper.get(`[data-testid="${id}"]`).text();
+      expect(text).toContain("No file list recorded");
+      expect(text).toContain("recorded the line counts above but not which files changed");
+      expect(text).not.toContain("No files modified");
+      expect(text).not.toContain("recorded a file change");
+    }
   });
 
   it("shows error state on failure", async () => {
