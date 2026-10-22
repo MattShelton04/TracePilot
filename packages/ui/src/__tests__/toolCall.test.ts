@@ -212,6 +212,67 @@ describe("formatArgsSummary", () => {
     expect(formatArgsSummary({ method: "POST" }, "github-mcp-server-2")).toBe("POST");
   });
 
+  it("adds owner/repo and the path or query to GitHub MCP summaries", () => {
+    const repo = { owner: "octo", repo: "app" };
+    expect(
+      formatArgsSummary(
+        { method: "get", ...repo, pullNumber: 3 },
+        "github-mcp-server-pull_request_read",
+      ),
+    ).toBe("get · octo/app");
+    expect(
+      formatArgsSummary({ ...repo, path: "src/a.ts" }, "github-mcp-server-get_file_contents"),
+    ).toBe("octo/app · src/a.ts");
+    expect(
+      formatArgsSummary({ query: "is:pr is:open" }, "github-mcp-server-search_pull_requests"),
+    ).toBe("is:pr is:open");
+    expect(formatArgsSummary({ owner: "octo" }, "github-mcp-server-list_repositories")).toBe(
+      "octo",
+    );
+    expect(formatArgsSummary({ perPage: 5 }, "github-mcp-server-list_issues")).toBe("");
+    // Other MCP servers keep their own summary.
+    expect(formatArgsSummary({ ...repo, path: "a.ts" }, "mcp__github__get_file_contents")).toBe(
+      "a.ts",
+    );
+  });
+
+  it("summarises Claude task-list calls from their arguments", () => {
+    const plan = "mcp__ccd_turn__update_plan";
+    const items = [
+      { content: "Read", status: "completed" },
+      { content: "Fix", status: "in_progress" },
+      { content: "Test", status: "pending" },
+      { content: "Ship", status: "pending" },
+    ];
+    expect(formatArgsSummary({ items, scope: "first_task" }, plan)).toBe(
+      "4 steps · 1 done · 1 in progress",
+    );
+    expect(formatArgsSummary({ advance: true }, plan)).toBe("Advanced to the next step");
+    expect(formatArgsSummary({ done: [2], start: 3 }, plan)).toBe(
+      "Completed step 2 · Started step 3",
+    );
+    expect(formatArgsSummary({ done: [1, 2, 4] }, plan)).toBe("Completed steps 1, 2 and 4");
+    expect(formatArgsSummary({ items: [] }, plan)).toBe("0 steps");
+    expect(
+      formatArgsSummary(
+        { recap: "Tests pass.\nNothing committed.", ask: "Commit?" },
+        "mcp__ccd_turn__wrap_up",
+      ),
+    ).toBe("Tests pass.");
+    expect(formatArgsSummary({ ask: "Commit?" }, "mcp__ccd_turn__wrap_up")).toBe("Commit?");
+    expect(formatArgsSummary({ todos: items.slice(0, 2) }, "TodoWrite")).toBe(
+      "2 steps · 1 done · 1 in progress",
+    );
+    expect(formatArgsSummary({ subject: "Run tests" }, "TaskCreate")).toBe("Run tests");
+    expect(formatArgsSummary({ taskId: "3", status: "completed" }, "TaskUpdate")).toBe(
+      "Marked task #3 completed",
+    );
+    expect(formatArgsSummary({ taskId: 3, status: "deleted" }, "TaskUpdate")).toBe(
+      "Deleted task #3",
+    );
+    expect(toolIcon(plan)).toBe("clipboard-list");
+  });
+
   it("names the files in an apply_patch envelope, string or object", () => {
     const one = "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** End Patch";
     expect(formatArgsSummary(one, "apply_patch")).toBe("src/a.ts");

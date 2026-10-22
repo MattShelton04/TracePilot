@@ -7,6 +7,7 @@
  */
 export { claudeToolSamples } from "./claude-tool-samples.mjs";
 
+import { pendingTaskListSamples } from "./claude-tool-samples.mjs";
 import { richToolVariants } from "./rich-tool-variants.mjs";
 
 export const richToolsSessionId = "72510000-0000-4000-8000-000000000001";
@@ -299,6 +300,7 @@ export const richToolSamples = [
     { openArgs: true },
   ),
   sample("apply-patch-pending", "apply_patch", patch, null, ".patch-file-card", { openArgs: true }),
+  ...pendingTaskListSamples,
 ];
 
 // Canonical results remain complete in JSONL. Browser previews mirror the Rust
