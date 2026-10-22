@@ -27,19 +27,49 @@ pub struct RedactionPattern {
 /// A drive-letter path, written with `\`, with `\\` as JSON or a shell escapes
 /// it, or with `/`. The drive letter must start a word, so URL schemes
 /// (`https://`) and `a:b` labels don't match, and a separator must follow the
-/// colon, so "the C: drive" doesn't either.
+/// colon, so "the C: drive" doesn't either. A literal `\n`, `\r` or `\t`
+/// escape also starts a word, as in JSON text inside a tool result. The `pre`
+/// group keeps the character before the path, since the regex crate has no
+/// look-behind.
 ///
 /// A folder name may hold single spaces (`John Smith\`) when the separator the
 /// path started with closes it, so prose after a path isn't swallowed up to
 /// the next slash. The last name takes further words only when they start with
 /// a capital or a digit, so `C:\Users\John Smith` is covered while
 /// "C:\src\a.rs and more" keeps its prose.
+///
+/// Names stop at `;` too, so each entry of a `PATH`-style list is its own match.
 static WINDOWS_PATH: Lazy<Regex> = Lazy::new(|| {
+    // One character of a file or folder name.
+    macro_rules! name_char {
+        () => {
+            r#"[^\s\\/:;*?"<>|]"#
+        };
+    }
     static_regex(concat!(
-        r#"\b[A-Za-z]:(?:"#,
-        r#"\\+(?:[^\s\\/:*?"<>|]+(?: [^\s\\/:*?"<>|]+)*\\+|[^\s\\/:*?"<>|]+[\\/]+)*"#,
-        r#"|/+(?:[^\s\\/:*?"<>|]+(?: [^\s\\/:*?"<>|]+)*/+|[^\s\\/:*?"<>|]+[\\/]+)*"#,
-        r#")(?:[^\s\\/:*?"<>|]+(?: [A-Z0-9][^\s\\/:*?"<>|]*)*)?"#,
+        r#"(?P<pre>^|\\[nrt]|[^A-Za-z0-9_])[A-Za-z]:(?:"#,
+        // `\` paths: spaced folder names must end in `\`.
+        r#"\\+(?:"#,
+        name_char!(),
+        r#"+(?: "#,
+        name_char!(),
+        r#"+)*\\+|"#,
+        name_char!(),
+        r#"+[\\/]+)*"#,
+        // `/` paths: spaced folder names must end in `/`.
+        r#"|/+(?:"#,
+        name_char!(),
+        r#"+(?: "#,
+        name_char!(),
+        r#"+)*/+|"#,
+        name_char!(),
+        r#"+[\\/]+)*"#,
+        // The last name, with capitalized words after a space.
+        r#")(?:"#,
+        name_char!(),
+        r#"+(?: [A-Z0-9]"#,
+        name_char!(),
+        r#"*)*)?"#,
     ))
 });
 
@@ -54,7 +84,7 @@ pub static PATH_PATTERNS: &[RedactionPattern] = &[
     RedactionPattern {
         name: "windows_path",
         regex: &WINDOWS_PATH,
-        replacement: "<REDACTED_PATH>",
+        replacement: "${pre}<REDACTED_PATH>",
     },
     RedactionPattern {
         name: "unix_home_path",
@@ -208,6 +238,12 @@ mod tests {
             ("C:/Users/John Smith/proj/a.ts", "<REDACTED_PATH>"),
             (r"C:\git\repo/src/a.ts", "<REDACTED_PATH>"),
             ("file:///D:/work/notes.md", "file:///<REDACTED_PATH>"),
+            // After a literal escape, and next to other paths.
+            (
+                r#"{"out":"done\nC:\\Users\\matt\\a.ts","err":"\r\nD:\\x"}"#,
+                r#"{"out":"done\n<REDACTED_PATH>","err":"\r\n<REDACTED_PATH>"}"#,
+            ),
+            (r"C:\a.ts;D:\b.ts", "<REDACTED_PATH>;<REDACTED_PATH>"),
         ];
         for (input, expected) in cases {
             assert_eq!(redact_paths(input), expected, "input: {input}");
