@@ -90,6 +90,25 @@ describe("SessionCard", () => {
     expect(wrapper.get(".card-time-new").text()).toBe("1h");
   });
 
+  it("puts the local date and time, not the raw ISO string, in the age tooltip", () => {
+    const updatedAt = "2026-10-22T03:14:00.123Z";
+    const wrapper = mount(SessionCard, {
+      props: { session: makeSession({ id: "test-id", updatedAt }) },
+    });
+    const title = wrapper.get(".card-time-new").attributes("title");
+    expect(title).toBe(new Date(updatedAt).toLocaleString());
+    expect(title).not.toBe(updatedAt);
+  });
+
+  it("omits the age tooltip when updatedAt is missing or unreadable", () => {
+    for (const updatedAt of [undefined, "not a date"]) {
+      const wrapper = mount(SessionCard, {
+        props: { session: makeSession({ id: "test-id", updatedAt }) },
+      });
+      expect(wrapper.get(".card-time-new").attributes("title")).toBeUndefined();
+    }
+  });
+
   it("shows model badge when currentModel is present", () => {
     const wrapper = mount(SessionCard, {
       props: {

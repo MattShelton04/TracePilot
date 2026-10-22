@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
 import {
+  formatDate,
   formatNumber,
   formatNumberFull,
   formatRelativeTime,
@@ -55,6 +56,12 @@ function age(updatedAt: string | null | undefined): string {
   const relative = formatRelativeTime(updatedAt);
   return relative === "just now" ? "now" : relative.replace(/ ago$/, "");
 }
+
+// The exact local date and time behind the relative age, on hover.
+const updatedTitle = computed(() => {
+  const updatedAt = props.session.updatedAt;
+  return updatedAt && !Number.isNaN(Date.parse(updatedAt)) ? formatDate(updatedAt) : undefined;
+});
 
 // The pull request that stands for the session, coloured by its state once known.
 const linkedPrs = computed(() => props.session.linkedPullRequests ?? null);
@@ -182,7 +189,7 @@ function activeTitle(): string {
         </span>
       </div>
       <span class="card-footer-end">
-        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ age(session.updatedAt) }}</span>
+        <span class="card-time-new" :title="updatedTitle">{{ age(session.updatedAt) }}</span>
         <span
           class="card-source-logo"
           :class="isClaude(session) ? 'card-source-logo--claude' : 'card-source-logo--copilot'"
