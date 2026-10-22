@@ -116,7 +116,6 @@ fn a_summary_cut_through_a_secret_leaks_no_fragment() {
     let dir = session_with_tool_calls(&command);
 
     let mut options = conversation_options(ExportFormat::Markdown);
-    options.content_detail.include_tool_details = false;
     options.redaction.strip_secrets = true;
     let markdown = export_text(&dir, &options);
 
@@ -127,10 +126,10 @@ fn a_summary_cut_through_a_secret_leaks_no_fragment() {
     );
 }
 
-/// Dropping tool details drops the raw arguments and results, but keeps the
-/// one-line summary, as it keeps the intention summary.
+/// Dropping tool details drops the raw arguments and results, and the one-line
+/// summary cut from the arguments with them.
 #[test]
-fn summaries_survive_dropped_tool_details() {
+fn dropped_tool_details_drop_the_argument_summary() {
     let dir = session_with_tool_calls("git tag v2.4.0");
     let mut options = conversation_options(ExportFormat::Json);
     options.content_detail.include_tool_details = false;
@@ -139,10 +138,11 @@ fn summaries_survive_dropped_tool_details() {
     let shell = &archive.sessions[0].conversation.as_ref().unwrap()[0].tool_calls[0];
     assert!(shell.arguments.is_none());
     assert!(shell.result_content.is_none());
-    assert_eq!(shell.args_summary.as_deref(), Some("git tag v2.4.0"));
+    assert!(shell.args_summary.is_none());
 
     options.format = ExportFormat::Markdown;
     let markdown = export_text(&dir, &options);
-    assert!(markdown.contains("| git tag v2.4.0 |"), "{markdown}");
+    assert!(markdown.contains("| powershell |"), "{markdown}");
+    assert!(!markdown.contains("git tag"), "{markdown}");
     assert!(!markdown.contains("**Arguments:**"), "{markdown}");
 }

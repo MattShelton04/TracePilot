@@ -80,7 +80,9 @@ fn collapse_subagent_internals(turn: &mut ConversationTurn, subagent_ids: &HashS
     turn.agent_messages.clear();
 }
 
-/// Strip verbose fields from tool calls, keeping only name, status, and summaries.
+/// Strip verbose fields from tool calls, keeping name, status and the intention
+/// summary. The argument summary goes with the arguments: it is a cut of them
+/// (a command, a path, a search pattern), and this option promises none.
 ///
 /// A loaded skill's `SKILL.md` body is the skill tool's result, so it goes too,
 /// whether it rides on the tool call or on the `skill.invoked` event. Its name,
@@ -88,6 +90,7 @@ fn collapse_subagent_internals(turn: &mut ConversationTurn, subagent_ids: &HashS
 fn strip_tool_details(turn: &mut ConversationTurn) {
     for tc in &mut turn.tool_calls {
         tc.arguments = None;
+        tc.args_summary = None;
         tc.result_content = None;
         if let Some(skill) = &mut tc.skill_invocation {
             skill.content = None;
@@ -350,10 +353,10 @@ mod tests {
                 tc.result_content.is_none(),
                 "result_content should be stripped"
             );
-            // Summaries should be preserved
+            assert!(tc.args_summary.is_none(), "args_summary should be stripped");
+            // The intention summary is preserved
             if tc.tool_name == "read_file" {
                 assert_eq!(tc.intention_summary.as_deref(), Some("Read foo.rs"));
-                assert_eq!(tc.args_summary.as_deref(), Some("path: foo.rs"));
             }
         }
     }

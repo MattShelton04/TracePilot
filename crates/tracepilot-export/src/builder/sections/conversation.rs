@@ -44,12 +44,11 @@ pub(in crate::builder) fn build_conversation(
 /// (a command, a path, a search pattern), which renderers fall back to when a
 /// call has no intention summary.
 ///
-/// It is built from the arguments before any content filter drops them, so a
-/// "no tool details" export keeps the summary as it keeps the intention
-/// summary. When redaction is on, it summarizes redacted arguments: a summary
-/// cuts long commands short, and a cut through a secret or path could leave a
-/// fragment its pattern no longer matches. Redaction still runs over the
-/// summary afterwards like every other field.
+/// A "no tool details" export drops the summary with the arguments, in the
+/// content filter. When redaction is on, it summarizes redacted arguments: a
+/// summary cuts long commands short, and a cut through a secret or path could
+/// leave a fragment its pattern no longer matches. Redaction still runs over
+/// the summary afterwards like every other field.
 fn fill_args_summaries(turns: &mut [ConversationTurn], redaction: &RedactionOptions) {
     let patterns = collect_active_patterns(redaction);
     for tc in turns.iter_mut().flat_map(|turn| turn.tool_calls.iter_mut()) {

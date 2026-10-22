@@ -25,18 +25,20 @@ pub struct RedactionPattern {
 // ── Path Patterns ───────────────────────────────────────────────────────────
 
 /// A drive-letter path, written with `\`, with `\\` as JSON or a shell escapes
-/// it, or with `/`. The drive letter must start a word, so URL schemes
-/// (`https://`) and `a:b` labels don't match, and a separator must follow the
-/// colon, so "the C: drive" doesn't either. A literal `\n`, `\r` or `\t`
-/// escape also starts a word, as in JSON text inside a tool result. The `pre`
-/// group keeps the character before the path, since the regex crate has no
-/// look-behind.
+/// it, or with `/`. A separator must follow the colon, so "the C: drive" and
+/// `a:b` labels don't match.
 ///
-/// A folder name may hold single spaces (`John Smith\`) when the separator the
-/// path started with closes it, so prose after a path isn't swallowed up to
-/// the next slash. The last name takes further words only when they start with
-/// a capital or a digit, so `C:\Users\John Smith` is covered while
-/// "C:\src\a.rs and more" keeps its prose.
+/// A `\` path may start anywhere, so one glued to a switch (`-oC:\out`,
+/// `-IC:\include`, `/FoC:\build\`) or to a literal `\n` escape is still
+/// covered. A `/` path must start a word, so URL schemes (`https://`) don't
+/// match while `file:///D:/notes.md` does.
+///
+/// A folder name may hold single spaces (`John Smith\`) when a separator closes
+/// it, so prose after a path isn't swallowed up to the next slash. The last
+/// name takes further words only when they start with an uppercase letter (in
+/// any script) or a digit and run on past it, so `C:\Users\John Smith` and
+/// `C:\Users\Ali Ünal` are covered, "C:\src\a.rs and more" keeps its prose,
+/// and a following ` D:\…` path is left to a match of its own.
 ///
 /// Names stop at `;` too, so each entry of a `PATH`-style list is its own match.
 static WINDOWS_PATH: Lazy<Regex> = Lazy::new(|| {
@@ -46,30 +48,42 @@ static WINDOWS_PATH: Lazy<Regex> = Lazy::new(|| {
             r#"[^\s\\/:;*?"<>|]"#
         };
     }
+    // Folders: spaced names must end in the path's own separator, and plain
+    // names may end in either.
+    macro_rules! folders {
+        ($sep:literal) => {
+            concat!(
+                "(?:",
+                name_char!(),
+                "+(?: ",
+                name_char!(),
+                "+)*",
+                $sep,
+                "+|",
+                name_char!(),
+                r"+[\\/]+)*"
+            )
+        };
+    }
+    // The last name, with further words that start uppercase or with a digit.
+    macro_rules! last_name {
+        () => {
+            concat!(
+                "(?:",
+                name_char!(),
+                r"+(?: [\p{Lu}0-9]",
+                name_char!(),
+                "+)*)?"
+            )
+        };
+    }
     static_regex(concat!(
-        r#"(?P<pre>^|\\[nrt]|[^A-Za-z0-9_])[A-Za-z]:(?:"#,
-        // `\` paths: spaced folder names must end in `\`.
-        r#"\\+(?:"#,
-        name_char!(),
-        r#"+(?: "#,
-        name_char!(),
-        r#"+)*\\+|"#,
-        name_char!(),
-        r#"+[\\/]+)*"#,
-        // `/` paths: spaced folder names must end in `/`.
-        r#"|/+(?:"#,
-        name_char!(),
-        r#"+(?: "#,
-        name_char!(),
-        r#"+)*/+|"#,
-        name_char!(),
-        r#"+[\\/]+)*"#,
-        // The last name, with capitalized words after a space.
-        r#")(?:"#,
-        name_char!(),
-        r#"+(?: [A-Z0-9]"#,
-        name_char!(),
-        r#"*)*)?"#,
+        r"[A-Za-z]:\\+",
+        folders!(r"\\"),
+        last_name!(),
+        r"|\b[A-Za-z]:/",
+        folders!("/"),
+        last_name!(),
     ))
 });
 
@@ -84,7 +98,7 @@ pub static PATH_PATTERNS: &[RedactionPattern] = &[
     RedactionPattern {
         name: "windows_path",
         regex: &WINDOWS_PATH,
-        replacement: "${pre}<REDACTED_PATH>",
+        replacement: "<REDACTED_PATH>",
     },
     RedactionPattern {
         name: "unix_home_path",
@@ -244,6 +258,35 @@ mod tests {
                 r#"{"out":"done\n<REDACTED_PATH>","err":"\r\n<REDACTED_PATH>"}"#,
             ),
             (r"C:\a.ts;D:\b.ts", "<REDACTED_PATH>;<REDACTED_PATH>"),
+            // Two paths separated by a space each get their own match.
+            (
+                r"copy C:\Users\matt\a.txt D:\Users\matt\b.txt",
+                "copy <REDACTED_PATH> <REDACTED_PATH>",
+            ),
+            (
+                r#""copy C:\\Users\\matt\\a.txt D:\\Users\\matt\\b.txt""#,
+                r#""copy <REDACTED_PATH> <REDACTED_PATH>""#,
+            ),
+            (
+                r"fc C:\a.txt C:\Users\matt\b.txt",
+                "fc <REDACTED_PATH> <REDACTED_PATH>",
+            ),
+            (
+                r"Moved C:\Users\matt\a.txt To C:\Users\matt\b.txt",
+                "Moved <REDACTED_PATH> <REDACTED_PATH>",
+            ),
+            // Glued to a command-line switch.
+            (
+                r"7z x a.zip -oC:\Users\matt\out -y",
+                "7z x a.zip -o<REDACTED_PATH> -y",
+            ),
+            (r"gcc -IC:\Users\matt\include", "gcc -I<REDACTED_PATH>"),
+            (
+                r"cl /FoC:\Users\matt\build\ a.c",
+                "cl /Fo<REDACTED_PATH> a.c",
+            ),
+            // A trailing user name that starts with a non-ASCII capital.
+            (r"cwd: C:\Users\Ali Ünal", "cwd: <REDACTED_PATH>"),
         ];
         for (input, expected) in cases {
             assert_eq!(redact_paths(input), expected, "input: {input}");
