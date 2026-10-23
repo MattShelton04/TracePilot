@@ -12,6 +12,7 @@
 | Repository | user/repo |
 | Branch | main |
 | Working Directory | `/test/project` |
+| Host Type | cli |
 | Created | 2026-03-10T07:14:50Z |
 | Updated | 2026-03-10T07:15:00Z |
 | Events | 8 |

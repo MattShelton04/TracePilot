@@ -9,7 +9,11 @@
 | Field | Value |
 |-------|-------|
 | ID | `00000000-0000-4000-8000-000000000003` |
+| Repository | org/project |
+| Branch | feature-x |
 | Working Directory | `/test/project` |
+| Host Type | vscode |
+| Updated | 2026-03-10T07:14:51Z |
 | Events | 2 |
 | Turns | 1 |
 

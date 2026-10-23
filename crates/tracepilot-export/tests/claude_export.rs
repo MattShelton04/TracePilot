@@ -636,3 +636,49 @@ fn a_later_request_record_type_keeps_its_body_out_of_exports() {
     );
     assert!(!output.contains("PRIVATE-FUTURE"), "its body leaked");
 }
+
+/// Tool calls are named as the app's conversation names them: by Claude
+/// Code's own tool name, not the canonical name analytics group by.
+#[test]
+fn markdown_names_tools_by_their_native_name() {
+    let files = tracepilot_test_support::claude_scenarios::tool_catalog();
+    let output = export_markdown(&files);
+
+    for (native, canonical) in [
+        ("Bash", "powershell"),
+        ("Read", "view"),
+        ("Edit", "edit"),
+        ("Write", "create"),
+        ("MultiEdit", "apply_patch"),
+        ("TaskStop", "stop_agent"),
+        ("KillShell", "stop_powershell"),
+    ] {
+        assert!(
+            output.contains(&format!("| {native} | ")),
+            "{native}: {output}"
+        );
+        assert!(
+            output.contains(&format!("#### 🔧 {native}\n")),
+            "{native}: {output}"
+        );
+        assert!(
+            !output.contains(&format!("| {canonical} | ")),
+            "{canonical}: {output}"
+        );
+        assert!(
+            !output.contains(&format!("#### 🔧 {canonical}\n")),
+            "{canonical}: {output}"
+        );
+    }
+
+    // JSON keeps both names, as the app receives them.
+    let json: SessionArchive =
+        serde_json::from_str(&export_as(&files, ExportFormat::Json)).unwrap();
+    let turns = json.sessions[0].conversation.as_ref().unwrap();
+    let read = turns
+        .iter()
+        .flat_map(|turn| &turn.tool_calls)
+        .find(|c| c.tool_name == "view")
+        .unwrap();
+    assert_eq!(read.native_tool_name.as_deref(), Some("Read"));
+}
