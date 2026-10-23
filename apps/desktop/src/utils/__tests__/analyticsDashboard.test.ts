@@ -361,6 +361,17 @@ describe("shares", () => {
     expect(formatShare(42.6)).toBe("43%");
     expect(formatShare(0)).toBe("0%");
   });
+
+  it("never shows nearly all as 100%, and carries 0.96% to 1%", () => {
+    expect(formatShare(0.96)).toBe("1%");
+    expect(formatShare(98.6)).toBe("99%");
+    expect(formatShare(99.02)).toBe("99%");
+    expect(formatShare(99.6)).toBe("99.6%");
+    expect(formatShare(99.9)).toBe("99.9%");
+    expect(formatShare(99.96)).toBe(">99.9%");
+    expect(formatShare(100)).toBe("100%");
+    expect(formatShare(130)).toBe("130%");
+  });
 });
 
 describe("dashboard view choices", () => {

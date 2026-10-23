@@ -207,16 +207,23 @@ export function formatCellCount(n: number): string {
 /** One call's time, to a whole millisecond or a tenth of a second: `132ms`, `6.6s`, `2m 5s`. */
 export function formatCallTime(ms: number): string {
   if (ms <= 0) return "0ms";
-  if (ms < 1_000) return `${Math.round(ms)}ms`;
-  if (ms < 60_000) return `${(ms / 1_000).toFixed(1)}s`;
+  // Each unit is chosen after rounding, so 999.6ms reads "1.0s" and 59.96s "1m 0s".
+  const whole = Math.round(ms);
+  if (whole < 1_000) return `${whole}ms`;
+  const seconds = (ms / 1_000).toFixed(1);
+  if (Number(seconds) < 60) return `${seconds}s`;
   return formatDuration(ms);
 }
 
 /** Summed tool time, short for columns and axes: `45s`, `48m`, `1.5h`, `908h`. */
 export function formatToolTime(ms: number): string {
-  if (ms < 1_000) return formatCallTime(ms);
-  if (ms < 60_000) return `${Math.round(ms / 1_000)}s`;
-  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+  if (Math.round(ms) < 1_000) return formatCallTime(ms);
+  // Each unit is chosen after rounding, so 59.6s reads "1m", 59.5m "1.0h" and 9.99h "10h".
+  const seconds = Math.round(ms / 1_000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes}m`;
   const hours = ms / 3_600_000;
-  return hours < 10 ? `${hours.toFixed(1)}h` : `${formatNumberFull(Math.round(hours))}h`;
+  const tenths = hours.toFixed(1);
+  return Number(tenths) < 10 ? `${tenths}h` : `${formatNumberFull(Math.round(hours))}h`;
 }

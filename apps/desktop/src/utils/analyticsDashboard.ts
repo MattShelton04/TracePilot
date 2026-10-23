@@ -490,10 +490,11 @@ export function durationStrip(stats: ApiDurationStats, widthPx = 800): StripMark
   });
 }
 
-/** Share as text, so a sliver reads `<0.1%` rather than `0%`. */
+/** Share as text: within a point of none or all it keeps a tenth (`<0.1%`, `0.4%`, `99.6%`, `>99.9%`), never `0%` or `100%`. */
 export function formatShare(percent: number): string {
   if (!Number.isFinite(percent) || percent <= 0) return "0%";
-  if (percent < 0.1) return "<0.1%";
-  if (percent < 1) return `${percent.toFixed(1)}%`;
-  return `${Math.round(percent)}%`;
+  if (percent < 0.1 || (percent > 99.9 && percent < 100)) return percent < 1 ? "<0.1%" : ">99.9%";
+  const tenths = percent.toFixed(1); // 0.96 and 99.02 round to whole points: "1%", "99%"
+  const near = percent < 1 || (percent > 99 && percent < 100);
+  return near && tenths !== "1.0" && tenths !== "99.0" ? `${tenths}%` : `${Math.round(percent)}%`;
 }

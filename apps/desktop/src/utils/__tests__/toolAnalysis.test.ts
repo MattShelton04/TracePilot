@@ -194,4 +194,17 @@ describe("time formats", () => {
     expect(formatToolTime(5_400_000)).toBe("1.5h");
     expect(formatToolTime(3_268_000_000)).toBe("908h");
   });
+
+  it("carries a time that rounds up into the next unit", () => {
+    expect(formatCallTime(999.4)).toBe("999ms");
+    expect(formatCallTime(999.6)).toBe("1.0s");
+    expect(formatCallTime(59_940)).toBe("59.9s");
+    expect(formatCallTime(59_960)).toBe("1m 0s");
+    expect(formatToolTime(999.6)).toBe("1s");
+    expect(formatToolTime(59_400)).toBe("59s");
+    expect(formatToolTime(59_600)).toBe("1m");
+    expect(formatToolTime(3_570_000)).toBe("1.0h");
+    expect(formatToolTime(35_639_000)).toBe("9.9h");
+    expect(formatToolTime(35_999_000)).toBe("10h");
+  });
 });

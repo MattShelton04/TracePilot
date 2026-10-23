@@ -235,9 +235,12 @@ export function buildDashboardSummary(payload: AnalyticsData, pricing: Pricing):
 
 /** A dashboard cost in USD, compact once it reaches the hundreds; below a cent, `< $0.01`. */
 export function formatDashboardCost(value: number): string {
-  if (value >= 10_000) return `$${formatNumber(value)}`;
-  if (value >= 100) return `$${Math.round(value).toLocaleString("en-US")}`;
-  return formatUsd(value);
+  // Tiers are chosen after rounding, so $99.996 reads "$100" and $9,999.60 "$10K".
+  const dollars = Math.round(value);
+  if (dollars >= 10_000) return `$${formatNumber(value)}`;
+  const cents = formatUsd(value);
+  if (value >= 100 || cents === "$100.00") return `$${dollars.toLocaleString("en-US")}`;
+  return cents;
 }
 
 /** `1 session`, `1,204 sessions`: a whole count and its noun. */
