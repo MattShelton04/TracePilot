@@ -1,10 +1,11 @@
+import { getSessionEvents } from "@tracepilot/client";
 import type { ConversationTurn } from "@tracepilot/types";
 import {
   LIVE_TOOL_PARTIAL_OUTPUT_KEY,
   useConversationSections,
   useToggleSet,
 } from "@tracepilot/ui";
-import { computed, nextTick, provide, type Ref, watch } from "vue";
+import { computed, nextTick, onScopeDispose, provide, type Ref, watch } from "vue";
 import { type OrderedTurnContent, orderTurnContent } from "@/components/conversation/chatViewUtils";
 import {
   type PermissionPair,
@@ -39,6 +40,9 @@ const EMPTY_PERMISSION_DATA: TurnPermissionData = {
   entries: [],
   permissionByToolCallId: new Map(),
 };
+
+/** How long a revealed tool call stays centred while its details render. */
+const REVEAL_FOLLOW_MS = 2000;
 
 function buildTurnRenderData(turn: ConversationTurn): TurnRenderData {
   return orderTurnContent(turn);
@@ -252,9 +256,119 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
     return null;
   }
 
+  /** The main-agent tool call that starts at `eventIndex`, if any. */
+  function mainToolCallAt(turnIndex: number, eventIndex: number) {
+    const turn = turns.value.find((t) => t.turnIndex === turnIndex);
+    const tc = turn?.toolCalls.find((t) => t.eventIndex === eventIndex);
+    if (!turn || !tc || findOwningSubagent(turnIndex, eventIndex)) return null;
+    return { turn, tc };
+  }
+
+  /**
+   * A search hit in a tool's result or error points at its completion event,
+   * which has no row of its own: resolve it to the call it completes.
+   */
+  async function toolCallCompletedAt(eventIndex: number) {
+    const sessionId = store.sessionId;
+    if (!sessionId) return null;
+    const { events } = await getSessionEvents(sessionId, eventIndex, 1);
+    const event = events[0];
+    if (event?.eventType !== "tool.execution_complete") return null;
+    const id = event.data?.toolCallId;
+    const turnIndex = typeof id === "string" ? toolCallTurnIndex.value.get(id) : undefined;
+    if (turnIndex == null) return null;
+    const tc = turns.value
+      .find((t) => t.turnIndex === turnIndex)
+      ?.toolCalls.find((t) => t.toolCallId === id);
+    return tc?.eventIndex != null ? { turnIndex, eventIndex: tc.eventIndex } : null;
+  }
+
+  /** No row carries this event, but a tool call in the turn started before it. */
+  function mayCompleteToolCall(turnIndex: number, eventIndex: number): boolean {
+    const root = rootEl.value;
+    if (!root || root.querySelector(`[data-event-idx="${eventIndex}"]`)) return false;
+    const calls = turns.value.find((t) => t.turnIndex === turnIndex)?.toolCalls ?? [];
+    if (calls.some((t) => t.eventIndex === eventIndex)) return false;
+    return calls.some((t) => t.eventIndex != null && t.eventIndex < eventIndex);
+  }
+
+  let revealRequest = 0;
+  let stopFollowingReveal: (() => void) | null = null;
+  onScopeDispose(() => stopFollowingReveal?.());
+
+  /**
+   * Centre a just-opened tool call, and keep it there while its details
+   * finish rendering. When the session view has just been shown, a smooth
+   * scroll is clamped to the scroll range of the previous frame, and on a cold
+   * load the details then grow (lazily loaded result renderers): either way
+   * one scroll stops short, leaving the matched output below the fold. So
+   * re-centre when the call grows or a scroll ends, until a moment passes or
+   * the user acts. A call taller than half the window centres its header, so
+   * its top (and an error shown there) stays in view.
+   */
+  function centreOpenedToolCall(target: HTMLElement) {
+    const recentre = () => {
+      const header = target.firstElementChild;
+      const tall = target.getBoundingClientRect().height > window.innerHeight / 2;
+      const anchor = tall && header instanceof HTMLElement ? header : target;
+      anchor.scrollIntoView({ behavior: revealScrollBehavior(anchor), block: "center" });
+    };
+    recentre();
+    let height = target.getBoundingClientRect().height;
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            const next = target.getBoundingClientRect().height;
+            if (next === height) return;
+            height = next;
+            recentre();
+          });
+    const onScrollEnd = (event: Event) => {
+      if (event.target instanceof Node && event.target.contains(target)) recentre();
+    };
+    const userInput = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+    const stop = () => {
+      observer?.disconnect();
+      clearTimeout(timer);
+      document.removeEventListener("scrollend", onScrollEnd, true);
+      for (const type of userInput) window.removeEventListener(type, stop, true);
+      if (stopFollowingReveal === stop) stopFollowingReveal = null;
+    };
+    const timer = setTimeout(stop, REVEAL_FOLLOW_MS);
+    document.addEventListener("scrollend", onScrollEnd, true);
+    for (const type of userInput)
+      window.addEventListener(type, stop, { capture: true, passive: true });
+    observer?.observe(target);
+    stopFollowingReveal = stop;
+  }
+
   function revealEvent(turnIndex: number, eventIndex?: number) {
+    const request = ++revealRequest;
+    stopFollowingReveal?.();
+    if (eventIndex == null || !mayCompleteToolCall(turnIndex, eventIndex)) {
+      revealTarget(turnIndex, eventIndex);
+      return;
+    }
+    const sessionId = store.sessionId;
+    toolCallCompletedAt(eventIndex)
+      .catch(() => null)
+      .then((call) => {
+        if (request !== revealRequest || store.sessionId !== sessionId) return;
+        revealTarget(call?.turnIndex ?? turnIndex, call?.eventIndex ?? eventIndex);
+      });
+  }
+
+  function revealTarget(turnIndex: number, eventIndex?: number) {
     const root = rootEl.value;
     if (!root) return;
+
+    // Open the targeted tool's details so the matched text is on screen.
+    const call = eventIndex != null ? mainToolCallAt(turnIndex, eventIndex) : null;
+    if (call) {
+      const key = `${turnIndex}-${findToolCallIndex(call.turn, call.tc)}`;
+      if (!expandedToolDetails.has(key)) expandedToolDetails.add(key);
+    }
 
     const elId =
       eventIndex != null ? `[data-event-idx="${eventIndex}"]` : `[data-turn-idx="${turnIndex}"]`;
@@ -296,8 +410,10 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
     }
 
     const target = el;
+    const opensDetails = call != null && target.matches(elId);
     nextTick(() => {
-      target.scrollIntoView({ behavior: revealScrollBehavior(target), block: "center" });
+      if (opensDetails) centreOpenedToolCall(target);
+      else target.scrollIntoView({ behavior: revealScrollBehavior(target), block: "center" });
       target.classList.add("cv-highlight");
       setTimeout(() => target.classList.remove("cv-highlight"), 4000);
     });

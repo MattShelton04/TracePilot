@@ -447,6 +447,40 @@ fn fts_integrity_check_reports_index_diverging_from_content() {
     assert!(result.starts_with("Integrity check failed"), "{result}");
 }
 
+#[test]
+fn result_context_includes_rows_from_the_hits_own_event() {
+    // An assistant message writes its reply and its reasoning under one
+    // event index; each is the other's neighbour.
+    let temp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
+    db.conn
+        .execute_batch(
+            "INSERT INTO sessions(id, path, search_indexed_at) VALUES ('s1', 'synthetic', '2026-01-01');
+             INSERT INTO search_content(id, session_id, content_type, event_index, content) VALUES
+                 (1, 's1', 'user_message', 3, 'question'),
+                 (2, 's1', 'assistant_message', 5, 'reply'),
+                 (3, 's1', 'reasoning', 5, 'thought'),
+                 (4, 's1', 'tool_call', 7, 'call');",
+        )
+        .unwrap();
+    let previews = |rows: Vec<super::ContextSnippet>| -> Vec<String> {
+        rows.into_iter().map(|row| row.preview).collect()
+    };
+
+    let (before, after) = db.get_result_context(3, 5).unwrap();
+    assert_eq!(previews(before), ["question", "reply"]);
+    assert_eq!(previews(after), ["call"]);
+
+    let (before, after) = db.get_result_context(2, 5).unwrap();
+    assert_eq!(previews(before), ["question"]);
+    assert_eq!(previews(after), ["thought", "call"]);
+
+    // The radius counts rows, nearest first.
+    let (before, after) = db.get_result_context(3, 1).unwrap();
+    assert_eq!(previews(before), ["reply"]);
+    assert_eq!(previews(after), ["call"]);
+}
+
 /// `filters.repositories` as plain repositories, for SQL-shape tests.
 fn plain(filters: &SearchFilters) -> Option<crate::index_db::helpers::RepositoryScope> {
     (!filters.repositories.is_empty())

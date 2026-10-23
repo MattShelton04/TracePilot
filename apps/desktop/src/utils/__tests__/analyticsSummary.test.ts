@@ -19,6 +19,15 @@ describe("analytics summary formatting", () => {
     expect(formatDashboardCost(1.25)).toBe("$1.25");
   });
 
+  it("reads a cost that rounds up to the next tier in that tier", () => {
+    expect(formatDashboardCost(99.99)).toBe("$99.99");
+    expect(formatDashboardCost(99.996)).toBe("$100");
+    expect(formatDashboardCost(100)).toBe("$100");
+    expect(formatDashboardCost(9_999.4)).toBe("$9,999");
+    expect(formatDashboardCost(9_999.6)).toBe("$10K");
+    expect(formatDashboardCost(10_000)).toBe("$10K");
+  });
+
   it("prices a Claude Code model below a cent as < $0.01", () => {
     const data: AnalyticsData = {
       ...FIXTURE_ANALYTICS,

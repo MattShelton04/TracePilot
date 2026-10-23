@@ -134,6 +134,36 @@ fn session_events_before_the_turn_come_before_its_work() {
     assert_eq!(text.matches("**session.start**").count(), 1, "{text}");
 }
 
+/// A multi-line session error stays in its blockquote: a blank line or a `#`
+/// line in the message can't end the quote or start a document heading.
+#[test]
+fn multi_line_session_events_stay_in_their_quote() {
+    let mut turn = simple_turn(0, "Ship it", "Shipping", None);
+    turn.session_events = vec![TurnSessionEvent {
+        event_type: "session.error".into(),
+        timestamp: None,
+        severity: SessionEventSeverity::Error,
+        summary: "Request failed\n\n# Retry later\nstatus 529".into(),
+        checkpoint_number: None,
+        request_id: None,
+        tool_call_id: None,
+        prompt_kind: None,
+        result_kind: None,
+        resolved_by_hook: None,
+        skill_invocation: None,
+    }];
+
+    let text = render_turn(turn);
+
+    assert!(
+        text.contains(
+            "> 🔴 **session.error**: Request failed\n>\n> # Retry later\n> status 529\n\n"
+        ),
+        "{text}"
+    );
+    assert!(!text.lines().any(|line| line == "# Retry later"), "{text}");
+}
+
 #[test]
 fn events_summary_orders_ties_by_name() {
     let raw = |event_type: &str| RawEvent {

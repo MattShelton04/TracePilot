@@ -85,6 +85,9 @@ pub struct TurnReconstructor {
     /// A `session.resume` row can absorb the next resume: no user, assistant
     /// or tool event has happened since it was recorded.
     pub(crate) resume_row_open: bool,
+    /// While the open turn is a slash command the model has not answered:
+    /// the log positions of the system messages it printed since (its output).
+    pub(crate) local_command_output: Option<Vec<usize>>,
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +129,7 @@ impl TurnReconstructor {
             pending_system_messages_ts: None,
             pending_skill_invocations: HashMap::new(),
             resume_row_open: false,
+            local_command_output: None,
         }
     }
 
@@ -139,6 +143,13 @@ impl TurnReconstructor {
             .any(|prefix| kind.starts_with(prefix))
         {
             self.resume_row_open = false;
+        }
+        if ["assistant.", "tool.", "subagent."]
+            .iter()
+            .any(|prefix| kind.starts_with(prefix))
+        {
+            // The model answered, so the open turn is no local command.
+            self.local_command_output = None;
         }
         // A subagent has its own conversation loop. Its prompts, boundaries and
         // system prompt must never close, replace or seed the main conversation
@@ -256,7 +267,7 @@ impl TurnReconstructor {
                 turn.usage.get_or_insert_with(Default::default).add(data);
             }
             (SessionEventType::Abort, TypedEventData::Abort(_data)) => {
-                self.finalize_current_turn(false, event.raw.timestamp);
+                self.finalize_aborted_turn(event.raw.timestamp);
             }
             (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(data)) => {
                 self.handle_assistant_reasoning(event, event_index, data);
@@ -292,7 +303,7 @@ impl TurnReconstructor {
                 self.handle_session_resume(event, data);
             }
             (SessionEventType::SystemMessage, TypedEventData::SystemMessage(data)) => {
-                self.handle_system_message(event, data);
+                self.handle_system_message(event, event_index, data);
             }
             (SessionEventType::SystemNotification, TypedEventData::SystemNotification(data)) => {
                 self.handle_system_notification(event, data);
@@ -341,8 +352,10 @@ impl TurnReconstructor {
         if !self.pending_session_events.is_empty() || !self.pending_system_messages.is_empty() {
             if let Some(last) = self.turns.last_mut() {
                 last.session_events.append(&mut self.pending_session_events);
+                // A command's output stays the turn's trailing system messages.
+                let at = last.system_messages.len() - last.command_output_event_indices.len();
                 last.system_messages
-                    .append(&mut self.pending_system_messages);
+                    .splice(at..at, self.pending_system_messages.drain(..));
             } else {
                 let ts = self
                     .pending_session_events

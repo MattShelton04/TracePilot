@@ -31,7 +31,15 @@ pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
         if let Some(desc) = &item.description
             && !desc.is_empty()
         {
-            md.push_line(format_args!("  {}", desc));
+            // Every line is indented under the item, so a multi-line
+            // description stays in the list.
+            for line in desc.lines() {
+                if line.trim().is_empty() {
+                    md.push('\n');
+                } else {
+                    md.push_line(format_args!("  {line}"));
+                }
+            }
         }
     }
 

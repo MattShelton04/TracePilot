@@ -1,18 +1,21 @@
 //! Header, metadata-table and plan section writers.
 
-use tracepilot_core::utils::InfallibleWrite;
+use tracepilot_core::utils::{InfallibleWrite, truncate_utf8};
 
 use crate::document::{PortableSession, PortableSessionMetadata, SessionArchive, SessionSource};
 
 use super::{cell, format_dt, push_nested_markdown};
+
+/// Longest title written in the H1, in bytes, before it is cut with `…`.
+const MAX_TITLE_BYTES: usize = 120;
 
 pub(super) fn write_header(md: &mut String, session: &PortableSession, archive: &SessionArchive) {
     let title = session
         .metadata
         .summary
         .as_deref()
-        .filter(|s| !s.is_empty())
-        .unwrap_or(&session.metadata.id);
+        .and_then(title_of)
+        .unwrap_or_else(|| session.metadata.id.clone());
 
     md.push_line(format_args!("# Session: {}", title));
     md.push('\n');
@@ -27,6 +30,22 @@ pub(super) fn write_header(md: &mut String, session: &PortableSession, archive: 
         "> Get [TracePilot](https://github.com/MattShelton04/TracePilot)"
     ));
     md.push('\n');
+}
+
+/// The summary's first non-empty line, trimmed and cut to
+/// [`MAX_TITLE_BYTES`], with `…` when anything was left out. An untitled
+/// Claude Code session's summary is its whole first prompt, whose later
+/// lines (headings, lists) would otherwise land in the header.
+fn title_of(summary: &str) -> Option<String> {
+    let mut lines = summary.lines().map(str::trim).skip_while(|l| l.is_empty());
+    let first = lines.next()?;
+    let more = lines.any(|line| !line.is_empty());
+    let title = truncate_utf8(first, MAX_TITLE_BYTES).trim_end();
+    if more || title.len() < first.len() {
+        Some(format!("{title}…"))
+    } else {
+        Some(title.to_string())
+    }
 }
 
 pub(super) fn write_metadata(md: &mut String, meta: &PortableSessionMetadata) {

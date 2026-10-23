@@ -7,12 +7,16 @@ import {
   useMainAgentLabel,
   type useToggleSet,
 } from "@tracepilot/ui";
-import { Bot } from "lucide-vue-next";
+import { Bot, SquareTerminal } from "lucide-vue-next";
 import { computed } from "vue";
 import MessageCopyButton from "@/components/conversation/chat/MessageCopyButton.vue";
 import SubagentGroupSegment from "@/components/conversation/chat/SubagentGroupSegment.vue";
 import ToolGroupSegment from "@/components/conversation/chat/ToolGroupSegment.vue";
-import type { OrderedTurnContent, ToolSegment } from "@/components/conversation/chatViewUtils";
+import {
+  getCommandOutput,
+  type OrderedTurnContent,
+  type ToolSegment,
+} from "@/components/conversation/chatViewUtils";
 import type { PermissionPair } from "@/components/conversation/sessionEventPairing";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -75,6 +79,8 @@ const items = computed<TurnItem[]>(() => {
   });
 });
 
+const commandOutput = computed(() => getCommandOutput(props.turn));
+
 function tcProps(tc: TurnToolCall) {
   const idx = props.findToolCallIndex(props.turn, tc);
   const key = `${props.turn.turnIndex}-${idx}`;
@@ -108,6 +114,21 @@ function toggleToolDetail(tc: TurnToolCall) {
     :data-turn-idx="turn.turnIndex"
     :style="turnColor ? { borderLeft: `3px solid ${turnColor}`, paddingLeft: '12px' } : {}"
   >
+    <!-- Output of a slash command that ran without the model (Claude Code /model, /cost) -->
+    <div
+      v-for="output in commandOutput"
+      :key="`output-${turn.turnIndex}-${output.eventIndex}`"
+      class="cv-command-output cv-msg-copy-host"
+      :data-event-idx="output.eventIndex"
+    >
+      <div class="cv-command-output-header">
+        <SquareTerminal :size="14" aria-hidden="true" />
+        <span>Output</span>
+        <MessageCopyButton :text="output.content" label="Copy output" />
+      </div>
+      <pre class="cv-command-output-text">{{ output.content }}</pre>
+    </div>
+
     <!-- Main reasoning, replies and tool segments, in the order they happened -->
     <template v-for="item in items" :key="`${item.kind}-${turn.turnIndex}-${item.index}`">
       <ReasoningBlock
@@ -248,6 +269,40 @@ function toggleToolDetail(tc: TurnToolCall) {
 /* The copy button sits at the far end of the header. */
 .cv-agent-bubble-header .cv-msg-copy {
   margin-left: auto;
+}
+
+/* ─── Command output ───────────────────────────────────────────── */
+
+.cv-command-output {
+  border: 1px solid var(--border-muted);
+  background: var(--canvas-inset);
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+
+.cv-command-output-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.cv-command-output-header .cv-msg-copy {
+  margin-left: auto;
+}
+
+.cv-command-output-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* ─── Subagent completion pill ─────────────────────────────────── */

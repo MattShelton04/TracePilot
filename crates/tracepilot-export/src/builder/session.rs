@@ -90,6 +90,8 @@ pub(super) fn build_portable_session(
     let parse_diagnostics = build_parse_diagnostics(
         options,
         diagnostics.as_ref(),
+        // Copilot's event parser is its format report.
+        None,
         typed_events.as_ref().map(|e| e.len()).unwrap_or(0),
         &mut available_sections,
     );

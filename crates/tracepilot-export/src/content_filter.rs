@@ -258,6 +258,7 @@ mod tests {
             attachments: None,
             session_events: vec![],
             system_messages: vec![],
+            command_output_event_indices: Vec::new(),
             agent_messages: vec![],
             reasoning_effort: None,
             user_message_delivery: None,

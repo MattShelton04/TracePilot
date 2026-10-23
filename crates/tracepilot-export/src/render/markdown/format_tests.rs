@@ -1,5 +1,6 @@
-//! Markdown export fidelity: nested plan and checkpoint headings, and
-//! durations and token labels as the app shows them.
+//! Markdown export fidelity: nested plan and checkpoint headings, durations
+//! and token labels as the app shows them, and multi-line text (the title,
+//! todo descriptions) that keeps the document's structure.
 
 use super::{MarkdownRenderer, format_duration};
 use crate::document::*;
@@ -111,7 +112,9 @@ fn durations_match_the_apps_format_duration() {
         (1750, "1.8s"),
         (2050, "2s"),
         (59949, "59.9s"),
-        (59950, "60s"),
+        // Rounds up to a whole minute, which reads as one.
+        (59950, "1m 0s"),
+        (59999, "1m 0s"),
         (60000, "1m 0s"),
         (61500, "1m 1s"),
         (183245, "3m 3s"),
@@ -169,5 +172,70 @@ fn model_usage_marks_unknown_token_counts() {
     assert!(
         text.contains("| snapshot-only | — | — | — | — | — | — |"),
         "{text}"
+    );
+}
+
+/// A todo's multi-line description stays inside its list item: every line is
+/// indented under the item, so a `#` line can't become a document heading.
+#[test]
+fn multi_line_todo_descriptions_stay_in_their_item() {
+    let mut session = minimal_session();
+    session.todos = Some(TodoExport {
+        items: vec![TodoItemExport {
+            id: "fix".to_string(),
+            title: "Fix login".to_string(),
+            description: Some("Reproduce first\n\n# Then\n- patch it".to_string()),
+            status: "pending".to_string(),
+            created_at: None,
+            updated_at: None,
+        }],
+        deps: vec![],
+    });
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+
+    assert!(
+        text.contains("- [ ] **fix**: Fix login\n  Reproduce first\n\n  # Then\n  - patch it\n"),
+        "{text}"
+    );
+    assert!(!text.lines().any(|line| line == "# Then"), "{text}");
+}
+
+/// The H1 is the summary's first line: an untitled Claude Code session's
+/// summary is its whole first prompt, whose own headings and lists must not
+/// land in the header above the Metadata table.
+#[test]
+fn title_is_the_summarys_first_line() {
+    let title_of = |summary: &str| {
+        let mut session = minimal_session();
+        session.metadata.summary = Some(summary.to_string());
+        let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+        let text = files[0].as_text().unwrap().to_string();
+        let first = text.lines().next().unwrap().to_string();
+        (first, text)
+    };
+
+    let (title, text) = title_of("Fix the login bug\n\n## Steps\n- run tests");
+    assert_eq!(title, "# Session: Fix the login bug…");
+    assert!(!text.contains("## Steps"), "{text}");
+    assert!(!text.contains("- run tests"), "{text}");
+    assert!(text.contains("\n> Exported by ["), "{text}");
+
+    let (title, _) = title_of("\n  \n  Leading blank lines  \r\n");
+    assert_eq!(title, "# Session: Leading blank lines");
+
+    let (title, _) = title_of(&"é".repeat(300));
+    assert!(title.ends_with('…'), "{title}");
+    assert!(
+        title.chars().count() <= "# Session: ".len() + 121,
+        "{title}"
+    );
+
+    // Nothing but whitespace falls back to the id.
+    let (title, _) = title_of(" \n\t");
+    assert_eq!(
+        title,
+        format!("# Session: {}", minimal_session().metadata.id)
     );
 }

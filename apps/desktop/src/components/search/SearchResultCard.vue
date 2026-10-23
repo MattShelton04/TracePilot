@@ -30,25 +30,33 @@ function ctLookup(type: string) {
   return ctConfig[type as keyof typeof ctConfig];
 }
 
-// Contextual snippets: load lazily when expanded
+// Contextual snippets: load lazily when expanded. Expansion outlives the
+// card (paging, view-mode switches), so a card can mount already expanded.
 const contextBefore = ref<ContextSnippet[]>([]);
 const contextAfter = ref<ContextSnippet[]>([]);
-const contextLoaded = ref(false);
+let contextFor: number | null = null;
 
 watch(
-  () => props.expanded,
-  async (isExpanded) => {
-    if (isExpanded && !contextLoaded.value) {
-      try {
-        const [before, after] = await getResultContext(props.result.id, 2);
-        contextBefore.value = before;
-        contextAfter.value = after;
-        contextLoaded.value = true;
-      } catch {
-        // Allow retry on next expand — don't latch contextLoaded on failure
-      }
+  [() => props.result.id, () => props.expanded],
+  async ([id, isExpanded]) => {
+    if (contextFor !== null && contextFor !== id) {
+      contextBefore.value = [];
+      contextAfter.value = [];
+      contextFor = null;
+    }
+    if (!isExpanded || contextFor === id) return;
+    try {
+      const [before, after] = await getResultContext(id, 2);
+      // A different result may have taken this card while the request ran.
+      if (props.result.id !== id) return;
+      contextBefore.value = before;
+      contextAfter.value = after;
+      contextFor = id;
+    } catch {
+      // Allow retry on next expand — don't latch on failure
     }
   },
+  { immediate: true },
 );
 </script>
 

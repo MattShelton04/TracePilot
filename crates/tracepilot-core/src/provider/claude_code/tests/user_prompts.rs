@@ -145,3 +145,41 @@ fn mid_turn_prompts_open_steering_turns() {
     assert_eq!(attachments[0]["line"], 7);
     assert_eq!(attachments[0]["pointer"], "/attachment/prompt/0");
 }
+
+/// A local command's printed output is tagged and follows its command, which
+/// it completes. A prompt command's expansion (an `isMeta` record) is sent
+/// to the model instead: interrupted before the reply, its turn is
+/// incomplete and shows no output.
+#[test]
+fn only_printed_command_output_is_tagged_as_output() {
+    let mut main = Transcript::main();
+    main.next_prompt_id();
+    main.user(json!({"message": {"role": "user", "content":
+        "<command-name>/cost</command-name>\n<command-message>cost</command-message>\n<command-args></command-args>"}}));
+    main.user(json!({"message": {"role": "user", "content":
+        "<local-command-stderr>Error: no usage yet</local-command-stderr>"}}));
+    main.next_prompt_id();
+    main.user(json!({"message": {"role": "user", "content":
+        "<command-name>/review</command-name>\n<command-message>review</command-message>\n<command-args>57</command-args>"}}));
+    main.meta("Review pull request 57.", None);
+    main.user(json!({"message": {"role": "user", "content": "[Request interrupted by user]"}}));
+    let files = write_session(&main, &[]);
+    let parsed = parse_claude_session(&files.main, &|| false).unwrap();
+
+    let names: Vec<_> = parsed
+        .events
+        .iter()
+        .filter(|e| e.raw.event_type == "system.message")
+        .map(|e| e.raw.data.get("name").and_then(|n| n.as_str()))
+        .collect();
+    assert_eq!(names, [Some("command-output"), None]);
+    let turns = reconstruct_turns(&parsed.events);
+    let commands: Vec<_> = turns.iter().filter(|t| t.user_message.is_some()).collect();
+    assert_eq!(commands.len(), 2);
+    assert_eq!(commands[0].system_messages, ["Error: no usage yet"]);
+    assert_eq!(commands[0].command_output_event_indices.len(), 1);
+    assert!(commands[0].is_complete);
+    assert_eq!(commands[1].system_messages, ["Review pull request 57."]);
+    assert!(commands[1].command_output_event_indices.is_empty());
+    assert!(!commands[1].is_complete);
+}
