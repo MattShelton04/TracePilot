@@ -188,7 +188,7 @@ describe("RecordedRequestsPanel", () => {
       log({
         calls: Array.from({ length: count }, (_, i) => ({
           ...call,
-          timestamp: new Date(Date.parse(call.timestamp) + i * 1000).toISOString(),
+          timestamp: new Date(Date.UTC(2026, 9, 17, 0, 0, i)).toISOString(),
         })),
         totalCalls: count,
       });
