@@ -194,6 +194,10 @@ pub(super) fn format_duration(ms: u64) -> String {
     // even; the only exact ties are whole milliseconds ending in 250 or 750.
     let ms = if ms % 500 == 250 { ms + 50 } else { ms };
     let seconds = format!("{:.1}", ms as f64 / 1_000.0);
+    // One that rounds up to a whole minute reads "1m 0s", not "60s".
+    if seconds == "60.0" {
+        return "1m 0s".to_string();
+    }
     format!("{}s", seconds.strip_suffix(".0").unwrap_or(&seconds))
 }
 

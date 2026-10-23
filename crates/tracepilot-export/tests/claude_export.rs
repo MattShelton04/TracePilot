@@ -8,7 +8,7 @@ use serde_json::json;
 use tracepilot_core::SessionId;
 use tracepilot_core::provider::claude_code::ClaudeCodeProvider;
 use tracepilot_core::provider::{SessionProvider, SessionSource};
-use tracepilot_export::document::SessionArchive;
+use tracepilot_export::document::{EventParseWarning, SessionArchive};
 use tracepilot_export::import::{ImportOptions, import_sessions, preview_import};
 use tracepilot_export::options::{ExportFormat, ExportOptions, RedactionOptions};
 use tracepilot_export::{ExportInput, ProviderSession, export_inputs, preview_export_input};
@@ -216,6 +216,11 @@ fn markdown_export_names_the_source() {
 
 /// Export a session without private records to Markdown.
 fn export_markdown(files: &SessionFiles) -> String {
+    export_as(files, ExportFormat::Markdown)
+}
+
+/// Export a session without private records.
+fn export_as(files: &SessionFiles, format: ExportFormat) -> String {
     let provider = ClaudeCodeProvider::new(files.root.path());
     let locator = provider
         .resolve(&SessionId::from_validated(SESSION_ID))
@@ -228,7 +233,7 @@ fn export_markdown(files: &SessionFiles) -> String {
         snapshot: &snapshot,
         artifacts: &artifacts,
     });
-    let files = export_inputs(&[input], &ExportOptions::all(ExportFormat::Markdown)).unwrap();
+    let files = export_inputs(&[input], &ExportOptions::all(format)).unwrap();
     files[0].as_text().unwrap().to_string()
 }
 
@@ -266,6 +271,62 @@ fn markdown_metrics_keep_unknown_values_unknown() {
     assert!(row(HAIKU).starts_with(&format!("| {HAIKU} | — |")));
     assert!(row(OPUS).starts_with(&format!("| {OPUS} | 1 |")));
     assert!(!output.contains("AI Credits"), "{output}");
+}
+
+/// Parse Diagnostics counts what Settings › Session format diagnostics
+/// counts: bookkeeping records (`pr-link`, `ai-title`) and known attachments
+/// shown only on the Events tab are mapped, not unknown types.
+#[test]
+fn diagnostics_count_only_unmapped_types() {
+    let mut t = Transcript::main();
+    t.bookkeeping(json!({"type": "ai-title", "aiTitle": "Dimmer pull requests"}));
+    t.bookkeeping(json!({"type": "pr-link", "prNumber": 7, "prUrl": "https://example.com/7"}));
+    t.record(
+        "attachment",
+        json!({"attachment": {"type": "date", "date": "2026-10-17"}}),
+    );
+    t.prompt("Add a retry.");
+    t.call(
+        "msg_01",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(10, 100, 20, 5),
+        "end_turn",
+    );
+    let clean = export_markdown(&write_session(&t, &[]));
+    assert!(clean.contains("- Unknown event types: 0\n"), "{clean}");
+
+    // A type no mapping knows still counts, once per type.
+    t.bookkeeping(json!({"type": "brand-new-record"}));
+    t.bookkeeping(json!({"type": "brand-new-record"}));
+    t.record(
+        "attachment",
+        json!({"attachment": {"type": "brand_new_attachment"}}),
+    );
+    let files = write_session(&t, &[]);
+    let markdown = export_markdown(&files);
+    assert!(
+        markdown.contains("- Unknown event types: 2\n"),
+        "{markdown}"
+    );
+
+    let json = export_as(&files, ExportFormat::Json);
+    let archive: SessionArchive = serde_json::from_str(&json).unwrap();
+    let diagnostics = archive.sessions[0].parse_diagnostics.as_ref().unwrap();
+    assert_eq!(diagnostics.unknown_event_types, 2);
+    let names: Vec<&str> = diagnostics
+        .warnings
+        .iter()
+        .flatten()
+        .filter_map(|warning| match warning {
+            EventParseWarning::UnknownEventType { event_type } => Some(event_type.as_str()),
+            EventParseWarning::DeserializationFailed { .. } => None,
+        })
+        .collect();
+    assert_eq!(
+        names,
+        ["brand-new-record", "attachment:brand_new_attachment"]
+    );
 }
 
 #[test]

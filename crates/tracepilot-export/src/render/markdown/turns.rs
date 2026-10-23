@@ -239,10 +239,22 @@ fn write_session_events(md: &mut String, events: &[TurnSessionEvent]) {
             SessionEventSeverity::Warning => "🟡",
             SessionEventSeverity::Info => "ℹ️",
         };
+        // Every line of a multi-line summary (an error message) stays quoted,
+        // so a blank or `#` line can't end the quote or become a heading.
+        let mut lines = event.summary.lines();
         md.push_line(format_args!(
             "> {} **{}**: {}",
-            icon, event.event_type, event.summary
+            icon,
+            event.event_type,
+            lines.next().unwrap_or_default()
         ));
+        for line in lines {
+            if line.trim().is_empty() {
+                md.push_line(format_args!(">"));
+            } else {
+                md.push_line(format_args!("> {line}"));
+            }
+        }
     }
     md.push('\n');
 }
