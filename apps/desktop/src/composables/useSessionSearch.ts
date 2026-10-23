@@ -1,4 +1,9 @@
-import type { IndexingProgressPayload, SearchContentType, SearchResult } from "@tracepilot/types";
+import {
+  formatNumberFull,
+  type IndexingProgressPayload,
+  type SearchContentType,
+  type SearchResult,
+} from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, usePolling, useToast } from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
@@ -146,9 +151,14 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     showCopyToast(ok, ok ? "Copied to clipboard" : "Copy failed");
   }
 
+  // Copies the loaded page only: fetching every page of a large index into the
+  // clipboard isn't worth it, so the button and toast say "this page".
   async function handleCopyAllResults() {
+    const count = store.results.length;
     const ok = await store.copyResultsToClipboard();
-    showCopyToast(ok, ok ? `Copied ${store.results.length} results` : "Copy failed");
+    const noun = count === 1 ? "result" : "results";
+    const where = store.totalPages > 1 ? " from this page" : "";
+    showCopyToast(ok, ok ? `Copied ${formatNumberFull(count)} ${noun}${where}` : "Copy failed");
   }
 
   // ── Content type config (shared) ─────────────────────────────

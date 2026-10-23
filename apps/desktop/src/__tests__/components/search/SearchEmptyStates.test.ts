@@ -137,4 +137,22 @@ describe("Search empty states", () => {
     expect(w.findComponent({ name: "SearchBrowsePresets" }).exists()).toBe(true);
     expect(mocks.searchContent).toHaveBeenCalledTimes(1);
   });
+
+  it("disables a preset with nothing indexed instead of landing on No results", async () => {
+    const w = await mountView();
+    const preset = (label: string) =>
+      w.findAll(".browse-preset-btn").find((b) => b.text().includes(label));
+
+    const reasoning = preset("Reasoning");
+    expect(reasoning?.attributes("disabled")).toBeDefined();
+    expect(reasoning?.text()).toContain("None indexed");
+    expect(preset("User Messages")?.attributes("disabled")).toBeUndefined();
+
+    mocks.searchContent.mockClear();
+    await reasoning?.trigger("click");
+    await flushSearchQueue();
+    await flushPromises();
+    expect(mocks.searchContent).not.toHaveBeenCalled();
+    expect(noResults(w).exists()).toBe(false);
+  });
 });

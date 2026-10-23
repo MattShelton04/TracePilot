@@ -93,12 +93,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.palette-item-title :deep(.hl) {
-  color: var(--accent-fg);
-  font-weight: 600;
-  background: rgba(99, 102, 241, 0.1);
-  padding: 0 1px;
+/* Snippets mark matches with <mark>; style it like the Search view's results. */
+.palette-item-title :deep(mark) {
+  background: var(--color-search-mark-highlight-bg);
+  color: var(--warning-fg);
   border-radius: 2px;
+  padding: 0 2px;
 }
 
 .palette-item-meta {

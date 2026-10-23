@@ -31,13 +31,15 @@ vi.mock("@/composables/useSearchUrlSync", () => ({
   useSearchUrlSync: () => undefined,
 }));
 
+const toastSuccess = vi.hoisted(() => vi.fn());
+
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
   return {
     ...actual,
     usePolling: () => ({ start: vi.fn(), stop: vi.fn() }),
     useToast: () => ({
-      success: vi.fn().mockReturnValue("t1"),
+      success: toastSuccess.mockReturnValue("t1"),
       error: vi.fn().mockReturnValue("t2"),
       dismiss: vi.fn(),
     }),
@@ -134,10 +136,27 @@ beforeEach(() => {
   storeState.error = null;
   storeState.stats = null;
   storeState.results = [];
+  storeState.totalPages = 0;
   routerPush.mockClear();
+  toastSuccess.mockClear();
 });
 
 describe("useSessionSearch", () => {
+  it("says the copy took one page, and counts a single result in the singular", async () => {
+    const { api } = runComposable();
+    storeState.results = Array.from({ length: 50 }, (_, i) => ({ id: i }));
+    storeState.totalPages = 25;
+    await api.handleCopyAllResults();
+    expect(toastSuccess).toHaveBeenLastCalledWith("Copied 50 results from this page", {
+      duration: 2000,
+    });
+
+    storeState.results = [{ id: 1 }];
+    storeState.totalPages = 1;
+    await api.handleCopyAllResults();
+    expect(toastSuccess).toHaveBeenLastCalledWith("Copied 1 result", { duration: 2000 });
+  });
+
   it("fetches facets for the restored query on mount, not for the whole index", () => {
     storeState.fetchFacets.mockClear();
     storeState.fetchFacetsForCurrentQuery.mockClear();
