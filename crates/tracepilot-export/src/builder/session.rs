@@ -56,7 +56,7 @@ pub(super) fn build_portable_session(
 
     // The metadata the app shows: `workspace.yaml` enriched from the events
     // (last activity, and `session.start` context for fields it lacks). A
-    // missing or malformed `workspace.yaml` leaves the events alone, as in
+    // missing or malformed `workspace.yaml` falls back to the events, as in
     // the app. Without parsed events this is the workspace metadata alone.
     let summary =
         load_session_summary_from_events(session_dir, typed_events.as_deref().unwrap_or_default())
