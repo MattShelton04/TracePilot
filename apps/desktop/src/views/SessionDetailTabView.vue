@@ -10,6 +10,7 @@
  * This enables multiple concurrent session detail views, each with isolated state.
  */
 import { computed, defineAsyncComponent, provide, watch } from "vue";
+import { useRouter } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
 import {
@@ -55,6 +56,9 @@ watch(
 
 const { isViewer } = useWindowRole();
 const tabStore = useSessionTabsStore();
+// Main-window tabs use the app's router (Export, Replay); a viewer window
+// mounts without one.
+const router = isViewer() ? null : useRouter();
 
 const currentInnerComponent = computed(
   () => innerTabComponents[props.activeSubTab] ?? innerTabComponents.overview,
@@ -115,7 +119,7 @@ provide(NAVIGATE_SESSION_TAB_KEY, (tab: string) => {
   <SessionDetailPanel
     :store="store"
     :session-id="sessionId"
-    :router="null"
+    :router="router"
     tab-mode="local"
     :active-sub-tab="activeSubTab"
     :fill-content="activeSubTab === 'explorer'"

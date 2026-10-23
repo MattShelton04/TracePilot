@@ -40,6 +40,26 @@ describe("toolAggregateLabel", () => {
     });
   });
 
+  it("leaves out native names equal to the canonical label when calls mix sources", () => {
+    expect(
+      toolAggregateLabel(
+        "mcp__ccd_turn__update_plan",
+        [{ name: "mcp__ccd_turn__update_plan", source: "claudeCode" }],
+        true,
+      ),
+    ).toEqual({ label: "mcp__ccd_turn__update_plan" });
+    expect(
+      toolAggregateLabel(
+        "shell",
+        [
+          { name: "shell", source: "claudeCode" },
+          { name: "Bash", source: "claudeCode" },
+        ],
+        true,
+      ),
+    ).toEqual({ label: "shell", hint: "Bash" });
+  });
+
   it("keeps canonical-only (Copilot) aggregates unchanged", () => {
     expect(toolAggregateLabel("powershell", [], true)).toEqual({ label: "powershell" });
   });
@@ -147,5 +167,14 @@ describe("searchToolOptionLabel", () => {
 
   it("keeps a Copilot tool's canonical name", () => {
     expect(searchToolOptionLabel(copilotOnly, null)).toBe("powershell");
+  });
+
+  it("doesn't repeat a native name that matches the canonical one", () => {
+    const todo = {
+      name: "TodoWrite",
+      nativeNames: ["TodoWrite"],
+      sources: ["copilot" as const, "claudeCode" as const],
+    };
+    expect(searchToolOptionLabel(todo, null)).toBe("TodoWrite");
   });
 });

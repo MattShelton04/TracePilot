@@ -12,7 +12,9 @@ import { useLiveCacheStatus } from "@/composables/useLiveCacheStatus";
 
 const props = defineProps<{ timeline: PromptCacheTimeline | null }>();
 
-const { status, unknown, estimated, description, tooltip } = useLiveCacheStatus(
+// A window idle for over a day (a session that ended long ago) gets no
+// countdown, as in the header chip.
+const { status, unknown, estimated, stale, description, tooltip } = useLiveCacheStatus(
   () => props.timeline,
 );
 
@@ -33,7 +35,7 @@ const tone = computed(() => {
 
 <template>
   <div
-    v-if="status || unknown"
+    v-if="(status || unknown) && !stale"
     class="cache-live"
     :class="`cache-live--${tone}`"
     role="timer"
