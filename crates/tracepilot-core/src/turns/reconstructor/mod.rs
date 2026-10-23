@@ -85,6 +85,9 @@ pub struct TurnReconstructor {
     /// A `session.resume` row can absorb the next resume: no user, assistant
     /// or tool event has happened since it was recorded.
     pub(crate) resume_row_open: bool,
+    /// While the open turn is a slash command the model has not answered:
+    /// the log positions of the system messages it printed since (its output).
+    pub(crate) local_command_output: Option<Vec<usize>>,
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +129,7 @@ impl TurnReconstructor {
             pending_system_messages_ts: None,
             pending_skill_invocations: HashMap::new(),
             resume_row_open: false,
+            local_command_output: None,
         }
     }
 
@@ -139,6 +143,13 @@ impl TurnReconstructor {
             .any(|prefix| kind.starts_with(prefix))
         {
             self.resume_row_open = false;
+        }
+        if ["assistant.", "tool.", "subagent."]
+            .iter()
+            .any(|prefix| kind.starts_with(prefix))
+        {
+            // The model answered, so the open turn is no local command.
+            self.local_command_output = None;
         }
         // A subagent has its own conversation loop. Its prompts, boundaries and
         // system prompt must never close, replace or seed the main conversation
@@ -292,7 +303,7 @@ impl TurnReconstructor {
                 self.handle_session_resume(event, data);
             }
             (SessionEventType::SystemMessage, TypedEventData::SystemMessage(data)) => {
-                self.handle_system_message(event, data);
+                self.handle_system_message(event, event_index, data);
             }
             (SessionEventType::SystemNotification, TypedEventData::SystemNotification(data)) => {
                 self.handle_system_notification(event, data);

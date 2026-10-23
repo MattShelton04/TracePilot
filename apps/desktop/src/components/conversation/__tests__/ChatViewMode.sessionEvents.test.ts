@@ -102,3 +102,44 @@ describe("ChatViewMode session event placement", () => {
     ]);
   });
 });
+
+describe("ChatViewMode system messages", () => {
+  beforeEach(() => setupPinia());
+
+  const base = {
+    timestamp: "2026-10-07T10:00:14.000Z",
+    assistantMessages: [],
+    toolCalls: [],
+    isComplete: true,
+  };
+  const order = (wrapper: ReturnType<typeof shallowMount>) =>
+    [
+      ...wrapper.element.querySelectorAll(
+        "system-message-panel-stub, user-message-anchor-stub, turn-block-stub",
+      ),
+    ].map((el) => el.tagName.toLowerCase().replace("-stub", ""));
+
+  it("keeps a system prompt above the prompt it was sent with", () => {
+    state.turns = [
+      { ...base, turnIndex: 0, userMessage: "Review it", systemMessages: ["You are a reviewer."] },
+    ];
+    expect(order(shallowMount(ChatViewMode))).toEqual([
+      "system-message-panel",
+      "user-message-anchor",
+      "turn-block",
+    ]);
+  });
+
+  it("leaves a slash command's output to the turn block below the command", () => {
+    state.turns = [
+      {
+        ...base,
+        turnIndex: 0,
+        userMessage: "/model claude-opus-5-5",
+        systemMessages: ["Set model to Opus 5.5"],
+        commandOutputEventIndices: [2],
+      },
+    ];
+    expect(order(shallowMount(ChatViewMode))).toEqual(["user-message-anchor", "turn-block"]);
+  });
+});

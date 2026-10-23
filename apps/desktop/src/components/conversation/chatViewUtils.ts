@@ -111,6 +111,29 @@ export function getMainMessages(turn: ConversationTurn): AttributedMessage[] {
   return turn.assistantMessages.filter((m) => !m.parentToolCallId && m.content?.trim());
 }
 
+/** One block of output from a slash command that ran without the model. */
+export interface CommandOutput {
+  content: string;
+  eventIndex: number;
+}
+
+/**
+ * The output of the slash command a turn ran without the model (Claude Code
+ * `/model`, `/cost`). It follows the prompt. Empty when the turn's system
+ * messages are system prompts, which precede it.
+ */
+export function getCommandOutput(turn: ConversationTurn): CommandOutput[] {
+  const indices = turn.commandOutputEventIndices ?? [];
+  const messages = turn.systemMessages ?? [];
+  if (indices.length === 0 || indices.length !== messages.length) return [];
+  return messages.map((content, i) => ({ content, eventIndex: indices[i] }));
+}
+
+/** System prompts shown before a turn's prompt: none when they are command output. */
+export function getLeadingSystemMessages(turn: ConversationTurn): string[] {
+  return getCommandOutput(turn).length > 0 ? [] : (turn.systemMessages ?? []);
+}
+
 // ─── Turn content order ───────────────────────────────────────────
 
 /** One item of a turn's main-agent content, by index into its own list. */
