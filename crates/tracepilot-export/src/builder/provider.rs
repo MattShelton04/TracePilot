@@ -111,6 +111,7 @@ pub(super) fn build_provider_session(
         parse_diagnostics: build_parse_diagnostics(
             options,
             snapshot.diagnostics.as_ref(),
+            snapshot.format.as_ref(),
             events.map_or(0, <[TypedEvent]>::len),
             available,
         ),
