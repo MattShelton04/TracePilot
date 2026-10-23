@@ -59,6 +59,7 @@ fn session_events_serialization_round_trip() {
             skill_invocation: None,
         }],
         system_messages: Vec::new(),
+        command_output_event_indices: Vec::new(),
         agent_messages: Vec::new(),
         reasoning_effort: None,
         user_message_delivery: None,

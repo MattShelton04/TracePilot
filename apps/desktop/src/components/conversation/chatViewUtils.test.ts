@@ -3,10 +3,42 @@ import { describe, expect, it } from "vitest";
 import {
   chunkTurns,
   getCollapsedToolNames,
+  getCommandOutput,
+  getLeadingSystemMessages,
   orderTurnContent,
   segmentToolCalls,
   splitAtTurnStart,
 } from "./chatViewUtils";
+
+describe("getCommandOutput", () => {
+  const turn = (overrides: Partial<ConversationTurn>): ConversationTurn => ({
+    turnIndex: 0,
+    assistantMessages: [],
+    toolCalls: [],
+    isComplete: true,
+    ...overrides,
+  });
+
+  it("pairs a local command's output with its log positions", () => {
+    const command = turn({
+      systemMessages: ["Set model to Opus 5.5"],
+      commandOutputEventIndices: [2],
+    });
+    expect(getCommandOutput(command)).toEqual([
+      { content: "Set model to Opus 5.5", eventIndex: 2 },
+    ]);
+    expect(getLeadingSystemMessages(command)).toEqual([]);
+  });
+
+  it("keeps system prompts leading, and mismatched positions as prompts", () => {
+    const prompted = turn({ systemMessages: ["You are a reviewer."] });
+    expect(getCommandOutput(prompted)).toEqual([]);
+    expect(getLeadingSystemMessages(prompted)).toEqual(["You are a reviewer."]);
+    const mismatched = turn({ systemMessages: ["a", "b"], commandOutputEventIndices: [3] });
+    expect(getCommandOutput(mismatched)).toEqual([]);
+    expect(getLeadingSystemMessages(mismatched)).toEqual(["a", "b"]);
+  });
+});
 
 function makeToolCall(overrides: Partial<TurnToolCall>): TurnToolCall {
   return {

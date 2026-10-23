@@ -183,6 +183,7 @@ pub(super) fn make_turn_with_tools(tool_calls: Vec<TurnToolCall>) -> Conversatio
         attachments: None,
         session_events: Vec::new(),
         system_messages: Vec::new(),
+        command_output_event_indices: Vec::new(),
         agent_messages: Vec::new(),
         reasoning_effort: None,
         user_message_delivery: None,

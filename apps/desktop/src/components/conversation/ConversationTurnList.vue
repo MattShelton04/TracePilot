@@ -49,6 +49,7 @@ import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vu
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import {
   chunkTurns,
+  getCommandOutput,
   splitAtTurnStart,
   type TurnStartSplit,
 } from "@/components/conversation/chatViewUtils";
@@ -228,6 +229,16 @@ function onRetryFullResult(toolCallId: string) {
       </div>
 
       <div class="compact-turn-body">
+        <!-- Output of a slash command that ran without the model -->
+        <div
+          v-for="output in getCommandOutput(turn)"
+          :key="`compact-out-${output.eventIndex}`"
+          :data-event-idx="output.eventIndex"
+          class="compact-turn-label command-output"
+        >
+          <span class="compact-turn-label-prefix output">Output:</span>
+          <span class="command-output-text">{{ truncateText(output.content, 300) }}</span>
+        </div>
         <!-- Agent-grouped messages in compact view -->
         <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`compact-s-${sIdx}`">
           <ReasoningBlock
@@ -355,6 +366,17 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.userMessage" class="timeline-block user">
           <div class="timeline-block-label user">{{ turn.notifications?.length ? "Notification" : "User" }}</div>
           <div class="timeline-block-text">{{ truncateText(promptPreviewText(turn.userMessage), 500) }}</div>
+        </div>
+
+        <!-- Output of a slash command that ran without the model -->
+        <div
+          v-for="output in getCommandOutput(turn)"
+          :key="`tl-out-${output.eventIndex}`"
+          :data-event-idx="output.eventIndex"
+          class="timeline-block command-output"
+        >
+          <div class="timeline-block-label command-output">Output</div>
+          <div class="timeline-block-text">{{ truncateText(output.content, 500) }}</div>
         </div>
 
         <!-- Agent-grouped content in timeline -->
@@ -517,5 +539,23 @@ function onRetryFullResult(toolCallId: string) {
 }
 .compact-turn-user-text {
   white-space: pre-wrap;
+}
+
+/* ── Slash command output ───────────────────────── */
+.command-output-text {
+  white-space: pre-wrap;
+}
+.compact-turn-label-prefix.output,
+.timeline-block-label.command-output {
+  color: var(--text-secondary);
+}
+.timeline-block.command-output {
+  border: 1px solid var(--border-muted);
+  background: var(--canvas-inset);
+}
+.command-output .timeline-block-text,
+.command-output-text {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
 }
 </style>

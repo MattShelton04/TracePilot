@@ -68,6 +68,10 @@ export interface ConversationTurn {
    *  In auto-model-selection sessions (CLI v1.0.32+), one entry appears per turn.
    *  May also appear after context compaction in other session modes. */
   systemMessages?: string[];
+  /** Log positions of `systemMessages` when they are the output of a slash
+   *  command that ran without a model call (Claude Code `/model`, `/cost`).
+   *  That output follows the prompt. Absent otherwise. */
+  commandOutputEventIndices?: number[];
   /** Messages delivered to subagents launched in this turn, in log order. */
   agentMessages?: AgentMessage[];
   /** Main agent's reasoning effort when this turn ran; absent when the model's default applied. */
