@@ -240,19 +240,23 @@ impl IndexDb {
 
         let event_idx = event_index.unwrap_or(0);
 
-        // Get rows before
+        // One event can write several rows (a reply and its reasoning, a row
+        // per notification), so neighbours are ordered by (event_index, id):
+        // rows of the hit's own event count as context too.
         let mut before_stmt = self.conn.prepare(&format!(
             "SELECT id, content_type, turn_number, event_index, tool_name, \
                     {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview \
              FROM search_content \
-             WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL \
-             ORDER BY event_index DESC LIMIT ?3"
+             WHERE session_id = ?1 AND event_index IS NOT NULL \
+               AND (event_index, id) < (?2, ?4) \
+             ORDER BY event_index DESC, id DESC LIMIT ?3"
         ))?;
         let before = before_stmt.query_map(
             params_from_iter([
                 Box::new(session_id.clone()) as Box<dyn ToSql>,
                 Box::new(event_idx),
                 Box::new(radius as i64),
+                Box::new(result_id),
             ]),
             context_snippet_from_row,
         )?;
@@ -267,14 +271,16 @@ impl IndexDb {
             "SELECT id, content_type, turn_number, event_index, tool_name, \
                     {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview \
              FROM search_content \
-             WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL \
-             ORDER BY event_index ASC LIMIT ?3"
+             WHERE session_id = ?1 AND event_index IS NOT NULL \
+               AND (event_index, id) > (?2, ?4) \
+             ORDER BY event_index ASC, id ASC LIMIT ?3"
         ))?;
         let after = after_stmt.query_map(
             params_from_iter([
                 Box::new(session_id) as Box<dyn ToSql>,
                 Box::new(event_idx),
                 Box::new(radius as i64),
+                Box::new(result_id),
             ]),
             context_snippet_from_row,
         )?;
