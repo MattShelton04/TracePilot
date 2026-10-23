@@ -23,6 +23,7 @@
         "repository": "user/repo",
         "branch": "main",
         "cwd": "/test/project",
+        "hostType": "cli",
         "createdAt": "2026-03-10T07:14:50Z",
         "updatedAt": "2026-03-10T07:15:00Z",
         "eventCount": 8,
