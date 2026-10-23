@@ -23,7 +23,8 @@ export interface ToolAggregateLabel {
  * Names an aggregate of calls under one canonical tool. When every call has a
  * native name from one source, the native names lead and the canonical name
  * is the hint. When the aggregate mixes sources (or calls with no native
- * name), the canonical name leads and the native names are the hint.
+ * name), the canonical name leads and the native names are the hint. A hint
+ * never repeats the label.
  */
 export function toolAggregateLabel(
   canonical: string,
@@ -34,7 +35,8 @@ export function toolAggregateLabel(
   if (!names.length) return { label: canonical };
   const sources = new Set(natives.map((native) => native.source));
   if (hasCanonicalOnlyCalls || sources.size > 1) {
-    return { label: canonical, hint: names.join(", ") };
+    const others = names.filter((name) => name !== canonical);
+    return others.length ? { label: canonical, hint: others.join(", ") } : { label: canonical };
   }
   const label = names.join(", ");
   return label === canonical ? { label } : { label, hint: canonical };

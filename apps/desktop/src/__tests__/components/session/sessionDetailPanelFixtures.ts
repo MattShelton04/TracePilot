@@ -5,6 +5,7 @@
 import { mount } from "@vue/test-utils";
 import type { Pinia } from "pinia";
 import { vi } from "vitest";
+import type { Router } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 
@@ -70,7 +71,7 @@ export const CLAUDE_PROJECT_FOLDER = "/home/demo/.claude/projects/-work-syntheti
 export function mountPanel(
   pinia: Pinia,
   store: SessionDetailContext = createStore(),
-  props: { refreshEnabled?: boolean } = {},
+  props: { refreshEnabled?: boolean; router?: Router | null } = {},
 ) {
   return mount(SessionDetailPanel, {
     global: { plugins: [pinia] },

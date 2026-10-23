@@ -77,6 +77,22 @@ describe("CacheLiveDivider", () => {
         .exists(),
     ).toBe(false);
   });
+
+  it("stays hidden a day after the cache expired, as on sessions that ended long ago", () => {
+    const ended = makeTimeline([{ ...pending, outcome: "sessionEnded" }], {
+      source: "modelCalls",
+    });
+    const divider = () =>
+      mount(CacheLiveDivider, { props: { timeline: ended } }).find(
+        '[data-testid="cache-live-divider"]',
+      );
+
+    vi.setSystemTime(new Date("2026-09-12T01:30:00.000Z"));
+    expect(divider().text()).toContain("Cache likely expired");
+
+    vi.setSystemTime(new Date("2026-09-13T00:31:00.000Z"));
+    expect(divider().exists()).toBe(false);
+  });
 });
 
 describe("CacheResumeDivider", () => {

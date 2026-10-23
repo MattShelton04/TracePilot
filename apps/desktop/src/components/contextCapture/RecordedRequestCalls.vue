@@ -18,7 +18,10 @@ const props = defineProps<{
 const PAGE_SIZE = 50;
 /** Latest first: the log keeps the latest calls. */
 const rows = computed(() => [...props.calls].reverse());
-const { page, pageCount, pageRows } = useClientPager(rows, PAGE_SIZE, [() => props.calls]);
+// Each refresh hands over a new array of the same calls, so the page holds
+// across refreshes (clamped if the calls shrink). Another session starts on
+// the first page: the panel drops the table while that session's log loads.
+const { page, pageCount, pageRows } = useClientPager(rows, PAGE_SIZE);
 
 /** The call's prompt and tool set when its name adds to the agent's, and what made it. */
 function detail(call: RecordedCall): string {

@@ -1,6 +1,7 @@
 import { flushPromises } from "@vue/test-utils";
 import { createPinia, type Pinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Router } from "vue-router";
 import { usePreferencesStore } from "@/stores/preferences";
 import { makeTimeline, makeWindow } from "@/utils/__tests__/promptCacheFixtures";
 import {
@@ -79,6 +80,45 @@ describe("SessionDetailActions", () => {
     prefs.featureFlags.promptCacheInsights = false;
     await wrapper.setProps({ sessionId: "session-2" });
     expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("exports the loaded session through the router, and offers Replay only behind its flag", async () => {
+    const prefs = usePreferencesStore(pinia);
+    await prefs.whenReady;
+    await flushPromises();
+    const router = { push: vi.fn() } as unknown as Router;
+    const wrapper = mountPanel(pinia, createStore(), { router });
+    await flushPromises();
+    const button = (label: string) => wrapper.findAll("button").find((b) => b.text() === label);
+
+    await button("Export")!.trigger("click");
+    expect(router.push).toHaveBeenCalledExactlyOnceWith({
+      name: "export",
+      query: { sessionId: "session-1" },
+    });
+    expect(button("Replay")).toBeUndefined();
+
+    prefs.featureFlags.sessionReplay = true;
+    await flushPromises();
+    await button("Replay")!.trigger("click");
+    expect(router.push).toHaveBeenLastCalledWith({ name: "replay", params: { id: "session-1" } });
+
+    prefs.featureFlags.exportView = false;
+    await flushPromises();
+    expect(button("Export")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("offers no Export or Replay where no router is installed", async () => {
+    const prefs = usePreferencesStore(pinia);
+    await prefs.whenReady;
+    prefs.featureFlags.sessionReplay = true;
+    const wrapper = mountPanel(pinia, createStore(), { router: null });
+    await flushPromises();
+    const labels = wrapper.findAll("button").map((b) => b.text());
+    expect(labels).not.toContain("Export");
+    expect(labels).not.toContain("Replay");
     wrapper.unmount();
   });
 
