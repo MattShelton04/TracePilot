@@ -5,6 +5,7 @@ import {
   distinctFilePaths,
   filterFileTree,
   folderPaths,
+  formatShare,
   idlePercent,
   idleScale,
   idleTicks,
@@ -126,5 +127,16 @@ describe("distinctFilePaths", () => {
       "/home/u/a.ts",
     ]);
     expect(distinctFilePaths(paths).length).toBe(buildFileTree(paths, ["C:/git/repo"]).files);
+  });
+});
+
+describe("formatShare", () => {
+  it("never reads a sliver as 0% or nearly all as 100%", () => {
+    expect(formatShare(0.04)).toBe("<0.1%");
+    expect(formatShare(42.66)).toBe("42.7%");
+    expect(formatShare(99.94)).toBe("99.9%");
+    expect(formatShare(99.96)).toBe(">99.9%");
+    expect(formatShare(100)).toBe("100%");
+    expect(formatShare(130)).toBe("130%");
   });
 });

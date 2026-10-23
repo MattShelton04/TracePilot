@@ -16,9 +16,11 @@ export const MODEL_COLORS: readonly string[] = [
   "var(--chart-cyan)",
 ];
 
-/** A percentage share; a sliver above zero reads `<0.1%`, not `0%`. */
+/** A percentage share; a sliver above zero reads `<0.1%`, not `0%`, and nearly all `>99.9%`, not `100%`. */
 export function formatShare(percent: number): string {
-  return percent > 0 && percent < 0.05 ? "<0.1%" : formatPercent(percent);
+  if (percent > 0 && percent < 0.05) return "<0.1%";
+  if (percent >= 99.95 && percent < 100) return ">99.9%";
+  return formatPercent(percent);
 }
 
 // ─── Cost split ────────────────────────────────────────────────
