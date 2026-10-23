@@ -6,6 +6,7 @@ use crate::models::event_types::{
     UserMessageData,
 };
 use crate::parsing::events::TypedEvent;
+use crate::turns::COMMAND_OUTPUT_NAME;
 
 use super::TurnReconstructor;
 use super::state::new_turn;
@@ -57,6 +58,12 @@ impl TurnReconstructor {
         turn.system_messages
             .append(&mut self.pending_system_messages);
         self.current_turn = Some(turn);
+        // A slash command logs its output after it, as system messages.
+        self.local_command_output = data
+            .source
+            .as_deref()
+            .is_some_and(|source| source.starts_with("command-"))
+            .then(Vec::new);
     }
 
     pub(super) fn handle_assistant_turn_start(&mut self, event: &TypedEvent, data: &TurnStartData) {
@@ -166,13 +173,28 @@ impl TurnReconstructor {
         }
     }
 
-    pub(super) fn handle_system_message(&mut self, event: &TypedEvent, data: &SystemMessageData) {
+    pub(super) fn handle_system_message(
+        &mut self,
+        event: &TypedEvent,
+        event_index: usize,
+        data: &SystemMessageData,
+    ) {
         if let Some(content) = &data.content
             && !content.trim().is_empty()
         {
             let content = content.clone();
             if let Some(turn) = &mut self.current_turn {
                 turn.system_messages.push(content);
+                if let Some(output) = &mut self.local_command_output {
+                    // Only printed output is tagged. A system prompt or a
+                    // prompt command's expansion goes to the model instead,
+                    // so the command is no local one.
+                    if data.name.as_deref() == Some(COMMAND_OUTPUT_NAME) {
+                        output.push(event_index);
+                    } else {
+                        self.local_command_output = None;
+                    }
+                }
             } else {
                 self.pending_system_messages_ts =
                     self.pending_system_messages_ts.or(event.raw.timestamp);

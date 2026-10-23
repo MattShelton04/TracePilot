@@ -41,6 +41,12 @@ impl SystemMessageBuilder {
         self
     }
 
+    /// No role, as in Claude Code's command output and older logs.
+    pub fn no_role(mut self) -> Self {
+        self.role = None;
+        self
+    }
+
     fn build_data(self) -> SystemMessageData {
         SystemMessageData {
             content: self.content,

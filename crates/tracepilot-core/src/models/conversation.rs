@@ -177,6 +177,11 @@ pub struct ConversationTurn {
     /// May also appear after context compaction in other session modes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub system_messages: Vec<String>,
+    /// Log positions of `system_messages` when they are the output of a slash
+    /// command that ran without a model call (Claude Code `/model`, `/cost`).
+    /// That output follows the prompt, not precedes it. Empty otherwise.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub command_output_event_indices: Vec<usize>,
     /// Messages delivered to subagents launched in this turn, in log order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agent_messages: Vec<AgentMessage>,

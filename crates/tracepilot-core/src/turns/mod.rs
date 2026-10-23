@@ -60,6 +60,11 @@ use crate::parsing::events::TypedEvent;
 pub use ipc::{compute_args_summary, prepare_turns_for_ipc};
 pub use reconstructor::TurnReconstructor;
 
+/// `system.message` `name` of a slash command's printed output (Claude Code
+/// `<local-command-stdout>` / `-stderr>`), as opposed to a prompt or skill
+/// expansion, which is sent to the model.
+pub(crate) const COMMAND_OUTPUT_NAME: &str = "command-output";
+
 /// Aggregate statistics for reconstructed turns.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TurnStats {

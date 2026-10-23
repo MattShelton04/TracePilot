@@ -17,6 +17,17 @@ import {
   turnFingerprint,
 } from "./sessionFingerprint";
 
+/** Counts of what a turn can gain while every other field stays the same,
+ *  such as a slash command's output (Claude Code `/model`), logged as system
+ *  messages after it. */
+function systemShape(turn: ConversationTurn): string {
+  return `${turn.systemMessages?.length ?? 0}:${turn.commandOutputEventIndices?.length ?? 0}`;
+}
+
+function fingerprint(turn: ConversationTurn): string {
+  return `${turnFingerprint(turn)}||${systemShape(turn)}`;
+}
+
 export interface UseSessionTurnsRefreshOptions {
   sessionId: Ref<string | null>;
   loaded: Ref<Set<string>>;
@@ -47,7 +58,7 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
     const hadData = turns.value.length > 0;
     const hasIncoming = incoming.length > 0;
     turns.value = incoming;
-    turnFingerprints = incoming.map(turnFingerprint);
+    turnFingerprints = incoming.map(fingerprint);
     deepCompareTurnIndexes = computeDeepCompareIndexes(incoming);
     if (hadData || hasIncoming) {
       bumpTurnsVersion();
@@ -78,7 +89,7 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
     ]);
     for (const idx of candidateIndexes) {
       if (idx < 0 || idx >= overlapLength) continue;
-      const nextFp = turnFingerprint(incoming[idx]);
+      const nextFp = fingerprint(incoming[idx]);
       nextFingerprints[idx] = nextFp;
       if (turnFingerprints[idx] !== nextFp) {
         existing[idx] = incoming[idx];
@@ -101,17 +112,18 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
         current.isComplete !== next.isComplete ||
         current.durationMs !== next.durationMs ||
         current.outputTokens !== next.outputTokens ||
-        current.userMessage !== next.userMessage
+        current.userMessage !== next.userMessage ||
+        systemShape(current) !== systemShape(next)
       ) {
         existing[i] = next;
-        nextFingerprints[i] = turnFingerprint(next);
+        nextFingerprints[i] = fingerprint(next);
         changed = true;
       }
     }
 
     for (let i = existing.length; i < incoming.length; i++) {
       existing.push(incoming[i]);
-      nextFingerprints[i] = turnFingerprint(incoming[i]);
+      nextFingerprints[i] = fingerprint(incoming[i]);
       changed = true;
     }
 

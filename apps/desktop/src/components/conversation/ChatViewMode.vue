@@ -15,7 +15,12 @@ import { useChatViewModeData } from "@/composables/useChatViewModeData";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useSessionSource } from "@/composables/useSessionSource";
-import { chunkTurns, splitAtTurnStart, type TurnStartSplit } from "./chatViewUtils";
+import {
+  chunkTurns,
+  getLeadingSystemMessages,
+  splitAtTurnStart,
+  type TurnStartSplit,
+} from "./chatViewUtils";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 import SubagentPanel, { type SubagentPanelLayout } from "./SubagentPanel.vue";
 import SystemMessagePanel from "./SystemMessagePanel.vue";
@@ -156,9 +161,10 @@ defineExpose({ revealEvent });
               <!-- Gap indicator -->
               <GapIndicator v-if="showGap(turn, chunk.start + ci)" :count="gapCount(turn, chunk.start + ci)" />
 
-              <!-- System message(s) — one per turn in auto-model sessions (CLI v1.0.32+) -->
+              <!-- System message(s) — one per turn in auto-model sessions (CLI v1.0.32+).
+                   A local command's output renders after its prompt, in TurnBlock. -->
               <SystemMessagePanel
-                v-for="(msg, idx) in (turn.systemMessages ?? [])"
+                v-for="(msg, idx) in getLeadingSystemMessages(turn)"
                 :key="`sysmsg-${turn.turnIndex}-${idx}`"
                 :content="msg"
                 :index="idx"

@@ -123,13 +123,40 @@ impl TurnReconstructor {
         is_complete: bool,
         end_timestamp: Option<DateTime<Utc>>,
     ) {
+        self.finalize_turn(is_complete, false, end_timestamp);
+    }
+
+    /// Finalize the open turn as interrupted: never complete, even when it is
+    /// a local command that already printed its output.
+    pub(crate) fn finalize_aborted_turn(&mut self, end_timestamp: Option<DateTime<Utc>>) {
+        self.finalize_turn(false, true, end_timestamp);
+    }
+
+    fn finalize_turn(
+        &mut self,
+        is_complete: bool,
+        aborted: bool,
+        end_timestamp: Option<DateTime<Utc>>,
+    ) {
         self.pending_skill_invocations.clear();
+        let command_output = self.local_command_output.take();
         if let Some(mut turn) = self.current_turn.take() {
             if turn.end_timestamp.is_none() {
                 turn.end_timestamp = end_timestamp;
             }
             turn.duration_ms = duration_ms(turn.timestamp, turn.end_timestamp);
             turn.is_complete = is_complete;
+            // The output is the turn's trailing system messages; any before
+            // it were carried in ahead of the command.
+            if let Some(indices) = command_output
+                && !indices.is_empty()
+                && indices.len() <= turn.system_messages.len()
+            {
+                // A local command is done once it printed its output: no
+                // model turn was due to end it.
+                turn.is_complete |= !aborted;
+                turn.command_output_event_indices = indices;
+            }
 
             let finalized_index = self.turns.len();
             // Update the tool call index: remap CURRENT_TURN_SENTINEL → actual turn index
@@ -304,6 +331,7 @@ pub(crate) fn new_turn(
         attachments,
         session_events: Vec::new(),
         system_messages: Vec::new(),
+        command_output_event_indices: Vec::new(),
         agent_messages: Vec::new(),
         reasoning_effort: None,
         user_message_delivery: None,

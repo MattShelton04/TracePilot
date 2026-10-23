@@ -111,6 +111,39 @@ export function getMainMessages(turn: ConversationTurn): AttributedMessage[] {
   return turn.assistantMessages.filter((m) => !m.parentToolCallId && m.content?.trim());
 }
 
+/** One block of output from a slash command that ran without the model. */
+export interface CommandOutput {
+  content: string;
+  eventIndex: number;
+}
+
+/** How many of a turn's system messages, at the end, are command output. */
+function commandOutputCount(turn: ConversationTurn): number {
+  const outputs = turn.commandOutputEventIndices?.length ?? 0;
+  return outputs <= (turn.systemMessages?.length ?? 0) ? outputs : 0;
+}
+
+/**
+ * The output of the slash command a turn ran without the model (Claude Code
+ * `/model`, `/cost`): the turn's trailing system messages. It follows the
+ * prompt. Empty when the turn has none.
+ */
+export function getCommandOutput(turn: ConversationTurn): CommandOutput[] {
+  const count = commandOutputCount(turn);
+  if (count === 0) return [];
+  const indices = turn.commandOutputEventIndices ?? [];
+  return (turn.systemMessages ?? [])
+    .slice(-count)
+    .map((content, i) => ({ content, eventIndex: indices[i] }));
+}
+
+/** System prompts shown before a turn's prompt: those that are not command output. */
+export function getLeadingSystemMessages(turn: ConversationTurn): string[] {
+  const messages = turn.systemMessages ?? [];
+  const count = commandOutputCount(turn);
+  return count === 0 ? messages : messages.slice(0, -count);
+}
+
 // ─── Turn content order ───────────────────────────────────────────
 
 /** One item of a turn's main-agent content, by index into its own list. */

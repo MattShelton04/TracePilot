@@ -119,3 +119,25 @@ describe("TurnBlock reply copy", () => {
     ]);
   });
 });
+
+describe("TurnBlock slash command output", () => {
+  it("shows a local command's output as a deep-link target", () => {
+    const wrapper = turnBlock("2026-10-07T10:00:14Z", {
+      assistantMessages: [],
+      systemMessages: ["Set model to Opus 5.5"],
+      commandOutputEventIndices: [5],
+    });
+    const output = wrapper.get('[data-event-idx="5"]');
+    expect(output.classes()).toContain("cv-command-output");
+    expect(output.get("pre").text()).toBe("Set model to Opus 5.5");
+    expect(output.find('button[aria-label="Copy output"]').exists()).toBe(true);
+  });
+
+  it("does not show system prompts", () => {
+    const wrapper = turnBlock("2026-10-07T10:00:14Z", {
+      systemMessages: ["You are a reviewer."],
+    });
+    expect(wrapper.find(".cv-command-output").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("You are a reviewer.");
+  });
+});
