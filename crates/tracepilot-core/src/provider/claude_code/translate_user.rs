@@ -16,6 +16,7 @@ use super::prompts::{
 use super::records::{Blocks, Rec, block_type, blocks_text};
 use super::translate::{Custom, RecCtx, Stream, Translator};
 use crate::models::event_types::TaskNotificationKind;
+use crate::turns::COMMAND_OUTPUT_NAME;
 
 /// Attachment types seen so far (record-shapes.md, the S3 probe on
 /// 2.1.274–2.1.289 and later format diagnostics); others are counted as new.
@@ -131,7 +132,10 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 return;
             }
             if folds {
-                self.emit(st, ctx, "system.message", json!({"content": output}));
+                // Tagged so a prompt command's expansion (also a role-less
+                // system message) is never read as the command's output.
+                let data = json!({"content": output, "name": COMMAND_OUTPUT_NAME});
+                self.emit(st, ctx, "system.message", data);
                 return;
             }
             content = output;

@@ -30,13 +30,27 @@ describe("getCommandOutput", () => {
     expect(getLeadingSystemMessages(command)).toEqual([]);
   });
 
-  it("keeps system prompts leading, and mismatched positions as prompts", () => {
+  it("keeps system prompts leading", () => {
     const prompted = turn({ systemMessages: ["You are a reviewer."] });
     expect(getCommandOutput(prompted)).toEqual([]);
     expect(getLeadingSystemMessages(prompted)).toEqual(["You are a reviewer."]);
-    const mismatched = turn({ systemMessages: ["a", "b"], commandOutputEventIndices: [3] });
-    expect(getCommandOutput(mismatched)).toEqual([]);
-    expect(getLeadingSystemMessages(mismatched)).toEqual(["a", "b"]);
+  });
+
+  it("treats only the trailing system messages as output", () => {
+    const carried = turn({
+      systemMessages: ["Carried prompt.", "Set model to Opus 5.5"],
+      commandOutputEventIndices: [3],
+    });
+    expect(getCommandOutput(carried)).toEqual([
+      { content: "Set model to Opus 5.5", eventIndex: 3 },
+    ]);
+    expect(getLeadingSystemMessages(carried)).toEqual(["Carried prompt."]);
+  });
+
+  it("ignores more positions than system messages", () => {
+    const broken = turn({ systemMessages: ["a"], commandOutputEventIndices: [3, 4] });
+    expect(getCommandOutput(broken)).toEqual([]);
+    expect(getLeadingSystemMessages(broken)).toEqual(["a"]);
   });
 });
 

@@ -267,7 +267,7 @@ impl TurnReconstructor {
                 turn.usage.get_or_insert_with(Default::default).add(data);
             }
             (SessionEventType::Abort, TypedEventData::Abort(_data)) => {
-                self.finalize_current_turn(false, event.raw.timestamp);
+                self.finalize_aborted_turn(event.raw.timestamp);
             }
             (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(data)) => {
                 self.handle_assistant_reasoning(event, event_index, data);
@@ -352,8 +352,10 @@ impl TurnReconstructor {
         if !self.pending_session_events.is_empty() || !self.pending_system_messages.is_empty() {
             if let Some(last) = self.turns.last_mut() {
                 last.session_events.append(&mut self.pending_session_events);
+                // A command's output stays the turn's trailing system messages.
+                let at = last.system_messages.len() - last.command_output_event_indices.len();
                 last.system_messages
-                    .append(&mut self.pending_system_messages);
+                    .splice(at..at, self.pending_system_messages.drain(..));
             } else {
                 let ts = self
                     .pending_session_events

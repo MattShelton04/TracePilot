@@ -6,6 +6,7 @@ use crate::models::event_types::{
     UserMessageData,
 };
 use crate::parsing::events::TypedEvent;
+use crate::turns::COMMAND_OUTPUT_NAME;
 
 use super::TurnReconstructor;
 use super::state::new_turn;
@@ -185,9 +186,10 @@ impl TurnReconstructor {
             if let Some(turn) = &mut self.current_turn {
                 turn.system_messages.push(content);
                 if let Some(output) = &mut self.local_command_output {
-                    // A system prompt (it has a role) precedes a model call;
-                    // a command's output has none.
-                    if data.role.is_none() {
+                    // Only printed output is tagged. A system prompt or a
+                    // prompt command's expansion goes to the model instead,
+                    // so the command is no local one.
+                    if data.name.as_deref() == Some(COMMAND_OUTPUT_NAME) {
                         output.push(event_index);
                     } else {
                         self.local_command_output = None;

@@ -23,6 +23,8 @@ type Turn = {
     isComplete?: boolean;
   }>;
   agentMessages?: AgentMessage[];
+  systemMessages?: string[];
+  commandOutputEventIndices?: number[];
   isComplete?: boolean;
 };
 
@@ -123,6 +125,21 @@ describe("useSessionTurnsRefresh", () => {
     refresh.mergeTurns([mkTurn(0), mkTurn(1), mkTurn(2)] as never);
     expect(refresh.turns.value).toHaveLength(3);
     expect(refresh.turnsVersion.value).toBeGreaterThan(versionAfterReplace);
+  });
+
+  it("shows command output that arrives while the turn's state is unchanged", () => {
+    const { refresh } = setup();
+    const command = (outputs: string[], indices: number[]) =>
+      mkTurn(1, { systemMessages: outputs, commandOutputEventIndices: indices });
+    refresh.replaceTurns([mkTurn(0), command(["Usage"], [3]), mkTurn(2)] as never);
+    // An older turn (shallow compare) and the last turn (fingerprint) each gain output.
+    refresh.mergeTurns([
+      mkTurn(0),
+      command(["Usage", "Totals"], [3, 4]),
+      mkTurn(2, { systemMessages: ["Set model"], commandOutputEventIndices: [6] }),
+    ] as never);
+    expect(refresh.turns.value[1].systemMessages).toEqual(["Usage", "Totals"]);
+    expect(refresh.turns.value[2].commandOutputEventIndices).toEqual([6]);
   });
 
   it("refreshes a completed worker in an older turn when a follow-up reopens it", () => {

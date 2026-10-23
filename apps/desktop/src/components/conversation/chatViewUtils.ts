@@ -117,21 +117,31 @@ export interface CommandOutput {
   eventIndex: number;
 }
 
-/**
- * The output of the slash command a turn ran without the model (Claude Code
- * `/model`, `/cost`). It follows the prompt. Empty when the turn's system
- * messages are system prompts, which precede it.
- */
-export function getCommandOutput(turn: ConversationTurn): CommandOutput[] {
-  const indices = turn.commandOutputEventIndices ?? [];
-  const messages = turn.systemMessages ?? [];
-  if (indices.length === 0 || indices.length !== messages.length) return [];
-  return messages.map((content, i) => ({ content, eventIndex: indices[i] }));
+/** How many of a turn's system messages, at the end, are command output. */
+function commandOutputCount(turn: ConversationTurn): number {
+  const outputs = turn.commandOutputEventIndices?.length ?? 0;
+  return outputs <= (turn.systemMessages?.length ?? 0) ? outputs : 0;
 }
 
-/** System prompts shown before a turn's prompt: none when they are command output. */
+/**
+ * The output of the slash command a turn ran without the model (Claude Code
+ * `/model`, `/cost`): the turn's trailing system messages. It follows the
+ * prompt. Empty when the turn has none.
+ */
+export function getCommandOutput(turn: ConversationTurn): CommandOutput[] {
+  const count = commandOutputCount(turn);
+  if (count === 0) return [];
+  const indices = turn.commandOutputEventIndices ?? [];
+  return (turn.systemMessages ?? [])
+    .slice(-count)
+    .map((content, i) => ({ content, eventIndex: indices[i] }));
+}
+
+/** System prompts shown before a turn's prompt: those that are not command output. */
 export function getLeadingSystemMessages(turn: ConversationTurn): string[] {
-  return getCommandOutput(turn).length > 0 ? [] : (turn.systemMessages ?? []);
+  const messages = turn.systemMessages ?? [];
+  const count = commandOutputCount(turn);
+  return count === 0 ? messages : messages.slice(0, -count);
 }
 
 // ─── Turn content order ───────────────────────────────────────────
