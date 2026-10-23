@@ -30,6 +30,7 @@ import {
   presetRange,
 } from "@/utils/analyticsFilters";
 import { createAnalyticsPrefetch } from "@/utils/analyticsPrefetch";
+import { fetchAvailableRepos, repositoryForSource } from "./analytics/sessionScope";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 
@@ -116,14 +117,6 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     skillsFetcher,
   ];
 
-  /** Ensure the sessions store is populated so the repository options have data. */
-  async function fetchAvailableRepos() {
-    const sessionsStore = useSessionsStore();
-    if (sessionsStore.sessions.length === 0) {
-      await sessionsStore.fetchSessions();
-    }
-  }
-
   // ── Shared fetch factory ──────────────────────────────────────
   // All analytics fetch actions share the same parameter-building logic.
   // Pages swap their whole layout for the loading state while `loading` is
@@ -204,9 +197,10 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     selectedRepo.value = repo;
   }
 
-  /** Change the active source filter. Cache keys include the source. */
+  /** Change the source filter (cache keys include it), clearing a repository with no sessions there. */
   function setSource(source: SessionSource | null) {
     selectedSource.value = source;
+    selectedRepo.value = repositoryForSource(selectedRepo.value, source);
   }
 
   /** Drop cached results but keep the filters, for example after a rebuild. */

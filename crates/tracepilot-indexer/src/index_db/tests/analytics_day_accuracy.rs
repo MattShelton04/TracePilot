@@ -159,6 +159,40 @@ fn errors_and_rate_limits_count_on_the_day_they_happened() {
         .query_analytics(None, None, Some("org/other"), false, None)
         .unwrap();
     assert!(other.incidents_by_day.is_empty());
+    assert_eq!(other.sessions_with_errors, 0);
+}
+
+/// Sessions affected counts the sessions behind the errors and rate limits
+/// beside it: those with an incident on a day in the range, whatever day the
+/// session was last active.
+#[test]
+fn sessions_affected_follow_the_incident_days_in_the_range() {
+    let events = [
+        error("e1", Some("2026-03-01T09:30:00Z"), "rate_limit"),
+        shutdown("s1", "2026-03-01T10:00:00Z", 100, NANO, 1.0, ""),
+        resume("r2", "2026-03-03T09:00:00Z"),
+        shutdown("s2", "2026-03-03T10:00:00Z", 100, NANO, 1.0, ""),
+    ];
+    let events: Vec<&str> = events.iter().map(String::as_str).collect();
+    let temp = tempfile::tempdir().unwrap();
+    let path = write_copilot(
+        temp.path(),
+        "77777777-7777-4777-8777-777777777777",
+        "2026-03-03T10:00:00Z",
+        &events,
+    );
+    let db = index(temp.path(), &[path]);
+
+    let affected = |from, to| {
+        let data = db.query_analytics(from, to, None, false, None).unwrap();
+        let errors: u64 = data.incidents_by_day.iter().map(|d| d.errors).sum();
+        (errors, data.total_rate_limits, data.sessions_with_errors)
+    };
+    assert_eq!(affected(None, None), (1, 1, 1));
+    // The rate limit's day: the session was resumed after it.
+    assert_eq!(affected(Some("2026-03-01"), Some("2026-03-01")), (1, 1, 1));
+    // The session's last-active day has no incident.
+    assert_eq!(affected(Some("2026-03-03"), Some("2026-03-03")), (0, 0, 0));
 }
 
 const CACHE_FIXTURE: &str =
