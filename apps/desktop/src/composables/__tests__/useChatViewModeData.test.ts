@@ -1,6 +1,6 @@
 import type { ConversationTurn, SessionLiveState } from "@tracepilot/types";
 import { useSessionEnded } from "@tracepilot/ui";
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, defineComponent, h, nextTick, ref, shallowReactive } from "vue";
 import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
@@ -19,6 +19,19 @@ const sdk = shallowReactive({
     sdk.liveTurnsBySessionId = next;
   }),
 });
+
+const { getSessionEvents } = vi.hoisted(() => ({
+  getSessionEvents: vi.fn(async (_sessionId: string, _offset?: number, _limit?: number) => ({
+    events: [] as Array<{ eventType: string; data: Record<string, unknown> }>,
+    totalCount: 0,
+    hasMore: false,
+    allEventTypes: [] as string[],
+  })),
+}));
+vi.mock("@tracepilot/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tracepilot/client")>()),
+  getSessionEvents,
+}));
 
 const sessionList = shallowReactive({
   sessions: [] as Array<{ id: string; source?: string; isRunning: boolean }>,
@@ -169,6 +182,104 @@ describe("useChatViewModeData streaming derivations", () => {
     reducedMotion = false;
     await nextTick();
     expect(target.scrollIntoView).toHaveBeenLastCalledWith({ behavior: "smooth", block: "center" });
+  });
+
+  describe("search deep links into tool calls", () => {
+    // Two calls in turn 3: `a` starts at event 10, `b` at 11; `a` completes at 12.
+    function twoToolTurn() {
+      detail.turns = [
+        makeTurn(3, {
+          toolCalls: [
+            { toolCallId: "a", toolName: "shell", eventIndex: 10, isComplete: true },
+            { toolCallId: "b", toolName: "view", eventIndex: 11, isComplete: true },
+          ],
+        }),
+      ];
+      const root = document.createElement("div");
+      root.innerHTML =
+        '<div data-turn-idx="3"><div data-collapse-key="3-tools">' +
+        '<button data-event-idx="10"></button><button data-event-idx="11"></button>' +
+        "</div></div>";
+      for (const el of root.querySelectorAll<HTMLElement>("[data-turn-idx], button")) {
+        el.scrollIntoView = vi.fn();
+      }
+      return root;
+    }
+    const row = (root: HTMLElement, idx: number) =>
+      root.querySelector<HTMLElement>(`[data-event-idx="${idx}"]`)!;
+
+    it("opens the details of a tool whose arguments matched", async () => {
+      const root = twoToolTurn();
+      const api = mountHarness(root);
+
+      api.revealEvent(3, 11);
+      await nextTick();
+
+      expect(api.expandedToolDetails.has("3-1")).toBe(true);
+      expect(api.expandedToolDetails.has("3-0")).toBe(false);
+      expect(row(root, 11).classList.contains("cv-highlight")).toBe(true);
+      expect(getSessionEvents).not.toHaveBeenCalled();
+    });
+
+    it("lands a result or error hit on the call it completes, details open", async () => {
+      const root = twoToolTurn();
+      getSessionEvents.mockResolvedValueOnce({
+        events: [{ eventType: "tool.execution_complete", data: { toolCallId: "a" } }],
+        totalCount: 13,
+        hasMore: true,
+        allEventTypes: [],
+      });
+      const api = mountHarness(root);
+
+      api.revealEvent(3, 12);
+      await flushPromises();
+
+      expect(getSessionEvents).toHaveBeenCalledWith("s1", 12, 1);
+      expect(api.expandedToolDetails.has("3-0")).toBe(true);
+      expect(api.expandedToolDetails.has("3-1")).toBe(false);
+      expect(api.expandedGroups.has("3-tools")).toBe(true);
+      expect(row(root, 10).classList.contains("cv-highlight")).toBe(true);
+      expect(row(root, 10).scrollIntoView).toHaveBeenCalled();
+      expect(root.querySelector("[data-turn-idx]")!.classList.contains("cv-highlight")).toBe(false);
+    });
+
+    it("falls back to the turn when the event completes no tool call", async () => {
+      const root = twoToolTurn();
+      getSessionEvents.mockResolvedValueOnce({
+        events: [{ eventType: "assistant.message", data: {} }],
+        totalCount: 13,
+        hasMore: true,
+        allEventTypes: [],
+      });
+      const api = mountHarness(root);
+
+      api.revealEvent(3, 12);
+      await flushPromises();
+
+      expect(api.expandedToolDetails.has("3-0")).toBe(false);
+      expect(api.expandedToolDetails.has("3-1")).toBe(false);
+      expect(root.querySelector("[data-turn-idx]")!.classList.contains("cv-highlight")).toBe(true);
+    });
+
+    it("drops a lookup that a newer reveal overtook", async () => {
+      const root = twoToolTurn();
+      let resolve!: (value: Awaited<ReturnType<typeof getSessionEvents>>) => void;
+      getSessionEvents.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+      const api = mountHarness(root);
+
+      api.revealEvent(3, 12);
+      api.revealEvent(3, 11);
+      resolve({
+        events: [{ eventType: "tool.execution_complete", data: { toolCallId: "a" } }],
+        totalCount: 13,
+        hasMore: true,
+        allEventTypes: [],
+      });
+      await flushPromises();
+
+      expect(api.expandedToolDetails.has("3-0")).toBe(false);
+      expect(api.expandedToolDetails.has("3-1")).toBe(true);
+    });
   });
 
   it("does not re-segment or re-pair persisted history for each live text delta", async () => {

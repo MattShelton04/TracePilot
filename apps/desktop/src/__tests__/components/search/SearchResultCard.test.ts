@@ -91,4 +91,46 @@ describe("SearchResultCard context strip", () => {
     expect(tools[0].attributes("title")).toBe("shell");
     wrapper.unmount();
   });
+
+  it("loads context for a card that mounts already expanded", async () => {
+    // Expansion is kept across pages and view modes, so a card can come back
+    // expanded without ever seeing the expanded prop change.
+    getResultContext.mockClear();
+    getResultContext.mockResolvedValueOnce([
+      [{ contentType: "user_message", turnNumber: 1, preview: "asked" }],
+      [{ contentType: "assistant_message", turnNumber: 1, preview: "answered" }],
+    ]);
+    const wrapper = mount(SearchResultCard, {
+      props: { result: RESULT, index: 0, expanded: true, focused: false, sessionLink: "/x" },
+      global: { stubs: { "router-link": { template: "<a><slot /></a>" } } },
+    });
+    await flushPromises();
+    expect(getResultContext).toHaveBeenCalledWith(1, 2);
+    expect(wrapper.findAll(".context-preview").map((p) => p.text())).toEqual(["asked", "answered"]);
+    wrapper.unmount();
+  });
+
+  it("replaces the context when the card is reused for another result", async () => {
+    getResultContext.mockClear();
+    getResultContext.mockResolvedValueOnce([
+      [{ contentType: "user_message", turnNumber: 1, preview: "first" }],
+      [],
+    ]);
+    const wrapper = mount(SearchResultCard, {
+      props: { result: RESULT, index: 0, expanded: true, focused: false, sessionLink: "/x" },
+      global: { stubs: { "router-link": { template: "<a><slot /></a>" } } },
+    });
+    await flushPromises();
+    expect(wrapper.find(".context-preview").text()).toBe("first");
+
+    getResultContext.mockResolvedValueOnce([
+      [{ contentType: "user_message", turnNumber: 4, preview: "second" }],
+      [],
+    ]);
+    await wrapper.setProps({ result: { ...RESULT, id: 2 } });
+    await flushPromises();
+    expect(getResultContext).toHaveBeenLastCalledWith(2, 2);
+    expect(wrapper.findAll(".context-preview").map((p) => p.text())).toEqual(["second"]);
+    wrapper.unmount();
+  });
 });
