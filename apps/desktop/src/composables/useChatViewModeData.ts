@@ -5,7 +5,7 @@ import {
   useConversationSections,
   useToggleSet,
 } from "@tracepilot/ui";
-import { computed, nextTick, provide, type Ref, watch } from "vue";
+import { computed, nextTick, onScopeDispose, provide, type Ref, watch } from "vue";
 import { type OrderedTurnContent, orderTurnContent } from "@/components/conversation/chatViewUtils";
 import {
   type PermissionPair,
@@ -40,6 +40,9 @@ const EMPTY_PERMISSION_DATA: TurnPermissionData = {
   entries: [],
   permissionByToolCallId: new Map(),
 };
+
+/** How long a revealed tool call stays centred while its details render. */
+const REVEAL_FOLLOW_MS = 2000;
 
 function buildTurnRenderData(turn: ConversationTurn): TurnRenderData {
   return orderTurnContent(turn);
@@ -290,9 +293,59 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
   }
 
   let revealRequest = 0;
+  let stopFollowingReveal: (() => void) | null = null;
+  onScopeDispose(() => stopFollowingReveal?.());
+
+  /**
+   * Centre a just-opened tool call, and keep it there while its details
+   * finish rendering. When the session view has just been shown, a smooth
+   * scroll is clamped to the scroll range of the previous frame, and on a cold
+   * load the details then grow (lazily loaded result renderers): either way
+   * one scroll stops short, leaving the matched output below the fold. So
+   * re-centre when the call grows or a scroll ends, until a moment passes or
+   * the user acts. A call taller than half the window centres its header, so
+   * its top (and an error shown there) stays in view.
+   */
+  function centreOpenedToolCall(target: HTMLElement) {
+    const recentre = () => {
+      const header = target.firstElementChild;
+      const tall = target.getBoundingClientRect().height > window.innerHeight / 2;
+      const anchor = tall && header instanceof HTMLElement ? header : target;
+      anchor.scrollIntoView({ behavior: revealScrollBehavior(anchor), block: "center" });
+    };
+    recentre();
+    let height = target.getBoundingClientRect().height;
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            const next = target.getBoundingClientRect().height;
+            if (next === height) return;
+            height = next;
+            recentre();
+          });
+    const onScrollEnd = (event: Event) => {
+      if (event.target instanceof Node && event.target.contains(target)) recentre();
+    };
+    const userInput = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+    const stop = () => {
+      observer?.disconnect();
+      clearTimeout(timer);
+      document.removeEventListener("scrollend", onScrollEnd, true);
+      for (const type of userInput) window.removeEventListener(type, stop, true);
+      if (stopFollowingReveal === stop) stopFollowingReveal = null;
+    };
+    const timer = setTimeout(stop, REVEAL_FOLLOW_MS);
+    document.addEventListener("scrollend", onScrollEnd, true);
+    for (const type of userInput)
+      window.addEventListener(type, stop, { capture: true, passive: true });
+    observer?.observe(target);
+    stopFollowingReveal = stop;
+  }
 
   function revealEvent(turnIndex: number, eventIndex?: number) {
     const request = ++revealRequest;
+    stopFollowingReveal?.();
     if (eventIndex == null || !mayCompleteToolCall(turnIndex, eventIndex)) {
       revealTarget(turnIndex, eventIndex);
       return;
@@ -357,8 +410,10 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
     }
 
     const target = el;
+    const opensDetails = call != null && target.matches(elId);
     nextTick(() => {
-      target.scrollIntoView({ behavior: revealScrollBehavior(target), block: "center" });
+      if (opensDetails) centreOpenedToolCall(target);
+      else target.scrollIntoView({ behavior: revealScrollBehavior(target), block: "center" });
       target.classList.add("cv-highlight");
       setTimeout(() => target.classList.remove("cv-highlight"), 4000);
     });

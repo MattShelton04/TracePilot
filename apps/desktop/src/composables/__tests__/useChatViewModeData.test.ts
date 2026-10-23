@@ -261,6 +261,42 @@ describe("useChatViewModeData streaming derivations", () => {
       expect(root.querySelector("[data-turn-idx]")!.classList.contains("cv-highlight")).toBe(true);
     });
 
+    it("keeps an opened call centred while it grows, until the user scrolls", async () => {
+      let resized: (() => void) | undefined;
+      // biome-ignore lint/complexity/useArrowFunction: constructed with `new`
+      vi.stubGlobal("ResizeObserver", function (cb: () => void) {
+        resized = cb;
+        return { observe: () => {}, disconnect: () => (resized = undefined) };
+      });
+      const root = twoToolTurn();
+      document.body.appendChild(root);
+      const target = row(root, 11);
+      const grow = (height: number) => {
+        target.getBoundingClientRect = () => ({ top: 0, height }) as DOMRect;
+        resized?.();
+      };
+      const api = mountHarness(root);
+      api.revealEvent(3);
+      await nextTick();
+      expect(resized).toBeUndefined(); // only an opened tool call is followed
+
+      api.revealEvent(3, 11);
+      await nextTick();
+      grow(300); // lazily rendered details
+      root.dispatchEvent(new Event("scrollend")); // a smooth scroll clamped short
+      expect(target.scrollIntoView).toHaveBeenCalledTimes(3);
+      const header = target.appendChild(document.createElement("div"));
+      header.scrollIntoView = vi.fn();
+      grow(window.innerHeight); // too tall to centre: its header is
+      expect(header.scrollIntoView).toHaveBeenCalledTimes(1);
+
+      window.dispatchEvent(new Event("wheel"));
+      grow(100);
+      root.dispatchEvent(new Event("scrollend"));
+      expect(target.scrollIntoView).toHaveBeenCalledTimes(3);
+      root.remove();
+    });
+
     it("drops a lookup that a newer reveal overtook", async () => {
       const root = twoToolTurn();
       let resolve!: (value: Awaited<ReturnType<typeof getSessionEvents>>) => void;
