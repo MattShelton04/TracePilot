@@ -40,7 +40,8 @@ pub(super) fn query_analytics(
     // day outside it. Without a date filter they are the lifetime totals.
     // Turns, tool calls, compactions, truncations and the per-turn and
     // per-second averages stay whole-session values; per-model usage below
-    // follows the same rule. Rate limits are the incident day rows' sum.
+    // follows the same rule. Rate limits are the incident day rows' sum, and
+    // sessions with errors are the sessions behind those rows.
     // See `helpers::range_usage`.
     //
     // The day charts count the same in-range runs plus runs of sessions last
@@ -57,7 +58,6 @@ pub(super) fn query_analytics(
                     COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN
                         (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)
                     END), 0),
-                    COUNT(CASE WHEN error_count > 0 THEN 1 END),
                     COALESCE(SUM(compaction_count), 0),
                     COALESCE(SUM(truncation_count), 0),
                     COALESCE(SUM({IN_RANGE_NANO_AIU}), 0),
@@ -77,7 +77,6 @@ pub(super) fn query_analytics(
         total_premium_requests,
         total_api_duration_ms_sum,
         output_tokens_with_duration,
-        sessions_with_errors,
         total_compactions,
         total_truncations,
         total_nano_aiu,
@@ -93,7 +92,6 @@ pub(super) fn query_analytics(
         f64,
         i64,
         i64,
-        u32,
         i64,
         i64,
         i64,
@@ -115,7 +113,6 @@ pub(super) fn query_analytics(
             row.get(11)?,
             row.get(12)?,
             row.get(13)?,
-            row.get(14)?,
         ))
     })?;
 
@@ -284,6 +281,8 @@ pub(super) fn query_analytics(
     )?;
     // The day rows' sum, so the headline and the charts count the same.
     let total_rate_limits: u64 = incidents_by_day.iter().map(|d| d.rate_limits).sum();
+    let sessions_with_errors =
+        query_sessions_with_errors(conn, &run_where, &run_values, from_date, to_date)?;
 
     Ok(AnalyticsData {
         total_sessions,
@@ -338,6 +337,31 @@ pub(super) fn query_analytics(
 /// last-active day.
 const INCIDENT_DAY: &str =
     "COALESCE(date(i.timestamp), date(COALESCE(s.updated_at, s.created_at)))";
+
+/// Sessions with an error or rate limit on a day in the range: the sessions
+/// behind the incident day rows' error and rate-limit counts, selected the
+/// same way (see [`query_incidents_by_day`]).
+fn query_sessions_with_errors(
+    conn: &Connection,
+    run_where: &str,
+    run_values: &[String],
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+) -> Result<u32> {
+    let (where_clause, values) =
+        append_segment_date_filter(run_where, run_values, from_date, to_date, INCIDENT_DAY);
+    let sql = format!(
+        "SELECT COUNT(DISTINCT i.session_id)
+         FROM session_incidents i JOIN sessions s ON s.id = i.session_id
+         {where_clause} AND i.event_type = 'error' AND {INCIDENT_DAY} IS NOT NULL"
+    );
+    let refs = to_refs(&values);
+    Ok(
+        conn.query_row(&sql, params_from_iter(refs.iter().copied()), |row| {
+            row.get(0)
+        })?,
+    )
+}
 
 /// Incidents by day.
 ///
