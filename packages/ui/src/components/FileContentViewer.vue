@@ -598,8 +598,10 @@ watch(
           </div>
         </template>
 
+        <!-- Keyed by file so a filter, open rows or collapsed nodes never carry over to another file. -->
         <JsonFileViewer
           v-else-if="isJson"
+          :key="filePath"
           :content="content"
           :file-path="filePath"
           :mode="jsonMode"
@@ -611,6 +613,7 @@ watch(
 
         <JsonlFileViewer
           v-else-if="isJsonl"
+          :key="filePath"
           :content="content"
           :file-path="filePath"
           :mode="jsonlMode"
@@ -622,6 +625,7 @@ watch(
 
         <CsvFileViewer
           v-else-if="isCsv"
+          :key="filePath"
           :content="content"
           :file-path="filePath"
           :mode="csvMode"

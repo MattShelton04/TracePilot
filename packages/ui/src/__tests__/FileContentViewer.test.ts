@@ -176,6 +176,69 @@ describe("FileContentViewer", () => {
     expect(wrapper.find(".json-node").exists()).toBe(true);
   });
 
+  it("does not carry a JSONL filter or open record over to another JSONL file", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: {
+        filePath: "agents/agent-a.jsonl",
+        fileType: "jsonl",
+        content: '{"type":"user","id":"aaaa1111"}\n{"type":"assistant","id":"aaaa2222"}\n',
+      },
+    });
+    const details = wrapper.get(".jsonl-viewer__record");
+    (details.element as HTMLDetailsElement).open = true;
+    await details.trigger("toggle");
+    expect(wrapper.find(".json-node").exists()).toBe(true);
+    await wrapper.get(".jsonl-viewer__search").setValue("aaaa2222");
+    expect(wrapper.findAll(".jsonl-viewer__record")).toHaveLength(1);
+
+    await wrapper.setProps({
+      filePath: "agents/agent-b.jsonl",
+      content: '{"type":"user","id":"bbbb1111"}\n{"type":"assistant","id":"bbbb2222"}\n',
+    });
+
+    expect((wrapper.get(".jsonl-viewer__search").element as HTMLInputElement).value).toBe("");
+    expect(wrapper.text()).not.toContain("No matching records");
+    expect(wrapper.findAll(".jsonl-viewer__record")).toHaveLength(2);
+    expect(wrapper.find(".json-node").exists()).toBe(false);
+  });
+
+  it("does not carry a CSV filter over to another CSV file", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: { filePath: "a.csv", fileType: "csv", content: "name,value\nalpha,1\nbeta,2\n" },
+    });
+    await wrapper.get(".csv-viewer__search").setValue("alpha");
+    expect(wrapper.text()).toContain("1 rows");
+
+    await wrapper.setProps({ filePath: "b.csv", content: "name,value\ngamma,3\ndelta,4\n" });
+
+    expect((wrapper.get(".csv-viewer__search").element as HTMLInputElement).value).toBe("");
+    expect(wrapper.text()).toContain("2 rows");
+    expect(wrapper.text()).toContain("gamma");
+  });
+
+  it("does not carry collapsed JSON nodes over to another JSON file", async () => {
+    const wrapper = mount(FileContentViewer, {
+      props: { filePath: "a.json", fileType: "json", content: '{"nested":{"ok":true}}' },
+    });
+    const nested = () => wrapper.findAll(".json-node__row--toggle")[1];
+    await nested().trigger("click");
+    expect(nested().attributes("aria-expanded")).toBe("false");
+
+    await wrapper.setProps({ filePath: "b.json", content: '{"nested":{"ok":false}}' });
+
+    expect(nested().attributes("aria-expanded")).toBe("true");
+  });
+
+  it("structures the first 2,000 JSONL records even when blank lines separate them", () => {
+    const content = Array.from({ length: 2_000 }, (_, i) => JSON.stringify({ type: `r${i}` })).join(
+      "\n\n",
+    );
+    const wrapper = mount(FileContentViewer, {
+      props: { filePath: "spaced.jsonl", fileType: "jsonl", content },
+    });
+    expect(wrapper.get(".jsonl-viewer__meta").text()).toMatch(/^2000 \/ 2000 records/);
+  });
+
   it("uses a tab delimiter for TSV files", () => {
     const wrapper = mount(FileContentViewer, {
       props: {
