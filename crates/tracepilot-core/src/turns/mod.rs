@@ -45,9 +45,11 @@
 //! This module is organized into focused sub-modules:
 //! - [`reconstructor`]: Core state machine for turn reconstruction
 //! - [`postprocess`]: Post-processing functions (model inference, name resolution)
-//! - [`ipc`]: IPC preparation utilities (args summaries, payload optimization)
+//! - [`args_summary`]: one-line tool-call argument summaries (mirrors the frontend)
+//! - [`ipc`]: IPC preparation utilities (filling args summaries, payload optimization)
 //! - [`utils`]: Shared utility functions (duration, truncation, etc.)
 
+mod args_summary;
 mod ipc;
 mod postprocess;
 mod reconstructor;
@@ -57,7 +59,8 @@ use crate::models::conversation::ConversationTurn;
 use crate::parsing::events::TypedEvent;
 
 // Re-export public items
-pub use ipc::{compute_args_summary, prepare_turns_for_ipc};
+pub use args_summary::compute_args_summary;
+pub use ipc::prepare_turns_for_ipc;
 pub use reconstructor::TurnReconstructor;
 
 /// `system.message` `name` of a slash command's printed output (Claude Code

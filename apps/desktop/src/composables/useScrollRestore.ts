@@ -2,7 +2,7 @@ import type { Ref, WatchStopHandle } from "vue";
 import { onMounted, shallowRef, watch } from "vue";
 import { onBeforeRouteLeave } from "vue-router";
 
-interface ItemAnchor {
+export interface ItemAnchor {
   id: string;
   /** Distance from the scroller's top edge to the item's top edge. */
   offset: number;
@@ -43,7 +43,7 @@ function items(scroller: HTMLElement, attr: string) {
   return scroller.querySelectorAll<HTMLElement>(`[${attr}]`);
 }
 
-function topItem(scroller: HTMLElement, attr: string): ItemAnchor | undefined {
+export function topItem(scroller: HTMLElement, attr: string): ItemAnchor | undefined {
   const edge = scroller.getBoundingClientRect().top;
   for (const item of items(scroller, attr)) {
     const rect = item.getBoundingClientRect();
@@ -54,7 +54,11 @@ function topItem(scroller: HTMLElement, attr: string): ItemAnchor | undefined {
 }
 
 /** The scrollTop that puts the anchor item back where it was, if it still exists. */
-function anchoredTop(scroller: HTMLElement, attr: string, anchor: ItemAnchor): number | null {
+export function anchoredTop(
+  scroller: HTMLElement,
+  attr: string,
+  anchor: ItemAnchor,
+): number | null {
   for (const item of items(scroller, attr)) {
     if (item.getAttribute(attr) !== anchor.id) continue;
     const fromEdge = item.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
@@ -63,52 +67,73 @@ function anchoredTop(scroller: HTMLElement, attr: string, anchor: ItemAnchor): n
   return null;
 }
 
-function scrollTo(scroller: HTMLElement, top: number) {
+/** Scroll to `top`, clamped to the content's current scroll range. */
+export function scrollToClamped(scroller: HTMLElement, top: number) {
   const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
   scroller.scrollTop = Math.min(Math.max(0, top), max);
 }
 
 /**
- * Items rendered around the new viewport swap their placeholder heights over
- * the next frames, which moves the anchor. Keep it in place until it holds
- * still, for a few frames at most, unless the user starts scrolling.
+ * Keep the scroller at `target` while the content around it settles, for a
+ * few frames at most, unless the user starts scrolling. Returns a stop
+ * function; it also stops by itself once the position holds still.
  *
- * Those swaps happen after animation frame callbacks, so a resize observer on
- * the list also corrects within the same frame, before it is painted.
+ * Items rendered around the new viewport swap their placeholder heights over
+ * the next frames, which moves the target. Those swaps happen after animation
+ * frame callbacks, so a resize observer on `observe` also corrects within the
+ * same frame, before it is painted.
  */
-function holdAnchor(scroller: HTMLElement, attr: string, anchor: ItemAnchor) {
-  if (typeof requestAnimationFrame !== "function") return;
+export function holdScroll(
+  scroller: HTMLElement,
+  target: () => number | null,
+  observe?: Element | null,
+): () => void {
+  if (typeof requestAnimationFrame !== "function") return () => {};
   let userScrolled = false;
+  let frame = 0;
   const onInput = () => {
     userScrolled = true;
   };
   const inputs = ["wheel", "pointerdown", "keydown", "touchstart"] as const;
   for (const type of inputs) scroller.addEventListener(type, onInput, { passive: true });
-  /** Re-aligns the anchor: true if it moved, null once it is gone or the user has scrolled. */
+  /** Re-aligns the target: true if it moved, null once it is gone or the user has scrolled. */
   const correct = (): boolean | null => {
-    const next = userScrolled ? null : anchoredTop(scroller, attr, anchor);
+    const next = userScrolled ? null : target();
     if (next === null) return null;
     if (Math.abs(next - scroller.scrollTop) < 1) return false;
-    scrollTo(scroller, next);
+    scrollToClamped(scroller, next);
     return true;
   };
-  const list = scroller.querySelector(`[${attr}]`)?.parentElement;
   const resizes =
-    list && typeof ResizeObserver === "function" ? new ResizeObserver(() => correct()) : null;
-  resizes?.observe(list as HTMLElement);
+    observe && typeof ResizeObserver === "function" ? new ResizeObserver(() => correct()) : null;
+  if (observe) resizes?.observe(observe);
+  const stop = () => {
+    cancelAnimationFrame(frame);
+    resizes?.disconnect();
+    for (const type of inputs) scroller.removeEventListener(type, onInput);
+  };
   let framesLeft = 10;
   let stillFrames = 0;
   const settle = () => {
     const moved = correct();
     stillFrames = moved ? 0 : stillFrames + 1;
     if (moved !== null && stillFrames < 2 && --framesLeft > 0) {
-      requestAnimationFrame(settle);
+      frame = requestAnimationFrame(settle);
       return;
     }
-    resizes?.disconnect();
-    for (const type of inputs) scroller.removeEventListener(type, onInput);
+    stop();
   };
-  requestAnimationFrame(settle);
+  frame = requestAnimationFrame(settle);
+  return stop;
+}
+
+/** Keep the anchor item where it was while the items around it settle (see {@link holdScroll}). */
+export function holdAnchor(scroller: HTMLElement, attr: string, anchor: ItemAnchor): () => void {
+  return holdScroll(
+    scroller,
+    () => anchoredTop(scroller, attr, anchor),
+    scroller.querySelector(`[${attr}]`)?.parentElement,
+  );
 }
 
 function savePosition(key: string, position: SavedPosition) {
@@ -154,7 +179,7 @@ export function useScrollRestore({
   function restore(scroller: HTMLElement, saved: SavedPosition) {
     const anchor = anchorAttr ? saved.anchor : undefined;
     const target = anchorAttr && anchor ? anchoredTop(scroller, anchorAttr, anchor) : null;
-    scrollTo(scroller, target ?? saved.top);
+    scrollToClamped(scroller, target ?? saved.top);
     if (anchorAttr && anchor && target !== null) holdAnchor(scroller, anchorAttr, anchor);
   }
 

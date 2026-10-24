@@ -1,9 +1,9 @@
 import { makeTurn, setupPinia } from "@tracepilot/test-utils";
 import type { ConversationTurn } from "@tracepilot/types";
 import { EmptyState, ErrorAlert, StatCard } from "@tracepilot/ui";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick, reactive, ref } from "vue";
+import { defineComponent, h, nextTick, reactive, ref } from "vue";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import ConversationTab from "../ConversationTab.vue";
 
@@ -14,7 +14,11 @@ const store = reactive({
   turnsVersion: 0,
   turnsError: null as string | null,
   loaded: new Set<string>(),
-  pendingConversationFocus: null,
+  pendingConversationFocus: null as {
+    turnIndex: number;
+    eventIndex: number | null;
+    requestId: number;
+  } | null,
   promptCache: null,
   loadTurns: vi.fn(),
   loadPromptCache: vi.fn(),
@@ -149,5 +153,52 @@ describe("scroll buttons beside the subagent panel", () => {
     await panel(0);
     expect(group().exists()).toBe(true);
     wrapper.unmount();
+  });
+});
+
+describe("a turn shown from another tab", () => {
+  const revealEvent = vi.fn();
+  const ChatStub = defineComponent({
+    name: "ChatViewMode",
+    setup(_, { expose }) {
+      expose({ revealEvent });
+      return () => h("div");
+    },
+  });
+
+  function mountWithFocus() {
+    setupPinia();
+    return mount(ConversationTab, {
+      global: { stubs: { ChatViewMode: ChatStub, ConversationTurnList: true } },
+    });
+  }
+
+  afterEach(() => {
+    store.pendingConversationFocus = null;
+    revealEvent.mockReset();
+  });
+
+  it("is shown once, not again each time the tab is reopened", async () => {
+    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })];
+    store.loaded.add("turns");
+    store.pendingConversationFocus = { turnIndex: 1, eventIndex: null, requestId: 1 };
+
+    const first = mountWithFocus();
+    await flushPromises();
+    expect(revealEvent).toHaveBeenCalledTimes(1);
+    expect(revealEvent).toHaveBeenCalledWith(1, undefined);
+    first.unmount();
+
+    // Back to the Conversation tab later: where the user was reading wins.
+    const again = mountWithFocus();
+    await flushPromises();
+    expect(revealEvent).toHaveBeenCalledTimes(1);
+
+    // A new "Show in conversation" is shown.
+    store.pendingConversationFocus = { turnIndex: 0, eventIndex: null, requestId: 2 };
+    await flushPromises();
+    expect(revealEvent).toHaveBeenCalledTimes(2);
+    expect(revealEvent).toHaveBeenLastCalledWith(0, undefined);
+    again.unmount();
   });
 });

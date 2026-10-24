@@ -40,12 +40,18 @@ export function formatShare(value: number | null, digits = 1): string {
   return value == null ? "—" : `${(value * 100).toFixed(digits)}%`;
 }
 
-/** USD with precision that suits the magnitude: `$1,093`, `$47.4`, `$0.37`. */
+/**
+ * Compact USD for dense charts and tables, with precision that suits the
+ * magnitude: `$1,093`, `$47.4`, `$0.37`. A value that rounds up into the tier
+ * above reads as that tier (999.96 → `$1,000`, 9.996 → `$10.0`), and like
+ * `formatUsd` in `utils/sourceCost` only an amount below half a cent reads `<$0.01`.
+ */
 export function formatUsd(value: number | null): string {
   if (value == null) return "—";
-  if (value >= 1000) return `$${Math.round(value).toLocaleString("en-US")}`;
-  if (value >= 10) return `$${value.toFixed(1)}`;
-  if (value >= 0.01) return `$${value.toFixed(2)}`;
+  // Each tier starts where the finer tier below would print its threshold.
+  if (Number(value.toFixed(1)) >= 1000) return `$${Math.round(value).toLocaleString("en-US")}`;
+  if (Number(value.toFixed(2)) >= 10) return `$${value.toFixed(1)}`;
+  if (value >= 0.005) return `$${value.toFixed(2)}`;
   return value > 0 ? "<$0.01" : "$0";
 }
 

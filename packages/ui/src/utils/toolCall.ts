@@ -135,7 +135,7 @@ function mcpSummary(a: Record<string, unknown>): string {
 /**
  * A GitHub MCP call (Copilot's `github-mcp-server-*`): its `method`, then
  * `owner/repo`, then the path or query, e.g. "get · octo/app · src/a.ts".
- * Mirrored by `compute_args_summary` in `crates/tracepilot-core/src/turns/ipc.rs`.
+ * Mirrored by `compute_args_summary` in `crates/tracepilot-core/src/turns/args_summary/`.
  */
 function githubSummary(a: Record<string, unknown>): string {
   const owner = stringArg(a.owner);

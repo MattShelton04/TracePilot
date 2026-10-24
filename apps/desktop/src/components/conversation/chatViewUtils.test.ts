@@ -5,9 +5,11 @@ import {
   getCollapsedToolNames,
   getCommandOutput,
   getLeadingSystemMessages,
+  orderTimelineSection,
   orderTurnContent,
   segmentToolCalls,
   splitAtTurnStart,
+  type TimelineEntry,
 } from "./chatViewUtils";
 
 describe("getCommandOutput", () => {
@@ -196,6 +198,95 @@ describe("orderTurnContent", () => {
       }),
     );
     expect(layout(content)).toEqual(["think:plan", "reply:streamed", "tools:3,5"]);
+  });
+});
+
+describe("orderTimelineSection", () => {
+  function turn(overrides: Partial<ConversationTurn>): ConversationTurn {
+    return { turnIndex: 0, assistantMessages: [], toolCalls: [], isComplete: true, ...overrides };
+  }
+  const shell = (eventIndex?: number) => makeToolCall({ toolName: "powershell", eventIndex });
+
+  function layout(entries: TimelineEntry[]): string[] {
+    return entries.map((e) =>
+      e.kind === "message"
+        ? `reply:${e.content}`
+        : `tools:${e.toolCalls.map((tc) => tc.eventIndex).join(",")}`,
+    );
+  }
+
+  it("places replies between the tool calls they came after and before", () => {
+    const calls = [shell(3), shell(6), shell(7), shell(8)];
+    const t = turn({
+      assistantMessages: [
+        { content: "Checks pass. Merging it", eventIndex: 5 },
+        { content: "Merged and opened the next PR", eventIndex: 10 },
+      ],
+      reasoningTexts: [{ content: "plan", eventIndex: 2 }],
+      toolCalls: calls,
+    });
+    const section = { messages: t.assistantMessages.map((m) => m.content), toolCalls: calls };
+    expect(layout(orderTimelineSection(t, section))).toEqual([
+      "tools:3",
+      "reply:Checks pass. Merging it",
+      "tools:6,7,8",
+      "reply:Merged and opened the next PR",
+    ]);
+  });
+
+  it("puts a reply that came first above the tool calls", () => {
+    const calls = [shell(4)];
+    const t = turn({
+      assistantMessages: [{ content: "I'll read the client first.", eventIndex: 2 }],
+      toolCalls: calls,
+    });
+    const section = { messages: ["I'll read the client first."], toolCalls: calls };
+    expect(layout(orderTimelineSection(t, section))).toEqual([
+      "reply:I'll read the client first.",
+      "tools:4",
+    ]);
+  });
+
+  it("leaves later main replies to the section after the subagents", () => {
+    const agent = makeToolCall({
+      toolName: "task",
+      toolCallId: "agent-1",
+      isSubagent: true,
+      eventIndex: 4,
+    });
+    const child = makeToolCall({ toolName: "view", parentToolCallId: "agent-1", eventIndex: 5 });
+    const t = turn({
+      assistantMessages: [
+        { content: "Delegating", eventIndex: 3 },
+        { content: "child says", eventIndex: 6, parentToolCallId: "agent-1" },
+        { content: "Agent done", eventIndex: 9 },
+      ],
+      toolCalls: [agent, child, shell(11)],
+    });
+    const before = { messages: ["Delegating"], toolCalls: [agent, t.toolCalls[2]] };
+    expect(layout(orderTimelineSection(t, before))).toEqual(["reply:Delegating", "tools:4,11"]);
+    const sub = { agentId: "agent-1", messages: ["child says"], toolCalls: [child] };
+    expect(layout(orderTimelineSection(t, sub))).toEqual(["tools:5", "reply:child says"]);
+  });
+
+  it("keeps tool calls before replies when an item has no event index", () => {
+    const calls = [shell(3), shell(5)];
+    const t = turn({ assistantMessages: [{ content: "streamed" }], toolCalls: calls });
+    expect(layout(orderTimelineSection(t, { messages: ["streamed"], toolCalls: calls }))).toEqual([
+      "tools:3,5",
+      "reply:streamed",
+    ]);
+  });
+
+  it("keeps tool calls before replies when the section holds a call the order skips", () => {
+    // A child call whose subagent is unknown stays in the main section.
+    const orphan = makeToolCall({ toolName: "view", parentToolCallId: "gone", eventIndex: 4 });
+    const calls = [shell(3), orphan];
+    const t = turn({ assistantMessages: [{ content: "Done", eventIndex: 2 }], toolCalls: calls });
+    expect(layout(orderTimelineSection(t, { messages: ["Done"], toolCalls: calls }))).toEqual([
+      "tools:3,4",
+      "reply:Done",
+    ]);
   });
 });
 

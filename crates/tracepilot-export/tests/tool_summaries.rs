@@ -16,15 +16,35 @@ const TOKEN: &str = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij";
 
 /// One turn with a shell call and a file view, neither carrying an intention.
 fn session_with_tool_calls(command: &str) -> tempfile::TempDir {
+    session_with_calls(&[
+        ("powershell", json!({"command": command})),
+        (
+            "view",
+            json!({"path": r"C:\Users\John Smith\proj\notes.md"}),
+        ),
+    ])
+}
+
+/// One turn with these `(tool name, arguments)` calls, each taking a second
+/// and none carrying an intention.
+fn session_with_calls(calls: &[(&str, serde_json::Value)]) -> tempfile::TempDir {
     let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
-    let records = [
-        json!({"type":"user.message","id":"user","timestamp":"2026-03-10T10:00:00Z","data":{"content":"Tag the release"}}),
-        json!({"type":"tool.execution_start","id":"s1","parentId":"user","timestamp":"2026-03-10T10:00:01Z","data":{"toolCallId":"call-shell","toolName":"powershell","arguments":{"command":command}}}),
-        json!({"type":"tool.execution_complete","id":"c1","parentId":"s1","timestamp":"2026-03-10T10:00:02Z","data":{"toolCallId":"call-shell","success":true,"result":{"content":"done"}}}),
-        json!({"type":"tool.execution_start","id":"s2","parentId":"c1","timestamp":"2026-03-10T10:00:03Z","data":{"toolCallId":"call-view","toolName":"view","arguments":{"path":r"C:\Users\John Smith\proj\notes.md"}}}),
-        json!({"type":"tool.execution_complete","id":"c2","parentId":"s2","timestamp":"2026-03-10T10:00:04Z","data":{"toolCallId":"call-view","success":true,"result":{"content":"notes"}}}),
-        json!({"type":"assistant.message","id":"assistant","parentId":"c2","timestamp":"2026-03-10T10:00:05Z","data":{"content":"Tagged."}}),
+    let at = |second: usize| format!("2026-03-10T10:00:{second:02}Z");
+    let mut records = vec![
+        json!({"type":"user.message","id":"user","timestamp":at(0),"data":{"content":"Tag the release"}}),
     ];
+    let mut parent = "user".to_string();
+    for (index, (tool, args)) in calls.iter().enumerate() {
+        let (start, done, id) = (
+            format!("s{index}"),
+            format!("c{index}"),
+            format!("call-{index}"),
+        );
+        records.push(json!({"type":"tool.execution_start","id":start,"parentId":parent,"timestamp":at(2 * index + 1),"data":{"toolCallId":id,"toolName":tool,"arguments":args}}));
+        records.push(json!({"type":"tool.execution_complete","id":done,"parentId":start,"timestamp":at(2 * index + 2),"data":{"toolCallId":id,"success":true,"result":{"content":"done"}}}));
+        parent = done;
+    }
+    records.push(json!({"type":"assistant.message","id":"assistant","parentId":parent,"timestamp":at(59),"data":{"content":"Tagged."}}));
     let events = records
         .iter()
         .map(ToString::to_string)
@@ -145,4 +165,40 @@ fn dropped_tool_details_drop_the_argument_summary() {
     assert!(markdown.contains("| powershell |"), "{markdown}");
     assert!(!markdown.contains("git tag"), "{markdown}");
     assert!(!markdown.contains("**Arguments:**"), "{markdown}");
+}
+
+/// Copilot `store_memory`, `bash` and `apply_patch` (a raw patch string) rows
+/// show a summary, cut from redacted arguments when redaction is on.
+#[test]
+fn new_summaries_are_shown_and_redacted() {
+    let patch = "*** Begin Patch\n*** Update File: C:\\Users\\John Smith\\proj\\a.rs\n@@\n-a\n+b\n*** End Patch";
+    let dir = session_with_calls(&[
+        (
+            "store_memory",
+            json!({"fact": format!("The deploy token is {TOKEN}.")}),
+        ),
+        ("bash", json!({"command": "cargo test -p core"})),
+        ("apply_patch", json!(patch)),
+    ]);
+    let plain = export_text(&dir, &conversation_options(ExportFormat::Markdown));
+    for row in [
+        format!("| store_memory | ✅ | 1s | The deploy token is {TOKEN}. |"),
+        "| bash | ✅ | 1s | cargo test -p core |".to_string(),
+        r"| apply_patch | ✅ | 1s | C:\Users\John Smith\proj\a.rs |".to_string(),
+    ] {
+        assert!(plain.contains(&row), "{row}: {plain}");
+    }
+
+    let mut options = conversation_options(ExportFormat::Markdown);
+    options.redaction = redact_all();
+    let markdown = export_text(&dir, &options);
+    for leak in ["ghp_", "John", "Smith"] {
+        assert!(!markdown.contains(leak), "leaked {leak}: {markdown}");
+    }
+    for row in [
+        "| store_memory | ✅ | 1s | The deploy token is <REDACTED_TOKEN>. |",
+        "| apply_patch | ✅ | 1s | <REDACTED_PATH> |",
+    ] {
+        assert!(markdown.contains(row), "{row}: {markdown}");
+    }
 }

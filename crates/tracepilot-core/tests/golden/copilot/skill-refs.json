@@ -54,6 +54,7 @@
           {
             "agentDescription": null,
             "agentDisplayName": null,
+            "argsSummary": "probe-notes",
             "arguments": {
               "skill": "probe-notes"
             },
@@ -140,6 +141,7 @@
           {
             "agentDescription": null,
             "agentDisplayName": null,
+            "argsSummary": "probe-notes",
             "arguments": {
               "skill": "probe-notes"
             },
