@@ -20,6 +20,7 @@ function page(offset: number, totalCount = 120): EventsResponse {
   const count = Math.min(50, totalCount - offset);
   return {
     events: Array.from({ length: count }, (_, i) => ({
+      index: offset + i,
       eventType: "user.message",
       timestamp: "2026-01-01T00:00:00Z",
       id: `e${offset + i}`,
@@ -207,6 +208,48 @@ it("lets a page the user asks for during a refresh win over the refresh", async 
   expect(wrapper.text()).toContain("Page 2 of 3");
   expect(firstRow(wrapper)).toMatchObject({ rowNum: "51", id: "e50" });
   expect(button(wrapper, "Next").attributes("disabled")).toBeUndefined();
+  wrapper.unmount();
+});
+
+it("numbers filtered events by their place in the session, not on the page", async () => {
+  loadSucceeds();
+  const wrapper = mountTab();
+  await flushPromises();
+  expect(firstRow(wrapper)).toMatchObject({ rowNum: "1", id: "e0" });
+
+  // Every fifth event is a tool start: 4, 9, 14, ... in the session.
+  store.loadEvents.mockImplementation(async (offset: number, _limit: number, type: string) => {
+    store.events = {
+      events: Array.from({ length: 50 }, (_, i) => ({
+        index: (offset + i) * 5 + 4,
+        eventType: type,
+        id: `t${offset + i}`,
+        data: {},
+      })),
+      totalCount: 60,
+      hasMore: offset === 0,
+      allEventTypes: ["user.message", type],
+    };
+  });
+  wrapper.getComponent(FilterSelect).vm.$emit("update:modelValue", "tool.execution_start");
+  await flushPromises();
+  expect(wrapper.text()).toContain("60 matching events");
+  expect(firstRow(wrapper)).toMatchObject({ rowNum: "5", id: "t0" });
+  expect(wrapper.findAll("tbody tr")[1].findAll("td")[1].text()).toBe("10");
+
+  // The toggle names that number and points at its own payload.
+  const toggle = wrapper.get('button[aria-label="Show payload of event 10"]');
+  await toggle.trigger("click");
+  const shown = wrapper.get('button[aria-label="Hide payload of event 10"]');
+  expect(wrapper.get(`#${shown.attributes("aria-controls")}`).classes()).toContain(
+    "events-table__payload",
+  );
+
+  // The next page of the filter carries on from there.
+  await button(wrapper, "Next").trigger("click");
+  await flushPromises();
+  expect(store.loadEvents).toHaveBeenLastCalledWith(50, 50, "tool.execution_start");
+  expect(firstRow(wrapper)).toMatchObject({ rowNum: "255", id: "t50" });
   wrapper.unmount();
 });
 

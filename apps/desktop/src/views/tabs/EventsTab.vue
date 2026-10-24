@@ -114,8 +114,9 @@ const withDates = computed(() =>
 
 const tableRows = computed(() =>
   displayEvents.value.map((e, idx) => {
-    const rowNum = currentPage.value * pageSize + idx + 1;
-    // Stable across a refresh of the same page, since events only append.
+    // The event's number in the session, so a filter doesn't renumber it.
+    const rowNum = (e.index ?? currentPage.value * pageSize + idx) + 1;
+    // Stable across a refresh, since events only append.
     const time = eventTimeLabel(e.timestamp, withDates.value);
     return { ...e, rowNum, time, key: `${rowNum}:${e.id ?? ""}` };
   }),
