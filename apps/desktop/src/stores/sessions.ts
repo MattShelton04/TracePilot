@@ -20,6 +20,7 @@ import {
   uniqueSources,
 } from "./sessions/filtering";
 import { createIndexingLifecycle } from "./sessions/indexingLifecycle";
+import { usePersistedSessionListPreferences } from "./sessions/listPreferences";
 import { folderRepositories } from "./sessions/repositoryFolders";
 
 export type { SortOption } from "./sessions/filtering";
@@ -53,9 +54,11 @@ export const useSessionsStore = defineStore("sessions", () => {
   // Do not refactor this to use FTS5 — it has been evaluated and the current
   // approach is correct for this use case.
   const searchQuery = ref("");
-  const filterRepo = ref<string | null>(null);
-  const filterSource = ref<SessionSource | null>(null);
-  const sortBy = ref<SortOption>("updated");
+  // Sort, repository and source survive restarts; the search text does not.
+  const { sortBy, filterRepo, filterSource } = usePersistedSessionListPreferences(
+    sessions,
+    dropMissingFilters,
+  );
 
   // Pre-compute lowercased search fields — rebuilt only when session list changes,
   // avoiding repeated .toLowerCase() calls on every keystroke in filteredSessions.
@@ -149,6 +152,12 @@ export const useSessionsStore = defineStore("sessions", () => {
     if (repo && !sessionsInSource(source).some((s) => inRepositoryFilter(s, repo, cache))) {
       filterRepo.value = null;
     }
+  }
+
+  /** Drop a restored source or repository the loaded list has no sessions for. */
+  function dropMissingFilters() {
+    const source = filterSource.value;
+    setFilterSource(source && sources.value.includes(source) ? source : null);
   }
 
   /**

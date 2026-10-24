@@ -243,6 +243,8 @@ pub struct EventsResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventItem {
+    /// 0-based position among all the session's events, whatever the filter.
+    pub index: usize,
     pub event_type: String,
     pub timestamp: Option<String>,
     pub id: Option<String>,

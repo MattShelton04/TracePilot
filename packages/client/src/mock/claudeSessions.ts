@@ -100,12 +100,14 @@ export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
 export const MOCK_CLAUDE_EVENTS: EventsResponse = {
   events: [
     {
+      index: 0,
       id: "claude-prompt",
       eventType: "user.message",
       timestamp: ts(-61000),
       data: { content: "Review indexing retries." },
     },
     {
+      index: 1,
       id: "claude-read-start",
       eventType: "tool.execution_start",
       timestamp: ts(-60000),
@@ -117,6 +119,7 @@ export const MOCK_CLAUDE_EVENTS: EventsResponse = {
       },
     },
     {
+      index: 2,
       id: "claude-model-call",
       eventType: "tracepilot.model_call",
       timestamp: ts(-58000),
