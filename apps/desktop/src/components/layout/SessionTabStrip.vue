@@ -19,7 +19,7 @@
 
 import { openSessionWindow } from "@tracepilot/client";
 import { Home } from "lucide-vue-next";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useTabReorderDrag } from "@/composables/useTabReorderDrag";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { logError } from "@/utils/logger";
@@ -70,6 +70,47 @@ watch(
   },
   { immediate: true },
 );
+
+// ── Keep the active tab in view ──────────────────────────────────────
+/**
+ * Scroll the strip (only the strip) so the active tab is fully visible.
+ * scrollIntoView could also move the page behind it; focus is never moved.
+ */
+function revealActiveTab() {
+  const strip = stripRef.value;
+  const index = tabs.value.findIndex((tab) => tab.sessionId === activeTabId.value);
+  const tab = index >= 0 ? tabRefs.value[index] : null;
+  if (!strip || !tab || strip.clientWidth === 0) return;
+  const stripRect = strip.getBoundingClientRect();
+  const tabRect = tab.getBoundingClientRect();
+  // Keep the strip's own padding visible beside the tab.
+  const inset = Number.parseFloat(getComputedStyle(strip).paddingLeft) || 0;
+  const left = tabRect.left - stripRect.left - strip.clientLeft + strip.scrollLeft - inset;
+  const right = left + tabRect.width + inset * 2;
+  let target: number;
+  if (left < strip.scrollLeft || right - left > strip.clientWidth) target = left;
+  else if (right > strip.scrollLeft + strip.clientWidth) target = right - strip.clientWidth;
+  else return;
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  strip.scrollTo({ left: Math.max(0, target), behavior: reduceMotion ? "auto" : "smooth" });
+}
+
+watch(
+  () => [activeTabId.value, tabs.value.length, tabStore.activeTab?.label],
+  () => nextTick(revealActiveTab),
+  { immediate: true },
+);
+
+// Re-reveal when the strip itself is resized (window or sidebar width changes).
+let resizeObserver: ResizeObserver | undefined;
+watch(stripRef, (strip) => {
+  resizeObserver?.disconnect();
+  resizeObserver = undefined;
+  if (!strip || typeof ResizeObserver === "undefined") return;
+  resizeObserver = new ResizeObserver(() => revealActiveTab());
+  resizeObserver.observe(strip);
+});
+onBeforeUnmount(() => resizeObserver?.disconnect());
 
 function activate(sessionId: string) {
   tabStore.activateTab(sessionId);
@@ -307,7 +348,10 @@ async function contextPopOut() {
   border-bottom: 1px solid var(--border-default);
   overflow-x: auto;
   overflow-y: hidden;
+  /* A non-auto scrollbar-width replaces the app's themed ::-webkit-scrollbar
+     in WebView2, so give the thin bar theme colours of its own. */
   scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
   min-height: 36px;
   flex-shrink: 0;
 }
