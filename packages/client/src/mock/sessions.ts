@@ -305,18 +305,21 @@ export const MOCK_TURNS: ConversationTurn[] = [
 export const MOCK_EVENTS: EventsResponse = {
   events: [
     {
+      index: 0,
       id: "evt-1",
       eventType: "session.start",
       timestamp: new Date(NOW_MS - ONE_HOUR * 3).toISOString(),
       data: { summary: "Session launched", severity: "info" },
     },
     {
+      index: 1,
       id: "evt-2",
       eventType: "session.error",
       timestamp: new Date(NOW_MS - ONE_HOUR * 2).toISOString(),
       data: { summary: "Refresh token invalid", severity: "error", code: "INVALID_REFRESH" },
     },
     {
+      index: 2,
       id: "evt-3",
       eventType: "session.compaction_complete",
       timestamp: new Date(NOW_MS - ONE_HOUR).toISOString(),
