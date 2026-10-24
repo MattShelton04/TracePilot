@@ -41,7 +41,8 @@ pub enum ExportError {
     #[error("validation error: {message}")]
     Validation { message: String },
 
-    /// The session directory was not found or is missing workspace.yaml.
+    /// The session directory was not found, or has neither `workspace.yaml`
+    /// nor `events.jsonl`.
     #[error("session not found: {0}")]
     SessionNotFound(PathBuf),
 }

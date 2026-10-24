@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { formatDuration, formatNumberFull } from "@tracepilot/types";
+import { computed } from "vue";
 
-defineProps<{
+const props = defineProps<{
   hasResults: boolean;
   isBrowseMode: boolean;
   totalCount: number;
@@ -20,6 +21,11 @@ const emit = defineEmits<{
   (e: "clear-all"): void;
   (e: "copy-all"): void;
 }>();
+
+// Copy takes the loaded page, not every page behind the count.
+const copyLabel = computed(() =>
+  props.totalPages > 1 ? "Copy results on this page" : "Copy all results",
+);
 </script>
 
 <template>
@@ -54,8 +60,8 @@ const emit = defineEmits<{
       <button
         v-if="hasResults && !noSearchableTerms"
         class="view-mode-btn"
-        title="Copy all results"
-        aria-label="Copy all results"
+        :title="copyLabel"
+        :aria-label="copyLabel"
         @click="emit('copy-all')"
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">

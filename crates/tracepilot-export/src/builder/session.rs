@@ -11,6 +11,7 @@ use super::sections::{
 };
 use tracepilot_core::parsing::events::parse_typed_events;
 use tracepilot_core::parsing::workspace::parse_workspace_yaml;
+use tracepilot_core::summary::load_session_summary_from_events;
 use tracepilot_core::turns::reconstruct_turns;
 
 /// Build a single [`PortableSession`] from a session directory.
@@ -20,12 +21,13 @@ pub(super) fn build_portable_session(
 ) -> Result<PortableSession> {
     let session_paths = SessionPaths::from_root(session_dir);
 
-    // 1. Load workspace metadata (always required)
+    // 1. A session has workspace metadata, an event log, or both. Older CLIs
+    // wrote no `workspace.yaml`; the app lists those sessions from their events.
     let workspace_path = session_paths.workspace_yaml();
-    if !workspace_path.exists() {
+    let events_path = session_paths.events_jsonl();
+    if !workspace_path.exists() && !events_path.exists() {
         return Err(ExportError::SessionNotFound(session_dir.to_path_buf()));
     }
-    let ws = parse_workspace_yaml(&workspace_path).map_err(ExportError::session_data)?;
 
     // 2. Parse events if any event-dependent section is requested
     let needs_events = options.includes(SectionId::Conversation)
@@ -34,7 +36,6 @@ pub(super) fn build_portable_session(
         || options.includes(SectionId::Incidents)
         || options.includes(SectionId::ParseDiagnostics);
 
-    let events_path = session_paths.events_jsonl();
     let (typed_events, diagnostics) = if needs_events && events_path.exists() {
         let parsed = parse_typed_events(&events_path).map_err(ExportError::session_data)?;
         (Some(parsed.events), Some(parsed.diagnostics))
@@ -53,21 +54,29 @@ pub(super) fn build_portable_session(
         .map(|events| reconstruct_turns(events));
     let turn_count = turns.as_ref().map(Vec::len);
 
-    let display_summary = ws.display_summary();
+    // The metadata the app shows: `workspace.yaml` enriched from the events
+    // (last activity, and `session.start` context for fields it lacks). A
+    // missing or malformed `workspace.yaml` falls back to the events, as in
+    // the app. Without parsed events this is the workspace metadata alone.
+    let summary =
+        load_session_summary_from_events(session_dir, typed_events.as_deref().unwrap_or_default())
+            .map_err(ExportError::session_data)?;
+    // Fields only `workspace.yaml` records.
+    let ws = parse_workspace_yaml(&workspace_path).ok();
     let metadata = PortableSessionMetadata {
-        id: ws.id,
+        id: summary.id,
         source: SessionSource::Copilot,
-        summary: display_summary,
-        repository: ws.repository,
-        branch: ws.branch,
-        cwd: ws.cwd,
-        git_root: ws.git_root,
-        host_type: ws.host_type,
-        created_at: ws.created_at,
-        updated_at: ws.updated_at,
+        summary: summary.summary,
+        repository: summary.repository,
+        branch: summary.branch,
+        cwd: summary.cwd,
+        git_root: ws.as_ref().and_then(|ws| ws.git_root.clone()),
+        host_type: summary.host_type,
+        created_at: summary.created_at,
+        updated_at: summary.updated_at,
         event_count,
         turn_count,
-        summary_count: ws.summary_count,
+        summary_count: ws.and_then(|ws| ws.summary_count),
         lineage: None, // Fresh export — no prior lineage
     };
 

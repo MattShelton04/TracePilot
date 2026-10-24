@@ -89,13 +89,9 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                 .unwrap_or_else(|| "—".to_string());
 
             let name = if tool.is_subagent {
-                let display = tool
-                    .agent_display_name
-                    .as_deref()
-                    .unwrap_or(&tool.tool_name);
-                format!("🤖 {}", display)
+                format!("🤖 {}", agent_name(tool))
             } else {
-                tool.tool_name.clone()
+                tool_name(tool).to_string()
             };
 
             let summary = if tool.is_subagent {
@@ -141,11 +137,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         if !detailed_tools.is_empty() {
             for tool in detailed_tools {
                 if tool.is_subagent {
-                    let display = tool
-                        .agent_display_name
-                        .as_deref()
-                        .unwrap_or(&tool.tool_name);
-                    md.push_line(format_args!("#### 🤖 {}\n", display));
+                    md.push_line(format_args!("#### 🤖 {}\n", agent_name(tool)));
 
                     let mut stats: Vec<String> = Vec::new();
                     if let Some(model) = tool.model.as_deref() {
@@ -171,7 +163,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                         md.push_line(format_args!("{}\n", desc));
                     }
                 } else {
-                    md.push_line(format_args!("#### 🔧 {}\n", tool.tool_name));
+                    md.push_line(format_args!("#### 🔧 {}\n", tool_name(tool)));
                 }
 
                 if let Some(args) = &tool.arguments {
@@ -191,6 +183,19 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
     }
 
     write_session_events(md, during);
+}
+
+/// The name the app's conversation shows: the source's own tool name (Claude
+/// Code's `Read`, `Bash`) when it has one, else the canonical name.
+fn tool_name(tool: &TurnToolCall) -> &str {
+    tool.native_tool_name.as_deref().unwrap_or(&tool.tool_name)
+}
+
+/// A subagent's display name, falling back to its tool's name.
+fn agent_name(tool: &TurnToolCall) -> &str {
+    tool.agent_display_name
+        .as_deref()
+        .unwrap_or_else(|| tool_name(tool))
 }
 
 /// Longest error text written for one tool call. A failed command's error can

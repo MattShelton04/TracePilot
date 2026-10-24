@@ -20,7 +20,11 @@
       "metadata": {
         "id": "00000000-0000-4000-8000-000000000003",
         "summary": "Sparse session",
+        "repository": "org/project",
+        "branch": "feature-x",
         "cwd": "/test/project",
+        "hostType": "vscode",
+        "updatedAt": "2026-03-10T07:14:51Z",
         "eventCount": 2,
         "turnCount": 1
       },

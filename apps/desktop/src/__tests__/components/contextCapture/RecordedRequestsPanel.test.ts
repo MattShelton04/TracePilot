@@ -183,6 +183,45 @@ describe("RecordedRequestsPanel", () => {
     expect(wrapper.text()).toContain("The latest 2 of 5 calls");
   });
 
+  it("keeps the calls page across refreshes and starts another session on the first", async () => {
+    const many = (count: number) =>
+      log({
+        calls: Array.from({ length: count }, (_, i) => ({
+          ...call,
+          timestamp: new Date(Date.UTC(2026, 9, 17, 0, 0, i)).toISOString(),
+        })),
+        totalCalls: count,
+      });
+    // Each read answers with a new array of the same calls, as the backend does.
+    vi.mocked(getSessionRequestLog).mockImplementation(async () => many(120));
+    const wrapper = mountPanel("session-a", 1);
+    await flushPromises();
+    await open(wrapper, "Calls");
+    const pager = () => wrapper.get(".recorded-calls__pager").text();
+    expect(pager()).toContain("1 / 3");
+
+    const next = () => wrapper.findAll(".recorded-calls__pager button")[1];
+    await next().trigger("click");
+    await next().trigger("click");
+    expect(pager()).toContain("3 / 3");
+
+    await wrapper.setProps({ refreshKey: 2 });
+    await flushPromises();
+    expect(getSessionRequestLog).toHaveBeenCalledTimes(2);
+    expect(pager()).toContain("3 / 3");
+
+    vi.mocked(getSessionRequestLog).mockImplementation(async () => many(80));
+    await wrapper.setProps({ refreshKey: 3 });
+    await flushPromises();
+    expect(pager()).toContain("2 / 2");
+
+    vi.mocked(getSessionRequestLog).mockImplementation(async () => many(120));
+    await wrapper.setProps({ sessionId: "session-b" });
+    await flushPromises();
+    await open(wrapper, "Calls");
+    expect(pager()).toContain("1 / 3");
+  });
+
   it("tells a call whose set was left out from one whose set was never recorded", async () => {
     vi.mocked(getSessionRequestLog).mockResolvedValue(
       log({

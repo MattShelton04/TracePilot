@@ -248,6 +248,25 @@ describe("SessionSearchResultsHeader", () => {
     expect(wrapper.text()).not.toContain("page 1 of 7");
     expect(wrapper.find('[aria-label="Copy all results"]').exists()).toBe(false);
   });
+
+  it("names the copy button for what it copies: the page, once there are several", async () => {
+    const props = {
+      hasResults: true,
+      isBrowseMode: false,
+      totalCount: 1234,
+      groupedCount: null,
+      latencyMs: 3,
+      resultViewMode: "flat" as const,
+      totalPages: 25,
+      page: 1,
+    };
+    const wrapper = mount(SessionSearchResultsHeader, { props });
+    expect(wrapper.find('[aria-label="Copy results on this page"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Copy all results"]').exists()).toBe(false);
+
+    await wrapper.setProps({ totalCount: 12, totalPages: 1 });
+    expect(wrapper.find('[aria-label="Copy all results"]').exists()).toBe(true);
+  });
 });
 
 describe("SessionSearchPagination", () => {
@@ -289,5 +308,20 @@ describe("SessionSearchPagination", () => {
     expect(wrapper.emitted("next")).toBeTruthy();
     await wrapper.find(".pagination-btn.active").trigger("click");
     expect(wrapper.emitted("go")?.[0]).toEqual([2]);
+  });
+
+  it("formats the page range like the total", () => {
+    const wrapper = mount(SessionSearchPagination, {
+      props: {
+        page: 21,
+        totalPages: 25,
+        totalCount: 1234,
+        hasMore: true,
+        visiblePages: [1, null, 20, 21, 22, null, 25],
+        pageStart: 1001,
+        pageEnd: 1050,
+      },
+    });
+    expect(wrapper.get(".pagination-info").text()).toBe("1,001–1,050 of 1,234");
   });
 });

@@ -50,7 +50,7 @@ const emit = defineEmits<{
       Next <span aria-hidden="true">›</span>
     </button>
     <span class="pagination-info" aria-live="polite">
-      {{ pageStart }}–{{ pageEnd }} of {{ formatNumberFull(totalCount) }}
+      {{ formatNumberFull(pageStart) }}–{{ formatNumberFull(pageEnd) }} of {{ formatNumberFull(totalCount) }}
     </span>
   </nav>
 </template>
