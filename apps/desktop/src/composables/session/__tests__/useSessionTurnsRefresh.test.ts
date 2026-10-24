@@ -157,6 +157,28 @@ describe("useSessionTurnsRefresh", () => {
     expect(refresh.turns.value[0].toolCalls[0].isComplete).toBe(true);
   });
 
+  it("finishes a tool call in an older turn after a steering prompt opened a newer one", () => {
+    const { refresh } = setup();
+    // A steering prompt finalizes turn 0 while its tool call is still running;
+    // the tool's completion lands in turn 0 later, with no top-level change.
+    const running = (isComplete: boolean) =>
+      mkTurn(0, { toolCalls: [{ toolName: "bash", isComplete }] });
+    refresh.replaceTurns([running(false), mkTurn(1, { isComplete: false })] as never);
+    const before = refresh.turnsVersion.value;
+    refresh.mergeTurns([running(true), mkTurn(1, { isComplete: false })] as never);
+    expect(refresh.turns.value[0].toolCalls[0].isComplete).toBe(true);
+    expect(refresh.turnsVersion.value).toBeGreaterThan(before);
+  });
+
+  it("refreshes an older turn that is still open when only its replies change", () => {
+    const { refresh } = setup();
+    const open = (assistantMessages: unknown[]) =>
+      mkTurn(0, { isComplete: false, assistantMessages });
+    refresh.replaceTurns([open([]), mkTurn(1)] as never);
+    refresh.mergeTurns([open([{ content: "Done" }]), mkTurn(1)] as never);
+    expect(refresh.turns.value[0].assistantMessages).toEqual([{ content: "Done" }]);
+  });
+
   it("accepts delayed subagent discovery in an older turn on the first refresh", () => {
     const { refresh } = setup();
     const launch = (isSubagent: boolean) =>
