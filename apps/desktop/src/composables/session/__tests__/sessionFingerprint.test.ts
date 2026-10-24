@@ -145,4 +145,14 @@ describe("computeDeepCompareIndexes", () => {
     expect(idxs.has(2)).toBe(true); // last
     expect(idxs.has(1)).toBe(false);
   });
+
+  it("adds open turns and turns with an unfinished tool, not finished ones", () => {
+    const turns = [
+      mkTurn({ turnIndex: 0, toolCalls: [tc({ isComplete: false })] }),
+      mkTurn({ turnIndex: 1, isComplete: false }),
+      mkTurn({ turnIndex: 2, toolCalls: [tc()] }),
+      mkTurn({ turnIndex: 3 }),
+    ];
+    expect([...computeDeepCompareIndexes(turns)].sort()).toEqual([0, 1, 3]);
+  });
 });

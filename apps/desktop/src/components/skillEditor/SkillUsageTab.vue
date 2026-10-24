@@ -144,6 +144,18 @@ const drifted = computed(() => {
   });
 });
 
+/**
+ * Only Copilot CLI records a trigger, and only from 1.0.49. Its untriggered
+ * invocations still carry their content, or come from a `skill` tool call
+ * (`fallbackUses`); Claude Code invocations have neither, so a skill used only
+ * there gets no Copilot version note.
+ */
+const copilotUntriggered = computed(
+  () =>
+    !triggerKnown.value &&
+    ((stats.value?.usesWithContent ?? 0) > 0 || (stats.value?.fallbackUses ?? 0) > 0),
+);
+
 const fallbackOnly = computed(
   () => (stats.value?.fallbackUses ?? 0) > 0 && stats.value?.usesWithContent === 0,
 );
@@ -196,7 +208,7 @@ const fallbackOnly = computed(
         <h4 class="usage-detail__title">
           Who invoked it
           <Tooltip
-            v-if="!triggerKnown"
+            v-if="copilotUntriggered"
             text="Copilot CLI only began recording whether a skill was invoked by you or by the model in 1.0.49. Earlier invocations are shown as not recorded rather than guessed."
             position="bottom"
           >

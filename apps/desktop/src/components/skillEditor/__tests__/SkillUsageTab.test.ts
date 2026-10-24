@@ -132,6 +132,26 @@ describe("SkillUsageTab", () => {
     expect(wrapper.text()).not.toContain("not recorded before CLI 1.0.49");
   });
 
+  it("leaves the Copilot version note off a skill used only in Claude Code", () => {
+    // Claude Code invocations record no trigger, content or tool-call fallback.
+    const { wrapper } = mountTab({
+      usage: detail({
+        stats: stats({ usesWithContent: 0, medianContentTokens: null, paths: [] }),
+      }),
+    } as never);
+    expect(wrapper.text()).not.toContain("not recorded before CLI 1.0.49");
+    expect(wrapper.text()).toContain("No invocation in this range recorded who triggered it");
+  });
+
+  it("keeps the note for Copilot skill tool calls that recorded no content", () => {
+    const { wrapper } = mountTab({
+      usage: detail({
+        stats: stats({ usesWithContent: 0, medianContentTokens: null, fallbackUses: 40 }),
+      }),
+    } as never);
+    expect(wrapper.text()).toContain("not recorded before CLI 1.0.49");
+  });
+
   it("warns that the figures describe an older version when the file has drifted", () => {
     const { wrapper } = mountTab({ installedSha256: "sha-edited" } as never);
     expect(wrapper.get(".usage-detail__notice").text()).toContain("changed since it was last used");

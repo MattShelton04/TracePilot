@@ -361,7 +361,10 @@
 }
 
 .session-comparison-feature .tool-label {
-  width: 100px;
+  width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.75rem;
   color: var(--text-secondary);
   text-align: right;

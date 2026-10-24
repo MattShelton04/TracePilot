@@ -119,8 +119,11 @@ export function turnFingerprint(turn: ConversationTurn): string {
 
 /**
  * Determine which turn indexes deserve a deep fingerprint comparison on the
- * next merge: always the last turn, plus turns with agent traffic. Completed
- * workers can receive follow-ups, and delayed deliveries can enrich old turns.
+ * next merge: always the last turn, plus turns with agent traffic and turns
+ * still in flight. Completed workers can receive follow-ups, and delayed
+ * deliveries can enrich old turns. A new prompt (steering, queued) closes the
+ * current turn while its tools still run; their results land in that older
+ * turn later, so an open turn or a turn with an unfinished tool stays deep.
  */
 export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<number> {
   const indexes = new Set<number>();
@@ -129,9 +132,11 @@ export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<num
   }
   for (let i = 0; i < turnList.length; i++) {
     if (
+      turnList[i]?.isComplete === false ||
       turnList[i]?.agentMessages?.length ||
       turnList[i]?.toolCalls.some(
         (tc) =>
+          !tc.isComplete ||
           tc.isSubagent ||
           tc.toolName === "write_agent" ||
           tc.toolName === "read_agent" ||

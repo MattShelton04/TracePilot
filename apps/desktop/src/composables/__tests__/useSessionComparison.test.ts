@@ -434,6 +434,20 @@ describe("session comparison across billing units", () => {
   });
 });
 
+describe("tool usage comparison", () => {
+  beforeEach(() => setupPinia());
+
+  it("labels each side by its source, as Conversation names its tools", () => {
+    const { comp } = mountHook();
+    comp.compared = true;
+    comp.dataA.detail = { id: "a", source: "claudeCode" } as SessionDetail;
+    comp.dataA.turns = [
+      { toolCalls: [{ toolName: "shell", nativeToolName: "Bash" }] },
+    ] as unknown as ConversationTurn[];
+    expect(comp.toolCompRows).toMatchObject([{ tool: "shell", label: "Bash", countA: 1 }]);
+  });
+});
+
 describe("helpers", () => {
   it("sessionLabel prefers summary then id then Unknown", () => {
     expect(sessionLabel(null)).toBe("Unknown");

@@ -1,5 +1,5 @@
 // biome-ignore-all assist/source/organizeImports: mocks must register before the component import.
-import { refreshSessionPullRequests } from "@tracepilot/client";
+import { IPC_EVENTS, refreshSessionPullRequests } from "@tracepilot/client";
 import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import type {
   ConversationTurn,
@@ -36,6 +36,14 @@ vi.mock("@tracepilot/client", async () => {
 });
 
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: mocks.push }) }));
+
+const listeners = vi.hoisted(() => new Map<string, () => void>());
+vi.mock("@/utils/tauriEvents", () => ({
+  safeListen: vi.fn(async (event: string, handler: () => void) => {
+    listeners.set(event, handler);
+    return () => listeners.delete(event);
+  }),
+}));
 
 vi.mock("@tracepilot/ui", async (original) => {
   const module = await original<typeof import("@tracepilot/ui")>();
@@ -213,6 +221,30 @@ describe("PullRequestsSection", () => {
     expect(mocks.relatedCounts).toHaveBeenCalledWith("s1");
     expect(mocks.relatedCounts.mock.calls.filter(([id]) => id === "s1")).toHaveLength(2);
     expect(related.hasEntry("s1")).toBe(true);
+  });
+
+  it("counts again after an index pass, keeping the old count until the new one lands", async () => {
+    const pr = makePullRequest(1046, ["created"], { primary: true });
+    const counted = (otherSessionCount: number) => [
+      { host: pr.host, owner: pr.owner, repo: pr.repo, number: pr.number, otherSessionCount },
+    ];
+    mocks.relatedCounts.mockResolvedValue(counted(1));
+    store.pullRequests = [pr];
+    const wrapper = mountSection();
+    await flushPromises();
+    const related = () => wrapper.get('[data-testid="pull-request-related"]').text();
+    expect(related()).toBe("Also in 1 other session");
+
+    // Another session was linked to this pull request by the pass.
+    const fresh = createDeferred<unknown>();
+    mocks.relatedCounts.mockImplementationOnce(() => fresh.promise);
+    listeners.get(IPC_EVENTS.INDEXING_FINISHED)?.();
+    await flushPromises();
+    expect(mocks.relatedCounts).toHaveBeenCalledTimes(2);
+    expect(related()).toBe("Also in 1 other session");
+    fresh.resolve(counted(2));
+    await flushPromises();
+    expect(related()).toBe("Also in 2 other sessions");
   });
 
   it("offers only Copy link in a pop-out window", () => {

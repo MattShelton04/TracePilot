@@ -72,6 +72,18 @@ describe("AnalyticsAgentsPanel", () => {
     });
   });
 
+  it("says Top level rather than Deepest 0 when no run nested", async () => {
+    vi.mocked(agentsUsageSummary).mockResolvedValue({ ...summary, maxDepth: 0 });
+    const wrapper = mount(AnalyticsAgentsPanel);
+    await flushPromises();
+    const depth = wrapper.findAll(".agents-panel__value")[2];
+    expect(depth.text()).toBe("Top level");
+    expect(depth.classes()).toContain("ad-tile__value--text");
+    expect(wrapper.findAll(".agents-panel__value")[0].classes()).not.toContain(
+      "ad-tile__value--text",
+    );
+  });
+
   it("counts runs that never reported in ended sessions as No final report", async () => {
     vi.mocked(agentsUsageSummary).mockResolvedValue({ ...summary, unreportedRuns: 4 });
     const wrapper = mount(AnalyticsAgentsPanel);

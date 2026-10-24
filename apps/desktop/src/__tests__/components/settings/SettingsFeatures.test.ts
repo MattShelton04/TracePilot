@@ -173,6 +173,16 @@ describe("rich tool rendering settings", () => {
     expect(wrapper.find(".tool-viz-grid").exists()).toBe(true);
   });
 
+  it("names the master switch without repeating the row label beside it", async () => {
+    const wrapper = mount(SettingsToolVisualization);
+    await flushPromises();
+
+    const row = wrapper.get(".setting-row");
+    expect(row.get('[role="switch"]').attributes("aria-label")).toBe("Rich Tool Rendering");
+    expect(row.find(".form-switch-label").exists()).toBe(false);
+    expect(row.text().match(/Rich Tool Rendering/g)).toHaveLength(1);
+  });
+
   it("summarizes customized overrides while collapsed", async () => {
     const wrapper = mount(SettingsToolVisualization);
     await flushPromises();
