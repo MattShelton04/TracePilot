@@ -8,9 +8,10 @@
 import type { TaskNotification } from "@tracepilot/types";
 import { formatNumberFull, formatTokens } from "@tracepilot/types";
 import type { StatusPillTone } from "@tracepilot/ui";
-import { ExpandChevron, formatTime, MarkdownContent, StatusPill } from "@tracepilot/ui";
+import { ExpandChevron, MarkdownContent, StatusPill } from "@tracepilot/ui";
 import { Activity, Bell, Bot, CornerUpLeft, SquareTerminal } from "lucide-vue-next";
 import { reactive } from "vue";
+import { useConversationTime } from "@/components/conversation/conversationTime";
 
 const props = defineProps<{
   notifications: TaskNotification[];
@@ -21,6 +22,7 @@ const props = defineProps<{
   /** Whether the call that launched a task is in this conversation. */
   canRevealLaunch?: (toolUseId: string) => boolean;
 }>();
+const timeLabel = useConversationTime();
 
 const emit = defineEmits<{
   revealLaunch: [toolUseId: string];
@@ -102,7 +104,7 @@ function canReveal(note: TaskNotification): boolean {
       <Bell :size="14" class="cv-notice-bell" aria-hidden="true" />
       <span class="cv-notice-name">Notification</span>
       <span class="cv-notice-turn">T{{ turnIndex }}</span>
-      <span v-if="timestamp" class="cv-notice-time">{{ formatTime(timestamp) }}</span>
+      <span v-if="timestamp" class="cv-notice-time" :title="timeLabel(timestamp).title">{{ timeLabel(timestamp).text }}</span>
     </div>
     <div
       v-for="(note, index) in notifications"

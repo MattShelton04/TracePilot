@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { formatTime, MarkdownContent } from "@tracepilot/ui";
+import { MarkdownContent } from "@tracepilot/ui";
 import { User } from "lucide-vue-next";
 import { computed } from "vue";
+import { useConversationTime } from "@/components/conversation/conversationTime";
 import { promptPreviewText, splitPastedContent } from "@/utils/pastedContent";
 import MessageCopyButton from "./MessageCopyButton.vue";
 import PastedContentBlock from "./PastedContentBlock.vue";
@@ -17,6 +18,7 @@ const props = defineProps<{
   attachments?: unknown[] | null;
   sessionId?: string | null;
 }>();
+const timeLabel = useConversationTime();
 
 const parts = computed(() => splitPastedContent(props.content));
 /** The prompt as typed and pasted, without Claude Code's paste wrapper tags. */
@@ -33,8 +35,8 @@ const copyText = computed(() => promptPreviewText(props.content));
       <span class="cv-user-name">User</span>
       <span class="cv-user-turn">T{{ turnIndex }}</span>
       <MessageCopyButton :text="copyText" label="Copy prompt" />
-      <span v-if="timestamp" class="cv-user-time">
-        {{ formatTime(timestamp) }}
+      <span v-if="timestamp" class="cv-user-time" :title="timeLabel(timestamp).title">
+        {{ timeLabel(timestamp).text }}
       </span>
     </div>
     <div class="cv-user-body">

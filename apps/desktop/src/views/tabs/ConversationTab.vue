@@ -28,6 +28,7 @@ import ConversationTurnList from "@/components/conversation/ConversationTurnList
 import ConversationViewSwitcher, {
   type ConversationViewMode,
 } from "@/components/conversation/ConversationViewSwitcher.vue";
+import { provideConversationDates } from "@/components/conversation/conversationTime";
 import type { SubagentPanelLayout } from "@/components/conversation/SubagentPanel.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useConversationDeepLinkScroll } from "@/composables/useConversationDeepLinkScroll";
@@ -48,6 +49,8 @@ const { isViewer } = useWindowRole();
 const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer() ? { query: {} } : useRoute();
 const store = useSessionDetailContext();
 provideSessionAgentDirectory(store);
+// Dates every turn and event time when the session spans days, in every view mode.
+provideConversationDates(() => store.turns);
 const preferences = usePreferencesStore();
 const sdk = useSdkStore();
 

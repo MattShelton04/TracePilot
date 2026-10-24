@@ -90,3 +90,13 @@ it("reports a binary or unavailable version instead of its content", async () =>
   expect(wrapper.find(".fh-viewer").text()).toContain("not available");
   wrapper.unmount();
 });
+
+it("gives a checkpoint's time its full date as a tooltip", async () => {
+  const wrapper = mountPanel();
+  await wrapper.find("button.fh-toggle-all").trigger("click");
+  const times = wrapper.findAll(".fh-meta time");
+  // The second checkpoint has no timestamp, so shows no time.
+  expect(times).toHaveLength(1);
+  expect(times[0].attributes("title")).toBe(new Date("2026-03-14T09:30:00.000Z").toLocaleString());
+  wrapper.unmount();
+});
