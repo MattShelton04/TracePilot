@@ -160,7 +160,7 @@ const comp = useSessionComparisonContext();
         </div>
       </div>
       <div v-for="row in comp.toolCompRows" :key="row.tool" class="tool-row">
-        <span class="tool-label">{{ row.tool }}</span>
+        <span class="tool-label" :title="row.hint ? `${row.label} (${row.hint})` : row.label">{{ row.label }}</span>
         <div class="tool-bars">
           <div v-if="row.countA > 0" class="tool-bar tool-bar-a" :style="{ width: (row.countA / row.maxCount * 100) + '%' }">{{ row.countA }}</div>
           <div v-if="row.countB > 0" class="tool-bar tool-bar-b" :style="{ width: (row.countB / row.maxCount * 100) + '%' }">{{ row.countB }}</div>
