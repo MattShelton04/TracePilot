@@ -45,12 +45,17 @@ function maxScroll(scroller: HTMLElement) {
   return Math.max(0, scroller.scrollHeight - scroller.clientHeight);
 }
 
-/** The scroll offset past which the sub-tab nav has left the top of the scroller. */
-function navEnd(scroller: HTMLElement): number {
+/** The scroll offset at which the sub-tab nav's top (or bottom) edge meets the scroller's top. */
+function navOffset(scroller: HTMLElement, side: "top" | "bottom"): number {
   const nav = scroller.querySelector(NAV_SELECTOR);
   if (!nav) return 0;
   const edge = scroller.getBoundingClientRect().top;
-  return nav.getBoundingClientRect().bottom - edge + scroller.scrollTop;
+  return nav.getBoundingClientRect()[side] - edge + scroller.scrollTop;
+}
+
+/** The scroll offset past which the sub-tab nav has left the top of the scroller. */
+function navEnd(scroller: HTMLElement): number {
+  return navOffset(scroller, "bottom");
 }
 
 function snapshot(scroller: HTMLElement): SubTabPosition {
@@ -72,7 +77,9 @@ function snapshot(scroller: HTMLElement): SubTabPosition {
  * user held below the nav (or wherever they were, when an in-content link
  * switched tabs), not the top they scrolled up to just to reach the nav.
  *
- * A sub-tab seen for the first time starts at the top. A return waits until
+ * A sub-tab seen for the first time starts at its top: the scroller moves up
+ * until the nav reaches the top edge, but never down, so the header doesn't
+ * slide back and the tab bar stays under the pointer. A return waits until
  * the content is tall enough (or the anchored turn has rendered), for a few
  * seconds at most, and is dropped when the user scrolls, the sub-tab or
  * session changes, or a focus target is pending. A user who was following
@@ -86,6 +93,8 @@ export function useSubTabScroll({ el, sessionId, subTab, hasFocusTarget }: UseSu
   let reading: SubTabPosition | null = null;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   let cancelPending: (() => void) | null = null;
+  /** The sub-tab whose restore is still waiting for its content. */
+  let waitingKey: string | null = null;
   let generation = 0;
 
   const keyOf = (sid: string, tab: string) => `${sid}\u0000${tab}`;
@@ -151,7 +160,7 @@ export function useSubTabScroll({ el, sessionId, subTab, hasFocusTarget }: UseSu
     reading = saved;
   }
 
-  function restore(scroller: HTMLElement, saved: SubTabPosition) {
+  function restore(scroller: HTMLElement, key: string, saved: SubTabPosition) {
     const stop = tryApply(scroller, saved);
     if (stop) {
       applied(stop, saved);
@@ -174,27 +183,33 @@ export function useSubTabScroll({ el, sessionId, subTab, hasFocusTarget }: UseSu
       clearTimeout(timer);
       for (const type of USER_INPUTS) scroller.removeEventListener(type, stopWaiting);
       if (cancelPending === stopWaiting) cancelPending = null;
+      if (waitingKey === key) waitingKey = null;
     }
     cancelPending = stopWaiting;
+    waitingKey = key;
   }
 
   // `pre` runs before the DOM patch, while the scroller still shows the sub-tab being left.
   watch(
     () => [sessionId(), subTab()] as const,
     ([sid, tab], [prevSid, prevTab]) => {
+      const leftKey = keyOf(prevSid, prevTab);
+      // Left before its content arrived: the position shown is not the user's.
+      const leftWaiting = waitingKey === leftKey;
       cancel();
       clearTimeout(settleTimer);
       const leaving = el();
-      if (leaving) save(keyOf(prevSid, prevTab), leaving);
+      if (leaving && !leftWaiting) save(leftKey, leaving);
       reading = null;
       if (hasFocusTarget?.(tab)) return;
-      const saved = positions.get(keyOf(sid, tab));
+      const key = keyOf(sid, tab);
+      const saved = positions.get(key);
       const token = generation;
       void nextTick(() => {
         const scroller = el();
         if (token !== generation || !scroller) return;
-        if (saved) restore(scroller, saved);
-        else scroller.scrollTop = 0;
+        if (saved) restore(scroller, key, saved);
+        else scroller.scrollTop = Math.min(scroller.scrollTop, navOffset(scroller, "top"));
       });
     },
     { flush: "pre" },

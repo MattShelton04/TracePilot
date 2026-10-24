@@ -12,6 +12,7 @@
 import { computed, defineAsyncComponent, provide, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
+import { hasUnrevealedConversationFocus } from "@/composables/conversationFocusReveal";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
 import {
   type ConversationNavigationTarget,
@@ -87,9 +88,9 @@ useSubTabScroll({
   el: () => (panel.value?.$el instanceof HTMLElement ? panel.value.$el : null),
   sessionId: () => props.sessionId,
   subTab: () => props.activeSubTab,
-  // A jump to a conversation turn or a checkpoint scrolls there instead.
+  // A jump to a conversation turn (until it has been shown) or a checkpoint scrolls there instead.
   hasFocusTarget: (tab) =>
-    (tab === "conversation" && store.pendingConversationFocus != null) ||
+    (tab === "conversation" && hasUnrevealedConversationFocus(store)) ||
     (tab === "overview" && store.pendingCheckpointFocus != null),
 });
 

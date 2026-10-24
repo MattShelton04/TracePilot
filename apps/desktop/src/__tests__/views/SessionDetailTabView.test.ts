@@ -3,6 +3,8 @@ import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, inject, nextTick } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { markConversationFocusRevealed } from "@/composables/conversationFocusReveal";
+import { SESSION_DETAIL_KEY } from "@/composables/session/contextKey";
 import {
   type ConversationNavigationTarget,
   NAVIGATE_CONVERSATION_KEY,
@@ -62,10 +64,12 @@ describe("SessionDetailTabView", () => {
 describe("SessionDetailTabView sub-tab scroll", () => {
   /** The panel's scroller: the sub-tab nav, then the sub-tab's content. */
   let jumpToTurn: ((target: ConversationNavigationTarget) => void) | undefined;
+  let panelStore: { pendingConversationFocus: { requestId: number } | null } | null = null;
   const ScrollingPanel = defineComponent({
     name: "SessionDetailPanel",
     setup() {
       jumpToTurn = inject(NAVIGATE_CONVERSATION_KEY);
+      panelStore = inject(SESSION_DETAIL_KEY, null);
       return () => h("div", { class: "page-content" }, [h("div", { role: "tablist" })]);
     },
   });
@@ -135,14 +139,18 @@ describe("SessionDetailTabView sub-tab scroll", () => {
     expect(scroller.scrollTop).toBe(1800);
   });
 
-  it("opens a sub-tab seen for the first time at the top", async () => {
+  it("opens a sub-tab seen for the first time at its top, with the tabs left in place", async () => {
     const { wrapper, scroller } = await mountScrolling();
     await show(wrapper, "metrics");
     scroller.scrollTop = 900;
 
+    // The nav (at 260) lands at the top of the scroller, not back below the header.
     await show(wrapper, "timeline");
+    expect(scroller.scrollTop).toBe(260);
 
-    expect(scroller.scrollTop).toBe(0);
+    scroller.scrollTop = 100;
+    await show(wrapper, "tasks");
+    expect(scroller.scrollTop).toBe(100);
   });
 
   it("lets a jump to a turn win over the remembered position", async () => {
@@ -159,5 +167,32 @@ describe("SessionDetailTabView sub-tab scroll", () => {
 
     expect(wrapper.props("activeSubTab")).toBe("conversation");
     expect(scroller.scrollTop).toBe(2500);
+  });
+
+  it("returns to where the user read after a jump to a turn has been shown", async () => {
+    const { wrapper, scroller } = await mountScrolling();
+    await show(wrapper, "overview");
+    jumpToTurn?.({ turnIndex: 4 });
+    await nextTick();
+    // The conversation scrolls to the turn and records that it was shown.
+    const store = panelStore as NonNullable<typeof panelStore>;
+    markConversationFocusRevealed(store, store.pendingConversationFocus?.requestId ?? -1);
+    scroller.scrollTop = 2500;
+    vi.advanceTimersByTime(6000);
+
+    readThenScrollUp(scroller, 2900);
+    await show(wrapper, "overview");
+    await show(wrapper, "conversation");
+
+    expect(scroller.scrollTop).toBe(2900);
+
+    // A new jump still wins over the remembered position.
+    await show(wrapper, "overview");
+    jumpToTurn?.({ turnIndex: 1 });
+    await nextTick();
+    scroller.scrollTop = 700;
+    await nextTick();
+    vi.advanceTimersByTime(6000);
+    expect(scroller.scrollTop).toBe(700);
   });
 });

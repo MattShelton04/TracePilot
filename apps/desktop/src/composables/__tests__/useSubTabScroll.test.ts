@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { useSubTabScroll } from "../useSubTabScroll";
@@ -6,6 +6,9 @@ import { useSubTabScroll } from "../useSubTabScroll";
 /** The sub-tab nav ends this far down the content (header, actions, tabs). */
 const NAV_END = 300;
 const VIEWPORT = 600;
+
+// A failed assertion must not leave its harness mounted for the next test.
+enableAutoUnmount(afterEach);
 
 const sessionId = ref("s1");
 const subTab = ref("conversation");
@@ -60,6 +63,8 @@ const Harness = defineComponent({
     });
     return () => {
       rendered = `${sessionId.value}/${subTab.value}`;
+      // Laying out shorter content pulls the position in, as in a browser.
+      top = Math.min(top, maxTop());
       return h(
         "div",
         {
@@ -135,17 +140,27 @@ describe("useSubTabScroll", () => {
     wrapper.unmount();
   });
 
-  it("starts a sub-tab opened for the first time at the top", async () => {
+  it("starts a sub-tab opened for the first time at its top, below the nav", async () => {
     const wrapper = mount(Harness);
     // An in-content link switches while the user is deep in the tab.
     scrollTo(1200);
 
+    // The nav stays at the top of the scroller rather than the header sliding back.
     await switchTo("overview");
-    expect(scroller.scrollTop).toBe(0);
+    expect(scroller.scrollTop).toBe(NAV_END - 40);
     await switchTo("metrics");
-    expect(scroller.scrollTop).toBe(0);
+    expect(scroller.scrollTop).toBe(NAV_END - 40);
     await switchTo("conversation");
     expect(scroller.scrollTop).toBe(1200);
+    wrapper.unmount();
+  });
+
+  it("keeps the tab bar under the pointer when opening a new sub-tab", async () => {
+    const wrapper = mount(Harness);
+    // Scrolled just far enough to hide part of the header.
+    scrollTo(120);
+    await switchTo("overview");
+    expect(scroller.scrollTop).toBe(120);
     wrapper.unmount();
   });
 
@@ -196,6 +211,21 @@ describe("useSubTabScroll", () => {
     for (const observer of [...observers]) observer.fire();
     expect(scroller.scrollTop).toBe(1500);
     expect(observers.size).toBe(0);
+    wrapper.unmount();
+  });
+
+  it("keeps the remembered position when the user leaves while it is still loading", async () => {
+    const wrapper = mount(Harness);
+    readAt(1500);
+    await switchTo("overview");
+
+    heights["s1/conversation"] = 200;
+    await switchTo("conversation");
+    await switchTo("overview");
+
+    heights["s1/conversation"] = 4000;
+    await switchTo("conversation");
+    expect(scroller.scrollTop).toBe(1500);
     wrapper.unmount();
   });
 
