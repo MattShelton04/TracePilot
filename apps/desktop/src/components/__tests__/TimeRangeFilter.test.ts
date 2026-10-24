@@ -6,6 +6,8 @@ import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useAnalyticsStore } from "@/stores/analytics";
 import TimeRangeFilter from "../TimeRangeFilter.vue";
 
+type DateInput = ReturnType<VueWrapper["get"]> & { element: HTMLInputElement };
+
 describe("TimeRangeFilter", () => {
   const wrappers: VueWrapper[] = [];
   beforeEach(() => {
@@ -37,10 +39,16 @@ describe("TimeRangeFilter", () => {
     return { wrapper, store, fetch };
   }
 
+  /** Types a date: an edit key, then the value (VTU's setValue also fires change). */
+  async function typeDate(input: DateInput, value: string) {
+    input.element.focus();
+    await input.trigger("keydown", { key: value ? value.at(-1) : "Backspace" });
+    await input.setValue(value);
+  }
+
   async function enterDate(wrapper: VueWrapper, label: "From date" | "To date", value: string) {
     const input = wrapper.get<HTMLInputElement>(`input[aria-label="${label}"]`);
-    input.element.focus();
-    await input.setValue(value);
+    await typeDate(input, value);
     await input.trigger("keydown", { key: "Enter" });
     await flushPromises();
     return input;
@@ -114,8 +122,7 @@ describe("TimeRangeFilter", () => {
   it("allows inclusive boundary and equal dates, and does not commit mid-edit", async () => {
     const { wrapper, store, fetch } = await customRange("2000-01-01", "2099-12-31");
     const input = wrapper.get<HTMLInputElement>('input[aria-label="From date"]');
-    input.element.focus();
-    await input.setValue("2099-12-31");
+    await typeDate(input, "2099-12-31");
     expect(store.customFromDate).toBe("2000-01-01");
     expect(fetch).not.toHaveBeenCalled();
     input.element.blur();
@@ -126,6 +133,67 @@ describe("TimeRangeFilter", () => {
     input.element.blur();
     await flushPromises();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  /** A calendar-picker selection: the value changes and focus stays, with no blur. */
+  async function pickDate(input: DateInput, value: string) {
+    input.element.focus();
+    await input.trigger("pointerdown");
+    input.element.value = value;
+    await input.trigger("input");
+    await input.trigger("change");
+    await flushPromises();
+  }
+
+  it("commits a date picked from the calendar without waiting for blur", async () => {
+    const { wrapper, store, fetch } = await customRange();
+    const setTimeRange = vi.spyOn(store, "setTimeRange");
+    const input = wrapper.get<HTMLInputElement>('input[aria-label="From date"]');
+    await pickDate(input, "2026-10-24");
+    expect(document.activeElement).toBe(input.element);
+    expect(setTimeRange).toHaveBeenCalledWith("custom", "2026-10-24", undefined);
+    expect(store.dateRange).toEqual({ fromDate: "2026-10-24", toDate: undefined });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    input.element.blur();
+    await flushPromises();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the last valid range for a picked date after To, with the error shown", async () => {
+    const { wrapper, store, fetch } = await customRange("2026-09-12", "2026-09-30");
+    await pickDate(wrapper.get<HTMLInputElement>('input[aria-label="From date"]'), "2026-10-24");
+    expect(store.dateRange).toEqual({ fromDate: "2026-09-12", toDate: "2026-09-30" });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(wrapper.get('[role="alert"]').text()).toMatch(/From date must be on or before To date/);
+  });
+
+  it.each([
+    ["a partial year", "0202-10-24"],
+    ["a partial day", "2026-10-02"],
+  ])("does not commit %s while typing, only on Enter", async (_, partial) => {
+    const { wrapper, store, fetch } = await customRange();
+    const setTimeRange = vi.spyOn(store, "setTimeRange");
+    const input = wrapper.get<HTMLInputElement>('input[aria-label="From date"]');
+    await typeDate(input, partial);
+    await flushPromises();
+    expect(setTimeRange).not.toHaveBeenCalled();
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    await typeDate(input, "2026-10-24");
+    await flushPromises();
+    expect(setTimeRange).not.toHaveBeenCalled();
+    await input.trigger("keydown", { key: "Enter" });
+    await flushPromises();
+    expect(setTimeRange).toHaveBeenCalledTimes(1);
+    expect(store.customFromDate).toBe("2026-10-24");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not commit an out-of-range picker change before blur", async () => {
+    const { wrapper, store } = await customRange();
+    const setTimeRange = vi.spyOn(store, "setTimeRange");
+    await pickDate(wrapper.get<HTMLInputElement>('input[aria-label="From date"]'), "0202-10-24");
+    expect(setTimeRange).not.toHaveBeenCalled();
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
   });
 
   it("distinguishes native incomplete-date input from intentionally clearing a bound", async () => {

@@ -80,8 +80,29 @@ function selectPreset(preset: AnalyticsTimeRange) {
   }
 }
 
-function onDateBlur(bound: "from" | "to", event: Event) {
+// Keyboard edits fire `change` for every intermediate complete value (typing the
+// day 24 passes through 02, a year through 0002, 0020 and 0202), so typed dates
+// commit on blur or Enter. A `change` with no edit key before it came from the
+// calendar picker, which keeps focus on the field, so it commits at once.
+const typing = { from: false, to: false };
+const EDIT_KEYS = new Set(["Backspace", "Delete", "ArrowUp", "ArrowDown"]);
+
+function onDateKeydown(bound: "from" | "to", event: KeyboardEvent) {
+  const modified = event.altKey || event.ctrlKey || event.metaKey;
+  typing[bound] = !modified && (event.key.length === 1 || EDIT_KEYS.has(event.key));
+}
+
+function onDateChange(bound: "from" | "to", event: Event) {
   const input = event.target as HTMLInputElement;
+  if (!typing[bound] && isValidDate(input.value)) commitDate(bound, input);
+}
+
+function onDateBlur(bound: "from" | "to", event: Event) {
+  typing[bound] = false;
+  commitDate(bound, event.target as HTMLInputElement);
+}
+
+function commitDate(bound: "from" | "to", input: HTMLInputElement) {
   incomplete.value[bound] = input.validity.badInput;
   if (!input.validity.badInput) {
     if (bound === "from") draftFrom.value = input.value;
@@ -121,6 +142,9 @@ function onDateBlur(bound: "from" | "to", event: Event) {
         min="2000-01-01"
         max="2099-12-31"
         @blur="onDateBlur('from', $event)"
+        @change="onDateChange('from', $event)"
+        @keydown="onDateKeydown('from', $event)"
+        @pointerdown="typing.from = false"
         @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
       />
       <span class="time-range-separator">–</span>
@@ -134,6 +158,9 @@ function onDateBlur(bound: "from" | "to", event: Event) {
         min="2000-01-01"
         max="2099-12-31"
         @blur="onDateBlur('to', $event)"
+        @change="onDateChange('to', $event)"
+        @keydown="onDateKeydown('to', $event)"
+        @pointerdown="typing.to = false"
         @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
       />
     </div>
