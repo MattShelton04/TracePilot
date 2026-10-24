@@ -1,7 +1,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import type { SearchResult } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SearchResultCard from "../../../components/search/SearchResultCard.vue";
 import { useSessionsStore } from "../../../stores/sessions";
 
@@ -131,6 +131,26 @@ describe("SearchResultCard context strip", () => {
     await flushPromises();
     expect(getResultContext).toHaveBeenLastCalledWith(2, 2);
     expect(wrapper.findAll(".context-preview").map((p) => p.text())).toEqual(["second"]);
+    wrapper.unmount();
+  });
+});
+
+describe("SearchResultCard date in another timezone", () => {
+  const originalTz = process.env.TZ;
+  beforeEach(() => setupPinia());
+  afterEach(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it("titles the relative time with the hit's local date and time", () => {
+    // 20:00 on 23 Oct in Los Angeles (UTC-7) is already 24 Oct in UTC.
+    process.env.TZ = "America/Los_Angeles";
+    const moment = Date.UTC(2026, 9, 24, 3, 0, 0) / 1000;
+    const wrapper = mountCard({ ...RESULT, timestampUnix: moment });
+    const title = wrapper.get(".result-date").attributes("title");
+    expect(title).toBe(new Date(moment * 1000).toLocaleString());
+    expect(title).not.toContain("24");
     wrapper.unmount();
   });
 });

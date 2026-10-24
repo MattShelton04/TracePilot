@@ -10,7 +10,6 @@ vi.mock("@tracepilot/ui", async (importOriginal) => {
   return {
     ...actual,
     formatRelativeTime: (ts: number) => `${ts}s ago`,
-    formatDateMedium: (ts: number) => `2025-01-01 ${ts}`,
   };
 });
 
@@ -228,5 +227,27 @@ describe("SearchGroupedResults", () => {
   it("renders empty state when no groups", () => {
     const wrapper = mountResults({ groupedResults: [] });
     expect(wrapper.findAll(".session-group")).toHaveLength(0);
+  });
+});
+
+describe("SearchGroupedResults timestamp in another timezone", () => {
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it("titles a hit's relative time with its local date and time", () => {
+    // 20:00 on 23 Oct in Los Angeles (UTC-7) is already 24 Oct in UTC.
+    process.env.TZ = "America/Los_Angeles";
+    const moment = Date.UTC(2026, 9, 24, 3, 0, 0) / 1000;
+    const group: SessionGroup = {
+      ...MOCK_GROUP,
+      results: [{ ...MOCK_GROUP.results[0], timestampUnix: moment }],
+    };
+    const wrapper = mountResults({ groupedResults: [group] });
+    const title = wrapper.get(".session-group-timestamp").attributes("title");
+    expect(title).toBe(new Date(moment * 1000).toLocaleString());
+    expect(title).not.toContain("24");
   });
 });

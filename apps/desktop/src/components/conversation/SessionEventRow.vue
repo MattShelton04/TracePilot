@@ -7,7 +7,6 @@
  * `SkillInvocationEventRow` so the dedicated dropdown UI lives in one place.
  */
 import type { SessionEventSeverity, TurnSessionEvent } from "@tracepilot/types";
-import { formatTime } from "@tracepilot/ui";
 import {
   AlertTriangle,
   ClipboardList,
@@ -17,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-vue-next";
 import { computed } from "vue";
+import { useConversationTime } from "@/components/conversation/conversationTime";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { useSessionModelName } from "@/composables/useSessionModelName";
 import { sessionEventSummary } from "@/utils/sessionEventSummary";
@@ -25,6 +25,7 @@ import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
 const props = defineProps<{
   event: TurnSessionEvent;
 }>();
+const timeLabel = useConversationTime();
 
 const navigateToCheckpoint = useCheckpointNavigation();
 const modelName = useSessionModelName();
@@ -90,8 +91,8 @@ function eventLabel(eventType: string): string {
     </button>
     <span v-else class="cv-session-event-type">compaction</span>
     <span class="cv-session-event-summary">{{ summary }}</span>
-    <span v-if="event.timestamp" class="cv-session-event-time">
-      {{ formatTime(event.timestamp) }}
+    <span v-if="event.timestamp" class="cv-session-event-time" :title="timeLabel(event.timestamp).title">
+      {{ timeLabel(event.timestamp).text }}
     </span>
   </div>
 
@@ -105,8 +106,8 @@ function eventLabel(eventType: string): string {
     </span>
     <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
     <span class="cv-session-event-summary">{{ summary }}</span>
-    <span v-if="event.timestamp" class="cv-session-event-time">
-      {{ formatTime(event.timestamp) }}
+    <span v-if="event.timestamp" class="cv-session-event-time" :title="timeLabel(event.timestamp).title">
+      {{ timeLabel(event.timestamp).text }}
     </span>
   </div>
 </template>

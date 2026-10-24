@@ -11,7 +11,7 @@
  * The opening link is also styled differently per variant.
  */
 import type { SearchResult } from "@tracepilot/types";
-import { formatDateMedium } from "@tracepilot/ui";
+import { formatSearchMoment } from "@/utils/searchMoment";
 import { searchResultToolName } from "@/utils/toolDisplayName";
 
 defineProps<{
@@ -45,7 +45,7 @@ defineProps<{
     </div>
     <div v-if="result.timestampUnix != null" class="expanded-item">
       <span class="expanded-label">Timestamp</span>
-      <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
+      <span class="expanded-value">{{ formatSearchMoment(result.timestampUnix) }}</span>
     </div>
   </div>
   <router-link

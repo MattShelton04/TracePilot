@@ -4,8 +4,9 @@
  * an inline read-only viewer for the version the user opens.
  */
 import type { FileCheckpoint, FileVersion, FileVersionContent } from "@tracepilot/client";
-import { Badge, CodeBlock, formatTime } from "@tracepilot/ui";
+import { Badge, CodeBlock } from "@tracepilot/ui";
 import { computed } from "vue";
+import { eventTimeLabel } from "@/utils/sessionOverview";
 
 const props = defineProps<{
   checkpoint: FileCheckpoint;
@@ -20,6 +21,8 @@ const emit = defineEmits<{
   toggle: [key: string, backup: string];
 }>();
 
+/** The checkpoint time, with its full date and time as the tooltip. */
+const time = computed(() => eventTimeLabel(props.checkpoint.timestamp, false));
 const changed = computed(() => props.checkpoint.files.filter((file) => file.changed).length);
 
 function keyOf(file: FileVersion): string {
@@ -29,7 +32,7 @@ function keyOf(file: FileVersion): string {
 
 <template>
   <p class="fh-meta">
-    <template v-if="checkpoint.timestamp">{{ formatTime(checkpoint.timestamp) }} · </template>
+    <template v-if="checkpoint.timestamp"><time :datetime="checkpoint.timestamp" :title="time.title">{{ time.text }}</time> · </template>
     {{ checkpoint.files.length }} tracked, {{ changed }} changed
   </p>
   <ul class="fh-files" aria-label="Tracked files">
