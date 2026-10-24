@@ -119,8 +119,53 @@ pub(in crate::builder) fn build_custom_tables(
         }
     }
 
-    if !tables.is_empty() {
+    // Tables that exist but hold no rows give the section nothing to show.
+    if tables.iter().any(|table| !table.rows.is_empty()) {
         available.push(SectionId::CustomTables);
     }
     Some(tables)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::options::ExportFormat;
+
+    fn build(sql: &str) -> (Option<Vec<CustomTableExport>>, Vec<SectionId>) {
+        let dir = tempfile::tempdir().unwrap();
+        rusqlite::Connection::open(dir.path().join("session.db"))
+            .unwrap()
+            .execute_batch(sql)
+            .unwrap();
+        let mut available = Vec::new();
+        let options = ExportOptions::all(ExportFormat::Json);
+        let tables = build_custom_tables(&options, dir.path(), &mut available);
+        (tables, available)
+    }
+
+    /// Tables that exist but hold nothing don't make the section available.
+    #[test]
+    fn empty_custom_tables_are_not_an_available_section() {
+        let (tables, available) =
+            build("CREATE TABLE notes (body TEXT); CREATE TABLE tags (name TEXT);");
+        assert_eq!(tables.map(|t| t.len()), Some(2));
+        assert!(
+            !available.contains(&SectionId::CustomTables),
+            "{available:?}"
+        );
+    }
+
+    #[test]
+    fn a_custom_table_with_rows_is_an_available_section() {
+        let (tables, available) = build(
+            "CREATE TABLE notes (body TEXT); CREATE TABLE tags (name TEXT); \
+             INSERT INTO tags VALUES ('release');",
+        );
+        let tables = tables.unwrap();
+        assert_eq!(tables.iter().map(|t| t.rows.len()).sum::<usize>(), 1);
+        assert!(
+            available.contains(&SectionId::CustomTables),
+            "{available:?}"
+        );
+    }
 }

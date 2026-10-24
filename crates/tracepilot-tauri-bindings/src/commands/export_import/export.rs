@@ -15,7 +15,9 @@ use crate::helpers::{read_config, resolve_session, with_session_locator};
 use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInfo};
 
 use tracepilot_core::SessionId;
-use tracepilot_core::parsing::session_db::{list_tables, read_todos};
+use tracepilot_core::parsing::checkpoints::parse_checkpoints;
+use tracepilot_core::parsing::rewind_snapshots::parse_rewind_index;
+use tracepilot_core::parsing::session_db::{list_tables, read_custom_table_bounded, read_todos};
 use tracepilot_core::provider::ResolvedSession;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
@@ -110,15 +112,21 @@ fn scan_events_for_incidents(events_path: &Path) -> bool {
     false
 }
 
-fn check_custom_tables(db_path: &Path) -> bool {
-    if !db_path.exists() {
-        return false;
-    }
+/// Whether a table other than the standard todo tables has a row. Reads at
+/// most one row of one column per table, so an empty table (or a database
+/// that can't be read) offers nothing to export.
+fn has_custom_table_rows(db_path: &Path) -> bool {
     let standard = ["todos", "todo_deps"];
-    match list_tables(db_path) {
-        Ok(names) => names.iter().any(|n| !standard.contains(&n.as_str())),
-        Err(_) => false,
-    }
+    let Ok(names) = list_tables(db_path) else {
+        return false;
+    };
+    names
+        .iter()
+        .filter(|name| !standard.contains(&name.as_str()))
+        .any(|name| {
+            read_custom_table_bounded(db_path, name, 1, 1, 0, 0)
+                .is_ok_and(|table| !table.rows.is_empty())
+        })
 }
 
 /// Write the rendered files: a single file to `out`, several beside it under
@@ -362,7 +370,6 @@ fn directory_sections(session_id: SessionId, session_path: &Path) -> SessionSect
     let events_path = sp.events_jsonl();
     let db_path = sp.session_db();
     let plan_path = sp.plan_md();
-    let checkpoints_path = sp.checkpoints_dir();
 
     let summary = tracepilot_core::summary::load_session_summary(session_path).ok();
 
@@ -370,7 +377,10 @@ fn directory_sections(session_id: SessionId, session_path: &Path) -> SessionSect
         events_path.exists() && events_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
     let has_todos = has_todo_rows(&db_path);
     let has_plan = plan_path.exists() && plan_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
-    let has_checkpoints = checkpoints_path.exists() && checkpoints_path.is_dir();
+    // Copilot creates checkpoints/index.md with only its table header, so the
+    // folder existing says nothing; ask the parser the export uses.
+    let has_checkpoints = parse_checkpoints(session_path)
+        .is_ok_and(|index| index.is_some_and(|index| !index.checkpoints.is_empty()));
     let has_conversation = has_events;
     let has_metrics = summary
         .as_ref()
@@ -386,8 +396,9 @@ fn directory_sections(session_id: SessionId, session_path: &Path) -> SessionSect
         has_checkpoints,
         has_metrics,
         has_incidents: has_events && scan_events_for_incidents(&events_path),
-        has_rewind_snapshots: sp.rewind_snapshots_dir().exists(),
-        has_custom_tables: check_custom_tables(&db_path),
+        has_rewind_snapshots: parse_rewind_index(session_path)
+            .is_ok_and(|index| index.is_some_and(|index| !index.snapshots.is_empty())),
+        has_custom_tables: has_custom_table_rows(&db_path),
         event_count: summary.as_ref().and_then(|s| s.event_count),
         turn_count: summary.as_ref().and_then(|s| s.turn_count),
     }
