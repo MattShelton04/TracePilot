@@ -29,6 +29,7 @@ const MOCK_SESSION = {
 
 describe("useSessionsStore", () => {
   beforeEach(() => {
+    localStorage.clear();
     setupPinia();
     mockListSessions.mockReset();
     mockReindexSessions.mockReset();

@@ -53,6 +53,9 @@ const session: SessionListItem = {
   isRunning: false,
 };
 
+// The list's sort and filters persist; start every test from the defaults.
+beforeEach(() => localStorage.clear());
+
 function render() {
   return mount(SessionListView, {
     attachTo: document.body,
