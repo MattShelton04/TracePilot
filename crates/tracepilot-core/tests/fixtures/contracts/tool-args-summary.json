@@ -1,0 +1,1264 @@
+[
+  {
+    "name": "null arguments",
+    "tool": "view",
+    "args": null,
+    "expected": ""
+  },
+  {
+    "name": "string arguments",
+    "tool": "view",
+    "args": "string",
+    "expected": ""
+  },
+  {
+    "name": "number arguments",
+    "tool": "view",
+    "args": 123,
+    "expected": ""
+  },
+  {
+    "name": "array arguments",
+    "tool": "view",
+    "args": ["a"],
+    "expected": ""
+  },
+  {
+    "name": "array arguments to a task list",
+    "tool": "TodoWrite",
+    "args": [],
+    "expected": ""
+  },
+  {
+    "name": "unknown tool",
+    "tool": "unknown_tool",
+    "args": {
+      "someArg": "value"
+    },
+    "expected": ""
+  },
+  {
+    "name": "view path",
+    "tool": "view",
+    "args": {
+      "path": "/foo/bar.txt"
+    },
+    "expected": "/foo/bar.txt"
+  },
+  {
+    "name": "edit path",
+    "tool": "edit",
+    "args": {
+      "path": "src/a.ts",
+      "old_str": "a",
+      "new_str": "b"
+    },
+    "expected": "src/a.ts"
+  },
+  {
+    "name": "create path",
+    "tool": "create",
+    "args": {
+      "path": "src/new.ts",
+      "file_text": "x"
+    },
+    "expected": "src/new.ts"
+  },
+  {
+    "name": "view without a path",
+    "tool": "view",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "view with an empty path",
+    "tool": "view",
+    "args": {
+      "path": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "view with a numeric path",
+    "tool": "view",
+    "args": {
+      "path": 3
+    },
+    "expected": "3"
+  },
+  {
+    "name": "view with a zero path",
+    "tool": "view",
+    "args": {
+      "path": 0
+    },
+    "expected": ""
+  },
+  {
+    "name": "view with a fractional path",
+    "tool": "view",
+    "args": {
+      "path": 1.5
+    },
+    "expected": "1.5"
+  },
+  {
+    "name": "view with an array path",
+    "tool": "view",
+    "args": {
+      "path": ["a", "b", null]
+    },
+    "expected": "a,b,"
+  },
+  {
+    "name": "view with an object path",
+    "tool": "view",
+    "args": {
+      "path": {
+        "a": 1
+      }
+    },
+    "expected": "[object Object]"
+  },
+  {
+    "name": "view with a boolean path",
+    "tool": "view",
+    "args": {
+      "path": true
+    },
+    "expected": "true"
+  },
+  {
+    "name": "grep pattern",
+    "tool": "grep",
+    "args": {
+      "pattern": "search_term"
+    },
+    "expected": "/search_term/"
+  },
+  {
+    "name": "grep pattern in path",
+    "tool": "grep",
+    "args": {
+      "pattern": "search_term",
+      "path": "/src"
+    },
+    "expected": "/search_term/ in /src"
+  },
+  {
+    "name": "grep paths array",
+    "tool": "grep",
+    "args": {
+      "pattern": "ready",
+      "paths": ["src", 3, "tests"]
+    },
+    "expected": "/ready/ in src, tests"
+  },
+  {
+    "name": "rg paths string",
+    "tool": "rg",
+    "args": {
+      "pattern": "ready",
+      "paths": "src"
+    },
+    "expected": "/ready/ in src"
+  },
+  {
+    "name": "rg paths array",
+    "tool": "rg",
+    "args": {
+      "pattern": "ready",
+      "paths": ["src", "tests"]
+    },
+    "expected": "/ready/ in src, tests"
+  },
+  {
+    "name": "grep empty path wins over paths",
+    "tool": "grep",
+    "args": {
+      "pattern": "x",
+      "path": "",
+      "paths": ["src"]
+    },
+    "expected": "/x/"
+  },
+  {
+    "name": "grep null path falls back to paths",
+    "tool": "grep",
+    "args": {
+      "pattern": "x",
+      "path": null,
+      "paths": ["src"]
+    },
+    "expected": "/x/ in src"
+  },
+  {
+    "name": "grep numeric path",
+    "tool": "grep",
+    "args": {
+      "pattern": "x",
+      "path": 4
+    },
+    "expected": "/x/"
+  },
+  {
+    "name": "grep without a pattern",
+    "tool": "grep",
+    "args": {
+      "path": "src"
+    },
+    "expected": ""
+  },
+  {
+    "name": "glob pattern",
+    "tool": "glob",
+    "args": {
+      "pattern": "**/*.rs"
+    },
+    "expected": "**/*.rs"
+  },
+  {
+    "name": "powershell command",
+    "tool": "powershell",
+    "args": {
+      "command": "ls -la"
+    },
+    "expected": "ls -la"
+  },
+  {
+    "name": "shell command",
+    "tool": "shell",
+    "args": {
+      "command": "pnpm test"
+    },
+    "expected": "pnpm test"
+  },
+  {
+    "name": "bash command",
+    "tool": "bash",
+    "args": {
+      "command": "cargo test"
+    },
+    "expected": "cargo test"
+  },
+  {
+    "name": "bash without a command",
+    "tool": "bash",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "command keeps its newlines",
+    "tool": "bash",
+    "args": {
+      "command": "echo a\n  echo b"
+    },
+    "expected": "echo a\n  echo b"
+  },
+  {
+    "name": "command over 150 characters",
+    "tool": "powershell",
+    "args": {
+      "command": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…"
+  },
+  {
+    "name": "command of exactly 150 characters",
+    "tool": "bash",
+    "args": {
+      "command": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "expected": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  {
+    "name": "non-ASCII command cut at 150 characters",
+    "tool": "bash",
+    "args": {
+      "command": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界"
+    },
+    "expected": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界…"
+  },
+  {
+    "name": "non-ASCII PowerShell command cut at 150 characters, not bytes",
+    "tool": "powershell",
+    "args": {
+      "command": "Write-Output 界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界"
+    },
+    "expected": "Write-Output 界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界…"
+  },
+  {
+    "name": "astral command cut at 150 UTF-16 units",
+    "tool": "bash",
+    "args": {
+      "command": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    "expected": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀…"
+  },
+  {
+    "name": "read_powershell shell id",
+    "tool": "read_powershell",
+    "args": {
+      "shellId": "17",
+      "chars": "private input"
+    },
+    "expected": "Shell 17"
+  },
+  {
+    "name": "write_bash snake-case shell id",
+    "tool": "write_bash",
+    "args": {
+      "shell_id": "18"
+    },
+    "expected": "Shell 18"
+  },
+  {
+    "name": "stop_bash numeric shell id",
+    "tool": "stop_bash",
+    "args": {
+      "shellId": 19
+    },
+    "expected": "Shell 19"
+  },
+  {
+    "name": "read_bash null shellId falls back",
+    "tool": "read_bash",
+    "args": {
+      "shellId": null,
+      "shell_id": "20"
+    },
+    "expected": "Shell 20"
+  },
+  {
+    "name": "stop_powershell without an id",
+    "tool": "stop_powershell",
+    "args": {
+      "chars": "private input"
+    },
+    "expected": ""
+  },
+  {
+    "name": "write_powershell empty id",
+    "tool": "write_powershell",
+    "args": {
+      "shellId": ""
+    },
+    "expected": "Shell "
+  },
+  {
+    "name": "task description",
+    "tool": "task",
+    "args": {
+      "description": "run tests",
+      "prompt": "long"
+    },
+    "expected": "run tests"
+  },
+  {
+    "name": "task object description",
+    "tool": "task",
+    "args": {
+      "description": {
+        "text": "x"
+      }
+    },
+    "expected": "[object Object]"
+  },
+  {
+    "name": "sql description",
+    "tool": "sql",
+    "args": {
+      "description": "fetch users",
+      "query": "select 1"
+    },
+    "expected": "fetch users"
+  },
+  {
+    "name": "read_agent id",
+    "tool": "read_agent",
+    "args": {
+      "agent_id": "agent-123"
+    },
+    "expected": "agent-123"
+  },
+  {
+    "name": "read_agent name",
+    "tool": "read_agent",
+    "args": {
+      "agent_name": "test-agent"
+    },
+    "expected": "test-agent"
+  },
+  {
+    "name": "read_agent fallback name",
+    "tool": "read_agent",
+    "args": {
+      "name": "fallback-name"
+    },
+    "expected": "fallback-name"
+  },
+  {
+    "name": "read_agent prefers id",
+    "tool": "read_agent",
+    "args": {
+      "agent_id": "id",
+      "agent_name": "n",
+      "name": "f"
+    },
+    "expected": "id"
+  },
+  {
+    "name": "read_agent empty id stops the chain",
+    "tool": "read_agent",
+    "args": {
+      "agent_id": "",
+      "agent_name": "n"
+    },
+    "expected": ""
+  },
+  {
+    "name": "read_agent null id continues the chain",
+    "tool": "read_agent",
+    "args": {
+      "agent_id": null,
+      "agent_name": "n"
+    },
+    "expected": "n"
+  },
+  {
+    "name": "stop_agent id",
+    "tool": "stop_agent",
+    "args": {
+      "agent_id": "a77"
+    },
+    "expected": "a77"
+  },
+  {
+    "name": "write_agent to one agent",
+    "tool": "write_agent",
+    "args": {
+      "agent_id": "beta",
+      "message": "what is\n 6*7?"
+    },
+    "expected": "→ beta · what is 6*7?"
+  },
+  {
+    "name": "write_agent to several agents",
+    "tool": "write_agent",
+    "args": {
+      "agent_ids": ["a", "b"],
+      "message": "go"
+    },
+    "expected": "→ 2 agents · go"
+  },
+  {
+    "name": "write_agent to a scope",
+    "tool": "write_agent",
+    "args": {
+      "scope": "children",
+      "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "expected": "→ all children · xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+  },
+  {
+    "name": "write_agent empty id",
+    "tool": "write_agent",
+    "args": {
+      "agent_id": "",
+      "agent_ids": ["a"],
+      "message": "hi"
+    },
+    "expected": "hi"
+  },
+  {
+    "name": "write_agent target only",
+    "tool": "write_agent",
+    "args": {
+      "agent_id": "beta"
+    },
+    "expected": "→ beta"
+  },
+  {
+    "name": "write_agent nothing",
+    "tool": "write_agent",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "list_agents scope",
+    "tool": "list_agents",
+    "args": {
+      "scope": "siblings"
+    },
+    "expected": "scope: siblings"
+  },
+  {
+    "name": "list_agents numeric scope",
+    "tool": "list_agents",
+    "args": {
+      "scope": 3
+    },
+    "expected": "scope: 3"
+  },
+  {
+    "name": "list_agents without a scope",
+    "tool": "list_agents",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "report_intent",
+    "tool": "report_intent",
+    "args": {
+      "intent": "Fixing the build"
+    },
+    "expected": "Fixing the build"
+  },
+  {
+    "name": "report_intent boolean",
+    "tool": "report_intent",
+    "args": {
+      "intent": true
+    },
+    "expected": "true"
+  },
+  {
+    "name": "store_memory fact",
+    "tool": "store_memory",
+    "args": {
+      "fact": "Use pnpm.",
+      "subject": "tooling"
+    },
+    "expected": "Use pnpm."
+  },
+  {
+    "name": "store_memory long fact keeps newlines",
+    "tool": "store_memory",
+    "args": {
+      "fact": "a\nffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "expected": "a\nffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff…"
+  },
+  {
+    "name": "ask_user message",
+    "tool": "ask_user",
+    "args": {
+      "message": "Ship it?",
+      "question": "old"
+    },
+    "expected": "Ship it?"
+  },
+  {
+    "name": "ask_user question",
+    "tool": "ask_user",
+    "args": {
+      "question": "Which flag?"
+    },
+    "expected": "Which flag?"
+  },
+  {
+    "name": "ask_user empty message",
+    "tool": "ask_user",
+    "args": {
+      "message": "",
+      "question": "Fallback?"
+    },
+    "expected": "Fallback?"
+  },
+  {
+    "name": "ask_user long message",
+    "tool": "ask_user",
+    "args": {
+      "message": "a\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "expected": "a bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb…"
+  },
+  {
+    "name": "ask_user schema only",
+    "tool": "ask_user",
+    "args": {
+      "requestedSchema": {}
+    },
+    "expected": ""
+  },
+  {
+    "name": "ask_user JavaScript whitespace",
+    "tool": "ask_user",
+    "args": {
+      "message": "a\u00a0\u00a0b\ufeff\tc"
+    },
+    "expected": "a b c"
+  },
+  {
+    "name": "ask_user NEL is not whitespace",
+    "tool": "ask_user",
+    "args": {
+      "message": "a\u0085b"
+    },
+    "expected": "a\u0085b"
+  },
+  {
+    "name": "skill name",
+    "tool": "skill",
+    "args": {
+      "skill": "synthetic-review",
+      "args": "x"
+    },
+    "expected": "synthetic-review"
+  },
+  {
+    "name": "skill without a name",
+    "tool": "skill",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "ExitPlanMode heading",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": "Intro text\n\n## Retry the upload\n\n1. Wrap"
+    },
+    "expected": "Retry the upload"
+  },
+  {
+    "name": "ExitPlanMode first line",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": "\n  Just do it.\nThen test."
+    },
+    "expected": "Just do it."
+  },
+  {
+    "name": "ExitPlanMode CRLF",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": "\r\n# Title \r\nBody"
+    },
+    "expected": "Title"
+  },
+  {
+    "name": "ExitPlanMode seven hashes",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": "####### Deep\nNext"
+    },
+    "expected": "####### Deep"
+  },
+  {
+    "name": "ExitPlanMode hash without space",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": "#tag\n### Real heading"
+    },
+    "expected": "Real heading"
+  },
+  {
+    "name": "ExitPlanMode long heading",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": "# hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
+    },
+    "expected": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh…"
+  },
+  {
+    "name": "ExitPlanMode empty plan",
+    "tool": "ExitPlanMode",
+    "args": {
+      "plan": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "ExitPlanMode without a plan",
+    "tool": "ExitPlanMode",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "web_search query",
+    "tool": "web_search",
+    "args": {
+      "query": "how to code"
+    },
+    "expected": "how to code"
+  },
+  {
+    "name": "web_fetch url",
+    "tool": "web_fetch",
+    "args": {
+      "url": "https://example.com"
+    },
+    "expected": "https://example.com"
+  },
+  {
+    "name": "github method",
+    "tool": "github-mcp-server-1",
+    "args": {
+      "method": "GET"
+    },
+    "expected": "GET"
+  },
+  {
+    "name": "github method and repo",
+    "tool": "github-mcp-server-pull_request_read",
+    "args": {
+      "method": "get",
+      "owner": "octo",
+      "repo": "app",
+      "pullNumber": 3
+    },
+    "expected": "get · octo/app"
+  },
+  {
+    "name": "github repo and path",
+    "tool": "github-mcp-server-get_file_contents",
+    "args": {
+      "owner": "octo",
+      "repo": "app",
+      "path": "src/a.ts"
+    },
+    "expected": "octo/app · src/a.ts"
+  },
+  {
+    "name": "github query",
+    "tool": "github-mcp-server-search_pull_requests",
+    "args": {
+      "query": "is:pr  is:open"
+    },
+    "expected": "is:pr is:open"
+  },
+  {
+    "name": "github owner only",
+    "tool": "github-mcp-server-list_repositories",
+    "args": {
+      "owner": "octo"
+    },
+    "expected": "octo"
+  },
+  {
+    "name": "github repo only",
+    "tool": "github-mcp-server-list_issues",
+    "args": {
+      "repo": "app"
+    },
+    "expected": "app"
+  },
+  {
+    "name": "github nothing",
+    "tool": "github-mcp-server-list_issues",
+    "args": {
+      "perPage": 5
+    },
+    "expected": ""
+  },
+  {
+    "name": "github long query",
+    "tool": "github-mcp-server-search_code",
+    "args": {
+      "method": "get",
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "expected": "get · xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+  },
+  {
+    "name": "update_plan items",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {
+      "items": [
+        {
+          "content": "Read",
+          "status": "completed"
+        },
+        {
+          "content": "Fix",
+          "status": "in_progress"
+        },
+        {
+          "content": "Test",
+          "status": "pending"
+        },
+        {
+          "content": "Ship",
+          "status": "pending"
+        }
+      ],
+      "scope": "first_task"
+    },
+    "expected": "4 steps · 1 done · 1 in progress"
+  },
+  {
+    "name": "update_plan advance",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {
+      "advance": true
+    },
+    "expected": "Advanced to the next step"
+  },
+  {
+    "name": "update_plan done and start",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {
+      "done": [2],
+      "start": 3
+    },
+    "expected": "Completed step 2 · Started step 3"
+  },
+  {
+    "name": "update_plan several done",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {
+      "done": [1, 2, 4, 0, 1.5, "3"]
+    },
+    "expected": "Completed steps 1, 2 and 4"
+  },
+  {
+    "name": "update_plan no items",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {
+      "items": []
+    },
+    "expected": "0 steps"
+  },
+  {
+    "name": "update_plan nothing",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "update_plan skips blank steps",
+    "tool": "mcp__ccd_turn__update_plan",
+    "args": {
+      "items": [
+        {
+          "content": " "
+        },
+        {
+          "content": "A",
+          "status": "completed"
+        },
+        "x",
+        ["y"]
+      ]
+    },
+    "expected": "1 step · 1 done"
+  },
+  {
+    "name": "wrap_up recap",
+    "tool": "mcp__ccd_turn__wrap_up",
+    "args": {
+      "recap": "  Tests pass.\r\nNothing committed.",
+      "ask": "Commit?"
+    },
+    "expected": "Tests pass."
+  },
+  {
+    "name": "wrap_up ask",
+    "tool": "mcp__ccd_turn__wrap_up",
+    "args": {
+      "recap": " ",
+      "ask": "Commit?"
+    },
+    "expected": "Commit?"
+  },
+  {
+    "name": "wrap_up nothing",
+    "tool": "mcp__ccd_turn__wrap_up",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "TodoWrite",
+    "tool": "TodoWrite",
+    "args": {
+      "todos": [
+        {
+          "content": "Read",
+          "status": "completed"
+        },
+        {
+          "content": "Fix",
+          "status": "in_progress"
+        }
+      ]
+    },
+    "expected": "2 steps · 1 done · 1 in progress"
+  },
+  {
+    "name": "TodoWrite one step",
+    "tool": "TodoWrite",
+    "args": {
+      "todos": [
+        {
+          "content": "Only",
+          "status": "odd"
+        }
+      ]
+    },
+    "expected": "1 step"
+  },
+  {
+    "name": "TodoWrite long summary",
+    "tool": "TodoWrite",
+    "args": {
+      "todos": [
+        {
+          "content": "Read",
+          "status": "completed"
+        },
+        {
+          "content": "Fix",
+          "status": "in_progress"
+        },
+        {
+          "content": "Test",
+          "status": "pending"
+        },
+        {
+          "content": "Ship",
+          "status": "pending"
+        }
+      ],
+      "extra": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    },
+    "expected": "4 steps · 1 done · 1 in progress"
+  },
+  {
+    "name": "TaskCreate",
+    "tool": "TaskCreate",
+    "args": {
+      "subject": "  Run tests ",
+      "description": "all of them"
+    },
+    "expected": "Run tests"
+  },
+  {
+    "name": "TaskCreate without a subject",
+    "tool": "TaskCreate",
+    "args": {
+      "description": "x"
+    },
+    "expected": ""
+  },
+  {
+    "name": "TaskUpdate completed",
+    "tool": "TaskUpdate",
+    "args": {
+      "taskId": "3",
+      "status": "completed"
+    },
+    "expected": "Marked task #3 completed"
+  },
+  {
+    "name": "TaskUpdate deleted",
+    "tool": "TaskUpdate",
+    "args": {
+      "taskId": 3,
+      "status": "deleted"
+    },
+    "expected": "Deleted task #3"
+  },
+  {
+    "name": "TaskUpdate in progress via id",
+    "tool": "TaskUpdate",
+    "args": {
+      "id": "4",
+      "status": "in_progress"
+    },
+    "expected": "Marked task #4 in progress"
+  },
+  {
+    "name": "TaskUpdate odd status via task_id",
+    "tool": "TaskUpdate",
+    "args": {
+      "task_id": "5",
+      "status": "blocked"
+    },
+    "expected": "Marked task #5 blocked"
+  },
+  {
+    "name": "TaskUpdate several changes",
+    "tool": "TaskUpdate",
+    "args": {
+      "taskId": "6",
+      "subject": "New name",
+      "description": "More",
+      "addBlockedBy": ["1", 2]
+    },
+    "expected": "Renamed task #6 to “New name” · Updated the description of task #6 · Task #6 waits on #1 and #2"
+  },
+  {
+    "name": "TaskUpdate blocks several",
+    "tool": "TaskUpdate",
+    "args": {
+      "taskId": "7",
+      "addBlocks": ["8", "9", 10]
+    },
+    "expected": "#8, #9 and #10 wait on task #7"
+  },
+  {
+    "name": "TaskUpdate blocks one",
+    "tool": "TaskUpdate",
+    "args": {
+      "taskId": "7",
+      "addBlocks": ["8"]
+    },
+    "expected": "#8 waits on task #7"
+  },
+  {
+    "name": "TaskUpdate without an id",
+    "tool": "TaskUpdate",
+    "args": {
+      "addBlockedBy": ["1"],
+      "status": ""
+    },
+    "expected": "A task waits on #1"
+  },
+  {
+    "name": "TaskUpdate id only",
+    "tool": "TaskUpdate",
+    "args": {
+      "taskId": "11"
+    },
+    "expected": "Updated task #11"
+  },
+  {
+    "name": "TaskUpdate nothing",
+    "tool": "TaskUpdate",
+    "args": {},
+    "expected": ""
+  },
+  {
+    "name": "ToolSearch query",
+    "tool": "ToolSearch",
+    "args": {
+      "query": "select:Monitor",
+      "max_results": 5
+    },
+    "expected": "select:Monitor"
+  },
+  {
+    "name": "ToolSearch numeric query",
+    "tool": "ToolSearch",
+    "args": {
+      "query": 3
+    },
+    "expected": ""
+  },
+  {
+    "name": "NotebookEdit path",
+    "tool": "NotebookEdit",
+    "args": {
+      "notebook_path": "/nb/a.ipynb",
+      "new_source": "x = 1"
+    },
+    "expected": "/nb/a.ipynb"
+  },
+  {
+    "name": "Monitor description",
+    "tool": "Monitor",
+    "args": {
+      "description": "PR #12 checks",
+      "command": "gh pr checks"
+    },
+    "expected": "PR #12 checks"
+  },
+  {
+    "name": "Monitor command",
+    "tool": "Monitor",
+    "args": {
+      "command": "watch\n  flag"
+    },
+    "expected": "watch flag"
+  },
+  {
+    "name": "Monitor nothing",
+    "tool": "Monitor",
+    "args": {
+      "timeout_ms": 1000
+    },
+    "expected": ""
+  },
+  {
+    "name": "MCP query",
+    "tool": "mcp__tracker__search",
+    "args": {
+      "limit": 5,
+      "query": "open bugs"
+    },
+    "expected": "open bugs"
+  },
+  {
+    "name": "MCP url before title",
+    "tool": "mcp__web__open",
+    "args": {
+      "url": "https://example.com",
+      "title": "x"
+    },
+    "expected": "https://example.com"
+  },
+  {
+    "name": "MCP blank q falls through",
+    "tool": "mcp__store__get",
+    "args": {
+      "q": " ",
+      "name": "ready"
+    },
+    "expected": "ready"
+  },
+  {
+    "name": "MCP path before name",
+    "tool": "mcp__fs__read",
+    "args": {
+      "name": "n",
+      "path": "a.ts"
+    },
+    "expected": "a.ts"
+  },
+  {
+    "name": "MCP file_path",
+    "tool": "mcp__fs__read",
+    "args": {
+      "file_path": "b.ts"
+    },
+    "expected": "b.ts"
+  },
+  {
+    "name": "MCP description",
+    "tool": "mcp__x__y",
+    "args": {
+      "description": "Describe"
+    },
+    "expected": "Describe"
+  },
+  {
+    "name": "MCP secret-only arguments",
+    "tool": "mcp__store__get",
+    "args": {
+      "key": "ready",
+      "token": "secret"
+    },
+    "expected": ""
+  },
+  {
+    "name": "MCP long query",
+    "tool": "mcp__search__q",
+    "args": {
+      "query": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+    },
+    "expected": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww…"
+  },
+  {
+    "name": "MCP numeric query",
+    "tool": "mcp__search__q",
+    "args": {
+      "query": 7,
+      "title": "T"
+    },
+    "expected": "T"
+  },
+  {
+    "name": "github MCP through another server",
+    "tool": "mcp__github__get_file_contents",
+    "args": {
+      "owner": "o",
+      "path": "a.ts"
+    },
+    "expected": "a.ts"
+  },
+  {
+    "name": "not an MCP name",
+    "tool": "not_mcp__tool",
+    "args": {
+      "query": "x"
+    },
+    "expected": ""
+  },
+  {
+    "name": "apply_patch string",
+    "tool": "apply_patch",
+    "args": "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** End Patch",
+    "expected": "src/a.ts"
+  },
+  {
+    "name": "apply_patch CRLF several files",
+    "tool": "apply_patch",
+    "args": "*** Begin Patch\r\n*** Update File: src/a.ts\r\n*** Move to: src/b.ts\r\n*** Add File: src/c.ts\r\n+new\r\n*** Delete File: src/d.ts\r\n*** End Patch",
+    "expected": "src/a.ts +2 files"
+  },
+  {
+    "name": "apply_patch patch key",
+    "tool": "apply_patch",
+    "args": {
+      "patch": "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** End Patch"
+    },
+    "expected": "src/a.ts"
+  },
+  {
+    "name": "apply_patch input key",
+    "tool": "apply_patch",
+    "args": {
+      "input": "*** Add File: x.md\n*** Delete File: y.md"
+    },
+    "expected": "x.md +1 file"
+  },
+  {
+    "name": "apply_patch patch before input",
+    "tool": "apply_patch",
+    "args": {
+      "patch": 3,
+      "input": "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** End Patch"
+    },
+    "expected": "src/a.ts"
+  },
+  {
+    "name": "apply_patch trims paths",
+    "tool": "apply_patch",
+    "args": "*** Update File:  a.ts  \n*** Add File: b.ts",
+    "expected": "a.ts +1 file"
+  },
+  {
+    "name": "apply_patch blank path",
+    "tool": "apply_patch",
+    "args": "*** Add File:  \n*** Add File: b.ts",
+    "expected": " +1 file"
+  },
+  {
+    "name": "apply_patch line separator",
+    "tool": "apply_patch",
+    "args": "*** Add File: a.ts\u2028*** Add File: b.ts",
+    "expected": "a.ts +1 file"
+  },
+  {
+    "name": "apply_patch indented header",
+    "tool": "apply_patch",
+    "args": "  *** Add File: a.ts",
+    "expected": ""
+  },
+  {
+    "name": "apply_patch not a patch",
+    "tool": "apply_patch",
+    "args": "not a patch",
+    "expected": ""
+  },
+  {
+    "name": "apply_patch numeric patch",
+    "tool": "apply_patch",
+    "args": {
+      "patch": 3
+    },
+    "expected": ""
+  },
+  {
+    "name": "apply_patch null",
+    "tool": "apply_patch",
+    "args": null,
+    "expected": ""
+  },
+  {
+    "name": "apply_patch array",
+    "tool": "apply_patch",
+    "args": ["*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** End Patch"],
+    "expected": ""
+  }
+]

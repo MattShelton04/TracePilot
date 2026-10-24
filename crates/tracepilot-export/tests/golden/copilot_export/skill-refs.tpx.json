@@ -68,6 +68,7 @@
               "model": "mai-code-1.1-flash",
               "intentionSummary": "probe-notes",
               "resultContent": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+              "argsSummary": "probe-notes",
               "skillInvocation": {
                 "id": "d30e7bfe-a012-4830-828b-4e68259274a9",
                 "name": "probe-notes",
@@ -163,6 +164,7 @@
               "model": "mai-code-1.1-flash",
               "intentionSummary": "probe-notes",
               "resultContent": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+              "argsSummary": "probe-notes",
               "skillInvocation": {
                 "id": "5c283fae-80a6-4f45-bf7d-6bdce6dc07bf",
                 "name": "probe-notes",
