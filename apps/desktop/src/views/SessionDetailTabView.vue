@@ -9,7 +9,7 @@
  *
  * This enables multiple concurrent session detail views, each with isolated state.
  */
-import { computed, defineAsyncComponent, provide, watch } from "vue";
+import { computed, defineAsyncComponent, provide, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
@@ -24,6 +24,7 @@ import {
 } from "@/composables/useSessionDetail";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { NAVIGATE_SESSION_TAB_KEY } from "@/composables/useSessionTabNavigation";
+import { useSubTabScroll } from "@/composables/useSubTabScroll";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { DEFAULT_SESSION_TAB, isSessionTabHidden, SESSION_TABS } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -80,6 +81,18 @@ watch(
   { immediate: true },
 );
 
+// ── Scroll position per sub-tab (they share the panel's scroller) ────
+const panel = ref<{ $el?: unknown } | null>(null);
+useSubTabScroll({
+  el: () => (panel.value?.$el instanceof HTMLElement ? panel.value.$el : null),
+  sessionId: () => props.sessionId,
+  subTab: () => props.activeSubTab,
+  // A jump to a conversation turn or a checkpoint scrolls there instead.
+  hasFocusTarget: (tab) =>
+    (tab === "conversation" && store.pendingConversationFocus != null) ||
+    (tab === "overview" && store.pendingCheckpointFocus != null),
+});
+
 // ── Auto-refresh gate: pauses when this tab is not the active one ────
 // In viewer windows, always visible (single session per window)
 const isTabVisible = computed(
@@ -117,6 +130,7 @@ provide(NAVIGATE_SESSION_TAB_KEY, (tab: string) => {
 
 <template>
   <SessionDetailPanel
+    ref="panel"
     :store="store"
     :session-id="sessionId"
     :router="router"
