@@ -64,13 +64,17 @@ const groups = computed(() => groupPullRequests(pullRequests.value));
 const showGroupLabels = computed(() => groups.value.length > 1);
 
 // Other sessions linked to these pull requests: counted once per set of pull
-// requests (the store skips a refresh that lists the same ones), and again if
-// the store let this session's counts go. Pop-outs can't open another session.
+// requests (the store skips a refresh that lists the same ones), again if the
+// store let this session's counts go, and again after an index pass, which
+// can link other sessions (the old counts stay meanwhile). Pop-outs can't
+// open another session.
+if (!isViewer()) void related.watchIndexUpdates();
 watch(
   [
     () => store.sessionId,
     pullRequests,
     () => (store.sessionId ? related.hasEntry(store.sessionId) : false),
+    () => related.revision,
   ],
   ([id, prs]) => {
     if (id && !isViewer()) void related.loadRelatedCounts(id, prs);
