@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { isNonCopilotSource, sourceLabel } from "@tracepilot/types";
 import type { ContentTypeStyle } from "@tracepilot/ui";
-import { formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
+import { formatRelativeTime } from "@tracepilot/ui";
 import { useId } from "vue";
 import type { SessionGroup } from "@/stores/search";
+import { formatSearchMoment } from "@/utils/searchMoment";
 import { searchResultToolName } from "@/utils/toolDisplayName";
 import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
 
@@ -103,7 +104,7 @@ const groupId = useId();
             <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
             <span class="session-group-snippet" v-html="result.snippet" />
             <span class="session-group-result-meta">
-              <span v-if="result.timestampUnix != null" class="session-group-timestamp" :title="formatDateMedium(result.timestampUnix)">
+              <span v-if="result.timestampUnix != null" class="session-group-timestamp" :title="formatSearchMoment(result.timestampUnix)">
                 {{ formatRelativeTime(result.timestampUnix) }}
               </span>
               <span v-if="result.turnNumber != null">T{{ result.turnNumber }}</span>

@@ -1,5 +1,10 @@
 import { IPC_EVENTS, listSessions } from "@tracepilot/client";
-import type { PullRequestRef, SessionListItem, SessionSource } from "@tracepilot/types";
+import {
+  type PullRequestRef,
+  resolveSessionSource,
+  type SessionListItem,
+  type SessionSource,
+} from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
@@ -109,6 +114,21 @@ export const useSessionsStore = defineStore("sessions", () => {
     return sessions.value.length;
   });
 
+  /**
+   * Whether the picked source (every source when none is picked) has sessions
+   * but hideEmptySessions hides all of them, so showing empty sessions, not
+   * clearing a search or repository, is what brings the list back.
+   */
+  const sourceHasOnlyHiddenSessions = computed(() => {
+    const prefs = usePreferencesStore();
+    if (!prefs.hideEmptySessions) return false;
+    const source = filterSource.value;
+    const inSource = source
+      ? sessions.value.filter((s) => resolveSessionSource(s.source) === source)
+      : sessions.value;
+    return inSource.length > 0 && inSource.every((s) => (s.turnCount ?? 0) === 0);
+  });
+
   const lifecycle = createIndexingLifecycle({
     sessions,
     loading,
@@ -177,6 +197,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     sources,
     emptySessionCount,
     visibleSessionCount,
+    sourceHasOnlyHiddenSessions,
     fetchSessions: lifecycle.fetchSessions,
     refreshSessions: lifecycle.refreshSessions,
     reindex: lifecycle.reindex,
