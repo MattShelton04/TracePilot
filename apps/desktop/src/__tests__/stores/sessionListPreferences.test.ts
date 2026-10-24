@@ -96,6 +96,22 @@ describe("session list preference persistence", () => {
     expect(store.filteredSessions.map((s) => s.id)).toEqual(["1"]);
   });
 
+  it("waits past an empty first list before dropping remembered filters", () => {
+    localStorage.setItem(
+      STORAGE_KEYS.sessionListPreferences,
+      JSON.stringify({ repo: "org/app", source: "copilot" }),
+    );
+    const store = restart();
+
+    store.sessions = [];
+    expect(store.filterRepo).toBe("org/app");
+    expect(store.filterSource).toBe("copilot");
+
+    store.sessions = [session("1", "org/app", "copilot")];
+    expect(store.filterRepo).toBe("org/app");
+    expect(store.filterSource).toBe("copilot");
+  });
+
   it("drops a remembered repository the remembered source has no sessions for", () => {
     localStorage.setItem(
       STORAGE_KEYS.sessionListPreferences,

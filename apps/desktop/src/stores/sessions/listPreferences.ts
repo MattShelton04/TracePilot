@@ -49,8 +49,17 @@ export function usePersistedSessionListPreferences(
   });
 
   if (filterRepo.value !== null || filterSource.value !== null) {
-    // Sync, so the first list never renders filtered by a stale choice.
-    watch(sessions, dropMissing, { once: true, flush: "sync" });
+    // Sync, so the first list never renders filtered by a stale choice. An
+    // empty list (a first index still running) says nothing about the choice.
+    const stop = watch(
+      sessions,
+      (list) => {
+        if (list.length === 0) return;
+        stop();
+        dropMissing();
+      },
+      { flush: "sync" },
+    );
   }
 
   return { sortBy, filterRepo, filterSource };
