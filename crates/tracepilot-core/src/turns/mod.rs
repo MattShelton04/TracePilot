@@ -46,7 +46,7 @@
 //! - [`reconstructor`]: Core state machine for turn reconstruction
 //! - [`postprocess`]: Post-processing functions (model inference, name resolution)
 //! - [`args_summary`]: one-line tool-call argument summaries (mirrors the frontend)
-//! - [`ipc`]: IPC preparation utilities (args summaries, payload optimization)
+//! - [`ipc`]: IPC preparation utilities (filling args summaries, payload optimization)
 //! - [`utils`]: Shared utility functions (duration, truncation, etc.)
 
 mod args_summary;
