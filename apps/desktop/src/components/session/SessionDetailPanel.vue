@@ -258,6 +258,22 @@ async function refresh() {
   void pullRequestStatus.refresh();
 }
 
+/**
+ * The error alert's Retry. A failed first load has no Refresh button, so it
+ * loads the detail again and re-checks the session, which resumes a refresh
+ * paused because the session was missing.
+ */
+async function retry() {
+  if (props.store.detail) return refresh();
+  await Promise.all([props.store.retryDetail(), checkRunning()]);
+}
+
+const errorMessage = computed(() =>
+  isSessionNotFoundError(props.store.error)
+    ? "This session's files no longer exist."
+    : (props.store.error ?? undefined),
+);
+
 defineExpose({ isSessionActive, refresh });
 
 const tabs = computed(() => mapSessionTabs(props.tabMode, capabilities.value, props.store.detail));
@@ -322,7 +338,7 @@ watch(
     </div>
 
     <!-- Error state -->
-    <ErrorAlert v-if="store.error" :message="store.error" />
+    <ErrorAlert v-if="store.error" :message="errorMessage" retryable @retry="retry" />
 
     <!-- Session header + tabs + content -->
     <template v-if="store.detail">
