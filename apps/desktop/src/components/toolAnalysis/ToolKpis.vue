@@ -184,7 +184,7 @@ const usage = computed(() => {
           <span class="ad-kpi-note">
             <template v-if="failures.failed">
               <b>{{ formatNumberFull(failures.failed) }}</b> calls<template v-if="failures.worst">
-                · worst with {{ MIN_JUDGED_CALLS }}+ calls: {{ failures.worst.name }} ({{ failures.worst.rate }})</template>
+                · worst {{ failures.worst.name }} ({{ failures.worst.rate }})</template>
             </template>
             <template v-else-if="has">No failed calls</template>
             <template v-else>No tool calls</template>
