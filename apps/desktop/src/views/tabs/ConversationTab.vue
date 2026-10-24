@@ -30,6 +30,10 @@ import ConversationViewSwitcher, {
 } from "@/components/conversation/ConversationViewSwitcher.vue";
 import { provideConversationDates } from "@/components/conversation/conversationTime";
 import type { SubagentPanelLayout } from "@/components/conversation/SubagentPanel.vue";
+import {
+  isConversationFocusRevealed,
+  markConversationFocusRevealed,
+} from "@/composables/conversationFocusReveal";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useConversationDeepLinkScroll } from "@/composables/useConversationDeepLinkScroll";
 import { usePromptCache } from "@/composables/usePromptCache";
@@ -147,9 +151,9 @@ function revealConversationTarget(
   turnIndex: number,
   eventIndex: number | null,
   requestKey: string,
-) {
-  if (requestKey === lastScrolledKey) return;
-  if (!store.turns.some((turn) => turn.turnIndex === turnIndex)) return;
+): boolean {
+  if (requestKey === lastScrolledKey) return false;
+  if (!store.turns.some((turn) => turn.turnIndex === turnIndex)) return false;
   lastScrolledKey = requestKey;
 
   nextTick(() => {
@@ -174,6 +178,7 @@ function revealConversationTarget(
     }
     nextTick(() => scrollToTurn(turnIndex, eventIndex));
   });
+  return true;
 }
 
 watch(
@@ -198,11 +203,14 @@ watch(
   ],
   ([len, requestId, turnIndex, eventIndex]) => {
     if (!len || requestId == null || turnIndex == null) return;
-    revealConversationTarget(
+    // Shown once: reopening the tab returns to where the user was reading instead.
+    if (isConversationFocusRevealed(store, requestId)) return;
+    const revealed = revealConversationTarget(
       turnIndex,
       eventIndex ?? null,
       `context-${requestId}-${turnIndex}-${eventIndex ?? "turn"}`,
     );
+    if (revealed) markConversationFocusRevealed(store, requestId);
   },
   { immediate: true },
 );

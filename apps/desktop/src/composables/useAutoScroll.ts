@@ -1,9 +1,21 @@
-import { nextTick, onBeforeUnmount, onMounted, type Ref, ref, type WatchSource, watch } from "vue";
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  type Ref,
+  ref,
+  toValue,
+  type WatchSource,
+  watch,
+} from "vue";
 
 export interface AutoScrollOptions {
   /** Ref to the scrollable container element. */
   containerRef: Ref<HTMLElement | null>;
-  /** Reactive source that triggers scroll check when changed (e.g. () => store.turns). */
+  /**
+   * Reactive source that triggers scroll check when changed (e.g. () => store.turns).
+   * An empty value (0, null, false, "", []) at mount means no data yet.
+   */
   watchSource: WatchSource;
   /** Optional reactive source for view mode changes that should trigger recalculation. */
   viewModeSource?: WatchSource;
@@ -51,6 +63,13 @@ export function useAutoScroll(options: AutoScrollOptions) {
   let programmaticScrollClearTimer: ReturnType<typeof setTimeout> | null = null;
   // Skip auto-scroll on the first data change (initial load should not snap to bottom)
   let hasReceivedFirstData = false;
+
+  /** A source holding data at mount (a reopened tab): its next change is new data, not the initial load. */
+  function sourceHoldsData(): boolean {
+    const value = toValue(watchSource);
+    if (Array.isArray(value)) return value.length > 0;
+    return value != null && value !== false && value !== 0 && value !== "";
+  }
 
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -297,6 +316,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
   });
 
   onMounted(() => {
+    if (sourceHoldsData()) hasReceivedFirstData = true;
     const el = containerRef.value;
     if (el) {
       bindListeners(el);

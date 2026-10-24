@@ -165,6 +165,53 @@ describe("useAutoScroll", () => {
     });
   });
 
+  describe("data already loaded at mount (a reopened tab)", () => {
+    it("keeps following the end once the user is back at it", async () => {
+      const state = makeScrollEl({ scrollHeight: 4000, clientHeight: 600, scrollTop: 0 });
+      const containerRef = ref<HTMLElement | null>(state.el);
+      const watchSrc = ref(3); // turns were loaded before this tab mounted
+      const { result, unmount } = withSetup(() =>
+        useAutoScroll({ containerRef, watchSource: () => watchSrc.value }),
+      );
+      await flushPromises();
+      expect(result.isLockedToBottom.value).toBe(false);
+
+      // Returned to the end (restored, or scrolled there).
+      state.setScrollTop(3400);
+      state.el.dispatchEvent(new Event("scroll"));
+      flushRaf();
+      expect(result.isLockedToBottom.value).toBe(true);
+
+      // A new turn arrives: follow it.
+      state.setScrollHeight(4300);
+      watchSrc.value = 4;
+      await flushPromises();
+      expect(state.scrollSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ top: 4300, behavior: "auto" }),
+      );
+      expect(result.isLockedToBottom.value).toBe(true);
+      unmount();
+    });
+
+    it("still leaves the first load of an empty tab where it is", async () => {
+      const state = makeScrollEl({ scrollHeight: 520, clientHeight: 500, scrollTop: 20 });
+      const containerRef = ref<HTMLElement | null>(state.el);
+      const watchSrc = ref(0);
+      const { result, unmount } = withSetup(() =>
+        useAutoScroll({ containerRef, watchSource: () => watchSrc.value }),
+      );
+      state.el.dispatchEvent(new Event("scroll"));
+      flushRaf();
+
+      state.setScrollHeight(4000);
+      watchSrc.value = 1;
+      await flushPromises();
+      expect(state.scrollSpy).not.toHaveBeenCalled();
+      expect(result.isLockedToBottom.value).toBe(false);
+      unmount();
+    });
+  });
+
   describe("data-driven auto-scroll", () => {
     it("scrolls to bottom on data update when locked", async () => {
       const state = makeScrollEl({ scrollHeight: 1000, clientHeight: 500, scrollTop: 0 });
@@ -397,11 +444,12 @@ describe("useAutoScroll", () => {
       const { result, unmount } = withSetup(() =>
         useAutoScroll({ containerRef, watchSource: () => watchSrc.value }),
       );
-      await flushPromises(); // first-data path
+      await flushPromises(); // turns already loaded at mount
       expect(result.isLockedToBottom.value).toBe(false);
 
-      // User clicks FAB → guard active, lock on
+      // User clicks FAB → guard active, lock on; the animation has only just started
       result.scrollToBottom();
+      state.setScrollTop(0);
       expect(result.isLockedToBottom.value).toBe(true);
 
       // New message arrives mid-animation — content grows. No instant scroll:

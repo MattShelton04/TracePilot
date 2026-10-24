@@ -19,6 +19,7 @@ import {
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useSessionSource } from "@/composables/useSessionSource";
+import { useSubTabScroll } from "@/composables/useSubTabScroll";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { hiddenSessionTabRedirect } from "@/router/sessionTabGuard";
@@ -56,6 +57,19 @@ watch(
   { immediate: true },
 );
 
+// Each tab route remembers its scroll position in the panel's shared scroller.
+const panel = ref<{ $el?: unknown } | null>(null);
+useSubTabScroll({
+  el: () => (panel.value?.$el instanceof HTMLElement ? panel.value.$el : null),
+  sessionId: () => sessionId.value,
+  subTab: () => String(route.name),
+  // A deep link to a turn ("Show in conversation", Search) or a checkpoint scrolls there instead.
+  hasFocusTarget: (tab) =>
+    (tab === ROUTE_NAMES.sessionConversation &&
+      (route.query.turn != null || route.query.event != null)) ||
+    (tab === ROUTE_NAMES.sessionOverview && store.pendingCheckpointFocus != null),
+});
+
 // Note: we intentionally do NOT call store.reset() on unmount.
 // The store handles re-initialization when switching sessions via loadDetail(newId).
 
@@ -79,6 +93,7 @@ provide(NAVIGATE_CONVERSATION_KEY, (target: ConversationNavigationTarget) => {
 
 <template>
   <SessionDetailPanel
+    ref="panel"
     :store="(store as unknown as SessionDetailContext)"
     :session-id="sessionId"
     :router="router"
