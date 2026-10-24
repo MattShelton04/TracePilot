@@ -43,7 +43,8 @@ const records = computed<JsonlRecord[]>(() => {
   if (effectiveMode.value !== "records") return [];
   const result: JsonlRecord[] = [];
   let sourceLine = 1;
-  for (const raw of props.content.split(/\r?\n/, MAX_RECORDS + 1)) {
+  // No split limit: blank lines don't count towards MAX_RECORDS.
+  for (const raw of props.content.split(/\r?\n/)) {
     if (!raw.trim()) {
       sourceLine += 1;
       continue;
