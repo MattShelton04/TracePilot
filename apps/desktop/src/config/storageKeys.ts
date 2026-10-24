@@ -62,6 +62,8 @@ export const STORAGE_KEYS = Object.freeze({
   sessionTabViews: "tracepilot-session-tab-views",
   /** Repository, source and time range last chosen on the analytics pages. */
   analyticsFilters: "tracepilot-analytics-filters",
+  /** Sort, repository and source last chosen on the session list (not its search text). */
+  sessionListPreferences: "tracepilot-session-list-preferences",
   /** Export format, sections, detail and redaction choices, plus saved custom presets. */
   exportOptions: "tracepilot-export-options",
 } as const);
