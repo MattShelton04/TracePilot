@@ -28,13 +28,16 @@ import {
   ref,
 } from "vue";
 import {
+  type ToolCompRow,
+  toolComparisonRows,
+} from "@/components/sessionComparison/toolComparisonRows";
+import {
   allowsAiCreditEstimate,
   filesModified,
   linesChanged,
   sessionDurationMs,
   shutdownAiCreditUsage,
   successRate,
-  toolCounts,
   totalCacheRead,
   totalInputTokens,
   totalOutputTokens,
@@ -63,6 +66,8 @@ import { sessionCostEstimate } from "@/utils/sourceCost";
  * composable which the children consume via `provide`/`inject`
  * (`SessionComparisonKey` + `useSessionComparisonContext`).
  */
+
+export type { ToolCompRow };
 
 export type NormMode = "raw" | "per-turn" | "per-minute";
 
@@ -100,13 +105,6 @@ export interface DonutSegment {
   tokens: number;
   percentage: number;
   color: string;
-}
-
-export interface ToolCompRow {
-  tool: string;
-  countA: number;
-  countB: number;
-  maxCount: number;
 }
 
 // Donut chart color palettes derived from design tokens
@@ -434,13 +432,7 @@ export function useSessionComparison() {
 
   const toolCompRows = computed<ToolCompRow[]>(() => {
     if (!compared.value) return [];
-    const cA = toolCounts(dataA.turns);
-    const cB = toolCounts(dataB.turns);
-    const allTools = [...new Set([...Object.keys(cA), ...Object.keys(cB)])];
-    const maxCount = Math.max(...allTools.map((t) => Math.max(cA[t] ?? 0, cB[t] ?? 0)), 1);
-    return allTools
-      .map((tool) => ({ tool, countA: cA[tool] ?? 0, countB: cB[tool] ?? 0, maxCount }))
-      .sort((a, b) => b.countA + b.countB - (a.countA + a.countB));
+    return toolComparisonRows(dataA, dataB);
   });
 
   const waveA = computed(() => waveformData(dataA.turns));

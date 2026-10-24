@@ -73,7 +73,14 @@ function makeCompStub(overrides: Partial<SessionComparisonContext> = {}): Sessio
       percentage: number;
       color: string;
     }>,
-    toolCompRows: [] as Array<{ tool: string; countA: number; countB: number; maxCount: number }>,
+    toolCompRows: [] as Array<{
+      tool: string;
+      label: string;
+      hint?: string;
+      countA: number;
+      countB: number;
+      maxCount: number;
+    }>,
     waveA: [] as number[],
     waveB: [] as number[],
     timelineA: [] as number[],
@@ -306,6 +313,29 @@ describe("ComparisonMetrics", () => {
     const wrapper = mount(hostFor(ComparisonMetrics, comp));
     expect(wrapper.findAll(".bar-row").length).toBeGreaterThan(0);
     expect(wrapper.text()).toContain("No tool usage data");
+  });
+
+  it("shows each tool's display name, with the full name and its other naming as the tooltip", () => {
+    const comp = makeCompStub({
+      compared: true,
+      toolCompRows: [
+        { tool: "shell", label: "Bash", hint: "shell", countA: 2, countB: 0, maxCount: 2 },
+        {
+          tool: "mcp__synthetic__lookup",
+          label: "mcp__synthetic__lookup",
+          countA: 0,
+          countB: 1,
+          maxCount: 2,
+        },
+      ],
+    });
+    const wrapper = mount(hostFor(ComparisonMetrics, comp));
+    const labels = wrapper.findAll(".tool-label");
+    expect(labels.map((label) => label.text())).toEqual(["Bash", "mcp__synthetic__lookup"]);
+    expect(labels.map((label) => label.attributes("title"))).toEqual([
+      "Bash (shell)",
+      "mcp__synthetic__lookup",
+    ]);
   });
 
   it("renders unknown token values as a dash and recorded zero as zero", () => {
