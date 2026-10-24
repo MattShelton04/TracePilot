@@ -274,6 +274,11 @@ export interface EventsResponse {
 
 /** Raw event from events.jsonl */
 export interface SessionEvent {
+  /**
+   * 0-based position among all the session's events, whatever the filter.
+   * `get_session_events` always sets it.
+   */
+  index?: number;
   eventType: string;
   timestamp?: string;
   id?: string;

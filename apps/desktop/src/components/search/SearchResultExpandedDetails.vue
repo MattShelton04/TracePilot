@@ -3,7 +3,7 @@
  * SearchResultExpandedDetails — shared expanded metadata grid for search hits.
  *
  * Renders the 6-field key/value grid (session, session id, turn, tool,
- * event index, timestamp) and an "Open in Session Viewer" link. Layout is
+ * event number, timestamp) and an "Open in Session Viewer" link. Layout is
  * controlled via the `variant` prop:
  *   - "card"     → 1fr 1fr grid, used by SearchResultCard
  *   - "grouped"  → auto-fill min 200px grid, used by SearchGroupedResults
@@ -40,8 +40,9 @@ defineProps<{
       <span class="expanded-value expanded-mono" :title="result.toolName">{{ searchResultToolName(result) }}</span>
     </div>
     <div v-if="result.eventIndex != null" class="expanded-item">
-      <span class="expanded-label">Event Index</span>
-      <span class="expanded-value">{{ result.eventIndex }}</span>
+      <span class="expanded-label">Event</span>
+      <!-- 1-based, as the session's Events tab numbers it. -->
+      <span class="expanded-value">#{{ result.eventIndex + 1 }}</span>
     </div>
     <div v-if="result.timestampUnix != null" class="expanded-item">
       <span class="expanded-label">Timestamp</span>

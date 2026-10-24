@@ -34,10 +34,20 @@ describe("SearchResultExpandedDetails", () => {
     expect(wrapper.text()).toContain("sess-xyz");
     expect(wrapper.text()).toContain("12");
     expect(wrapper.text()).toContain("edit");
-    expect(wrapper.text()).toContain("99");
     expect(wrapper.text()).toContain(new Date(1700001234 * 1000).toLocaleString());
     expect(wrapper.find(".expanded-grid--card").exists()).toBe(true);
     expect(wrapper.find(".expanded-view-btn--card").exists()).toBe(true);
+  });
+
+  it("numbers the event from 1, as the session's Events tab does", () => {
+    const wrapper = mount(SearchResultExpandedDetails, {
+      props: { result: makeResult({ eventIndex: 1 }), sessionLink: "/x" },
+      global: { stubs },
+    });
+    const event = wrapper
+      .findAll(".expanded-item")
+      .find((item) => item.get(".expanded-label").text() === "Event");
+    expect(event?.get(".expanded-value").text()).toBe("#2");
   });
 
   it("uses grouped variant classes when variant=grouped", () => {
