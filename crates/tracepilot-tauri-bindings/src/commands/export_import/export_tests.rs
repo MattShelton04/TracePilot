@@ -189,7 +189,6 @@ fn todos_are_offered_only_when_the_database_has_todo_rows() {
     session_db(other.path(), "CREATE TABLE notes (body TEXT);");
     let sections = sections_of(other.path());
     assert!(!sections.has_todos, "no todos table");
-    assert!(sections.has_custom_tables);
 
     let corrupt = tempfile::tempdir().unwrap();
     std::fs::write(corrupt.path().join("session.db"), "not a database").unwrap();
@@ -206,4 +205,120 @@ fn todos_are_offered_only_when_the_database_has_todo_rows() {
         ),
     );
     assert!(sections_of(with_rows.path()).has_todos);
+}
+
+/// Copilot writes `checkpoints/index.md` with only its table header before
+/// the first checkpoint exists.
+const HEADER_ONLY_CHECKPOINTS: &str = "# Checkpoint History\n\n\
+    Checkpoints are listed in chronological order.\n\n\
+    | # | Title | File |\n|---|-------|------|\n";
+
+#[test]
+fn checkpoints_are_offered_only_when_the_index_lists_one() {
+    let none = tempfile::tempdir().unwrap();
+    assert!(!sections_of(none.path()).has_checkpoints, "no folder");
+
+    let empty_dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(empty_dir.path().join("checkpoints")).unwrap();
+    assert!(
+        !sections_of(empty_dir.path()).has_checkpoints,
+        "empty checkpoints folder"
+    );
+
+    let header_only = tempfile::tempdir().unwrap();
+    let cp = header_only.path().join("checkpoints");
+    std::fs::create_dir(&cp).unwrap();
+    std::fs::write(cp.join("index.md"), HEADER_ONLY_CHECKPOINTS).unwrap();
+    assert!(
+        !sections_of(header_only.path()).has_checkpoints,
+        "header-only index.md"
+    );
+
+    let listed = tempfile::tempdir().unwrap();
+    let cp = listed.path().join("checkpoints");
+    std::fs::create_dir(&cp).unwrap();
+    std::fs::write(
+        cp.join("index.md"),
+        format!("{HEADER_ONLY_CHECKPOINTS}| 1 | Initial setup | 001-initial-setup.md |\n"),
+    )
+    .unwrap();
+    std::fs::write(cp.join("001-initial-setup.md"), "Set up the project.").unwrap();
+    assert!(sections_of(listed.path()).has_checkpoints);
+}
+
+#[test]
+fn rewind_snapshots_are_offered_only_when_the_index_has_one() {
+    let none = tempfile::tempdir().unwrap();
+    assert!(!sections_of(none.path()).has_rewind_snapshots, "no folder");
+
+    let empty_dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(empty_dir.path().join("rewind-snapshots")).unwrap();
+    assert!(
+        !sections_of(empty_dir.path()).has_rewind_snapshots,
+        "empty rewind-snapshots folder"
+    );
+
+    let no_snapshots = tempfile::tempdir().unwrap();
+    let rw = no_snapshots.path().join("rewind-snapshots");
+    std::fs::create_dir(&rw).unwrap();
+    std::fs::write(rw.join("index.json"), r#"{"version":1,"snapshots":[]}"#).unwrap();
+    assert!(
+        !sections_of(no_snapshots.path()).has_rewind_snapshots,
+        "index with no snapshots"
+    );
+
+    let corrupt = tempfile::tempdir().unwrap();
+    let rw = corrupt.path().join("rewind-snapshots");
+    std::fs::create_dir(&rw).unwrap();
+    std::fs::write(rw.join("index.json"), "{not json").unwrap();
+    assert!(
+        !sections_of(corrupt.path()).has_rewind_snapshots,
+        "unreadable index"
+    );
+
+    let listed = tempfile::tempdir().unwrap();
+    let rw = listed.path().join("rewind-snapshots");
+    std::fs::create_dir(&rw).unwrap();
+    std::fs::write(
+        rw.join("index.json"),
+        r#"{"version":1,"snapshots":[{"snapshotId":"snap-1","fileCount":2}]}"#,
+    )
+    .unwrap();
+    assert!(sections_of(listed.path()).has_rewind_snapshots);
+}
+
+#[test]
+fn custom_tables_are_offered_only_when_one_has_rows() {
+    let none = tempfile::tempdir().unwrap();
+    assert!(!sections_of(none.path()).has_custom_tables, "no session.db");
+
+    let standard_only = tempfile::tempdir().unwrap();
+    session_db(
+        standard_only.path(),
+        &format!(
+            "{TODOS_TABLE} INSERT INTO todos VALUES ('a', 'Ship it', NULL, 'pending', NULL, NULL);"
+        ),
+    );
+    assert!(
+        !sections_of(standard_only.path()).has_custom_tables,
+        "only the standard todos table"
+    );
+
+    let empty = tempfile::tempdir().unwrap();
+    session_db(
+        empty.path(),
+        "CREATE TABLE notes (body TEXT); CREATE TABLE tags (name TEXT);",
+    );
+    assert!(
+        !sections_of(empty.path()).has_custom_tables,
+        "custom tables without rows"
+    );
+
+    let with_rows = tempfile::tempdir().unwrap();
+    session_db(
+        with_rows.path(),
+        "CREATE TABLE notes (body TEXT); CREATE TABLE tags (name TEXT); \
+         INSERT INTO tags VALUES ('release');",
+    );
+    assert!(sections_of(with_rows.path()).has_custom_tables);
 }
