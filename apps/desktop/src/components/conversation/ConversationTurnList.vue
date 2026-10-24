@@ -49,7 +49,9 @@ import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivide
 import {
   chunkTurns,
   getCommandOutput,
+  orderTimelineSection,
   splitAtTurnStart,
+  type TimelineEntry,
   type TurnStartSplit,
 } from "@/components/conversation/chatViewUtils";
 import { useConversationTime } from "@/components/conversation/conversationTime";
@@ -107,6 +109,24 @@ const sessionEventSplits = computed(() => {
   }
   return splits;
 });
+
+// Timeline sections list replies and tool calls in the order the agent
+// produced them (as Chat does). Subagent sections keep tool calls, then replies.
+const timelineEntries = computed(() => {
+  const entries = new Map<number, TimelineEntry[][]>();
+  if (props.viewMode !== "timeline") return entries;
+  for (const turn of props.turns) {
+    entries.set(
+      turn.turnIndex,
+      props.getSections(turn.turnIndex).map((section) => orderTimelineSection(turn, section)),
+    );
+  }
+  return entries;
+});
+
+function sectionEntries(turn: ConversationTurn, sIdx: number): TimelineEntry[] {
+  return timelineEntries.value.get(turn.turnIndex)?.[sIdx] ?? [];
+}
 
 function sessionEventsBefore(turn: ConversationTurn): TurnSessionEvent[] {
   return sessionEventSplits.value.get(turn.turnIndex)?.before ?? [];
@@ -393,8 +413,10 @@ function onRetryFullResult(toolCallId: string) {
             </template>
           </ReasoningBlock>
 
+          <!-- Replies and tool calls, in the order the agent produced them -->
+          <template v-for="(entry, eIdx) in sectionEntries(turn, sIdx)" :key="`tl-e-${sIdx}-${eIdx}`">
           <!-- Tool calls with agent context -->
-          <div v-if="section.toolCalls.length > 0">
+          <div v-if="entry.kind === 'tools'">
             <!-- Subagent separator -->
             <div v-if="section.agentId" class="timeline-agent-separator">
               <AgentBadge
@@ -407,7 +429,7 @@ function onRetryFullResult(toolCallId: string) {
             </div>
             <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${getAgentColor(section.agentType)} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
               <ToolCallItem
-                v-for="tc in section.toolCalls"
+                v-for="tc in entry.toolCalls"
                 :data-event-idx="tc.eventIndex != null ? tc.eventIndex : undefined"
                 :key="tc.toolCallId ?? tc.toolName"
                 v-bind="tcProps(turn, tc, 'tl-', 'compact')"
@@ -418,14 +440,15 @@ function onRetryFullResult(toolCallId: string) {
             </div>
           </div>
 
-          <!-- Assistant messages with agent attribution -->
-          <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`tl-msg-${sIdx}-${idx}`" class="timeline-block assistant">
+          <!-- Assistant message with agent attribution -->
+          <div v-else class="timeline-block assistant">
             <div class="timeline-block-label assistant">
               <AgentBadge v-if="section.agentId" :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
               <template v-else>{{ mainAgentLabel }}</template>
             </div>
-            <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
+            <div class="timeline-block-text">{{ truncateText(entry.content, 500) }}</div>
           </div>
+          </template>
         </template>
 
         <!-- Session events logged while the turn ran (timeline) -->

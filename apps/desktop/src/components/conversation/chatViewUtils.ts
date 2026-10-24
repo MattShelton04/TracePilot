@@ -166,6 +166,23 @@ function isShownInTurn(tc: TurnToolCall): boolean {
 }
 
 /**
+ * Whether a turn's main-agent reasoning, replies and tool calls all carry an
+ * event index, so `orderTurnContent` can place them as the agent produced
+ * them. False when the turn lacks text or tool calls, so there is nothing to
+ * interleave.
+ */
+export function hasTurnEventOrder(turn: ConversationTurn): boolean {
+  const text = [...mainReasoningTexts(turn), ...getMainMessages(turn)];
+  const shown = turn.toolCalls.filter(isShownInTurn);
+  return (
+    text.length > 0 &&
+    shown.length > 0 &&
+    text.every((t) => t.eventIndex != null) &&
+    shown.every((tc) => tc.eventIndex != null)
+  );
+}
+
+/**
  * Builds a turn's main-agent content in the order the agent produced it:
  * reasoning and replies sit between the tool calls they came before and
  * after, using each item's event index. A tool group is split where text
@@ -191,14 +208,7 @@ export function orderTurnContent(turn: ConversationTurn): OrderedTurnContent {
       rank: 1,
     })),
   ];
-  const shown = turn.toolCalls.filter(isShownInTurn);
-  const ordered =
-    text.length > 0 &&
-    shown.length > 0 &&
-    text.every((t) => t.eventIndex != null) &&
-    shown.every((tc) => tc.eventIndex != null);
-
-  if (!ordered) {
+  if (!hasTurnEventOrder(turn)) {
     const segments = segmentToolCalls(turn.toolCalls);
     return {
       reasoning,
@@ -237,6 +247,63 @@ export function orderTurnContent(turn: ConversationTurn): OrderedTurnContent {
   while (next < text.length) order.push(text[next++].ref);
 
   return { reasoning, messages, segments, order };
+}
+
+/** One entry of a timeline section: a reply, or a run of consecutive tool calls. */
+export type TimelineEntry =
+  | { kind: "message"; content: string }
+  | { kind: "tools"; toolCalls: TurnToolCall[] };
+
+/**
+ * Lays out a main-agent timeline section's replies and tool calls in the
+ * order `orderTurnContent` gives them, so a reply sits between the calls it
+ * came after and before. The section holds the turn's first main replies
+ * (later ones belong to a section after the subagents) and its main tool calls.
+ *
+ * Keeps the previous layout (every tool call, then every reply) for a
+ * subagent section, when the order is unknown, or when the section's content
+ * does not match the turn's main content, such as a child call whose subagent
+ * is unknown.
+ */
+export function orderTimelineSection(
+  turn: ConversationTurn,
+  section: { agentId?: string; messages: string[]; toolCalls: TurnToolCall[] },
+): TimelineEntry[] {
+  const replies = section.messages.filter((m) => m.trim());
+  const previous = (): TimelineEntry[] => [
+    ...(section.toolCalls.length ? [{ kind: "tools" as const, toolCalls: section.toolCalls }] : []),
+    ...replies.map((content) => ({ kind: "message" as const, content })),
+  ];
+  if (section.agentId || !replies.length || !section.toolCalls.length) return previous();
+  if (!hasTurnEventOrder(turn)) return previous();
+
+  const content = orderTurnContent(turn);
+  const placed = new Set(
+    content.segments.flatMap((s) =>
+      s.type === "tool-group" ? s.items.map((i) => i.toolCall) : s.subagents,
+    ),
+  );
+  const matches =
+    replies.every((reply, i) => content.messages[i]?.content === reply) &&
+    placed.size === section.toolCalls.length &&
+    section.toolCalls.every((tc) => placed.has(tc));
+  if (!matches) return previous();
+
+  const entries: TimelineEntry[] = [];
+  for (const ref of content.order) {
+    if (ref.kind === "message") {
+      if (ref.index < replies.length)
+        entries.push({ kind: "message", content: replies[ref.index] });
+    } else if (ref.kind === "segment") {
+      const segment = content.segments[ref.index];
+      const calls =
+        segment.type === "tool-group" ? segment.items.map((i) => i.toolCall) : segment.subagents;
+      const last = entries[entries.length - 1];
+      if (last?.kind === "tools") last.toolCalls.push(...calls);
+      else entries.push({ kind: "tools", toolCalls: [...calls] });
+    }
+  }
+  return entries;
 }
 
 /**
