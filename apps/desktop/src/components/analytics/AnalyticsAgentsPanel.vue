@@ -95,7 +95,9 @@ const tiles = computed(() => {
       key: "depth",
       icon: Network,
       label: "Deepest",
-      value: formatNumber(value.maxDepth),
+      // Depth 0 is a run the main agent called, as the agent's Usage tab says.
+      value: value.maxDepth > 0 ? formatNumber(value.maxDepth) : "Top level",
+      text: value.maxDepth === 0,
       detail: `peak ${formatNumber(value.peakParallelism)} at once`,
     },
     {
@@ -190,7 +192,7 @@ function openAgents(search?: string) {
           <div class="ad-tile__label">
             <component :is="tile.icon" :size="13" aria-hidden="true" />{{ tile.label }}
           </div>
-          <div class="ad-tile__value agents-panel__value">{{ tile.value }}</div>
+          <div class="ad-tile__value agents-panel__value" :class="{ 'ad-tile__value--text': tile.text }">{{ tile.value }}</div>
           <div class="ad-tile__detail" :title="tile.detail">{{ tile.detail }}</div>
         </div>
       </div>

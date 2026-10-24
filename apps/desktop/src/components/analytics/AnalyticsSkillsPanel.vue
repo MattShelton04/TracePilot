@@ -26,6 +26,7 @@ import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { useSkillsStore } from "@/stores/skills";
 import { analyticsEmptyScope } from "@/utils/analyticsDashboard";
+import { plural } from "@/utils/format";
 import { buildSkillEntries } from "@/utils/skills/entries";
 
 const store = useAnalyticsStore();
@@ -114,7 +115,7 @@ const tiles = computed(() => {
       icon: Sparkles,
       label: "Uses",
       value: formatNumber(value.totalUses),
-      detail: `${formatNumber(value.totalSessions)} session${value.totalSessions === 1 ? "" : "s"}`,
+      detail: plural(value.totalSessions, "session", undefined, formatNumber),
     },
     {
       key: "distinct",
@@ -128,7 +129,7 @@ const tiles = computed(() => {
       icon: Database,
       label: "Injected",
       value: value.usesWithContent > 0 ? `~${formatNumber(value.totalContentTokens)}` : "—",
-      detail: `${formatNumber(value.usesWithContent)} of ${formatNumber(value.totalUses)} uses`,
+      detail: `${formatNumber(value.usesWithContent)} of ${plural(value.totalUses, "use", undefined, formatNumber)}`,
     },
     last,
   ];
@@ -165,6 +166,7 @@ const topSkills = computed(() => {
     uses: formatNumber(skill.uses),
     width: `${Math.max(2, (skill.uses / max) * 100)}%`,
     sessions: formatNumber(skill.sessions),
+    counts: `${plural(skill.uses, "use", undefined, formatNumber)} across ${plural(skill.sessions, "session", undefined, formatNumber)}`,
     injected:
       skill.medianContentTokens != null ? `~${formatNumber(skill.medianContentTokens)}` : "—",
   }));
@@ -174,7 +176,7 @@ const topSkills = computed(() => {
 const coverage = computed(() => {
   const value = summary.value;
   if (!value || value.totalUses === 0 || value.usesWithContent === value.totalUses) return null;
-  return `${formatNumber(value.usesWithContent)} of ${formatNumber(value.totalUses)} uses recorded their content`;
+  return `${formatNumber(value.usesWithContent)} of ${plural(value.totalUses, "use", undefined, formatNumber)} recorded content`;
 });
 
 function openSkills(search?: string) {
@@ -242,7 +244,7 @@ function openSkills(search?: string) {
             type="button"
             role="listitem"
             class="ad-row ad-usage__grid skills-panel__row"
-            :aria-label="`Find skill ${skill.name}: ${skill.uses} uses across ${skill.sessions} sessions, ${skill.injected} tokens injected per use`"
+            :aria-label="`Find skill ${skill.name}: ${skill.counts}, ${skill.injected} tokens injected per use`"
             @click="openSkills(skill.name)"
           >
             <span class="ad-row__name">

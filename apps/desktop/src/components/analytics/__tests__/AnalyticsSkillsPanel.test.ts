@@ -132,14 +132,33 @@ describe("AnalyticsSkillsPanel", () => {
   it("gives the injected total a denominator when some uses recorded no content", async () => {
     const wrapper = mount(AnalyticsSkillsPanel);
     await flushPromises();
-    expect(wrapper.text()).toContain("28 of 30 uses recorded their content");
+    expect(wrapper.text()).toContain("28 of 30 uses recorded content");
+  });
+
+  it("agrees the noun with a single use", async () => {
+    vi.mocked(skillsUsageSummary).mockResolvedValue({
+      ...summary,
+      totalUses: 1,
+      totalSessions: 1,
+      usesWithContent: 0,
+      skills: [stats("pdf", { uses: 1, sessions: 1, usesWithContent: 0 })],
+    });
+    const wrapper = mount(AnalyticsSkillsPanel);
+    await flushPromises();
+    expect(wrapper.text()).toContain("0 of 1 use recorded content");
+    expect(wrapper.text()).toContain("0 of 1 use");
+    expect(wrapper.text()).not.toContain("1 uses");
+    expect(wrapper.text()).toContain("1 session");
+    expect(wrapper.get(".skills-panel__row").attributes("aria-label")).toContain(
+      "1 use across 1 session,",
+    );
   });
 
   it("drops the denominator when every use contributed", async () => {
     vi.mocked(skillsUsageSummary).mockResolvedValue({ ...summary, usesWithContent: 30 });
     const wrapper = mount(AnalyticsSkillsPanel);
     await flushPromises();
-    expect(wrapper.text()).not.toContain("recorded their content");
+    expect(wrapper.text()).not.toContain("recorded content");
   });
 
   it("ranks skills by uses and opens each one in the manager", async () => {

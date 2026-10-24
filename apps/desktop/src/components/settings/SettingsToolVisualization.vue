@@ -38,7 +38,7 @@ function handleOverridesToggle(event: Event) {
         <FormSwitch
           :model-value="preferences.toolRendering.enabled"
           @update:model-value="setRichRenderingEnabled"
-          label="Rich Tool Rendering"
+          aria-label="Rich Tool Rendering"
         />
       </div>
 
