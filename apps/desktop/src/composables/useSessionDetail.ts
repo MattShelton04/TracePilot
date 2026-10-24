@@ -40,6 +40,7 @@ import {
   buildPrefetchedCachedSession,
   restoreFromCachedSession,
 } from "./session/snapshot";
+import { useFocusRequests } from "./session/useFocusRequests";
 import { SOURCE_SECTION_KEYS, useSessionSections } from "./session/useSessionSections";
 import { useSessionTurnsRefresh } from "./session/useSessionTurnsRefresh";
 
@@ -96,6 +97,9 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
   const prefetchInFlight = new Set<string>();
   const detailInFlight = new Map<string, Promise<SessionDetail>>();
   const snapshotCtx = { detail, loaded, turnsRefresh, sections };
+  // Cross-tab navigation: the checkpoint or turn another tab asked to show.
+  const { pendingCheckpointFocus, pendingConversationFocus, focusCheckpoint, focusConversation } =
+    useFocusRequests();
 
   function fetchDetail(id: string): Promise<SessionDetail> {
     const existing = detailInFlight.get(id);
@@ -190,6 +194,33 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
 
     if (error.value) {
       detail.value = null;
+    }
+  }
+
+  /**
+   * Load the open session's detail again after its first load failed,
+   * keeping the other sections. `silent` (for timers) leaves the error in
+   * view until the retry ends. A session switch drops a late result.
+   */
+  async function retryDetail({ silent = false } = {}) {
+    const id = sessionId.value;
+    if (!id || loaded.value.has("detail") || loading.value) return;
+    const token = sessionGuard.current();
+    if (!silent) {
+      loading.value = true;
+      error.value = null;
+    }
+    try {
+      const result = await fetchDetail(id);
+      if (!sessionGuard.isValid(token)) return;
+      detail.value = result;
+      error.value = null;
+      loaded.value.add("detail");
+    } catch (e) {
+      if (!sessionGuard.isValid(token)) return;
+      error.value = toErrorMessage(e);
+    } finally {
+      if (!silent && sessionGuard.isValid(token)) loading.value = false;
     }
   }
 
@@ -317,6 +348,10 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
           }
         })(),
       );
+    } else if (!loadedSections.has("detail") && error.value !== null) {
+      // The first load failed (e.g. a read while the session was written).
+      refreshed.push("detail");
+      promises.push(retryDetail({ silent: true }));
     }
 
     if (loadedSections.has("turns") && !skip.has("turns")) {
@@ -370,28 +405,6 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     }
   }
 
-  // ── Cross-tab navigation: checkpoint focus ─────────────────────────
-  const pendingCheckpointFocus = ref<number | null>(null);
-  const pendingConversationFocus = ref<{
-    turnIndex: number;
-    eventIndex: number | null;
-    requestId: number;
-  } | null>(null);
-  let conversationFocusRequestId = 0;
-
-  function focusCheckpoint(checkpointNumber: number | null) {
-    pendingCheckpointFocus.value = checkpointNumber;
-  }
-
-  function focusConversation(turnIndex: number, eventIndex: number | null = null) {
-    conversationFocusRequestId += 1;
-    pendingConversationFocus.value = {
-      turnIndex,
-      eventIndex,
-      requestId: conversationFocusRequestId,
-    };
-  }
-
   return {
     sessionId,
     detail,
@@ -427,6 +440,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     focusCheckpoint,
     focusConversation,
     loadDetail,
+    retryDetail,
     loadTurns: turnsRefresh.loadTurns,
     loadEvents,
     loadTodos: sections.todosDef.load,
