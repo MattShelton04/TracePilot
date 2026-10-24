@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IndexingProgressPayload } from "@tracepilot/types";
+import { type IndexingProgressPayload, sourceLabel } from "@tracepilot/types";
 import {
   Badge,
   EmptyState,
@@ -272,11 +272,13 @@ const emptyState = computed(() => {
       },
     };
   }
-  if (prefs.hideEmptySessions && store.visibleSessionCount === 0) {
+  if (store.sourceHasOnlyHiddenSessions) {
+    const sessionsName = store.filterSource
+      ? `Your ${sourceLabel(store.filterSource)} sessions`
+      : "Your sessions";
     return {
       title: "Empty sessions are hidden",
-      description:
-        "Your sessions have no conversation turns and are hidden by the Hide empty sessions setting.",
+      description: `${sessionsName} have no conversation turns and are hidden by the Hide empty sessions setting.`,
       primaryAction: { label: "Show empty sessions", onClick: showEmptySessions },
       secondaryAction: hasSessionFilters.value
         ? { label: "Clear filters", onClick: clearFilters }

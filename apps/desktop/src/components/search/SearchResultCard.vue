@@ -2,8 +2,9 @@
 import type { ContextSnippet } from "@tracepilot/client";
 import { getResultContext } from "@tracepilot/client";
 import { isNonCopilotSource, type SearchResult, sourceLabel } from "@tracepilot/types";
-import { CONTENT_TYPE_CONFIG, formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
+import { CONTENT_TYPE_CONFIG, formatRelativeTime } from "@tracepilot/ui";
 import { ref, watch } from "vue";
+import { formatSearchMoment } from "@/utils/searchMoment";
 import { toolDisplayName } from "@/utils/toolDisplayName";
 import SearchResultActions from "./SearchResultActions.vue";
 import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
@@ -78,7 +79,7 @@ watch(
       <span v-if="result.sessionBranch" class="badge badge-success badge-xs">
         {{ result.sessionBranch }}
       </span>
-      <span v-if="result.timestampUnix != null" class="result-date" :title="formatDateMedium(result.timestampUnix)">
+      <span v-if="result.timestampUnix != null" class="result-date" :title="formatSearchMoment(result.timestampUnix)">
         {{ formatRelativeTime(result.timestampUnix) }}
       </span>
       <span
