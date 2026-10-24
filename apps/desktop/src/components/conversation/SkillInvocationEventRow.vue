@@ -8,10 +8,11 @@
  * standalone `skill.invoked` session events.
  */
 import type { SkillInvocationEvent, TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
-import { ExpandChevron, formatDuration, formatTime } from "@tracepilot/ui";
+import { ExpandChevron, formatDuration } from "@tracepilot/ui";
 import { Zap } from "lucide-vue-next";
 import { computed, inject, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useConversationTime } from "@/components/conversation/conversationTime";
 import { SESSION_DETAIL_KEY } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -22,6 +23,7 @@ const props = defineProps<{
   event?: TurnSessionEvent;
   toolCall?: TurnToolCall;
 }>();
+const timeLabel = useConversationTime();
 
 const { isViewer } = useWindowRole();
 const router = isViewer() ? null : useRouter();
@@ -123,8 +125,8 @@ function openUsage(e: MouseEvent) {
       <span class="skill-row__name">{{ headerLabel }}</span>
       <!-- Always rendered: it fills the row, so time and status sit at the far right. -->
       <span class="skill-row__desc">{{ skillDescription ? `— ${skillDescription}` : "" }}</span>
-      <span v-if="timestamp" class="skill-row__time">
-        {{ formatTime(timestamp) }}
+      <span v-if="timestamp" class="skill-row__time" :title="timeLabel(timestamp).title">
+        {{ timeLabel(timestamp).text }}
       </span>
       <span v-if="durationMs != null" class="skill-row__duration">
         {{ formatDuration(durationMs) }}

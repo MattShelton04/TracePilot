@@ -32,7 +32,6 @@ import {
   categoryColor,
   formatDuration,
   formatNumber,
-  formatTime,
   getAgentColor,
   ReasoningBlock,
   resolveLucideIcon,
@@ -53,6 +52,7 @@ import {
   splitAtTurnStart,
   type TurnStartSplit,
 } from "@/components/conversation/chatViewUtils";
+import { useConversationTime } from "@/components/conversation/conversationTime";
 import { useProvideSessionEnded } from "@/composables/useCountsUpToNow";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { promptPreviewText } from "@/utils/pastedContent";
@@ -88,6 +88,7 @@ const props = defineProps<{
 // Turns render in `content-visibility: auto` chunks (see conversation.css).
 const turnChunks = computed(() => chunkTurns(props.turns));
 const mainAgentLabel = useMainAgentLabel();
+const timeLabel = useConversationTime();
 const store = useSessionDetailContext();
 // Calls that never reported a result read as settled once the session ended.
 useProvideSessionEnded(() => store.sessionId);
@@ -220,7 +221,7 @@ function onRetryFullResult(toolCallId: string) {
         <Badge v-if="turn.model" variant="done" :title="turn.model">{{ modelDisplayName(turn.model, source) }}</Badge>
         <Badge v-if="turn.reasoningEffort" variant="neutral">{{ effortLabel(turn.reasoningEffort) }}</Badge>
         <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
-        <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
+        <span v-if="turn.timestamp" class="turn-meta" :title="timeLabel(turn.timestamp).title">{{ timeLabel(turn.timestamp).text }}</span>
         <span v-if="turn.outputTokens" class="token-badge" :title="turnUsageTitle(turn)"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
         <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
           {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
@@ -346,7 +347,7 @@ function onRetryFullResult(toolCallId: string) {
           <Badge v-if="turn.reasoningEffort" variant="neutral">{{ effortLabel(turn.reasoningEffort) }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
           <span v-if="turn.outputTokens" class="token-badge" :title="turnUsageTitle(turn)"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
-          <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
+          <span v-if="turn.timestamp" class="turn-meta" :title="timeLabel(turn.timestamp).title">{{ timeLabel(turn.timestamp).text }}</span>
           <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
           <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
         </div>
@@ -359,7 +360,7 @@ function onRetryFullResult(toolCallId: string) {
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
-            <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
+            <span v-if="se.timestamp" class="turn-meta" :title="timeLabel(se.timestamp).title">{{ timeLabel(se.timestamp).text }}</span>
           </div>
         </div>
 
@@ -435,7 +436,7 @@ function onRetryFullResult(toolCallId: string) {
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
-            <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
+            <span v-if="se.timestamp" class="turn-meta" :title="timeLabel(se.timestamp).title">{{ timeLabel(se.timestamp).text }}</span>
           </div>
         </div>
       </div>

@@ -16,9 +16,9 @@
  * result on its own; defensively, we never want to drop a known event.
  */
 import type { TurnSessionEvent } from "@tracepilot/types";
-import { formatTime } from "@tracepilot/ui";
 import { Lock } from "lucide-vue-next";
 import { computed } from "vue";
+import { useConversationTime } from "@/components/conversation/conversationTime";
 
 const props = defineProps<{
   /** The `permission.requested` event, if observed. */
@@ -26,6 +26,7 @@ const props = defineProps<{
   /** The `permission.completed` event, if observed. */
   completed?: TurnSessionEvent;
 }>();
+const timeLabel = useConversationTime();
 
 type Status = "approved" | "denied" | "pending" | "hook" | "unknown";
 
@@ -137,8 +138,8 @@ const tooltip = computed(() => {
       "{{ feedback }}"
     </span>
 
-    <span v-if="timestamp" class="cv-permission-time">
-      {{ formatTime(timestamp) }}
+    <span v-if="timestamp" class="cv-permission-time" :title="timeLabel(timestamp).title">
+      {{ timeLabel(timestamp).text }}
     </span>
   </div>
 </template>
