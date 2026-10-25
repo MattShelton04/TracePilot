@@ -99,6 +99,23 @@ describe("SessionComparisonView route state", () => {
     same.unmount();
   });
 
+  it("says why Compare is off when both sides hold the same session", async () => {
+    const wrapper = await mountAt(makeRouter(), "/compare");
+    await pick(wrapper, "A", "Bravo");
+    await pick(wrapper, "B", "Bravo");
+    expect(wrapper.get<HTMLButtonElement>(".compare-btn").element.disabled).toBe(true);
+    expect(wrapper.text()).toContain("Both sides hold the same session.");
+    expect(wrapper.text()).not.toContain("click Compare");
+    wrapper.unmount();
+
+    // After a comparison, re-picking the same session doesn't ask for a Compare it can't run.
+    const compared = await mountAt(makeRouter(), "/compare?a=a&b=b");
+    await pick(compared, "A", "Bravo");
+    expect(compared.text()).toContain("Pick another session to compare.");
+    expect(compared.text()).not.toContain("Click Compare to update them");
+    compared.unmount();
+  });
+
   it("keeps the picks and results when the sidebar opens Compare without picks", async () => {
     const router = makeRouter();
     const wrapper = await mountAt(router, "/compare?a=a&b=b");
