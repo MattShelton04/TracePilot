@@ -5,9 +5,9 @@ use super::super::*;
 #[test]
 fn session_error_embedded_in_turn() {
     let events = make_turn_events(vec![
-        session_error("Rate limit exceeded")
-            .error_type("rate_limit")
-            .status_code(429)
+        session_error("Connection reset")
+            .error_type("connection_error")
+            .status_code(502)
             .id("evt-err")
             .timestamp("2026-03-10T07:00:30.000Z")
             .build_event(),
@@ -19,8 +19,45 @@ fn session_error_embedded_in_turn() {
     let se = &turns[0].session_events[0];
     assert_eq!(se.event_type, "session.error");
     assert_eq!(se.severity, SessionEventSeverity::Error);
-    assert_eq!(se.summary, "Rate limit exceeded");
+    assert_eq!(se.summary, "Connection reset");
     assert!(se.timestamp.is_some());
+}
+
+/// A rate limit is waited out, so it reads as a warning, as the session card,
+/// Overview and Analytics count it; its message (with the reset time) stays.
+#[test]
+fn rate_limit_is_a_warning() {
+    let events = make_turn_events(vec![
+        session_error("Rate limit exceeded")
+            .error_type("rate_limit")
+            .status_code(429)
+            .id("evt-err")
+            .timestamp("2026-03-10T07:00:30.000Z")
+            .build_event(),
+    ]);
+
+    let turns = reconstruct_turns(&events);
+    let se = &turns[0].session_events[0];
+    assert_eq!(se.event_type, "session.error");
+    assert_eq!(se.severity, SessionEventSeverity::Warning);
+    assert_eq!(se.summary, "Rate limit exceeded");
+}
+
+#[test]
+fn rate_limit_without_a_message_says_so() {
+    let events = make_turn_events(vec![
+        session_error_empty()
+            .error_type("rate_limit")
+            .status_code(429)
+            .id("evt-err")
+            .timestamp("2026-03-10T07:00:30.000Z")
+            .build_event(),
+    ]);
+
+    let turns = reconstruct_turns(&events);
+    let se = &turns[0].session_events[0];
+    assert_eq!(se.severity, SessionEventSeverity::Warning);
+    assert_eq!(se.summary, "Rate limit hit");
 }
 #[test]
 fn session_error_fallback_to_error_type() {

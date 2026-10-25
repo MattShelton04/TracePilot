@@ -151,6 +151,7 @@
             "agentDisplayName": "alpha",
             "agentId": "agent-alpha",
             "agentStatus": "idle",
+            "argsSummary": "Coordinate alpha messaging",
             "arguments": {
               "agent_type": "general-purpose",
               "description": "Coordinate alpha messaging",
@@ -184,6 +185,7 @@
             "agentDisplayName": "beta",
             "agentId": "agent-beta",
             "agentStatus": "idle",
+            "argsSummary": "Answer alpha question",
             "arguments": {
               "agent_type": "general-purpose",
               "description": "Answer alpha question",

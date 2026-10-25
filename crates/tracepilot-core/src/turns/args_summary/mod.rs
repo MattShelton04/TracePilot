@@ -14,6 +14,7 @@ mod tests;
 
 use serde_json::{Map, Value};
 
+use crate::models::conversation::TurnToolCall;
 use task_list::{TASK_LIST_TOOLS, task_list_summary};
 
 /// Shells that run a command: Windows (`powershell`) and macOS/Linux (`bash`).
@@ -53,6 +54,19 @@ pub fn compute_args_summary(tool_name: &str, args: &Value) -> String {
         return String::new();
     };
     object_summary(tool_name, a).unwrap_or_default()
+}
+
+/// [`compute_args_summary`] for a reconstructed call, given its arguments.
+/// A started subagent's `task` call is renamed to its agent (`explore`), but
+/// its arguments are still `task`'s, so it is summarized as `task` (its
+/// description).
+pub fn tool_call_args_summary(tc: &TurnToolCall, args: &Value) -> String {
+    let tool_name = if tc.is_subagent {
+        "task"
+    } else {
+        tc.tool_name.as_str()
+    };
+    compute_args_summary(tool_name, args)
 }
 
 fn object_summary(tool_name: &str, a: &Map<String, Value>) -> Option<String> {
