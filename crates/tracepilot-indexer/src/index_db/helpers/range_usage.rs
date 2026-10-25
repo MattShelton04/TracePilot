@@ -106,6 +106,10 @@ pub(in crate::index_db) fn range_session_filter(
     let (ran, ran_values) = segment_in_range("x", from_date, to_date);
     values.extend(ran_values);
     let mut clause = base_where.to_string();
+    // Correlated on purpose: SQLite probes a session's own segments (by the
+    // `session_id` key) only when it was not last active in the range, which
+    // for a preset (no end date) is almost never. An uncorrelated
+    // `s.id IN (SELECT ...)` scans every segment once per copy of this clause.
     clause.push_fmt(format_args!(
         " AND ({last_active} OR EXISTS (
             SELECT 1 FROM session_segments x WHERE x.session_id = s.id AND {ran}))"
@@ -116,12 +120,20 @@ pub(in crate::index_db) fn range_session_filter(
 }
 
 /// Per-session segment sums, as alias `o`, among the sessions the filter
-/// selects. `late` is 1 for a session last active outside the range. For the
+/// selects. `late` is 1 for a session last active outside the range.
+///
+/// A session last active in the range (`late` 0) has the sums of its
 /// segments that ended outside the range: `tokens`, `premium`, `nano_aiu`,
 /// `cost_usd`, `unpriced` (segments with no USD figure) and, with
 /// `legacy_cost`, `cost` (legacy model-reported cost from the segments' model
-/// metrics). The same with an `in_` prefix for the segments that ended in it.
-/// A session without segments has no row.
+/// metrics). A late session has the same sums, with an `in_` prefix, of its
+/// segments that ended in the range. Each session reads only the sums for
+/// its kind, so the other columns are `NULL`, and only the segments those
+/// sums need are scanned. A session with neither has no row, which counts as
+/// not late with nothing outside; [`range_session_filter`] selects a late
+/// session only for a run in the range, so every late session has one.
+/// Without a date filter nothing is outside and no session is late, so no
+/// session has a row.
 ///
 /// `where_clause` and `bind_values` are the sessions filter
 /// ([`range_session_filter`], or a narrower one). Returns the `LEFT JOIN`
@@ -134,51 +146,63 @@ pub(in crate::index_db) fn out_of_range_join(
     to_date: Option<&str>,
     legacy_cost: bool,
 ) -> (String, Vec<String>) {
-    let ranged = from_date.is_some() || to_date.is_some();
     let (outside, mut values) = segment_outside(from_date, to_date);
     let (late, late_values) = last_active_elsewhere(from_date, to_date);
+    values.extend(bind_values.iter().cloned());
+    values.extend(late_values.iter().cloned());
+    // `segment_in_range` is "1" for an open range, where no session is late.
+    let (ran, ran_values) = if from_date.is_some() || to_date.is_some() {
+        segment_in_range("g", from_date, to_date)
+    } else {
+        ("0".to_string(), Vec::new())
+    };
+    values.extend(ran_values);
+    values.extend(bind_values.iter().cloned());
     values.extend(late_values);
     values.extend(bind_values.iter().cloned());
-    values.extend(bind_values.iter().cloned());
-    // Without a date filter nothing is outside and no session is late.
-    let none = if ranged { "" } else { " AND 0" };
-    let (cost_column, cost) = if legacy_cost {
-        (
-            "(SELECT SUM(json_extract(j.value, '$.requests.cost'))
-                FROM json_each(g.model_metrics_json) j) AS cost,",
-            "SUM(CASE WHEN g.side = 1 THEN g.cost END) AS cost,
-             SUM(CASE WHEN g.side = 0 THEN g.cost END) AS in_cost,",
+
+    let mut sums = vec![
+        ("tokens", "SUM(g.total_tokens)"),
+        ("premium", "SUM(g.total_premium_requests)"),
+        ("nano_aiu", "SUM(g.total_nano_aiu)"),
+        ("cost_usd", "SUM(g.cost_usd)"),
+        ("unpriced", "COUNT(*) - COUNT(g.cost_usd)"),
+    ];
+    if legacy_cost {
+        sums.push((
+            "cost",
+            "SUM((SELECT SUM(json_extract(j.value, '$.requests.cost'))
+                  FROM json_each(g.model_metrics_json) j))",
+        ));
+    }
+    // One branch per kind of session: the sums it reads, `NULL` for the rest.
+    // The two branches select disjoint sessions, so each has one row at most.
+    let branch = |is_late: u8, segments: &str| {
+        let mut columns = String::new();
+        for prefix in ["", "in_"] {
+            let live = (prefix == "in_") == (is_late == 1);
+            for (name, sum) in &sums {
+                let expr = if live { *sum } else { "NULL" };
+                columns.push_fmt(format_args!(", {expr} AS {prefix}{name}"));
+            }
+        }
+        format!(
+            "SELECT g.session_id, {is_late} AS late{columns}
+             FROM session_segments g
+             WHERE {segments} AND g.session_id IN (
+                 SELECT s.id FROM sessions s{where_clause} AND {late} = {is_late})
+             GROUP BY g.session_id"
         )
-    } else {
-        ("", "")
     };
-    let mut join = String::new();
-    join.push_fmt(format_args!(
+    let join = format!(
         " LEFT JOIN (
-            SELECT g.session_id,
-                   MAX(g.late) AS late,
-                   {cost}
-                   SUM(CASE WHEN g.side = 1 THEN g.total_tokens END) AS tokens,
-                   SUM(CASE WHEN g.side = 1 THEN g.total_premium_requests END) AS premium,
-                   SUM(CASE WHEN g.side = 1 THEN g.total_nano_aiu END) AS nano_aiu,
-                   SUM(CASE WHEN g.side = 1 THEN g.cost_usd END) AS cost_usd,
-                   COUNT(CASE WHEN g.side = 1 AND g.cost_usd IS NULL THEN 1 END) AS unpriced,
-                   SUM(CASE WHEN g.side = 0 THEN g.total_tokens END) AS in_tokens,
-                   SUM(CASE WHEN g.side = 0 THEN g.total_premium_requests END) AS in_premium,
-                   SUM(CASE WHEN g.side = 0 THEN g.total_nano_aiu END) AS in_nano_aiu,
-                   SUM(CASE WHEN g.side = 0 THEN g.cost_usd END) AS in_cost_usd,
-                   COUNT(CASE WHEN g.side = 0 AND g.cost_usd IS NULL THEN 1 END) AS in_unpriced
-            FROM (
-                SELECT g.session_id, g.total_tokens, g.total_premium_requests,
-                       g.total_nano_aiu, g.cost_usd, {cost_column}
-                       CASE WHEN {outside} THEN 1
-                            WHEN date(g.end_timestamp) IS NOT NULL THEN 0 END AS side,
-                       {late} AS late
-                FROM session_segments g JOIN sessions s ON s.id = g.session_id{where_clause}{none}
-            ) g
-            GROUP BY g.session_id
-        ) o ON o.session_id = s.id"
-    ));
+            {}
+            UNION ALL
+            {}
+        ) o ON o.session_id = s.id",
+        branch(0, &outside),
+        branch(1, &ran),
+    );
     (join, values)
 }
 
@@ -203,14 +227,19 @@ pub(in crate::index_db) fn in_range_models_cte(
     to_date: Option<&str>,
 ) -> (String, Vec<String>) {
     let (outside, mut values) = segment_outside(from_date, to_date);
+    let (last_active, last_active_values) = last_active_in_range(from_date, to_date);
+    // Only sessions last active in the range subtract their outside runs.
     let outside_filter = if from_date.is_none() && to_date.is_none() {
         outside
     } else {
         values.extend(bind_values.iter().cloned());
-        format!("{outside} AND g.session_id IN (SELECT s.id FROM sessions s{where_clause})")
+        values.extend(last_active_values.iter().cloned());
+        format!(
+            "{outside} AND g.session_id IN (
+                SELECT s.id FROM sessions s{where_clause} AND {last_active})"
+        )
     };
     values.extend(bind_values.iter().cloned());
-    let (last_active, last_active_values) = last_active_in_range(from_date, to_date);
     values.extend(last_active_values);
 
     let field = |path: &str| format!("SUM(COALESCE(json_extract(j.value, '$.{path}'), 0))");
