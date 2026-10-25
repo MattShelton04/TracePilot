@@ -16,6 +16,7 @@ use crate::session::discovery::{DiscoveredSession, discover_sessions};
 use crate::summary::{load_session_summary, load_session_summary_with_events};
 
 use super::types::SessionAnalyticsInput;
+use super::utils::segment_end_date;
 
 /// Load session summaries only (no turn reconstruction).
 ///
@@ -110,11 +111,8 @@ pub fn load_session_summaries_filtered(
 /// Load full sessions with optional date range and repository filtering.
 ///
 /// Sessions are selected by their last-active date and keep all their
-/// segments. Pass the same range to
-/// [`compute_analytics_in_range`](super::compute_analytics_in_range), which
-/// leaves out the segments that ended outside it, as the indexed query does.
-/// Unlike the indexed query, the per-day charts here only see sessions last
-/// active in the range, so runs of a session resumed after it are left out.
+/// segments, as the indexed tool analysis selects them. For the dashboard,
+/// use [`load_full_sessions_active_in_range`].
 pub fn load_full_sessions_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,
@@ -126,6 +124,54 @@ pub fn load_full_sessions_filtered(
     let filtered = filter_by_date_range(inputs, from_date, to_date);
     let filtered = filter_by_repo(filtered, repo);
     Ok(filter_empty(filtered, hide_empty))
+}
+
+/// Load full sessions with activity in a date range, with optional
+/// repository filtering: those last active in it, and those with a segment
+/// (run) that ended in it, as the indexed dashboard query selects them.
+/// Sessions keep all their segments; pass the same range to
+/// [`compute_analytics_in_range`](super::compute_analytics_in_range), which
+/// counts only the usage inside it.
+pub fn load_full_sessions_active_in_range(
+    sessions_dir: &Path,
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+    repo: Option<&str>,
+    hide_empty: bool,
+) -> crate::Result<Vec<SessionAnalyticsInput>> {
+    let inputs = load_full_sessions(sessions_dir)?;
+    let filtered = filter_by_activity_in_range(inputs, from_date, to_date);
+    let filtered = filter_by_repo(filtered, repo);
+    Ok(filter_empty(filtered, hide_empty))
+}
+
+/// Keep sessions last active in the range (or undated), or, with an end date,
+/// with a segment that ended on a day in it (YYYY-MM-DD strings, inclusive).
+fn filter_by_activity_in_range(
+    inputs: Vec<SessionAnalyticsInput>,
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+) -> Vec<SessionAnalyticsInput> {
+    if from_date.is_none() && to_date.is_none() {
+        return inputs;
+    }
+    let in_range =
+        |day: &str| from_date.is_none_or(|from| day >= from) && to_date.is_none_or(|to| day <= to);
+    inputs
+        .into_iter()
+        .filter(|input| {
+            let summary = &input.summary;
+            // Like the index, runs select a session only for a range with an
+            // end date; open-ended ranges (presets) stay on the last-active day.
+            summary.date_key().as_deref().is_none_or(in_range)
+                || (to_date.is_some()
+                    && summary
+                        .shutdown_metrics
+                        .iter()
+                        .flat_map(|metrics| metrics.session_segments.iter().flatten())
+                        .any(|segment| segment_end_date(segment).is_some_and(in_range)))
+        })
+        .collect()
 }
 
 /// Filter inputs by date range (YYYY-MM-DD strings, inclusive).

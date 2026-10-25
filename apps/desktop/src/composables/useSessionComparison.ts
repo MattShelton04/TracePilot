@@ -261,9 +261,11 @@ export function useSessionComparison() {
     );
   });
 
+  /** Both sides hold the same session, which can't be compared with itself. */
+  const sameSession = computed(() => !!selectedA.value && selectedA.value === selectedB.value);
+
   const canCompare = computed(
-    () =>
-      selectedA.value && selectedB.value && selectedA.value !== selectedB.value && !loading.value,
+    () => selectedA.value && selectedB.value && !sameSession.value && !loading.value,
   );
 
   // The results no longer match the pickers once either pick changes.
@@ -454,6 +456,7 @@ export function useSessionComparison() {
     dataB,
     // computed
     sessionOptions,
+    sameSession,
     canCompare,
     metricsRows,
     tokenBars,

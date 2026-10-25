@@ -25,8 +25,8 @@ pub use agents::*;
 pub use code_impact::compute_code_impact;
 pub use dashboard::{compute_analytics, compute_analytics_in_range};
 pub use loader::{
-    load_full_sessions, load_full_sessions_filtered, load_session_summaries,
-    load_session_summaries_filtered,
+    load_full_sessions, load_full_sessions_active_in_range, load_full_sessions_filtered,
+    load_session_summaries, load_session_summaries_filtered,
 };
 pub use skills::*;
 pub use tools::compute_tool_analysis;

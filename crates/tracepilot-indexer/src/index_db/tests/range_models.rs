@@ -3,7 +3,7 @@
 //! AI Credit estimate, token composition and model shares are built from it.
 
 use tracepilot_core::analytics::types::AnalyticsData;
-use tracepilot_core::analytics::{compute_analytics_in_range, load_full_sessions_filtered};
+use tracepilot_core::analytics::{compute_analytics_in_range, load_full_sessions_active_in_range};
 use tracepilot_core::provider::SessionSource;
 use tracepilot_test_support::claude_metrics;
 
@@ -79,7 +79,8 @@ fn model_usage_counts_only_in_range_segments_like_the_headline() {
         assert_eq!(model.request_count, runs, "from={from:?}");
         assert_eq!(model.premium_requests, runs as f64, "from={from:?}");
 
-        let inputs = load_full_sessions_filtered(temp.path(), from, to, None, false).unwrap();
+        let inputs =
+            load_full_sessions_active_in_range(temp.path(), from, to, None, false).unwrap();
         let fallback = serde_json::to_value(compute_analytics_in_range(&inputs, from, to)).unwrap();
         let indexed = serde_json::to_value(&data).unwrap();
         for field in ["modelDistribution", "cacheStats", "totalTokens"] {

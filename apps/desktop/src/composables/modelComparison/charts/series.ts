@@ -123,12 +123,10 @@ const weekStart = (ms: number) => ms - ((new Date(ms).getUTCDay() + 6) % 7) * DA
  * when it has no end, like the other analytics pages; quiet days at either
  * end stay on the axis. All time covers the first to the last active day.
  *
- * With a date filter, each model row counts the in-range usage of sessions
- * that ended (were last active) in the range. The day rows also count runs
- * from sessions resumed after the range, and not usage that no run accounts
- * for, so a model's spend here can be above or below its cost on the rest of
- * the page. A model with no row (it ran in the range only in sessions resumed
- * after it) counts its tokens under Others and adds no spend, since nothing
+ * With a date filter, each model row counts its sessions' in-range usage.
+ * The day rows count runs, not usage that no run accounts for, so a model's
+ * spend here can be above or below its cost on the rest of the page. A model
+ * with no row counts its tokens under Others and adds no spend, since nothing
  * prices it.
  */
 export function buildMixSeries(

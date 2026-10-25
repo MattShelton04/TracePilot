@@ -19,6 +19,8 @@ mod prompt_cache;
 mod pull_request_status;
 mod pull_requests;
 mod range_models;
+mod range_resumed;
+mod range_resumed_filters;
 mod range_totals;
 mod repository_filter;
 mod schema_doc;

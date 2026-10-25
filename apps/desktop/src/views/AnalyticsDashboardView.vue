@@ -26,12 +26,7 @@ import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useValueTween } from "@/composables/useValueTween";
 import type { AnalyticsDatasetName } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
-import {
-  activityRows,
-  analyticsScopeWords,
-  dashboardDays,
-  hasDailyUsage,
-} from "@/utils/analyticsDashboard";
+import { activityRows, analyticsScopeWords, dashboardDays } from "@/utils/analyticsDashboard";
 import { buildDashboardSummary } from "@/utils/analyticsSummary";
 import "@/styles/features/analytics-dashboard.css";
 
@@ -96,8 +91,6 @@ const summary = computed(() =>
 );
 
 const days = computed(() => (data.value ? dashboardDays(data.value, store.dateRange) : []));
-/** Runs ended in the range, even if no session was last active in it. */
-const dailyUsage = computed(() => (data.value ? hasDailyUsage(data.value) : false));
 
 /** Runs and incidents per day, for the headline numbers. */
 const dayRows = computed(() =>
@@ -119,7 +112,7 @@ const billedInAic = computed(() =>
 
 <template>
   <PageShell>
-    <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
+    <AnalyticsPageHeader title="Analytics" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading analytics…">
       <ErrorState
         v-if="store.analyticsError"
@@ -140,14 +133,9 @@ const billedInAic = computed(() =>
         <div class="ad-pair">
           <AnalyticsModelMix
             :models="summary.models"
-            :daily-usage="dailyUsage"
             :all-sources="!store.selectedSource"
           />
-          <AnalyticsTokenMix
-            :composition="summary.composition"
-            :models="summary.models"
-            :daily-usage="dailyUsage"
-          />
+          <AnalyticsTokenMix :composition="summary.composition" :models="summary.models" />
         </div>
         <AnalyticsCostPanel
           :data="data"

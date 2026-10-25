@@ -14,9 +14,9 @@ use tracepilot_core::prompt_cache::AGENT_RESUME_SOURCE;
 use super::super::helpers::{append_segment_date_filter, to_refs};
 
 /// Aggregate the predicted windows of sessions matching `where_clause`
-/// (a `build_date_repo_filter` clause over the `sessions s` alias) that
-/// resumed inside the range, like the in-range usage beside them. Observed
-/// cache lifetimes stay whole-session.
+/// (a sessions filter over the `sessions s` alias, such as
+/// `range_session_filter`) that resumed inside the range, like the in-range
+/// usage beside them. Observed cache lifetimes stay whole-session.
 pub(super) fn query_prompt_cache(
     conn: &Connection,
     where_clause: &str,

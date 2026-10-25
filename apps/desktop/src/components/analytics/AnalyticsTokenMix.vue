@@ -15,8 +15,6 @@ import { COMPOSITION, type ModelRow, type TokenComposition } from "@/utils/analy
 const props = defineProps<{
   composition: TokenComposition;
   models: ModelRow[];
-  /** The per-day series have runs in the range, though the totals may be empty. */
-  dailyUsage?: boolean;
 }>();
 
 const filters = useAnalyticsStore();
@@ -93,10 +91,6 @@ const rows = computed(() =>
         </div>
       </div>
     </template>
-    <p v-else-if="dailyUsage" class="ad-empty">
-      <b>No session ended in this range</b>
-      Token totals cover sessions that ended in this range. Runs from sessions resumed after it show in Activity.
-    </p>
     <p v-else class="ad-empty">
       <b>No tokens</b>
       No {{ scope.source }}model usage{{ scope.suffix }}.

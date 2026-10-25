@@ -13,6 +13,7 @@ import {
   type ActivityMarker,
   type ActivityMarkerKind,
   activityBinCount,
+  activitySpan,
   activityWindow,
   binTurnStarts,
   clockNeedsSeconds,
@@ -44,13 +45,17 @@ const TICK_SPACING_PX = { clock: 110, dated: 170 };
 
 const timedStarts = computed(() => (props.turnStarts ?? []).filter((t): t is number => t != null));
 
-const timeWindow = computed(() =>
-  activityWindow(
-    props.createdAt ? Date.parse(props.createdAt) : null,
-    props.updatedAt ? Date.parse(props.updatedAt) : null,
-    props.turnStarts ?? [],
-  ),
+const recordedTimes = computed(
+  () =>
+    [
+      props.createdAt ? Date.parse(props.createdAt) : null,
+      props.updatedAt ? Date.parse(props.updatedAt) : null,
+      props.turnStarts ?? [],
+    ] as const,
 );
+// The drawn window is padded to a minute; the pace uses the real span.
+const timeWindow = computed(() => activityWindow(...recordedTimes.value));
+const recordedSpan = computed(() => activitySpan(...recordedTimes.value));
 
 const binCount = computed(() => activityBinCount(timedStarts.value.length));
 const binMs = computed(() =>
@@ -153,14 +158,16 @@ const summary = computed(() => {
   const n = timedStarts.value.length;
   if (!w || n === 0) return null;
   const peak = counts.value.indexOf(Math.max(...counts.value));
-  const minutes = (w.end - w.start) / 60_000;
-  const perMinute = n / minutes;
+  // A span of zero (everything at one instant) has no rate; fall back to the window.
+  const span = recordedSpan.value;
+  const spanMs = span && span.end > span.start ? span.end - span.start : w.end - w.start;
+  const perMinute = n / (spanMs / 60_000);
   const pace =
     perMinute >= 0.1
       ? `${perMinute.toFixed(1)} turns/min`
       : perMinute * 60 >= 0.1
         ? `${(perMinute * 60).toFixed(1)} turns/hour`
-        : `1 turn every ${formatRecordedDuration((w.end - w.start) / n)}`;
+        : `1 turn every ${formatRecordedDuration(spanMs / n)}`;
   const away = props.gaps.reduce((sum, g) => sum + (g.end - g.start), 0);
   return {
     busiest: binClock(w.start + peak * binMs.value),

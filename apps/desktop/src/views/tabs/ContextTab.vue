@@ -21,7 +21,7 @@ import {
   toErrorMessage,
 } from "@tracepilot/ui";
 import { Activity, Info } from "lucide-vue-next";
-import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, onScopeDispose, ref, watch } from "vue";
 import ContextPointInspector from "@/components/context/ContextPointInspector.vue";
 import ContextToolContribution from "@/components/context/ContextToolContribution.vue";
 import ContextWindowChart from "@/components/context/ContextWindowChart.vue";
@@ -126,6 +126,7 @@ const navigateToConversation = useConversationNavigation();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 let requestVersion = 0;
+let disposed = false;
 let requestedDetailFingerprint: string | null = null;
 let loadedDetailFingerprint: string | null = null;
 
@@ -193,10 +194,13 @@ async function load(sessionId: string, options: { background?: boolean } = {}) {
   if (!options.background) error.value = null;
   let succeeded = false;
   try {
-    const response = await loadContextTimeline(sessionId);
+    // Shares a request only with callers wanting this same session state.
+    const response = await loadContextTimeline(sessionId, fingerprint);
     if (version !== requestVersion) return;
     applyTimeline(response.timeline);
-    loadedDetailFingerprint = detailFingerprint(sessionId);
+    // The state this was requested for, not the one now: an update that
+    // landed mid-load gets its own refresh below.
+    loadedDetailFingerprint = fingerprint;
     succeeded = true;
   } catch (cause) {
     if (version !== requestVersion) return;
@@ -210,7 +214,24 @@ async function load(sessionId: string, options: { background?: boolean } = {}) {
       if (!succeeded) requestedDetailFingerprint = null;
     }
   }
+  // The watcher skips updates until a timeline shows, so catch up on one
+  // that arrived meanwhile. It costs a freshness probe when nothing changed.
+  if (
+    succeeded &&
+    !disposed &&
+    store.sessionId === sessionId &&
+    detailFingerprint(sessionId) !== fingerprint
+  ) {
+    void load(sessionId, { background: true });
+  }
 }
+
+// Sub-tabs aren't kept alive, so a closed tab must drop its pending load and
+// stop catching up, or each later update would start another build.
+onBeforeUnmount(() => {
+  disposed = true;
+  requestVersion++;
+});
 
 watch(
   () => store.sessionId,

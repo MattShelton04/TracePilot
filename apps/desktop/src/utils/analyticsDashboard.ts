@@ -165,9 +165,9 @@ export function payloadSources(data: AnalyticsData): SessionSource[] {
 
 /**
  * Sources the per-day series have data for, in display order. The day series
- * count runs by the day each ended, so a source whose sessions were resumed
- * after the range has rows there but no `costBySource` entry; it is added
- * here so its tokens and cost still draw. USD per day is Claude Code's.
+ * count runs by the day each ended, so a source can have rows there but no
+ * `costBySource` entry; it is added here so its tokens and cost still draw.
+ * USD per day is Claude Code's.
  */
 export function daySources(data: AnalyticsData): SessionSource[] {
   const found = new Set(payloadSources(data));
@@ -176,11 +176,7 @@ export function daySources(data: AnalyticsData): SessionSource[] {
   return SESSION_SOURCES.filter((source) => found.has(source));
 }
 
-/**
- * Whether any per-day series has data. They can when no session was last
- * active in the range (so `totalSessions` and the per-source totals are 0):
- * a session resumed after the range still has runs that ended in it.
- */
+/** Whether any per-day series has data, even when the headline totals are empty. */
 export function hasDailyUsage(data: AnalyticsData): boolean {
   return (
     data.activityPerDay.some((point) => point.count > 0) ||

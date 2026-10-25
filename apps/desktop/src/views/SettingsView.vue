@@ -78,6 +78,8 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Columns only: stacked rows keep their own vertical spacing. */
+  column-gap: 16px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
