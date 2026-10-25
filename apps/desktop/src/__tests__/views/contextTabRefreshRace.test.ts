@@ -145,6 +145,23 @@ describe("ContextTab live refresh races", () => {
     expect(getSessionContextTimeline).toHaveBeenCalledTimes(2);
   });
 
+  it("stops refreshing once the tab closes", async () => {
+    const tab = await mountWithTimeline();
+    await sessionUpdates(); // starts a background refresh
+    tab.unmount();
+    wrapper = null;
+
+    // The session stays open and keeps updating; each build that finishes
+    // must not start another for the closed tab.
+    for (let update = 0; update < 5; update++) {
+      await sessionUpdates();
+      builds.at(-1)?.resolve(response(timeline(140 + update)));
+      await flushPromises();
+    }
+
+    expect(getSessionContextTimeline).toHaveBeenCalledTimes(2);
+  });
+
   it("doesn't rebuild when the update leaves the events file as it was", async () => {
     wrapper = mountTab();
     await flushPromises();
