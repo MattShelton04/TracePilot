@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activityBinCount,
+  activitySpan,
   activityWindow,
   binTurnStarts,
   clockNeedsSeconds,
@@ -29,6 +30,14 @@ describe("activityWindow", () => {
 
   it("is null with no times at all", () => {
     expect(activityWindow(null, null, [null])).toBeNull();
+  });
+});
+
+describe("activitySpan", () => {
+  it("is the recorded span, widened to turn starts but never padded", () => {
+    expect(activitySpan(10_000, 52_000, [5_000, null])).toEqual({ start: 5_000, end: 52_000 });
+    expect(activitySpan(5_000, 5_000, [])).toEqual({ start: 5_000, end: 5_000 });
+    expect(activitySpan(null, null, [null])).toBeNull();
   });
 });
 
