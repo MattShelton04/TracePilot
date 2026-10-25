@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 use tracepilot_core::analytics::{
     compute_analytics, compute_analytics_in_range, compute_tool_analysis,
-    load_full_sessions_filtered,
+    load_full_sessions_active_in_range, load_full_sessions_filtered,
 };
 use tracepilot_core::ids::SessionId;
 
@@ -229,7 +229,8 @@ fn activity_and_segment_charts_use_the_end_day_and_respect_the_date_filter() {
     for from in [None, Some("2026-03-12")] {
         let to = Some("2026-03-12");
         let inputs =
-            load_full_sessions_filtered(temp.path(), from, to, Some("org/repo"), true).unwrap();
+            load_full_sessions_active_in_range(temp.path(), from, to, Some("org/repo"), true)
+                .unwrap();
         let indexed = db
             .query_analytics(from, to, Some("org/repo"), true, None)
             .unwrap();
@@ -299,7 +300,8 @@ fn undated_shutdowns_keep_lifetime_totals_without_daily_chart_points() {
     let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
     db.upsert_session(&path).unwrap();
     for from in [None, Some("2026-03-10")] {
-        let inputs = load_full_sessions_filtered(temp.path(), from, None, None, false).unwrap();
+        let inputs =
+            load_full_sessions_active_in_range(temp.path(), from, None, None, false).unwrap();
         let indexed =
             serde_json::to_value(db.query_analytics(from, None, None, false, None).unwrap())
                 .unwrap();

@@ -234,9 +234,16 @@ fn run_counts_on_its_end_day_when_session_resumed_after_range() {
         vec![gpt("2026-03-02", 400), legacy("2026-03-03", 200)]
     );
 
-    // Lifetime KPIs still select sessions by last activity: only
-    // `legacy-early` was last active in the range.
-    assert_eq!(data.total_sessions, 1);
+    // The headline counts the sessions with activity in the range: only
+    // `legacy-early` was last active in it, and `resumed` had a run end in
+    // it. Its model rows agree with the day series.
+    assert_eq!(data.total_sessions, 2);
+    let models: Vec<(&str, u64)> = data
+        .model_distribution
+        .iter()
+        .map(|m| (m.model.as_str(), m.input_tokens))
+        .collect();
+    assert_eq!(models, [("gpt-5.4", 400), ("claude-sonnet-4.6", 200)]);
 }
 
 #[test]
@@ -371,12 +378,15 @@ fn session_with_runs_and_lifetime_metrics_counts_each_run_once() {
     assert_eq!(late.model_distribution[0].input_tokens, 560);
     assert_eq!(late.total_tokens, 700);
 
-    // Resumed after the range: its run in the range shows in the day series
-    // only; the headline totals leave the session out, since it was not last
-    // active in the range.
+    // Resumed after the range: the session had activity in the range, so it
+    // counts, with its run in the range alone, in the day series and the
+    // headline totals alike.
     let early = query(&db, "2026-03-01", "2026-03-03", None, false, None);
     assert_eq!(model_days(&early), vec![gpt("2026-03-02", 400)]);
-    assert!(early.model_distribution.is_empty());
-    assert_eq!(early.total_sessions, 0);
-    assert_eq!(early.total_tokens, 0);
+    assert_eq!(early.model_distribution.len(), 1);
+    assert_eq!(early.model_distribution[0].input_tokens, 400);
+    assert_eq!(early.total_sessions, 1);
+    assert_eq!(early.total_tokens, 500);
+    assert_eq!(tokens(&early), vec![day("2026-03-02", 500)]);
+    assert_eq!(early.total_premium_requests, 1.0);
 }

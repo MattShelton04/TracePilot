@@ -44,7 +44,7 @@ pub async fn get_analytics(
         // Disk scan fallback
         |session_dir, params| {
             let (from, to, repo, hide, _) = params.as_refs();
-            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
+            let inputs = tracepilot_core::analytics::load_full_sessions_active_in_range(
                 session_dir,
                 from,
                 to,

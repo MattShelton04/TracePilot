@@ -1,9 +1,9 @@
 /**
- * Per-day series count every run that ended in the range, while the headline
- * totals (`totalSessions`, `costBySource`, `modelDistribution`) count only
- * sessions last active in it (their in-range usage). A session resumed after
- * the range therefore has runs in the day series but nothing in the totals;
- * the per-day charts must still draw them.
+ * Per-day series count every run that ended in the range. The headline
+ * totals (`totalSessions`, `costBySource`, `modelDistribution`) count the
+ * same runs, including those of sessions resumed after the range, but the
+ * per-day charts take their sources from the day rows too, so they still draw
+ * day rows the totals leave out.
  */
 import { setupPinia } from "@tracepilot/test-utils";
 import type { AnalyticsData } from "@tracepilot/types";
@@ -103,7 +103,7 @@ describe("per-day charts with runs from resumed sessions", () => {
     expect(build(resumedOnly, "runs").series[0].label).toBe("claudeCode runs");
   });
 
-  it("keeps the cost running total and says why By source is empty", () => {
+  it("keeps the cost running total when By source is empty", () => {
     const summary = buildDashboardSummary(resumedOnly, unpriced);
     const props = {
       data: resumedOnly,
@@ -115,8 +115,8 @@ describe("per-day charts with runs from resumed sessions", () => {
 
     views.value.costView = "sources";
     const sources = mount(AnalyticsCostPanel, { props });
-    expect(sources.text()).toContain("No session ended in this range");
-    expect(sources.text()).not.toContain("No usage");
+    expect(sources.text()).toContain("No cost");
+    expect(sources.text()).not.toContain("No session ended in this range");
 
     views.value.costView = "running";
     const running = mount(AnalyticsCostPanel, { props });
@@ -133,15 +133,13 @@ describe("per-day charts with runs from resumed sessions", () => {
     expect(kpis.text()).not.toContain("No sessions");
   });
 
-  it("explains empty model and token mixes instead of saying nothing ran", () => {
-    const mix = mount(AnalyticsModelMix, { props: { models: [], dailyUsage: true } });
-    expect(mix.text()).toContain("No session ended in this range");
-    expect(mix.text()).not.toContain("No model calls were recorded");
+  it("shows empty model and token mixes as empty", () => {
+    const mix = mount(AnalyticsModelMix, { props: { models: [] } });
+    expect(mix.text()).toContain("No model calls were recorded");
+    expect(mix.text()).not.toContain("No session ended in this range");
     const { composition } = buildDashboardSummary(resumedOnly, unpriced);
-    const tokens = mount(AnalyticsTokenMix, {
-      props: { composition, models: [], dailyUsage: true },
-    });
-    expect(tokens.text()).toContain("No session ended in this range");
-    expect(tokens.text()).not.toContain("No model usage.");
+    const tokens = mount(AnalyticsTokenMix, { props: { composition, models: [] } });
+    expect(tokens.text()).toContain("No model usage.");
+    expect(tokens.text()).not.toContain("No session ended in this range");
   });
 });

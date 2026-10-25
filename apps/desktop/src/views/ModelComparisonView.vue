@@ -48,16 +48,12 @@ const { revealing } = useFirstReveal({
             </template>
           </EmptyState>
 
-          <!-- Runs ended in the range, but no session was last active in it. -->
+          <!-- Day rows without per-model totals: the timeline alone. -->
           <div
             v-else-if="ctx.modelRows.length === 0"
             :data-refreshing="ctx.refreshing"
             :aria-busy="ctx.refreshing"
           >
-            <p class="chart-placeholder">
-              No session ended in this range, so there are no per-model totals. The timeline shows runs
-              from sessions resumed after it.
-            </p>
             <ModelMixTimeline />
           </div>
 

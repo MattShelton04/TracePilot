@@ -69,11 +69,14 @@ fn a_running_copilot_sessions_checkpoint_credits_reach_the_day_series() {
         })
         .collect();
     assert_eq!(running, [("2026-03-03", "gpt-5.5", 0, Some(2 * NANO))]);
-    // The completed run before the range stays out.
+    // A range ending before the resume holds the completed run alone: the
+    // running run's credits belong to the last-active day, after it.
     let before = db
         .query_analytics(Some("2026-03-01"), Some("2026-03-02"), None, false, None)
         .unwrap();
-    assert_eq!(before.total_nano_aiu, 0);
+    assert_eq!(before.total_nano_aiu, NANO);
+    assert_eq!(day_nano(&before), before.total_nano_aiu);
+    assert_eq!(before.total_premium_requests, 1.0);
 
     // A first run that has not shut down yet has no segments or model rows.
     let temp = tempfile::tempdir().unwrap();

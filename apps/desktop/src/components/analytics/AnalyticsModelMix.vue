@@ -17,8 +17,6 @@ import type { ModelRow } from "@/utils/analyticsSummary";
 
 const props = defineProps<{
   models: ModelRow[];
-  /** The per-day series have runs in the range, though `models` may be empty. */
-  dailyUsage?: boolean;
   /** No provider filter is selected, so each model shows its source's logo. */
   allSources?: boolean;
 }>();
@@ -119,10 +117,6 @@ function openModels() {
         </div>
       </div>
     </template>
-    <p v-else-if="dailyUsage" class="ad-empty">
-      <b>No session ended in this range</b>
-      Model totals cover sessions that ended in this range. Runs from sessions resumed after it show in Activity.
-    </p>
     <p v-else class="ad-empty">
       <b>No model usage</b>
       No {{ scope.source }}model calls were recorded{{ scope.suffix }}.

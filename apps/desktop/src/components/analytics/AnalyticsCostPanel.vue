@@ -65,7 +65,7 @@ const view = computed({
 });
 
 const has = computed(() => props.summary.costRows.some((row) => row.sessions > 0));
-/** Runs can end in the range even when no session was last active in it. */
+/** The running total draws whatever runs the per-day series hold. */
 const dailyUsage = computed(() => hasDailyUsage(props.data));
 const entry = (source: string) => props.data.costBySource?.find((e) => e.source === source);
 const activeDays = computed(() => props.data.activityPerDay.filter((p) => p.count > 0).length);
@@ -196,7 +196,7 @@ const runningFoot = computed(() => {
   };
 });
 
-/** The chart's own sources, which can include sessions resumed after the range. */
+/** The chart's own sources. */
 const unitNote = computed(() =>
   daily.value.series.some((series) => series.key === "copilot")
     ? "USD · AI Credits at $0.01"
@@ -216,14 +216,8 @@ function openModels() {
     </template>
 
     <p v-if="!has && (view === 'sources' || !dailyUsage)" class="ad-empty">
-      <template v-if="dailyUsage">
-        <b>No session ended in this range</b>
-        By source covers sessions that ended in this range. Runs from sessions resumed after it show in Running total.
-      </template>
-      <template v-else>
-        <b>No cost</b>
-        No {{ scope.source }}usage{{ scope.suffix }}.
-      </template>
+      <b>No cost</b>
+      No {{ scope.source }}usage{{ scope.suffix }}.
     </p>
 
     <div v-else-if="view === 'sources'" class="cost-cards">
