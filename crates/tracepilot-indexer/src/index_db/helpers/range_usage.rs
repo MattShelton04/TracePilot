@@ -1,8 +1,8 @@
 //! Headline usage limited to the requested date range.
 //!
 //! A date range selects the sessions with activity in it: those last active
-//! in it, and those with a run (segment) that ended in it
-//! ([`range_session_filter`]). A session last active in the range
+//! in it, and, for a range with an end date, those with a run (segment) that
+//! ended in it ([`range_session_filter`]). A session last active in the range
 //! contributes its lifetime total minus the segments that ended on a day
 //! outside the range. Whatever the segments do not account for (a session
 //! never split into segments, an undated shutdown, usage after the last
@@ -88,11 +88,18 @@ fn segment_outside(from_date: Option<&str>, to_date: Option<&str>) -> (String, V
     (format!("({})", parts.join(" OR ")), values)
 }
 
+/// Whether a range can have late sessions (last active outside it, with a run
+/// in it). Without an end date a late session would need a run that ended
+/// after its last activity, so open-ended ranges (presets) skip that work.
+fn has_late_sessions(to_date: Option<&str>) -> bool {
+    to_date.is_some()
+}
+
 /// The sessions with activity in the range: `base_where` (a
 /// [`build_date_repo_filter`](super::build_date_repo_filter) clause without
 /// dates, plus any source filter) narrowed to the sessions last active in
-/// the range or with a segment that ended in it. Without a date filter it is
-/// `base_where` unchanged.
+/// the range or, with an end date, with a segment that ended in it. Without
+/// a date filter it is `base_where` unchanged.
 pub(in crate::index_db) fn range_session_filter(
     base_where: &str,
     base_values: &[String],
@@ -103,17 +110,21 @@ pub(in crate::index_db) fn range_session_filter(
         return (base_where.to_string(), base_values.to_vec());
     }
     let (last_active, mut values) = last_active_in_range(from_date, to_date);
-    let (ran, ran_values) = segment_in_range("x", from_date, to_date);
-    values.extend(ran_values);
     let mut clause = base_where.to_string();
-    // Correlated on purpose: SQLite probes a session's own segments (by the
-    // `session_id` key) only when it was not last active in the range, which
-    // for a preset (no end date) is almost never. An uncorrelated
-    // `s.id IN (SELECT ...)` scans every segment once per copy of this clause.
-    clause.push_fmt(format_args!(
-        " AND ({last_active} OR EXISTS (
-            SELECT 1 FROM session_segments x WHERE x.session_id = s.id AND {ran}))"
-    ));
+    if has_late_sessions(to_date) {
+        let (ran, ran_values) = segment_in_range("x", from_date, to_date);
+        values.extend(ran_values);
+        // Correlated on purpose: SQLite probes a session's own segments (by
+        // the `session_id` key) only when it was not last active in the
+        // range. An uncorrelated `s.id IN (SELECT ...)` scans every segment
+        // once per copy of this clause.
+        clause.push_fmt(format_args!(
+            " AND ({last_active} OR EXISTS (
+                SELECT 1 FROM session_segments x WHERE x.session_id = s.id AND {ran}))"
+        ));
+    } else {
+        clause.push_fmt(format_args!(" AND {last_active}"));
+    }
     let mut all = base_values.to_vec();
     all.extend(values);
     (clause, all)
@@ -132,8 +143,8 @@ pub(in crate::index_db) fn range_session_filter(
 /// sums need are scanned. A session with neither has no row, which counts as
 /// not late with nothing outside; [`range_session_filter`] selects a late
 /// session only for a run in the range, so every late session has one.
-/// Without a date filter nothing is outside and no session is late, so no
-/// session has a row.
+/// Without an end date no session is late, so only the first kind is built;
+/// without a date filter nothing is outside either, so no session has a row.
 ///
 /// `where_clause` and `bind_values` are the sessions filter
 /// ([`range_session_filter`], or a narrower one). Returns the `LEFT JOIN`
@@ -147,18 +158,37 @@ pub(in crate::index_db) fn out_of_range_join(
     legacy_cost: bool,
 ) -> (String, Vec<String>) {
     let (outside, mut values) = segment_outside(from_date, to_date);
-    let (late, late_values) = last_active_elsewhere(from_date, to_date);
-    values.extend(bind_values.iter().cloned());
-    values.extend(late_values.iter().cloned());
-    // `segment_in_range` is "1" for an open range, where no session is late.
-    let (ran, ran_values) = if from_date.is_some() || to_date.is_some() {
-        segment_in_range("g", from_date, to_date)
+    let with_late = has_late_sessions(to_date);
+    let (late, late_values) = if with_late {
+        last_active_elsewhere(from_date, to_date)
     } else {
-        ("0".to_string(), Vec::new())
+        (String::new(), Vec::new())
     };
-    values.extend(ran_values);
-    values.extend(bind_values.iter().cloned());
-    values.extend(late_values);
+    // The selected sessions of one kind; with no late branch, all of them.
+    let selected = |is_late: u8| {
+        if from_date.is_none() && to_date.is_none() {
+            return String::new();
+        }
+        let kind = if with_late {
+            format!(" AND {late} = {is_late}")
+        } else {
+            String::new()
+        };
+        format!(" AND g.session_id IN (SELECT s.id FROM sessions s{where_clause}{kind})")
+    };
+    if from_date.is_some() || to_date.is_some() {
+        values.extend(bind_values.iter().cloned());
+        values.extend(late_values.iter().cloned());
+    }
+    let late_branch = if with_late {
+        let (ran, ran_values) = segment_in_range("g", from_date, to_date);
+        values.extend(ran_values);
+        values.extend(bind_values.iter().cloned());
+        values.extend(late_values);
+        Some(ran)
+    } else {
+        None
+    };
     values.extend(bind_values.iter().cloned());
 
     let mut sums = vec![
@@ -189,20 +219,19 @@ pub(in crate::index_db) fn out_of_range_join(
         format!(
             "SELECT g.session_id, {is_late} AS late{columns}
              FROM session_segments g
-             WHERE {segments} AND g.session_id IN (
-                 SELECT s.id FROM sessions s{where_clause} AND {late} = {is_late})
-             GROUP BY g.session_id"
+             WHERE {segments}{}
+             GROUP BY g.session_id",
+            selected(is_late)
         )
     };
-    let join = format!(
-        " LEFT JOIN (
-            {}
-            UNION ALL
-            {}
-        ) o ON o.session_id = s.id",
-        branch(0, &outside),
-        branch(1, &ran),
-    );
+    let mut join = format!(" LEFT JOIN (\n            {}", branch(0, &outside));
+    if let Some(ran) = late_branch {
+        join.push_fmt(format_args!(
+            "\n            UNION ALL\n            {}",
+            branch(1, &ran)
+        ));
+    }
+    join.push_str("\n        ) o ON o.session_id = s.id");
     (join, values)
 }
 
@@ -227,8 +256,15 @@ pub(in crate::index_db) fn in_range_models_cte(
     to_date: Option<&str>,
 ) -> (String, Vec<String>) {
     let (outside, mut values) = segment_outside(from_date, to_date);
-    let (last_active, last_active_values) = last_active_in_range(from_date, to_date);
+    let with_late = has_late_sessions(to_date);
     // Only sessions last active in the range subtract their outside runs.
+    // Without late sessions the filter selects only those already.
+    let (last_active, last_active_values) = if with_late {
+        let (last_active, last_active_values) = last_active_in_range(from_date, to_date);
+        (format!(" AND {last_active}"), last_active_values)
+    } else {
+        (String::new(), Vec::new())
+    };
     let outside_filter = if from_date.is_none() && to_date.is_none() {
         outside
     } else {
@@ -236,7 +272,7 @@ pub(in crate::index_db) fn in_range_models_cte(
         values.extend(last_active_values.iter().cloned());
         format!(
             "{outside} AND g.session_id IN (
-                SELECT s.id FROM sessions s{where_clause} AND {last_active})"
+                SELECT s.id FROM sessions s{where_clause}{last_active})"
         )
     };
     values.extend(bind_values.iter().cloned());
@@ -250,7 +286,7 @@ pub(in crate::index_db) fn in_range_models_cte(
     );
     let (requests, cost) = (field("requests.count"), field("requests.cost"));
     // Sessions last active outside the range: their in-range segments alone.
-    let late_rows = if from_date.is_none() && to_date.is_none() {
+    let late_rows = if !with_late {
         String::new()
     } else {
         let (late, late_values) = last_active_elsewhere(from_date, to_date);
@@ -297,8 +333,7 @@ pub(in crate::index_db) fn in_range_models_cte(
                     FROM session_segments g, json_each(g.model_metrics_json) j
                     WHERE {outside_filter}
                     GROUP BY g.session_id, j.key
-                ) om ON om.session_id = m.session_id AND om.model = m.model_name{where_clause}
-                  AND {last_active}{late_rows}
+                ) om ON om.session_id = m.session_id AND om.model = m.model_name{where_clause}{last_active}{late_rows}
             )
             WHERE NOT (ran_outside
                 AND COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)

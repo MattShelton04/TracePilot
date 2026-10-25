@@ -63,7 +63,11 @@ impl AnalyticsAccumulator {
             .shutdown_metrics
             .as_ref()
             .and_then(|metrics| metrics.session_segments.as_ref());
-        if elsewhere && !segments.into_iter().flatten().any(|s| range.holds(s)) {
+        // Runs count a session only for a range with an end date, as in
+        // the index's `range_session_filter`.
+        if elsewhere
+            && (range.to.is_none() || !segments.into_iter().flatten().any(|s| range.holds(s)))
+        {
             return;
         }
         self.total_sessions += 1;

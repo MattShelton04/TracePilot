@@ -145,8 +145,8 @@ pub fn load_full_sessions_active_in_range(
     Ok(filter_empty(filtered, hide_empty))
 }
 
-/// Keep sessions last active in the range (or undated), or with a segment
-/// that ended on a day in it (YYYY-MM-DD strings, inclusive).
+/// Keep sessions last active in the range (or undated), or, with an end date,
+/// with a segment that ended on a day in it (YYYY-MM-DD strings, inclusive).
 fn filter_by_activity_in_range(
     inputs: Vec<SessionAnalyticsInput>,
     from_date: Option<&str>,
@@ -161,12 +161,15 @@ fn filter_by_activity_in_range(
         .into_iter()
         .filter(|input| {
             let summary = &input.summary;
+            // Like the index, runs select a session only for a range with an
+            // end date; open-ended ranges (presets) stay on the last-active day.
             summary.date_key().as_deref().is_none_or(in_range)
-                || summary
-                    .shutdown_metrics
-                    .iter()
-                    .flat_map(|metrics| metrics.session_segments.iter().flatten())
-                    .any(|segment| segment_end_date(segment).is_some_and(in_range))
+                || (to_date.is_some()
+                    && summary
+                        .shutdown_metrics
+                        .iter()
+                        .flat_map(|metrics| metrics.session_segments.iter().flatten())
+                        .any(|segment| segment_end_date(segment).is_some_and(in_range)))
         })
         .collect()
 }
