@@ -58,14 +58,26 @@ useListPullRequestPoll(
   () => renderedSessions.value,
   () => routeViewVisible.value,
 );
+// Set while the user's own Refresh (or Retry) runs, so its failure shows;
+// timer ticks stay silent.
+let userRefresh = false;
 const { refreshing, refresh } = useVisibleAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.
-  onRefresh: () => store.ensureIndex({ force: true }),
+  onRefresh: () => store.ensureIndex({ force: true, userInitiated: userRefresh }),
   // A reindex also makes Analytics refetch, so none runs while a session tab
   // covers the list.
   visible: () => routeViewVisible.value,
 });
+
+async function refreshNow() {
+  userRefresh = true;
+  try {
+    await refresh();
+  } finally {
+    userRefresh = false;
+  }
+}
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 
@@ -362,7 +374,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
             :refreshing="refreshing"
             :auto-refresh-enabled="prefs.autoRefreshEnabled"
             :interval-seconds="prefs.autoRefreshIntervalSeconds"
-            @refresh="refresh"
+            @refresh="refreshNow"
             @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
             @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
           />
@@ -370,7 +382,14 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
       </div>
 
       <!-- Error state -->
-      <ErrorAlert v-if="store.error" :message="store.error" class="mb-6" />
+      <ErrorAlert
+        v-if="store.error"
+        :message="store.error"
+        retryable
+        class="mb-6"
+        data-testid="session-list-error"
+        @retry="refreshNow"
+      />
 
       <!-- Indexing state -->
       <div v-if="store.indexing" class="loading-state">

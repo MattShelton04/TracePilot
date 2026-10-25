@@ -92,3 +92,56 @@ describe("Session list auto-refresh under a session tab", () => {
     expect(forcedReindexes()).toBe(3);
   });
 });
+
+describe("Session list Refresh and Retry", () => {
+  let ensureIndex: ReturnType<typeof vi.fn>;
+  let wrapper: ReturnType<typeof mount> | undefined;
+
+  beforeEach(() => {
+    setupPinia();
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    const store = useSessionsStore();
+    vi.spyOn(store, "fetchSessions").mockResolvedValue(undefined);
+    vi.spyOn(store, "reindex").mockResolvedValue(undefined);
+    ensureIndex = vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined) as never;
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = undefined;
+    vi.useRealTimers();
+  });
+
+  const mountList = async () => {
+    wrapper = mount(SessionListView, {
+      global: { stubs: { ErrorBoundary: { template: "<slot />" } } },
+    });
+    await flushPromises();
+    ensureIndex.mockClear();
+    return wrapper;
+  };
+
+  it("marks the user's Refresh as user-initiated and timer ticks as background", async () => {
+    const list = await mountList();
+
+    await list.get('button[aria-label="Refresh data"]').trigger("click");
+    await flushPromises();
+    expect(ensureIndex).toHaveBeenLastCalledWith({ force: true, userInitiated: true });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(ensureIndex).toHaveBeenLastCalledWith({ force: true, userInitiated: false });
+  });
+
+  it("offers Retry on the error banner, which runs a user-initiated refresh", async () => {
+    const list = await mountList();
+    useSessionsStore().error = "Couldn't refresh sessions: database is locked";
+    await flushPromises();
+
+    const alert = list.get('[data-testid="session-list-error"]');
+    expect(alert.text()).toContain("Couldn't refresh sessions: database is locked");
+    await alert.get("button").trigger("click");
+    await flushPromises();
+    expect(ensureIndex).toHaveBeenCalledWith({ force: true, userInitiated: true });
+  });
+});
