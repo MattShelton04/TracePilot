@@ -4,7 +4,6 @@ import {
   contextCaptureStorageStats,
   getConfig,
   getDbSize,
-  getSessionCount as getSessionCountApi,
   rebuildSearchIndex as rebuildSearchIndexApi,
   reindexSessionsFull as reindexSessionsFullApi,
   validateSessionDir,
@@ -28,7 +27,7 @@ import {
 import { computed, nextTick, onMounted, ref } from "vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
-import { STORAGE_KEYS } from "@/config/storageKeys";
+import { clearTracePilotStorage } from "@/config/storageKeys";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
@@ -58,7 +57,6 @@ const pathSettingsDirty = computed(
     tracepilotHome.value !== savedTracePilotHome.value,
 );
 const databaseSize = ref("—");
-const indexedSessionCount = ref(0);
 const pathsLoading = ref(true);
 const pathsReady = ref(false);
 const pathsSaving = ref(false);
@@ -115,7 +113,7 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
   },
 });
 
-/** The newest read of the index size and session count wins. */
+/** The newest read of the index size wins. */
 const indexStatsGuard = useAsyncGuard();
 
 async function loadIndexStats() {
@@ -126,12 +124,6 @@ async function loadIndexStats() {
   } catch (e) {
     // Non-critical: keep the previous value
     logWarn("[SettingsDataStorage] Failed to get database size:", e);
-  }
-  try {
-    const count = await getSessionCountApi();
-    if (indexStatsGuard.isValid(token)) indexedSessionCount.value = count;
-  } catch (e) {
-    logWarn("[SettingsDataStorage] Failed to get session count:", e);
   }
 }
 
@@ -343,15 +335,9 @@ async function handleFactoryReset() {
   resetting.value = true;
   try {
     await preferencesStore.resetConfig();
-    // Clear all TracePilot localStorage keys
-    localStorage.removeItem(STORAGE_KEYS.legacyPrefs);
-    localStorage.removeItem(STORAGE_KEYS.theme);
-    localStorage.removeItem(STORAGE_KEYS.lastSession);
-    localStorage.removeItem(STORAGE_KEYS.lastSeenVersion);
-    localStorage.removeItem(STORAGE_KEYS.updateCheck);
-    localStorage.removeItem(STORAGE_KEYS.dismissedUpdate);
-    localStorage.removeItem(STORAGE_KEYS.claudeRetentionNoticeDismissed);
-    localStorage.removeItem(STORAGE_KEYS.pullRequestNoticeDismissed);
+    // Open tabs, filters and every other remembered choice go too, so the
+    // reload lands on setup rather than back inside an old session.
+    clearTracePilotStorage();
     window.location.reload();
   } catch (e) {
     resetting.value = false;
@@ -359,7 +345,7 @@ async function handleFactoryReset() {
   }
 }
 
-defineExpose({ databaseSize, indexedSessionCount });
+defineExpose({ databaseSize });
 </script>
 
 <template>

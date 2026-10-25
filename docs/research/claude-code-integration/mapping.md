@@ -107,7 +107,8 @@ Apart from the EOF row, `stop_reason` is not used to decide completeness: it is 
   `"<anchor record uuid>:<kind>"`: `session.start` is anchored on the first record, and
   `turn_end` / `model_change` on the record that triggered them. A `turn_end` at EOF uses
   `"<last record uuid>:eof_turn_end"`, because that record may already anchor the previous
-  call's `turn_end`. A record without a uuid uses `line-<n>` (prefixed with the agent id in a
+  call's `turn_end`. When the file ends on untimed records (`custom-title`, `ai-title`), that
+  `turn_end` takes the time of the last timed record. A record without a uuid uses `line-<n>` (prefixed with the agent id in a
   subagent file). `parentId` is the previous
   event in the same stream unless a rule above sets it, such as the skill links. Ids are
   stable across re-parses of an unchanged file.

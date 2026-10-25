@@ -18,10 +18,8 @@ import { useSessionsStore } from "@/stores/sessions";
 const sessionsStore = useSessionsStore();
 const dataStorageRef = ref<InstanceType<typeof SettingsDataStorage> | null>(null);
 
-const sessionCount = computed(() => {
-  const indexed = dataStorageRef.value?.indexedSessionCount ?? 0;
-  return indexed || sessionsStore.sessions.length;
-});
+// The same figure as the sidebar and session list, which respect "Hide empty sessions".
+const sessionCount = computed(() => sessionsStore.visibleSessionCount);
 
 const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—");
 </script>

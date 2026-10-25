@@ -16,20 +16,35 @@ export interface RulerTick {
   leftPct: number;
 }
 
-/** Earliest startedAt timestamp (epoch ms) across the turn's tool calls. */
-export function computeEpochStart(turn: ConversationTurn | undefined): number {
-  if (!turn) return 0;
-  let earliest = Infinity;
-  for (const tc of turn.toolCalls) {
-    if (tc.startedAt) {
-      const ms = new Date(tc.startedAt).getTime();
-      if (ms < earliest) earliest = ms;
-    }
-  }
-  return earliest === Infinity ? 0 : earliest;
+/** Epoch ms of an ISO timestamp, or null when it is missing or unreadable. */
+function epochMs(iso: string | undefined): number | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime();
+  return Number.isFinite(ms) ? ms : null;
 }
 
-/** Timeline span in ms (max completedAt − earliest startedAt, or turn duration). */
+/**
+ * Where the waterfall's time axis starts (epoch ms): the turn's start, so a
+ * tool's offset includes the time the model worked before calling it. Falls
+ * back to the earliest tool start when the turn has no usable timestamp or a
+ * tool starts before it; 0 when there is nothing to anchor on.
+ */
+export function computeEpochStart(turn: ConversationTurn | undefined): number {
+  if (!turn) return 0;
+  let earliestTool = Infinity;
+  for (const tc of turn.toolCalls) {
+    const ms = epochMs(tc.startedAt);
+    if (ms !== null && ms < earliestTool) earliestTool = ms;
+  }
+  const turnStart = epochMs(turn.timestamp);
+  if (turnStart !== null && turnStart <= earliestTool) return turnStart;
+  return earliestTool === Infinity ? 0 : earliestTool;
+}
+
+/**
+ * Timeline span in ms from `epochStart`: to the later of the turn's end and
+ * the last tool's end (its subagents' tools included).
+ */
 export function computeTimelineSpanMs(
   turn: ConversationTurn | undefined,
   allToolCalls: TurnToolCall[],
@@ -39,7 +54,12 @@ export function computeTimelineSpanMs(
   if (!turn || turn.toolCalls.length === 0) return turnDurationMs || 1;
   if (!epochStart) return turnDurationMs || 1;
 
-  let latest = epochStart;
+  const turnStart = epochMs(turn.timestamp);
+  const turnEnd =
+    epochMs(turn.endTimestamp) ??
+    (turnStart !== null && turnDurationMs ? turnStart + turnDurationMs : null);
+  // Without an absolute turn end, the turn's duration still sets the minimum span.
+  let latest = turnEnd ?? epochStart + turnDurationMs;
 
   const subagentIds = new Set<string>();
   for (const tc of turn.toolCalls) {
@@ -55,16 +75,12 @@ export function computeTimelineSpanMs(
   ];
 
   for (const tc of relevantCalls) {
-    if (tc.completedAt) {
-      const ms = new Date(tc.completedAt).getTime();
-      if (ms > latest) latest = ms;
-    } else if (tc.startedAt && tc.durationMs) {
-      const ms = new Date(tc.startedAt).getTime() + tc.durationMs;
-      if (ms > latest) latest = ms;
-    }
+    const completed = epochMs(tc.completedAt);
+    const started = epochMs(tc.startedAt);
+    const end = completed ?? (started !== null && tc.durationMs ? started + tc.durationMs : null);
+    if (end !== null && end > latest) latest = end;
   }
-  const span = latest - epochStart;
-  return Math.max(span, turnDurationMs || 1, 1);
+  return Math.max(latest - epochStart, 1);
 }
 
 /** Build flat row list with hierarchy and positions. */
@@ -128,7 +144,7 @@ export function computeRows(
     const durMs =
       tc.durationMs ??
       (tc.completedAt ? new Date(tc.completedAt).getTime() - new Date(tc.startedAt).getTime() : 0);
-    const left = (startMs / span) * 100;
+    const left = Math.max((startMs / span) * 100, 0);
     const width = Math.max((durMs / span) * 100, 0.5);
     return { leftPct: Math.min(left, 100), widthPct: Math.min(width, 100 - left) };
   }

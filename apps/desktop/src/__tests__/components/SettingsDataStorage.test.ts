@@ -11,17 +11,17 @@ import {
 } from "./settingsDataStorageFixture";
 
 describe("SettingsDataStorage paths and maintenance", () => {
-  it("rereads the session count and index size when indexing finishes", async () => {
+  it("rereads the index size when indexing finishes", async () => {
     const wrapper = mountSettingsDataStorage();
     await flushPromises();
-    const exposed = wrapper.vm as unknown as { indexedSessionCount: number };
-    expect(exposed.indexedSessionCount).toBe(12);
+    const exposed = wrapper.vm as unknown as { databaseSize: string };
+    expect(exposed.databaseSize).toBe("1024 B");
 
-    // Enabling a source reindexes; the About count must follow without a remount.
-    mocks.getSessionCount.mockResolvedValue(21);
+    // Enabling a source reindexes; the About size must follow without a remount.
+    mocks.getDbSize.mockResolvedValue(2048);
     mocks.indexing.onFinished?.();
     await flushPromises();
-    expect(exposed.indexedSessionCount).toBe(21);
+    expect(exposed.databaseSize).toBe("2048 B");
     expect(mocks.getDbSize).toHaveBeenCalledTimes(2);
   });
 

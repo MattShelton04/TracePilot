@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import {
   action,
   deferred,
@@ -64,6 +65,32 @@ describe("SettingsDataStorage reset and confirmations", () => {
     expect(mocks.toast.error).toHaveBeenCalledWith("Factory reset failed: Reset unavailable");
     expect(action(wrapper, "Reset Everything…").props("disabled")).toBe(false);
     expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
+  });
+
+  it("clears every TracePilot storage key before reloading into setup", async () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    localStorage.clear();
+    for (const key of Object.values(STORAGE_KEYS)) localStorage.setItem(key, "stale");
+    // A key a call site writes directly, outside the registry.
+    localStorage.setItem("tracepilot.contextCapture.saveDefault", "true");
+    localStorage.setItem("another-app-key", "kept");
+
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    mocks.confirm.mockResolvedValueOnce({ confirmed: true });
+    mocks.factoryReset.mockResolvedValueOnce(undefined);
+    await action(wrapper, "Reset Everything…").trigger("click");
+    await flushPromises();
+
+    expect(mocks.factoryReset).toHaveBeenCalledOnce();
+    const left = Object.keys(localStorage).filter((key) => key.startsWith("tracepilot"));
+    expect(left).toEqual([]);
+    expect(localStorage.getItem(STORAGE_KEYS.sessionTabs)).toBeNull();
+    expect(localStorage.getItem("another-app-key")).toBe("kept");
+    expect(reload).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it("blocks competing operations while the native directory picker is pending and recovers on cancel", async () => {

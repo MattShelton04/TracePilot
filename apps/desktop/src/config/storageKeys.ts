@@ -70,3 +70,17 @@ export const STORAGE_KEYS = Object.freeze({
 
 /** Narrowed union of valid `localStorage` keys used by the desktop app. */
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
+
+/**
+ * Removes every TracePilot key from `storage`, for Reset Everything: each
+ * registered key, plus any other `tracepilot`-prefixed key a call site wrote
+ * directly. No key survives a factory reset; the app starts as a fresh install.
+ */
+export function clearTracePilotStorage(storage: Storage = localStorage): void {
+  const keys = new Set<string>(Object.values(STORAGE_KEYS));
+  for (let index = 0; index < storage.length; index++) {
+    const key = storage.key(index);
+    if (key?.startsWith("tracepilot")) keys.add(key);
+  }
+  for (const key of keys) storage.removeItem(key);
+}

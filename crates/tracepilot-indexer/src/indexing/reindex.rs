@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tracepilot_core::provider::{SessionLocator, SessionProvider, SessionSource};
 
 use crate::Result;
-use crate::error::IndexerError;
+use crate::error::{IndexerError, source_label};
 use crate::index_db;
 use crate::index_db::session_writer::prepare_snapshot;
 use crate::indexing::inventory::{self, SourcePass};
@@ -58,21 +58,48 @@ pub fn reindex_all_scoped(
     reindex_sources(scope, index_db_path, false, on_progress).map(|(indexed, _)| indexed)
 }
 
-/// Fail unless every source in `scope` can list its whole root. Check this
-/// before discarding an index: a rebuild restores only what it can read, and
-/// an unavailable source's rows would be lost.
-pub fn ensure_complete_inventory(scope: &IndexScope) -> Result<()> {
+/// Fail if discarding the index at `index_db_path` would lose sessions that
+/// a rebuild can't restore. Check this before deleting an index: a rebuild
+/// restores only what it can read, so a source that can't list its whole
+/// root must have nothing indexed. When the index can't be read, every such
+/// source counts as having indexed sessions.
+pub fn ensure_complete_inventory(scope: &IndexScope, index_db_path: &Path) -> Result<()> {
     for provider in scope.registry().providers() {
         let complete = provider.root_exists()
             && provider.discover(&|| false).is_ok()
             && provider.root_exists();
-        if !complete {
+        let source = provider.source();
+        if !complete && has_indexed_sessions(index_db_path, source) {
             return Err(IndexerError::IncompleteInventory {
-                name: provider.source().as_str().to_string(),
+                name: source_label(source).to_string(),
             });
         }
     }
     Ok(())
+}
+
+/// Whether the index may hold sessions of `source`: true unless the index is
+/// missing or can be read and has none.
+fn has_indexed_sessions(index_db_path: &Path, source: SessionSource) -> bool {
+    match index_db_path.try_exists() {
+        Ok(false) => return false,
+        Ok(true) => {}
+        Err(error) => {
+            tracing::warn!(error = %error, "Index not checked before rebuild");
+            return true;
+        }
+    }
+    let indexed = index_db::IndexDb::open_readonly(index_db_path).and_then(|db| {
+        Ok(db.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sessions WHERE source = ?1)",
+            [source.as_str()],
+            |row| row.get::<_, bool>(0),
+        )?)
+    });
+    indexed.unwrap_or_else(|error| {
+        tracing::warn!(source = source.as_str(), error = %error, "Index not checked before rebuild");
+        true
+    })
 }
 
 /// Reindex only sessions whose workspace.yaml/events.jsonl changed or analytics version bumped.

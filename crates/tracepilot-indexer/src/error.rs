@@ -56,12 +56,23 @@ pub enum IndexerError {
     StaleSource { name: String },
 
     /// A source's sessions could not all be listed, so an index rebuilt now
-    /// would lose its rows.
-    #[error("sessions of source '{name}' are unavailable; the existing index was kept")]
+    /// would lose its rows. `name` is the source's display label.
+    #[error(
+        "{name} sessions can't all be read, so the existing index was kept. Make their folder available and try again."
+    )]
     IncompleteInventory { name: String },
 }
 
 pub type Result<T> = std::result::Result<T, IndexerError>;
+
+/// A source's name as users see it.
+pub(crate) fn source_label(source: tracepilot_core::provider::SessionSource) -> &'static str {
+    use tracepilot_core::provider::SessionSource;
+    match source {
+        SessionSource::Copilot => "Copilot",
+        SessionSource::ClaudeCode => "Claude Code",
+    }
+}
 
 impl IndexerError {
     /// Create a DatabaseOpen error with context.

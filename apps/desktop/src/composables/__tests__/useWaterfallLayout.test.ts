@@ -1,5 +1,12 @@
+import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { computeRulerTicks, formatRulerOffset } from "@/composables/useWaterfallLayout";
+import {
+  computeEpochStart,
+  computeRows,
+  computeRulerTicks,
+  computeTimelineSpanMs,
+  formatRulerOffset,
+} from "@/composables/useWaterfallLayout";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -59,5 +66,90 @@ describe("formatRulerOffset", () => {
     [26 * HOUR, "26h"],
   ])("formats %d ms as %s", (ms, expected) => {
     expect(formatRulerOffset(ms)).toBe(expected);
+  });
+});
+
+const at = (time: string) => `2026-03-01T${time}.000Z`;
+
+function tool(id: string, start: string, end: string, extra: Partial<TurnToolCall> = {}) {
+  return {
+    toolCallId: id,
+    toolName: "bash",
+    startedAt: at(start),
+    completedAt: at(end),
+    durationMs: new Date(at(end)).getTime() - new Date(at(start)).getTime(),
+    isComplete: true,
+    ...extra,
+  } satisfies TurnToolCall;
+}
+
+function turn(toolCalls: TurnToolCall[], extra: Partial<ConversationTurn> = {}): ConversationTurn {
+  return { turnIndex: 0, assistantMessages: [], toolCalls, isComplete: true, ...extra };
+}
+
+/** The view's pipeline: anchor, span, then rows. */
+function layout(t: ConversationTurn, all: TurnToolCall[] = t.toolCalls) {
+  const epoch = computeEpochStart(t);
+  const span = computeTimelineSpanMs(t, all, epoch);
+  return { epoch, span, rows: computeRows(t, all, span, epoch) };
+}
+
+describe("waterfall time anchor", () => {
+  it("measures tool bars from the turn's start, not its first tool", () => {
+    // The model works for 14s before its first tool, as in the fixture session.
+    const t = turn([tool("git-tag", "03:20:21", "03:20:28")], {
+      timestamp: at("03:20:07"),
+      endTimestamp: at("03:20:35"),
+      durationMs: 28_000,
+    });
+    const { epoch, span, rows } = layout(t);
+    expect(epoch).toBe(new Date(at("03:20:07")).getTime());
+    expect(span).toBe(28_000);
+    expect(rows[0].leftPct).toBeCloseTo(50);
+    expect(rows[0].widthPct).toBeCloseTo(25);
+  });
+
+  it("places subagent children on the same turn-start axis", () => {
+    const agent = tool("agent", "00:00:10", "00:00:30", { isSubagent: true, toolName: "task" });
+    const child = tool("child", "00:00:20", "00:00:25", { parentToolCallId: "agent" });
+    const t = turn([agent], { timestamp: at("00:00:00"), durationMs: 40_000 });
+    const { span, rows } = layout(t, [agent, child]);
+    expect(span).toBe(40_000);
+    expect(rows.map((r) => [r.id, r.leftPct])).toEqual([
+      ["agent", 25],
+      ["child", 50],
+    ]);
+  });
+
+  it("stretches the span to a tool that ends after the turn", () => {
+    const t = turn([tool("late", "00:00:05", "00:00:20")], {
+      timestamp: at("00:00:00"),
+      durationMs: 10_000,
+    });
+    expect(layout(t).span).toBe(20_000);
+  });
+
+  it.each([
+    ["has no timestamp", {}],
+    ["has an unreadable timestamp", { timestamp: "not a date" }],
+  ])("falls back to the first tool's start when the turn %s", (_, extra) => {
+    const t = turn([tool("a", "00:00:10", "00:00:15"), tool("b", "00:00:15", "00:00:20")], extra);
+    const { epoch, span, rows } = layout(t);
+    expect(epoch).toBe(new Date(at("00:00:10")).getTime());
+    expect(span).toBe(10_000);
+    expect(rows.map((r) => r.leftPct)).toEqual([0, 50]);
+  });
+
+  it("falls back to the first tool's start when a tool starts before the turn", () => {
+    const t = turn([tool("early", "00:00:00", "00:00:05")], {
+      timestamp: at("00:00:02"),
+      endTimestamp: at("00:00:10"),
+      durationMs: 8_000,
+    });
+    const { epoch, span, rows } = layout(t);
+    expect(epoch).toBe(new Date(at("00:00:00")).getTime());
+    // The axis still reaches the turn's end, measured from the new anchor.
+    expect(span).toBe(10_000);
+    expect(rows[0].leftPct).toBe(0);
   });
 });

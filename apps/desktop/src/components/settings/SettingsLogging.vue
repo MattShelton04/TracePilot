@@ -1,23 +1,29 @@
 <script setup lang="ts">
 import { save } from "@tauri-apps/plugin-dialog";
-import { exportLogs, getLogPath } from "@tracepilot/client";
+import { exportLogs, getLogPath, openInExplorer } from "@tracepilot/client";
 import { ActionButton, SectionPanel, toErrorMessage } from "@tracepilot/ui";
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import SettingsFormatDiagnostics from "@/components/settings/SettingsFormatDiagnostics.vue";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const prefsStore = usePreferencesStore();
 
-const logPath = ref("—");
+/** The log directory, or null while loading or when it couldn't be determined. */
+const logDirectory = ref<string | null>(null);
+const logPathFailed = ref(false);
+const logPath = computed(
+  () => logDirectory.value ?? (logPathFailed.value ? "Unable to determine" : "—"),
+);
+const openError = ref<string | null>(null);
 const exportResult = ref<string | null>(null);
 const exporting = ref(false);
 const logLevel = ref("info");
 
 onMounted(async () => {
   try {
-    logPath.value = await getLogPath();
+    logDirectory.value = await getLogPath();
   } catch {
-    logPath.value = "Unable to determine";
+    logPathFailed.value = true;
   }
 
   await prefsStore.whenReady;
@@ -29,11 +35,12 @@ watch(logLevel, (value) => {
 });
 
 async function openLogDirectory() {
+  if (!logDirectory.value) return;
+  openError.value = null;
   try {
-    const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
-    await tauriInvoke("plugin:tracepilot|open_in_explorer", { path: logPath.value });
+    await openInExplorer(logDirectory.value);
   } catch (e) {
-    exportResult.value = `Failed to open directory: ${toErrorMessage(e)}`;
+    openError.value = `Failed to open directory: ${toErrorMessage(e)}`;
   }
 }
 
@@ -73,16 +80,19 @@ async function doExportLogs() {
         <code class="log-path">{{ logPath }}</code>
       </div>
 
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Open log directory</div>
-          <div class="setting-description">
-            View raw log files in your file explorer
+      <div class="setting-row setting-row-stacked">
+        <div class="setting-row-inline">
+          <div class="setting-info">
+            <div class="setting-label">Open log directory</div>
+            <div class="setting-description">
+              View raw log files in your file explorer
+            </div>
           </div>
+          <ActionButton size="sm" :disabled="!logDirectory" @click="openLogDirectory">
+            Open Directory
+          </ActionButton>
         </div>
-        <ActionButton size="sm" @click="openLogDirectory">
-          Open Directory
-        </ActionButton>
+        <div v-if="openError" class="export-result">{{ openError }}</div>
       </div>
 
       <div class="setting-row setting-row-stacked">
