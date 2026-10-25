@@ -19,7 +19,7 @@ const emit = defineEmits<{
         </div>
       </div>
       <h1 class="welcome-title" tabindex="-1">TracePilot</h1>
-      <p class="welcome-subtitle">Your personal Copilot analytics dashboard</p>
+      <p class="welcome-subtitle">Your personal coding agent analytics dashboard</p>
       <span class="version-pill">v{{ appVersion }}</span>
       <button class="btn-accent btn-lg" @click="emit('next')">Begin Setup →</button>
     </div>

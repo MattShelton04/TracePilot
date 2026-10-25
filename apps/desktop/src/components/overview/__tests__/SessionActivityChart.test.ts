@@ -26,6 +26,32 @@ const tickLabels = (wrapper: ReturnType<typeof mountChart>) =>
 // Hour, minute and seconds: `8:00:35 pm`.
 const WITH_SECONDS = /\d:\d\d:\d\d/;
 
+describe("SessionActivityChart pace", () => {
+  const pace = (wrapper: ReturnType<typeof mountChart>) =>
+    wrapper
+      .find(".activity__footer")
+      .text()
+      .match(/Average (\S+ turns\/(?:min|hour))/)?.[1];
+
+  it("measures a session under a minute over its real span, not the padded window", () => {
+    // 3 turns in 42 seconds is about 4.3 a minute; the drawn window is a full minute.
+    const start = at(20, 0, 0);
+    const starts = [0, 20, 40].map((s) => start.getTime() + s * 1000);
+    expect(pace(mountChart(start, at(20, 0, 42), starts))).toBe("4.3 turns/min");
+  });
+
+  it("keeps the pace of a longer session", () => {
+    const start = at(9, 0, 0);
+    const starts = Array.from({ length: 30 }, (_, i) => start.getTime() + i * 6 * 60_000);
+    expect(pace(mountChart(start, at(12, 0, 0), starts))).toBe("0.2 turns/min");
+  });
+
+  it("falls back to the window when every time is the same instant", () => {
+    const start = at(9, 0, 0);
+    expect(pace(mountChart(start, start, [start.getTime()]))).toBe("1.0 turns/min");
+  });
+});
+
 describe("SessionActivityChart time labels", () => {
   it("labels a session under a minute with distinct times to the second", () => {
     const start = at(20, 0, 5);

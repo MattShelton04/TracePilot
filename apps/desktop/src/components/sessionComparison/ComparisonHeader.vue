@@ -94,7 +94,11 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
   <EmptyState
     v-else-if="!comp.compared"
     title="Select Two Sessions"
-    description="Pick two sessions above and click Compare to see a side-by-side analysis."
+    :description="
+      comp.sameSession
+        ? 'Both sides hold the same session. Pick another one to compare.'
+        : 'Pick two sessions above and click Compare to see a side-by-side analysis.'
+    "
   >
     <template #icon><Columns2 :size="36" aria-hidden="true" /></template>
   </EmptyState>
@@ -102,7 +106,8 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
   <template v-else>
     <!-- The pickers no longer match what the results describe. -->
     <Banner v-if="comp.isStale" class="stale-banner" tone="info" title="Selection changed.">
-      The results below still show the sessions compared before. Click Compare to update them.
+      The results below still show the sessions compared before.
+      {{ comp.sameSession ? "Pick another session to compare." : "Click Compare to update them." }}
     </Banner>
 
     <!-- Summary Cards -->

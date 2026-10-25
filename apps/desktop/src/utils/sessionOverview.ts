@@ -14,10 +14,10 @@ export interface TimeWindow {
 const MIN_WINDOW_MS = 60_000;
 
 /**
- * The window the activity chart spans: the session's recorded start and end,
- * widened to every turn start so none falls off the edge.
+ * The session's recorded span: its start and end, widened to every turn
+ * start. Unlike {@link activityWindow} it is never padded, so rates use it.
  */
-export function activityWindow(
+export function activitySpan(
   createdAt: number | null,
   updatedAt: number | null,
   turnStarts: readonly (number | null)[],
@@ -27,9 +27,21 @@ export function activityWindow(
     (t): t is number => t != null && Number.isFinite(t),
   );
   if (candidates.length === 0) return null;
-  const start = Math.min(...candidates);
-  const end = Math.max(...candidates);
-  return { start, end: Math.max(end, start + MIN_WINDOW_MS) };
+  return { start: Math.min(...candidates), end: Math.max(...candidates) };
+}
+
+/**
+ * The window the activity chart spans: the recorded span, at least a minute
+ * wide so a short session still has room to draw.
+ */
+export function activityWindow(
+  createdAt: number | null,
+  updatedAt: number | null,
+  turnStarts: readonly (number | null)[],
+): TimeWindow | null {
+  const span = activitySpan(createdAt, updatedAt, turnStarts);
+  if (!span) return null;
+  return { start: span.start, end: Math.max(span.end, span.start + MIN_WINDOW_MS) };
 }
 
 /** How many bins suit a session: about one and a half turns each, 16 to 48. */
