@@ -12,9 +12,9 @@ use super::super::helpers::*;
 use super::day_bucket::{DayBucketSpec, query_day_bucketed};
 
 /// One entry per source with sessions in the filter, in `SessionSource::ALL`
-/// order. Sessions are counted by their last-active day; tokens and USD count
-/// only usage inside the range, like the dashboard's headline totals (see
-/// `helpers::range_usage`).
+/// order. Sessions are the ones with activity in the range; tokens and USD
+/// count only usage inside the range, like the dashboard's headline totals
+/// (see `helpers::range_usage`).
 pub(super) fn query_cost_by_source(
     conn: &Connection,
     where_clause: &str,

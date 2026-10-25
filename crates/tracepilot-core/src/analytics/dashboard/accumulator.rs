@@ -6,7 +6,7 @@ use super::super::utils::segment_end_date;
 use super::daily::DailySeriesAccumulator;
 use super::durations::compute_duration_stats;
 use super::models::{ModelDistributionAccumulator, ModelMetricsTotals};
-use super::range::{DateRange, OutsideUsage};
+use super::range::{DateRange, SegmentUsage};
 use crate::models::event_types::SessionSegment;
 use crate::provider::SessionSource;
 
@@ -29,9 +29,9 @@ pub(super) struct AnalyticsAccumulator {
 }
 
 impl AnalyticsAccumulator {
-    pub(super) fn new(total_sessions: u32) -> Self {
+    pub(super) fn new() -> Self {
         Self {
-            total_sessions,
+            total_sessions: 0,
             total_tokens: 0,
             total_cost: 0.0,
             daily: DailySeriesAccumulator::default(),
@@ -49,15 +49,31 @@ impl AnalyticsAccumulator {
         }
     }
 
+    /// Records a session with activity in the range: last active in it, or
+    /// with a segment that ended in it. Other sessions are skipped.
     pub(super) fn record_session(&mut self, input: &SessionAnalyticsInput, range: DateRange<'_>) {
         let summary = &input.summary;
 
         let date_key = summary.date_key();
+        // Last active outside the range (resumed after it): only its segments
+        // that ended in the range count, since usage they do not account for
+        // belongs to its last-active day.
+        let elsewhere = date_key.as_deref().is_some_and(|day| !range.contains(day));
+        let segments = summary
+            .shutdown_metrics
+            .as_ref()
+            .and_then(|metrics| metrics.session_segments.as_ref());
+        if elsewhere && !segments.into_iter().flatten().any(|s| range.holds(s)) {
+            return;
+        }
+        self.total_sessions += 1;
 
         if let Some(ref metrics) = summary.shutdown_metrics {
             // Segments that ended on a day outside the range leave the
-            // headline usage; undated ones stay with the session.
-            let mut outside = OutsideUsage::default();
+            // headline usage; undated ones stay with a session last active
+            // in the range.
+            let mut outside = SegmentUsage::default();
+            let mut inside = SegmentUsage::default();
             let charted: Vec<&SessionSegment> = metrics
                 .session_segments
                 .iter()
@@ -67,16 +83,38 @@ impl AnalyticsAccumulator {
                         outside.add(segment);
                         false
                     }
-                    _ => true,
+                    Some(_) => {
+                        inside.add(segment);
+                        true
+                    }
+                    None => true,
                 })
                 .collect();
 
-            if let Some(pr) = metrics.total_premium_requests {
-                self.total_premium_requests += (pr - outside.premium_requests).max(0.0);
-            }
-            if let Some(total_nano_aiu) = metrics.total_nano_aiu {
-                self.total_nano_aiu += total_nano_aiu.saturating_sub(outside.nano_aiu);
-                self.sessions_with_observed_ai_credits += 1;
+            let model_totals = ModelMetricsTotals::of(&metrics.model_metrics);
+            if elsewhere {
+                self.total_premium_requests += inside.premium_requests;
+                if let Some(nano_aiu) = inside.observed_nano_aiu() {
+                    self.total_nano_aiu += nano_aiu;
+                    self.sessions_with_observed_ai_credits += 1;
+                }
+                self.model_distribution
+                    .record_model_metrics(&inside.models());
+                self.total_tokens += inside.tokens;
+                self.total_cost += inside.cost;
+            } else {
+                if let Some(pr) = metrics.total_premium_requests {
+                    self.total_premium_requests += (pr - outside.premium_requests).max(0.0);
+                }
+                if let Some(total_nano_aiu) = metrics.total_nano_aiu {
+                    self.total_nano_aiu += total_nano_aiu.saturating_sub(outside.nano_aiu);
+                    self.sessions_with_observed_ai_credits += 1;
+                }
+                // Model rows and cache statistics count only in-range usage.
+                self.model_distribution
+                    .record_model_metrics(&outside.in_range_models(&metrics.model_metrics));
+                self.total_tokens += model_totals.tokens.saturating_sub(outside.tokens);
+                self.total_cost += (model_totals.cost - outside.cost).max(0.0);
             }
 
             let session_api_duration_ms = metrics.total_api_duration_ms.unwrap_or(0);
@@ -85,14 +123,8 @@ impl AnalyticsAccumulator {
                 self.total_api_duration_ms += session_api_duration_ms;
             }
 
-            // Model rows and cache statistics count only in-range usage.
-            self.model_distribution
-                .record_model_metrics(&outside.in_range_models(&metrics.model_metrics));
-            let model_totals = ModelMetricsTotals::of(&metrics.model_metrics);
-            self.total_tokens += model_totals.tokens.saturating_sub(outside.tokens);
             // Whole-session tokens, divided by whole-session turns.
             self.total_tokens_from_turns += model_totals.tokens;
-            self.total_cost += (model_totals.cost - outside.cost).max(0.0);
 
             if metrics.session_segments.is_some() {
                 self.daily.record_segments(charted);

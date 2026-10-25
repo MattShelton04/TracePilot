@@ -314,11 +314,17 @@ fn test_query_analytics_date_filtering() {
         .unwrap();
     assert_eq!(after.total_sessions, 1);
 
-    // Only sessions before March 15
+    // Sessions with activity up to March 15: both had a run end on March 10,
+    // though the second was last active on March 20.
     let before = db
         .query_analytics(None, Some("2026-03-15"), None, false, None)
         .unwrap();
-    assert_eq!(before.total_sessions, 1);
+    assert_eq!(before.total_sessions, 2);
+    // Nothing happened between the run and the last-active day.
+    let gap = db
+        .query_analytics(Some("2026-03-11"), Some("2026-03-15"), None, false, None)
+        .unwrap();
+    assert_eq!(gap.total_sessions, 0);
 
     // All sessions in range
     let all = db

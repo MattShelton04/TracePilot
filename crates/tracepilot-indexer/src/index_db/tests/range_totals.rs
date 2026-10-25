@@ -1,9 +1,9 @@
 //! Headline totals under a date filter count only usage inside the range, so
-//! they agree with the day charts. Sessions are still selected (and counted)
-//! by their last-active day.
+//! they agree with the day charts. Sessions with activity in the range are
+//! selected and counted; see `range_resumed` for those resumed after it.
 
 use tracepilot_core::analytics::types::AnalyticsData;
-use tracepilot_core::analytics::{compute_analytics_in_range, load_full_sessions_filtered};
+use tracepilot_core::analytics::{compute_analytics_in_range, load_full_sessions_active_in_range};
 use tracepilot_core::provider::SessionSource;
 use tracepilot_test_support::claude_metrics;
 
@@ -18,7 +18,7 @@ pub(super) fn resume(id: &str, at: &str) -> String {
 
 /// One Copilot session resumed on three days: 100, 200 and 400 tokens, with
 /// AI Credits and premium requests in the same 1:2:4 proportion.
-fn three_day_session(root: &std::path::Path) -> std::path::PathBuf {
+pub(super) fn three_day_session(root: &std::path::Path) -> std::path::PathBuf {
     let events = [
         shutdown("s1", "2026-03-01T10:00:00Z", 100, NANO, 1.0, ""),
         resume("r2", "2026-03-03T09:00:00Z"),
@@ -35,7 +35,7 @@ fn three_day_session(root: &std::path::Path) -> std::path::PathBuf {
     )
 }
 
-fn chart_tokens(data: &AnalyticsData) -> u64 {
+pub(super) fn chart_tokens(data: &AnalyticsData) -> u64 {
     data.token_usage_by_day.iter().map(|d| d.tokens).sum()
 }
 
@@ -78,7 +78,8 @@ fn a_session_straddling_the_range_start_counts_only_its_in_range_segments() {
 
     // The disk fallback applies the same rule.
     for (from, to) in [(Some("2026-03-03"), Some("2026-03-05")), (None, None)] {
-        let inputs = load_full_sessions_filtered(temp.path(), from, to, None, false).unwrap();
+        let inputs =
+            load_full_sessions_active_in_range(temp.path(), from, to, None, false).unwrap();
         let fallback = serde_json::to_value(compute_analytics_in_range(&inputs, from, to)).unwrap();
         let indexed =
             serde_json::to_value(db.query_analytics(from, to, None, false, None).unwrap()).unwrap();
@@ -309,7 +310,8 @@ fn a_running_copilot_session_counts_its_latest_usage_checkpoint() {
     );
 
     for (from, to) in [(Some("2026-03-03"), Some("2026-03-05")), (None, None)] {
-        let inputs = load_full_sessions_filtered(temp.path(), from, to, None, false).unwrap();
+        let inputs =
+            load_full_sessions_active_in_range(temp.path(), from, to, None, false).unwrap();
         let fallback = serde_json::to_value(compute_analytics_in_range(&inputs, from, to)).unwrap();
         let indexed =
             serde_json::to_value(db.query_analytics(from, to, None, false, None).unwrap()).unwrap();

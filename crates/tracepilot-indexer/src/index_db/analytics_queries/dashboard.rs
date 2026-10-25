@@ -20,9 +20,11 @@ pub(super) fn query_analytics(
     source: Option<SessionSource>,
 ) -> Result<AnalyticsData> {
     let repo = RepositoryScope::resolve(conn, repo.as_slice(), false)?;
-    let (mut where_clause, mut bind_values) =
+    // Sessions last active in the range: the ones whose last-active day is a
+    // chart day (compaction and truncation counts, usage no run accounts for).
+    let (mut last_active_where, mut last_active_values) =
         build_date_repo_filter(from_date, to_date, repo.as_ref(), hide_empty);
-    append_source_filter(&mut where_clause, &mut bind_values, source);
+    append_source_filter(&mut last_active_where, &mut last_active_values, source);
 
     // Per-run series select runs by the day each one ended, so they skip the
     // session last-activity guard: a run that ended in the range counts even
@@ -32,21 +34,26 @@ pub(super) fn query_analytics(
         build_date_repo_filter(None, None, repo.as_ref(), hide_empty);
     append_source_filter(&mut run_where, &mut run_values, source);
 
+    // Sessions with activity in the range: last active in it, or with a run
+    // that ended in it. Without a date filter, every session.
+    let (where_clause, bind_values) =
+        range_session_filter(&run_where, &run_values, from_date, to_date);
+
     // Aggregate session-level stats.
     //
-    // Sessions are selected and counted by their last-active day. Their usage
-    // (tokens, cost, premium requests, AI Credits) counts only inside the
-    // range: each session's lifetime total minus its segments that ended on a
-    // day outside it. Without a date filter they are the lifetime totals.
-    // Turns, tool calls, compactions, truncations and the per-turn and
-    // per-second averages stay whole-session values; per-model usage below
-    // follows the same rule. Rate limits are the incident day rows' sum, and
-    // sessions with errors are the sessions behind those rows.
-    // See `helpers::range_usage`.
-    //
-    // The day charts count the same in-range runs plus runs of sessions last
-    // active after the range (see `run_where` above), which these totals
-    // leave out because the session is not selected.
+    // Sessions with activity in the range are selected and counted. Their
+    // usage (tokens, cost, premium requests, AI Credits) counts only inside
+    // the range: for a session last active in it, its lifetime total minus
+    // its segments that ended on a day outside it; for one last active
+    // outside it (resumed after the range), its segments that ended in it.
+    // So these totals add up to the day charts. Without a date filter they
+    // are the lifetime totals. Turns, tool calls and the per-turn and
+    // per-second averages stay whole-session values; compactions and
+    // truncations are whole-session counts on the last-active day, so only
+    // sessions last active in the range add them, as in the incidents
+    // series. Per-model usage below follows the usage rule. Rate limits are
+    // the incident day rows' sum, and sessions with errors are the sessions
+    // behind those rows. See `helpers::range_usage`.
     let (usage_join, agg_values) =
         out_of_range_join(&where_clause, &bind_values, from_date, to_date, true);
     let agg_sql = format!(
@@ -58,10 +65,10 @@ pub(super) fn query_analytics(
                     COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN
                         (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)
                     END), 0),
-                    COALESCE(SUM(compaction_count), 0),
-                    COALESCE(SUM(truncation_count), 0),
+                    COALESCE(SUM(CASE WHEN {LAST_ACTIVE_ELSEWHERE} = 0 THEN compaction_count END), 0),
+                    COALESCE(SUM(CASE WHEN {LAST_ACTIVE_ELSEWHERE} = 0 THEN truncation_count END), 0),
                     COALESCE(SUM({IN_RANGE_NANO_AIU}), 0),
-                    COUNT(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 END),
+                    COUNT({IN_RANGE_NANO_AIU}),
                     COALESCE(SUM(s.total_tokens), 0)
              FROM sessions s{usage_join}{where_clause}"
     );
@@ -182,7 +189,7 @@ pub(super) fn query_analytics(
         conn,
         DayFilters {
             runs: (&run_where, &run_values),
-            sessions: (&where_clause, &bind_values),
+            sessions: (&last_active_where, &last_active_values),
             from_date,
             to_date,
         },
@@ -274,7 +281,7 @@ pub(super) fn query_analytics(
 
     let incidents_by_day = query_incidents_by_day(
         conn,
-        (&where_clause, &bind_values),
+        (&last_active_where, &last_active_values),
         (&run_where, &run_values),
         from_date,
         to_date,
