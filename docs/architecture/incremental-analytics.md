@@ -176,13 +176,11 @@ indexer's `analytics_parity`, `range_totals`, `range_models` and
 `range_resumed` tests cover these semantics against the disk fallback, and
 `segment_totals` checks that Copilot and Claude Code segments add up to their
 session totals. `range_resumed` and `analytics_day_series` cover sessions
-resumed after the range, and `analytics_day_accuracy` the daily AI Credits,
+resumed after the range, `range_resumed_filters` the same through the
+repository, source and hide-empty filters, and `analytics_day_accuracy` the daily AI Credits,
 incidents and cache replies above. The disk fallback (used when the index
 can't be opened or its query fails) reports no incidents, and its daily model
-series leaves out AI Credits no run accounts for. The `get_analytics` command
-still loads it with `load_full_sessions_filtered`, which selects by last-active
-date, so until it switches loaders its fallback leaves out sessions resumed
-after the range. The Tools and Code Impact
+series leaves out AI Credits no run accounts for. The Tools and Code Impact
 views still select sessions by their last-active date.
 
 ### Claude Code runs and USD cost
