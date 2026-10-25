@@ -1,6 +1,14 @@
+// biome-ignore-all assist/source/organizeImports: mocks must register before the store import.
 import { setupPinia } from "@tracepilot/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useSessionsStore } from "../../stores/sessions";
+
+const listeners = vi.hoisted(() => new Map<string, () => void>());
+vi.mock("@/utils/tauriEvents", () => ({
+  safeListen: vi.fn(async (event: string, handler: () => void) => {
+    listeners.set(event, handler);
+    return () => listeners.delete(event);
+  }),
+}));
 
 // The session list's Refresh: a user's pass reports its failure, background
 // passes stay silent, and any pass that reloads the list clears the error.
@@ -15,6 +23,10 @@ vi.mock("@tracepilot/client", async () => {
   });
 });
 
+import { IPC_EVENTS } from "@tracepilot/client";
+import { flushPromises } from "@vue/test-utils";
+import { useSessionsStore } from "../../stores/sessions";
+
 const MOCK_SESSION = {
   id: "abc-123",
   summary: "Test Session",
@@ -28,6 +40,7 @@ describe("sessions store Refresh errors", () => {
   beforeEach(() => {
     localStorage.clear();
     setupPinia();
+    listeners.clear();
     mockListSessions.mockReset();
     mockReindexSessions.mockReset();
   });
@@ -94,5 +107,35 @@ describe("sessions store Refresh errors", () => {
 
     expect(store.error).toBeNull();
     expect(store.sessions).toHaveLength(1);
+  });
+
+  // The backend announces the pass finished before the command rejects, so
+  // the store's own reload lands after the Refresh has reported its failure.
+  it("keeps a failed Refresh's error when the index-finished reload lands after it", async () => {
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    const store = useSessionsStore();
+    await store.watchIndexUpdates();
+    await store.fetchSessions();
+
+    mockListSessions.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve([MOCK_SESSION]), 5)),
+    );
+    mockReindexSessions.mockImplementation(async () => {
+      listeners.get(IPC_EVENTS.INDEXING_FINISHED)?.();
+      throw new Error("database is locked");
+    });
+    // The Refresh, then a Retry that fails the same way while it shows.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await store.ensureIndex({ force: true, userInitiated: true });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await flushPromises();
+      expect(store.error).toBe("Couldn't refresh sessions: database is locked");
+    }
+    expect(mockReindexSessions).toHaveBeenCalledTimes(2);
+
+    // A later pass that succeeds still clears it.
+    mockReindexSessions.mockReset().mockResolvedValue([3, 10]);
+    await store.ensureIndex({ force: true });
+    expect(store.error).toBeNull();
   });
 });
