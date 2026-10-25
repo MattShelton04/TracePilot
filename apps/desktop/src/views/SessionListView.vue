@@ -382,12 +382,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           </div>
         </div>
         <ProgressBar 
-          :percent="indexingProgress ? (indexingProgress.current / indexingProgress.total * 100) : 0" 
+          :percent="indexingProgress && indexingProgress.total > 0 ? (indexingProgress.current / indexingProgress.total * 100) : 0" 
           color="accent" 
           class="mt-4" 
           style="max-width: 400px; margin-inline: auto;" 
         />
-        <div v-if="indexingProgress" class="text-xs text-[var(--text-tertiary)] mt-1" style="text-align: center;">
+        <div v-if="indexingProgress && indexingProgress.total > 0" class="text-xs text-[var(--text-tertiary)] mt-1" style="text-align: center;">
           {{ indexingProgress.current }} / {{ indexingProgress.total }} sessions
         </div>
       </div>
