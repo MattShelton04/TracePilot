@@ -8,7 +8,7 @@ import {
   formatNumberFull,
   useSessionTabLoader,
 } from "@tracepilot/ui";
-import { computed, ref, useId, watch } from "vue";
+import { computed, nextTick, ref, useId, watch } from "vue";
 import EventPayload from "@/components/events/EventPayload.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { eventTimeLabel, timestampsSpanDays } from "@/utils/sessionOverview";
@@ -51,8 +51,9 @@ const eventsPending = computed(() => !eventsKnown.value && !store.eventsError);
 /**
  * Load a page for the current filter; the latest call wins. A quiet load (a
  * refresh) leaves paging enabled, and any newer page request supersedes it.
+ * Resolves true when this load's rows are the ones shown.
  */
-async function fetchPage(page: number, quiet = false) {
+async function fetchPage(page: number, quiet = false): Promise<boolean> {
   const seq = ++loadSeq;
   const id = store.sessionId;
   const filter = filterType.value;
@@ -61,9 +62,10 @@ async function fetchPage(page: number, quiet = false) {
   try {
     await store.loadEvents(page * pageSize, pageSize, filter ?? undefined);
     // loadEvents reports failure through eventsError rather than throwing.
-    if (seq !== loadSeq || store.sessionId !== id || store.eventsError) return;
+    if (seq !== loadSeq || store.sessionId !== id || store.eventsError) return false;
     currentPage.value = page;
     shownFilter.value = filter;
+    return true;
   } finally {
     if (seq === loadSeq) pageLoading.value = false;
   }
@@ -142,9 +144,55 @@ function payloadId(rowNum: number) {
   return `${idBase}-payload-${rowNum}`;
 }
 
-function loadPage(page: number) {
+const root = ref<HTMLElement | null>(null);
+
+/** The nearest ancestor that scrolls vertically (the session panel's page). */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    if (/auto|scroll/.test(getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
+}
+
+/** Where the scroller's visible area starts below sticky chrome (the session action bar). */
+function visibleTop(scroller: HTMLElement, el: HTMLElement): number {
+  let top = scroller.getBoundingClientRect().top;
+  for (let node: Element | null = el; node && node !== scroller; node = node.parentElement) {
+    for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+      if (getComputedStyle(sib).position === "sticky") {
+        top = Math.max(top, sib.getBoundingClientRect().bottom);
+      }
+    }
+  }
+  return top;
+}
+
+/** Gap kept between the sticky chrome and the revealed rows. */
+const REVEAL_GAP = 12;
+
+/**
+ * A new page starts at its first row: when the user paged from further down,
+ * bring the tab's top (filter, count and the table head) back into view.
+ */
+function revealTop() {
+  const el = root.value;
+  const scroller = el && scrollParent(el);
+  // A session tab hidden meanwhile (another one was opened) has nothing to reveal.
+  if (!el || !scroller || scroller.getBoundingClientRect().height === 0) return;
+  const offset = el.getBoundingClientRect().top - visibleTop(scroller, el) - REVEAL_GAP;
+  if (offset >= 0) return;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  scroller.scrollTo({
+    top: Math.max(0, scroller.scrollTop + offset),
+    behavior: reduce ? "auto" : "smooth",
+  });
+}
+
+async function loadPage(page: number) {
   if (pageLoading.value) return;
-  void fetchPage(page);
+  if (!(await fetchPage(page))) return;
+  await nextTick();
+  revealTop();
 }
 
 function retryLoadEvents() {
@@ -153,7 +201,7 @@ function retryLoadEvents() {
 </script>
 
 <template>
-  <div>
+  <div ref="root">
     <!-- Error alert for failed event loading -->
     <ErrorAlert
       v-if="store.eventsError"

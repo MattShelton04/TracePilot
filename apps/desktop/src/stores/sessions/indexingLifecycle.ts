@@ -1,7 +1,7 @@
 import { reindexSessions } from "@tracepilot/client";
 import type { SessionListItem } from "@tracepilot/types";
 import { runAction, toErrorMessage, useInflightPromise } from "@tracepilot/ui";
-import type { Ref, ShallowRef } from "vue";
+import { type Ref, type ShallowRef, watch } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { logDebug, logError, logWarn } from "@/utils/logger";
 
@@ -21,18 +21,30 @@ export interface IndexingLifecycle {
   /** Reload after an index pass, never settling for a read that predates it. */
   refreshAfterIndexPass: () => Promise<void>;
   reindex: () => Promise<void>;
-  ensureIndex: (opts?: { force?: boolean }) => Promise<void>;
+  ensureIndex: (opts?: EnsureIndexOptions) => Promise<void>;
+}
+
+export interface EnsureIndexOptions {
+  /** Reindex even inside the throttle window. */
+  force?: boolean;
+  /** The user asked for it (Refresh, Retry): a failure shows in `error`. */
+  userInitiated?: boolean;
 }
 
 /** Minimum interval between background ensureIndex calls (2 min). */
 const MIN_INDEX_INTERVAL_MS = 2 * 60 * 1000;
+
+function refreshFailureMessage(e: unknown): string {
+  return `Couldn't refresh sessions: ${toErrorMessage(e)}`;
+}
 
 /**
  * Indexing throttle + cache + dedupe state machine for the sessions store.
  *
  * Owns three in-flight slots (fetch, index, post-index refresh) plus the
  * `lastIndexedAt` throttle. Pure factory — no Pinia, no Vue lifecycle
- * beyond reading/writing the refs that the store passes in.
+ * beyond reading/writing (and synchronously watching) the refs that the
+ * store passes in.
  */
 export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLifecycle {
   const { sessions, loading, indexing, error, fetchAllSessions } = deps;
@@ -43,6 +55,26 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
   const indexInflight = useInflightPromise<[number, number]>();
   const postIndexRefreshInflight = useInflightPromise<SessionListItem[]>();
   let lastIndexedAt = 0;
+
+  // Bumped whenever an error is shown. A reload that succeeds clears only an
+  // error already showing when it started: the backend announces a pass
+  // finished before its command rejects, so the reload that announcement
+  // starts can land after the failure it must not hide.
+  let errorEpoch = 0;
+  watch(
+    error,
+    (value) => {
+      if (value !== null) errorEpoch++;
+    },
+    { flush: "sync" },
+  );
+  function showError(message: string) {
+    errorEpoch++; // also when the same message shows again
+    error.value = message;
+  }
+  function clearErrorShownBefore(epoch: number) {
+    if (errorEpoch === epoch) error.value = null;
+  }
 
   async function fetchSessions() {
     const existing = fetchInflight.current();
@@ -63,9 +95,10 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
     const existing = fetchInflight.current();
     if (existing) return existing;
     return fetchInflight.run(async () => {
+      const epoch = errorEpoch;
       try {
         sessions.value = await fetchAllSessions();
-        error.value = null;
+        clearErrorShownBefore(epoch);
       } catch (e) {
         logError("[sessions] Silent refresh failed:", e);
       }
@@ -96,12 +129,14 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
   async function reindex() {
     const existingIndex = indexInflight.current();
     if (existingIndex) {
+      const epoch = errorEpoch;
       try {
         await existingIndex;
         sessions.value = await refreshSessionsAfterIndex();
+        clearErrorShownBefore(epoch);
       } catch (e) {
         if (!isAlreadyIndexingError(e)) {
-          error.value = toErrorMessage(e);
+          showError(toErrorMessage(e));
         }
       }
       return;
@@ -135,21 +170,32 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
    * created sessions on disk become visible on the next tick. The reindex
    * itself is incremental and cheap; coalescing is handled via
    * `indexInflight` so a genuinely concurrent reindex won't be duplicated.
+   *
+   * Background calls stay silent on failure. A `userInitiated` call (the
+   * Refresh button, Retry) reports its failure in `error`. Any call that
+   * reloads the list clears an `error` already showing when it started.
    */
-  async function ensureIndex(opts: { force?: boolean } = {}) {
+  async function ensureIndex(opts: EnsureIndexOptions = {}) {
     const force = opts.force ?? false;
+    const userInitiated = opts.userInitiated ?? false;
+    const epoch = errorEpoch;
     const existingIndex = indexInflight.current();
     if (existingIndex) {
+      let failure: { cause: unknown } | null = null;
       try {
         await existingIndex;
       } catch (e) {
         logWarn("[sessions] Background reindex in progress failed", e);
+        if (!isAlreadyIndexingError(e)) failure = { cause: e };
       }
       try {
         sessions.value = await refreshSessionsAfterIndex();
+        clearErrorShownBefore(epoch);
       } catch (e) {
         logWarn("[sessions] Failed to refresh session list after background reindex", e);
+        failure ??= { cause: e };
       }
+      if (failure && userInitiated) showError(refreshFailureMessage(failure.cause));
       return;
     }
 
@@ -162,14 +208,16 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
       await indexInflight.run(() => reindexSessions());
       lastIndexedAt = Date.now();
       sessions.value = await refreshSessionsAfterIndex();
+      clearErrorShownBefore(epoch);
     } catch (e) {
-      // Silent — this is a background optimization, not user-initiated.
-      // A pass started elsewhere (startup, watcher) already covers it.
+      // A pass started elsewhere (startup, watcher) already covers it, and
+      // reloads the list when it finishes.
       if (isAlreadyIndexingError(e)) {
         logDebug("[sessions] Background ensureIndex skipped; indexing already running");
         return;
       }
       logWarn("[sessions] Background ensureIndex failed", e);
+      if (userInitiated) showError(refreshFailureMessage(e));
     }
   }
 

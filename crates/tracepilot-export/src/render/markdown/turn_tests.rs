@@ -164,6 +164,68 @@ fn multi_line_session_events_stay_in_their_quote() {
     assert!(!text.lines().any(|line| line == "# Retry later"), "{text}");
 }
 
+/// A rate limit, the one `session.error` at warning severity, is labelled as
+/// the app labels it.
+#[test]
+fn rate_limits_are_labelled_as_warnings() {
+    let event = |severity, summary: &str| TurnSessionEvent {
+        event_type: "session.error".into(),
+        timestamp: None,
+        severity,
+        summary: summary.into(),
+        checkpoint_number: None,
+        request_id: None,
+        tool_call_id: None,
+        prompt_kind: None,
+        result_kind: None,
+        resolved_by_hook: None,
+        skill_invocation: None,
+    };
+    let mut turn = simple_turn(0, "Ship it", "Shipping", None);
+    turn.session_events = vec![
+        event(SessionEventSeverity::Warning, "You've hit your usage limit"),
+        event(SessionEventSeverity::Error, "Connection reset"),
+    ];
+
+    let text = render_turn(turn);
+
+    assert!(
+        text.contains(
+            "> 🟡 **Rate limit**: You've hit your usage limit\n\
+             > 🔴 **session.error**: Connection reset\n"
+        ),
+        "{text}"
+    );
+}
+
+/// A subagent's totals read "1 call" and "1 tool call", not "1 calls".
+#[test]
+fn subagent_call_counts_agree_in_number() {
+    let agent = |calls| {
+        let mut tool = crate::test_helpers::simple_tool_call("explore", Some(true), true);
+        tool.agent_display_name = Some(format!("Agent {calls}"));
+        tool.intention_summary = None;
+        tool.total_tool_calls = Some(calls);
+        tool.arguments = Some(serde_json::json!({"description": "Map it"}));
+        tool
+    };
+    let mut turn = simple_turn(0, "Map it", "Mapping", None);
+    turn.tool_calls = vec![agent(1), agent(3)];
+
+    let text = render_turn(turn);
+
+    assert!(
+        text.contains("| 🤖 Agent 1 | ✅ | 200ms | test args · 1 call |"),
+        "{text}"
+    );
+    assert!(
+        text.contains("| 🤖 Agent 3 | ✅ | 200ms | test args · 3 calls |"),
+        "{text}"
+    );
+    assert!(text.contains("*1 tool call*"), "{text}");
+    assert!(text.contains("*3 tool calls*"), "{text}");
+}
+
 #[test]
 fn events_summary_orders_ties_by_name() {
     let raw = |event_type: &str| RawEvent {

@@ -253,4 +253,44 @@ describe("TodosTab progress", () => {
     expect(quarter.header).toContain("25%");
     expect(quarter.barText).toBe("25%");
   });
+
+  async function summaryFor(statuses: string[]) {
+    mockGetSessionTodos.mockResolvedValue({
+      todos: statuses.map((status, i) => ({ id: `t${i}`, title: `Todo ${i}`, status })),
+      deps: [],
+    });
+    const store = useSessionDetailStore();
+    store.loaded.delete("todos");
+    store.sessionId = `session-summary-${statuses.join("-")}`;
+    const wrapper = mount(TodosTab, {
+      global: {
+        stubs: {
+          LoadingOverlay: LoadingOverlayStub,
+          EmptyState: EmptyStateStub,
+          ErrorAlert: ErrorAlertStub,
+          SectionPanel: { template: '<div class="section-panel"><slot /></div>' },
+          Badge: true,
+          StatusIcon: true,
+          TodoDependencyGraph: true,
+        },
+      },
+    });
+    await flushPromises();
+    const summary = wrapper.find(".progress-section .flex-wrap");
+    const parts = summary.findAll("span").map((span) => span.text());
+    wrapper.unmount();
+    return parts;
+  }
+
+  it("leaves blocked out of the summary when nothing is blocked", async () => {
+    // Claude Code task lists have no blocked state at all.
+    expect(await summaryFor(["done", "in_progress", "pending"])).toEqual([
+      "✓ 1 done",
+      "·",
+      "● 1 in progress",
+      "·",
+      "○ 1 pending",
+    ]);
+    expect((await summaryFor(["blocked", "pending"])).slice(-2)).toEqual(["·", "⊘ 1 blocked"]);
+  });
 });

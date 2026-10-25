@@ -107,7 +107,8 @@
               "model": "claude-haiku-4.5",
               "requestedModel": "claude-haiku-4.5",
               "intentionSummary": "Coordinate alpha messaging",
-              "resultContent": "Agent started in background with agent_id: agent-alpha. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages."
+              "resultContent": "Agent started in background with agent_id: agent-alpha. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages.",
+              "argsSummary": "Coordinate alpha messaging"
             },
             {
               "toolCallId": "launch-beta",
@@ -140,7 +141,8 @@
               "model": "claude-haiku-4.5",
               "requestedModel": "claude-haiku-4.5",
               "intentionSummary": "Answer alpha question",
-              "resultContent": "Agent started in background with agent_id: agent-beta. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages."
+              "resultContent": "Agent started in background with agent_id: agent-beta. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages.",
+              "argsSummary": "Answer alpha question"
             },
             {
               "toolCallId": "call-3",
