@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import "@/styles/features/session-explorer.css";
 import { openInExplorer, sessionReadFile } from "@tracepilot/client";
-import type {
-  FileEntry,
-  SessionFileArea,
-  SessionFileSearchMatch,
-  SessionFileType,
-} from "@tracepilot/types";
+import type { FileEntry, SessionFileArea, SessionFileType } from "@tracepilot/types";
 import {
   EmptyState,
   FileBrowserTree,
@@ -23,6 +18,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import FileContextMenu from "@/components/session/FileContextMenu.vue";
 import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch";
+import { useExplorerFileOpener } from "@/composables/useExplorerFileOpener";
 import { useExplorerPaneResize } from "@/composables/useExplorerPaneResize";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
@@ -128,7 +124,10 @@ const {
   contentSearchError,
   runContentSearch,
 } = useExplorerContentSearch(() => store.sessionId, { getArea: () => listedArea.value });
-const viewerSearchRequest = ref({ id: 0, query: "", line: 0 });
+const { viewerSearchRequest, onViewFile, onContentSearchMatch } = useExplorerFileOpener(
+  sessionFiles,
+  () => searchQuery.value,
+);
 
 const isSearchOpen = ref(false);
 const searchInputRef = ref<HTMLInputElement | null>(null);
@@ -175,25 +174,6 @@ const contentSearchSummary = computed(() => {
   const files = new Set(result.matches.map((m) => m.path)).size;
   return `${plural(result.matches.length, "match", "matches")} in ${plural(files, "file")} · ${searched}`;
 });
-
-async function onViewFile(path: string) {
-  const entry = sessionFiles.files.find((f) => f.path === path);
-  const fileType: SessionFileType = entry?.fileType ?? "text";
-  await sessionFiles.selectFile(path, fileType);
-}
-
-async function onContentSearchMatch(match: SessionFileSearchMatch) {
-  await onViewFile(match.path);
-  const loadedLines = sessionFiles.fileContent?.split("\n").length ?? 0;
-  if (sessionFiles.fileCanLoadMore && match.lineNumber > loadedLines) {
-    await sessionFiles.loadFullFile();
-  }
-  viewerSearchRequest.value = {
-    id: viewerSearchRequest.value.id + 1,
-    query: searchQuery.value.trim(),
-    line: match.lineNumber,
-  };
-}
 
 // ── Drag-to-resize ──────────────────────────────────────────────────────────
 const explorerRoot = ref<HTMLElement | null>(null);
