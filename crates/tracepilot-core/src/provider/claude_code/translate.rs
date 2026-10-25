@@ -233,6 +233,9 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             let data = strip_nulls(json!({"turnId": id, "parentToolCallId": st.owner_tool}));
             // The last record may already anchor the previous call's `turn_end`.
             let id = format!("{base}:eof_turn_end");
+            // Untimed trailing records (`custom-title`, `ai-title`) keep the
+            // anchor but not the time: the turn ended at the last timed record.
+            let ts = ts.or(st.previous_ts);
             self.push(st, id, "assistant.turn_end", data, ts, None, None);
         }
         Ok(())

@@ -14,7 +14,6 @@ const mocks: {
   browseForDirectory: Mock;
   getConfig: Mock;
   getDbSize: Mock;
-  getSessionCount: Mock;
   updateConfig: Mock;
   validateSessionDir: Mock;
   rebuildSearchIndex: Mock;
@@ -43,7 +42,6 @@ const mocks: {
   browseForDirectory: vi.fn(),
   getConfig: vi.fn(),
   getDbSize: vi.fn(),
-  getSessionCount: vi.fn(),
   updateConfig: vi.fn(),
   validateSessionDir: vi.fn(),
   rebuildSearchIndex: vi.fn(),
@@ -72,7 +70,6 @@ vi.mock("@tracepilot/client", async () => {
     checkConfigExists: mocks.checkConfigExists,
     getConfig: mocks.getConfig,
     getDbSize: mocks.getDbSize,
-    getSessionCount: mocks.getSessionCount,
     updateConfig: mocks.updateConfig,
     validateSessionDir: mocks.validateSessionDir,
     rebuildSearchIndex: mocks.rebuildSearchIndex,
@@ -213,7 +210,6 @@ beforeEach(() => {
   mocks.checkConfigExists.mockResolvedValue(true);
   mocks.getConfig.mockImplementation(() => Promise.resolve(config()));
   mocks.getDbSize.mockResolvedValue(1024);
-  mocks.getSessionCount.mockResolvedValue(12);
   mocks.updateConfig.mockImplementation(async (patch) => ({
     ...config(),
     paths: { ...config().paths, ...patch.paths },

@@ -290,7 +290,7 @@ fn a_missing_root_keeps_its_sources_sessions() {
     let fixture = Fixture::new();
     fixture.index(&fixture.scope());
 
-    assert!(ensure_complete_inventory(&fixture.scope()).is_ok());
+    assert!(ensure_complete_inventory(&fixture.scope(), &fixture.db_path).is_ok());
     // Claude: the config directory itself is gone (an unmounted drive).
     std::fs::rename(
         &fixture.claude_config,
@@ -300,8 +300,12 @@ fn a_missing_root_keeps_its_sources_sessions() {
     fixture.index(&fixture.scope());
     assert_eq!(fixture.ids("claudeCode"), [CLAUDE_A, CLAUDE_B]);
     assert_eq!(fixture.search("alphazprompt"), [CLAUDE_A]);
-    // A full rebuild, which deletes the index first, must refuse.
-    assert!(ensure_complete_inventory(&fixture.scope()).is_err());
+    // A full rebuild, which deletes the index first, must refuse, and say
+    // which source in words users know.
+    let refusal = ensure_complete_inventory(&fixture.scope(), &fixture.db_path)
+        .unwrap_err()
+        .to_string();
+    assert!(refusal.starts_with("Claude Code sessions"), "{refusal}");
 
     // Copilot: its session-state directory is gone too. Neither source is
     // pruned.
@@ -323,6 +327,38 @@ fn a_missing_root_keeps_its_sources_sessions() {
     fixture.index(&fixture.scope());
     assert_eq!(fixture.ids("copilot"), fixture.sorted_copilot_ids());
     assert_eq!(fixture.ids("claudeCode"), [CLAUDE_A, CLAUDE_B]);
+}
+
+#[test]
+fn a_missing_root_with_nothing_indexed_allows_a_rebuild() {
+    // A Claude-Code-only user: the default Copilot folder never existed.
+    let fixture = Fixture::new();
+    let absent = fixture.copilot_root.with_extension("absent");
+    std::fs::rename(&fixture.copilot_root, &absent).unwrap();
+    // No index yet, then an index with only Claude sessions.
+    assert!(ensure_complete_inventory(&fixture.scope(), &fixture.db_path).is_ok());
+    fixture.index(&fixture.scope());
+    assert!(fixture.ids("copilot").is_empty());
+    assert_eq!(fixture.ids("claudeCode"), [CLAUDE_A, CLAUDE_B]);
+    assert!(ensure_complete_inventory(&fixture.scope(), &fixture.db_path).is_ok());
+
+    // Once Copilot sessions are indexed, losing the folder blocks a rebuild.
+    std::fs::rename(&absent, &fixture.copilot_root).unwrap();
+    fixture.index(&fixture.scope());
+    assert_eq!(fixture.ids("copilot"), fixture.sorted_copilot_ids());
+    std::fs::remove_dir_all(&fixture.copilot_root).unwrap();
+    let refusal = ensure_complete_inventory(&fixture.scope(), &fixture.db_path)
+        .unwrap_err()
+        .to_string();
+    assert!(refusal.starts_with("Copilot sessions"), "{refusal}");
+}
+
+#[test]
+fn an_unreadable_index_keeps_a_missing_root_s_refusal() {
+    let fixture = Fixture::new();
+    std::fs::remove_dir_all(&fixture.copilot_root).unwrap();
+    std::fs::write(&fixture.db_path, b"not a database").unwrap();
+    assert!(ensure_complete_inventory(&fixture.scope(), &fixture.db_path).is_err());
 }
 
 /// A provider whose discovery is interrupted part way, as a cancelled or
