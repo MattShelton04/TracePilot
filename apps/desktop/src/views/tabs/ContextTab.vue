@@ -193,10 +193,13 @@ async function load(sessionId: string, options: { background?: boolean } = {}) {
   if (!options.background) error.value = null;
   let succeeded = false;
   try {
-    const response = await loadContextTimeline(sessionId);
+    // Shares a request only with callers wanting this same session state.
+    const response = await loadContextTimeline(sessionId, fingerprint);
     if (version !== requestVersion) return;
     applyTimeline(response.timeline);
-    loadedDetailFingerprint = detailFingerprint(sessionId);
+    // The state this was requested for, not the one now: an update that
+    // landed mid-load gets its own refresh below.
+    loadedDetailFingerprint = fingerprint;
     succeeded = true;
   } catch (cause) {
     if (version !== requestVersion) return;
@@ -209,6 +212,11 @@ async function load(sessionId: string, options: { background?: boolean } = {}) {
       refreshing.value = false;
       if (!succeeded) requestedDetailFingerprint = null;
     }
+  }
+  // The watcher skips updates until a timeline shows, so catch up on one
+  // that arrived meanwhile. It costs a freshness probe when nothing changed.
+  if (succeeded && store.sessionId === sessionId && detailFingerprint(sessionId) !== fingerprint) {
+    void load(sessionId, { background: true });
   }
 }
 

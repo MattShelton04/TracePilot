@@ -1,3 +1,4 @@
+import { createDeferred } from "@tracepilot/test-utils";
 import type { ContextTimelineResponse } from "@tracepilot/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,5 +67,34 @@ describe("useContextTimeline cache", () => {
     const changed = await loadContextTimeline("session-a");
     expect(changed.eventsFileSize).toBe(101);
     expect(getTimeline).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one request between callers wanting the same session state", async () => {
+    const build = createDeferred<ContextTimelineResponse>();
+    getTimeline.mockReturnValueOnce(build.promise);
+    const first = loadContextTimeline("session-a", "state-1");
+    const second = loadContextTimeline("session-a", "state-1");
+    build.resolve(response);
+
+    expect(await first).toBe(response);
+    expect(await second).toBe(response);
+    expect(getTimeline).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts afresh for a newer state and keeps the newer build cached", async () => {
+    const older = createDeferred<ContextTimelineResponse>();
+    const newer = createDeferred<ContextTimelineResponse>();
+    const newerResponse = { ...response, eventsFileSize: 140 };
+    getTimeline.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    const first = loadContextTimeline("session-a", "state-1");
+    const second = loadContextTimeline("session-a", "state-2");
+    expect(getTimeline).toHaveBeenCalledTimes(2);
+
+    newer.resolve(newerResponse);
+    expect(await second).toBe(newerResponse);
+    older.resolve(response);
+    expect(await first).toBe(response);
+
+    expect(getCachedContextTimeline("session-a")).toBe(newerResponse);
   });
 });
