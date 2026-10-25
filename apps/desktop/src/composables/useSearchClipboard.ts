@@ -1,5 +1,6 @@
 import type { SearchResult } from "@tracepilot/types";
 import { logWarn } from "@/utils/logger";
+import { searchResultToolName } from "@/utils/toolDisplayName";
 
 /** Safely extract text from an HTML snippet (handles code like `a < b && c > d`). */
 export function stripHtml(html: string): string {
@@ -27,7 +28,9 @@ export function useSearchClipboard() {
     if (items.length === 0) return false;
     const text = items
       .map((r) => {
-        const meta = [r.contentType.replace(/_/g, " "), r.toolName].filter(Boolean).join(" · ");
+        const meta = [r.contentType.replace(/_/g, " "), searchResultToolName(r)]
+          .filter(Boolean)
+          .join(" · ");
         const plainSnippet = stripHtml(r.snippet);
         const header = r.sessionSummary ? `[${r.sessionSummary}] ${meta}` : `[${meta}]`;
         return `${header}\n${plainSnippet}`;
@@ -53,7 +56,8 @@ export function useSearchClipboard() {
       const parts: string[] = [];
       if (result.sessionSummary) parts.push(`Session: ${result.sessionSummary}`);
       const meta = [result.contentType.replace(/_/g, " ")];
-      if (result.toolName) meta.push(`tool: ${result.toolName}`);
+      const toolName = searchResultToolName(result);
+      if (toolName) meta.push(`tool: ${toolName}`);
       if (result.turnNumber != null) meta.push(`turn ${result.turnNumber}`);
       parts.push(meta.join(" · "));
       parts.push("");
