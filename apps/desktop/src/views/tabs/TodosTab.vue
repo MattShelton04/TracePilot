@@ -152,8 +152,11 @@ function getTodoTitle(id: string): string {
             <span class="text-[var(--accent-fg)]">● {{ inProgressCount }} in progress</span>
             <span class="text-[var(--text-placeholder)]">·</span>
             <span class="text-[var(--text-tertiary)]">○ {{ pendingCount }} pending</span>
-            <span class="text-[var(--text-placeholder)]">·</span>
-            <span class="text-[var(--danger-fg)]">⊘ {{ blockedCount }} blocked</span>
+            <!-- Hidden at zero: Claude Code task lists have no blocked state, and a red "0 blocked" reads as a problem. -->
+            <template v-if="blockedCount > 0">
+              <span class="text-[var(--text-placeholder)]">·</span>
+              <span class="text-[var(--danger-fg)]">⊘ {{ blockedCount }} blocked</span>
+            </template>
           </div>
         </div>
 

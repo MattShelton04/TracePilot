@@ -1,5 +1,6 @@
 use crate::document::{IncidentExport, RawEvent, SectionId, ShutdownMetrics};
 use crate::options::ExportOptions;
+use tracepilot_core::models::event_types::SessionErrorData;
 use tracepilot_core::parsing::events::{
     TypedEvent, TypedEventData, extract_combined_shutdown_data,
 };
@@ -68,15 +69,21 @@ pub(in crate::builder) fn build_incidents(
 
     for event in events {
         let raw = &event.raw;
-        let severity = match raw.event_type.as_str() {
-            "session.error" => "error",
-            "session.warning" => "warning",
-            "session.compaction_complete" => "info",
-            "session.truncation" => "warning",
+        let severity = match (raw.event_type.as_str(), &event.typed_data) {
+            // A rate limit is waited out: a warning, as the app shows it.
+            ("session.error", TypedEventData::SessionError(d)) if is_rate_limit(d) => "warning",
+            ("session.error", _) => "error",
+            ("session.warning", _) => "warning",
+            ("session.compaction_complete", _) => "info",
+            ("session.truncation", _) => "warning",
             _ => continue,
         };
 
         let summary = match &event.typed_data {
+            TypedEventData::SessionError(d) if is_rate_limit(d) => match d.message.as_deref() {
+                Some(message) if !message.is_empty() => format!("Rate limit: {message}"),
+                _ => "Rate limit hit".to_string(),
+            },
             TypedEventData::SessionError(d) => d
                 .message
                 .clone()
@@ -110,4 +117,9 @@ pub(in crate::builder) fn build_incidents(
         available.push(SectionId::Incidents);
     }
     Some(incidents)
+}
+
+/// A usage or rate limit, which both sources record as a `session.error`.
+fn is_rate_limit(error: &SessionErrorData) -> bool {
+    error.error_type.as_deref() == Some("rate_limit")
 }

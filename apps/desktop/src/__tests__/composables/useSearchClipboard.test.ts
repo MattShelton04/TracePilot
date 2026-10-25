@@ -102,6 +102,23 @@ describe("useSearchClipboard", () => {
       expect(clipboardText).toContain("[user message]");
     });
 
+    it("copies the native tool name each result shows", async () => {
+      const { copyResultsToClipboard } = useSearchClipboard();
+      const results = [
+        makeResult({
+          source: "claudeCode",
+          toolName: "view",
+          metadataJson: JSON.stringify({ nativeToolName: "Read" }),
+        }),
+        makeResult({ toolName: "powershell" }),
+      ];
+
+      await copyResultsToClipboard(results);
+      expect(clipboardText).toContain("[tool call · Read]");
+      expect(clipboardText).toContain("[tool call · powershell]");
+      expect(clipboardText).not.toContain("view");
+    });
+
     it("separates multiple results with dividers", async () => {
       const { copyResultsToClipboard } = useSearchClipboard();
       const results = [makeResult({ snippet: "first" }), makeResult({ snippet: "second" })];
@@ -156,6 +173,19 @@ describe("useSearchClipboard", () => {
       expect(clipboardText).not.toContain("tool:");
       expect(clipboardText).not.toContain("turn");
       expect(clipboardText).not.toContain("Repo:");
+    });
+
+    it("copies the native tool name the result shows", async () => {
+      const { copySingleResult } = useSearchClipboard();
+      const result = makeResult({
+        source: "claudeCode",
+        toolName: "view",
+        metadataJson: JSON.stringify({ nativeToolName: "Read" }),
+      });
+
+      await copySingleResult(result);
+      expect(clipboardText).toContain("tool: Read");
+      expect(clipboardText).not.toContain("view");
     });
 
     it("returns false when clipboard API fails", async () => {

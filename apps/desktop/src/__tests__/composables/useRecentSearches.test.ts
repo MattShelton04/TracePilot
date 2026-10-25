@@ -117,6 +117,78 @@ describe("useRecentSearches", () => {
     });
   });
 
+  describe("refining the newest search", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(1_000_000);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("replaces the newest entry when the query extends it", () => {
+      const { recentSearches, addRecentSearch } = useRecentSearches();
+      addRecentSearch("older", 4);
+      vi.advanceTimersByTime(60_000);
+
+      for (const q of ["auth", "auth plugin", "auth plugin refactor"]) {
+        addRecentSearch(q, 2);
+        vi.advanceTimersByTime(1_000);
+      }
+
+      expect(recentSearches.value.map((s) => s.query)).toEqual(["auth plugin refactor", "older"]);
+    });
+
+    it("replaces the newest entry when the query trims it, ignoring case", () => {
+      const { recentSearches, addRecentSearch } = useRecentSearches();
+      addRecentSearch("Auth plugin", 2);
+      vi.advanceTimersByTime(1_000);
+      addRecentSearch("auth", 9);
+
+      expect(recentSearches.value).toEqual([
+        { query: "auth", timestamp: 1_001_000, resultCount: 9 },
+      ]);
+    });
+
+    it("keeps the newest entry once the refine window has passed", () => {
+      const { recentSearches, addRecentSearch } = useRecentSearches();
+      addRecentSearch("auth", 2);
+      vi.advanceTimersByTime(5_000);
+      addRecentSearch("auth plugin", 1);
+
+      expect(recentSearches.value.map((s) => s.query)).toEqual(["auth plugin", "auth"]);
+    });
+
+    it("keeps the window anchored when the newest query runs again", () => {
+      const { recentSearches, addRecentSearch } = useRecentSearches();
+      addRecentSearch("auth", 2);
+      vi.advanceTimersByTime(4_000);
+      addRecentSearch("auth", 2); // another page of the same search
+      vi.advanceTimersByTime(4_000);
+      addRecentSearch("auth plugin", 1);
+
+      expect(recentSearches.value.map((s) => s.query)).toEqual(["auth plugin", "auth"]);
+    });
+
+    it("adds unrelated queries alongside the newest entry", () => {
+      const { recentSearches, addRecentSearch } = useRecentSearches();
+      addRecentSearch("auth", 2);
+      addRecentSearch("plugin", 1);
+
+      expect(recentSearches.value.map((s) => s.query)).toEqual(["plugin", "auth"]);
+    });
+
+    it("drops the refined entry and an older duplicate of the new query", () => {
+      const { recentSearches, addRecentSearch } = useRecentSearches();
+      addRecentSearch("auth", 2);
+      vi.advanceTimersByTime(60_000);
+      addRecentSearch("auth p", 1);
+      addRecentSearch("auth", 3);
+
+      expect(recentSearches.value.map((s) => s.query)).toEqual(["auth"]);
+    });
+  });
+
   describe("removeRecentSearch", () => {
     it("removes a specific search by query", () => {
       const { recentSearches, addRecentSearch, removeRecentSearch } = useRecentSearches();

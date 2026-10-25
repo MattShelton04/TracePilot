@@ -4,7 +4,7 @@
 //! via Tauri IPC, including computing human-readable argument summaries and stripping
 //! unused fields to reduce payload size.
 
-use super::args_summary::compute_args_summary;
+use super::args_summary::tool_call_args_summary;
 use crate::models::conversation::ConversationTurn;
 
 /// Prepare turns for IPC transfer: compute args summaries and strip
@@ -21,7 +21,7 @@ pub fn prepare_turns_for_ipc(turns: &mut [ConversationTurn]) {
             if tc.args_summary.is_none()
                 && let Some(ref args) = tc.arguments
             {
-                let summary = compute_args_summary(&tc.tool_name, args);
+                let summary = tool_call_args_summary(tc, args);
                 if !summary.is_empty() {
                     tc.args_summary = Some(summary);
                 }

@@ -334,3 +334,93 @@ it("dates event times when the session spans days, with the full time as a toolt
   expect(timeCell(sameDay, 0).attributes("title")).toBe(new Date(times[0]).toLocaleString());
   sameDay.unmount();
 });
+
+const cleanups: (() => void)[] = [];
+// Unmount even when a test fails, so a stray tab doesn't answer the next test's refreshes.
+afterEach(() => {
+  for (const cleanup of cleanups.splice(0)) cleanup();
+});
+
+/**
+ * Mounts the tab in a scroller under a sticky bar, as in the session panel.
+ * The tab's top sits 200px down the scroller and the bar covers its top 80px.
+ */
+function mountInScroller(scrollTop: number, reduceMotion = false) {
+  const scroller = document.createElement("div");
+  scroller.style.overflowY = "auto";
+  const bar = document.createElement("div");
+  bar.style.position = "sticky";
+  const host = document.createElement("div");
+  scroller.append(bar, host);
+  document.body.append(scroller);
+  let top = scrollTop;
+  Object.defineProperty(scroller, "scrollTop", { get: () => top, configurable: true });
+  const scrollTo = vi.fn((opts: ScrollToOptions) => {
+    top = opts.top ?? top;
+  });
+  scroller.scrollTo = scrollTo as unknown as HTMLElement["scrollTo"];
+  scroller.getBoundingClientRect = () => ({ top: 0, bottom: 640, height: 640 }) as DOMRect;
+  bar.getBoundingClientRect = () => ({ top: 0, bottom: 80 }) as DOMRect;
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({ matches: reduceMotion && query.includes("reduce") })),
+  );
+  setupPinia();
+  const wrapper = mount(EventsTab, { attachTo: host });
+  (wrapper.element as HTMLElement).getBoundingClientRect = () =>
+    ({ top: 200 - top, bottom: 2400 - top }) as DOMRect;
+  cleanups.push(() => {
+    wrapper.unmount();
+    scroller.remove();
+    vi.unstubAllGlobals();
+  });
+  return { wrapper, scrollTo };
+}
+
+it("brings the new page's first rows into view below the sticky bar after Next or Previous", async () => {
+  loadSucceeds();
+  const { wrapper, scrollTo } = mountInScroller(1800);
+  await flushPromises();
+  expect(scrollTo).not.toHaveBeenCalled();
+
+  await button(wrapper, "Next").trigger("click");
+  await flushPromises();
+  expect(wrapper.text()).toContain("Page 2 of 3");
+  // The tab's top lands 12px under the bar: 200 - 80 - 12.
+  expect(scrollTo).toHaveBeenLastCalledWith({ top: 108, behavior: "smooth" });
+
+  // Already in view: paging back leaves the scroll alone.
+  scrollTo.mockClear();
+  await button(wrapper, "Previous").trigger("click");
+  await flushPromises();
+  expect(wrapper.text()).toContain("Page 1 of 3");
+  expect(scrollTo).not.toHaveBeenCalled();
+});
+
+it("jumps without animating when the user prefers reduced motion", async () => {
+  loadSucceeds();
+  const { wrapper, scrollTo } = mountInScroller(1800, true);
+  await flushPromises();
+  await button(wrapper, "Next").trigger("click");
+  await flushPromises();
+  expect(scrollTo).toHaveBeenLastCalledWith({ top: 108, behavior: "auto" });
+});
+
+it("keeps the reader's place on a background refresh or a failed page", async () => {
+  loadSucceeds();
+  const { wrapper, scrollTo } = mountInScroller(1800);
+  await flushPromises();
+
+  store.eventsRefreshVersion += 1;
+  await flushPromises();
+  expect(store.loadEvents).toHaveBeenCalledTimes(2);
+  expect(scrollTo).not.toHaveBeenCalled();
+
+  store.loadEvents.mockImplementation(async () => {
+    store.eventsError = "Couldn't read events.jsonl";
+  });
+  await button(wrapper, "Next").trigger("click");
+  await flushPromises();
+  expect(wrapper.text()).toContain("Page 1 of 3");
+  expect(scrollTo).not.toHaveBeenCalled();
+});

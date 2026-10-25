@@ -4,7 +4,7 @@ use crate::document::{ConversationTurn, SectionId};
 use crate::options::{ExportOptions, RedactionOptions};
 use crate::redaction::{RedactionStats, collect_active_patterns, redact_json_value};
 use tracepilot_core::parsing::events::{TypedEvent, TypedEventData};
-use tracepilot_core::turns::{compute_args_summary, reconstruct_turns};
+use tracepilot_core::turns::{reconstruct_turns, tool_call_args_summary};
 
 pub(in crate::builder) fn build_conversation(
     options: &ExportOptions,
@@ -59,11 +59,11 @@ fn fill_args_summaries(turns: &mut [ConversationTurn], redaction: &RedactionOpti
             continue;
         };
         let summary = if patterns.is_empty() {
-            compute_args_summary(&tc.tool_name, args)
+            tool_call_args_summary(tc, args)
         } else {
             let mut redacted = args.clone();
             redact_json_value(&mut redacted, &patterns, &mut RedactionStats::default());
-            compute_args_summary(&tc.tool_name, &redacted)
+            tool_call_args_summary(tc, &redacted)
         };
         if !summary.is_empty() {
             tc.args_summary = Some(summary);
