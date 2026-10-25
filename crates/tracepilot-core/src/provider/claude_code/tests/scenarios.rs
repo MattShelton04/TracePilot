@@ -1,6 +1,7 @@
 //! Mapping behaviour per fixture (mapping.md §1).
 
-use tracepilot_test_support::claude::OPUS;
+use serde_json::json;
+use tracepilot_test_support::claude::{OPUS, Transcript, Usage, text, write_session};
 use tracepilot_test_support::claude_scenarios as fixtures;
 
 use super::{event_types, parse, user_turns};
@@ -444,4 +445,44 @@ fn foreground_agent_results_end_their_agents() {
     let types = event_types(&parsed);
     assert_eq!(count(&types, "subagent.completed"), 2);
     assert_eq!(count(&types, "subagent.failed"), 1);
+}
+
+/// A file that ends with untimed records (`custom-title`, `ai-title`) after
+/// the final reply still ends its last turn at that reply, so the turn keeps
+/// its duration; the synthesized `turn_end` stays anchored on the last line.
+#[test]
+fn eof_turn_end_takes_the_last_timed_record_time() {
+    let mut t = Transcript::main();
+    t.prompt("Ship it.");
+    let reply = t.call(
+        "msg_eof",
+        OPUS,
+        vec![text("Shipped.")],
+        Usage::new(3, 100, 10, 7),
+        "end_turn",
+    );
+    t.bookkeeping(json!({"type": "custom-title", "customTitle": "Ship"}));
+    t.bookkeeping(json!({"type": "custom-title", "customTitle": "Ship it"}));
+    t.bookkeeping(json!({"type": "ai-title", "aiTitle": "Ship the release"}));
+    let parsed = parse(&write_session(&t, &[]));
+
+    let reply_ts = parsed
+        .events
+        .iter()
+        .find(|e| e.raw.id.as_deref() == Some(&format!("{}:0", reply[0])))
+        .and_then(|e| e.raw.timestamp)
+        .expect("timed reply");
+    // Anchored on the last (untimed) line, as before.
+    let eof = parsed
+        .events
+        .iter()
+        .find(|e| e.raw.id.as_deref() == Some("line-5:eof_turn_end"))
+        .expect("eof turn_end");
+    assert_eq!(eof.raw.timestamp, Some(reply_ts));
+
+    let turns = reconstruct_turns(&parsed.events);
+    let last = turns.last().unwrap();
+    assert!(last.is_complete);
+    assert_eq!(last.end_timestamp, Some(reply_ts));
+    assert_eq!(last.duration_ms, Some(1000), "prompt at +1s, reply at +2s");
 }
