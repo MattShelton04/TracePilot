@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatNumberFull } from "@tracepilot/types";
+import { X } from "lucide-vue-next";
 import { computed } from "vue";
 import { BROWSE_PRESETS, useSearchStore } from "@/stores/search";
 
@@ -84,26 +85,26 @@ function presetDesc(key: PresetKey, desc: string): string {
         <button class="recent-searches-clear" @click="store.clearRecentSearches()">Clear</button>
       </div>
       <div class="recent-searches-list">
-        <button
-          v-for="recent in store.recentSearches"
-          :key="recent.query"
-          class="recent-search-item"
-          @click="store.applyRecentSearch(recent.query)"
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
-            <circle cx="7" cy="7" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" />
-          </svg>
-          <span class="recent-query">{{ recent.query }}</span>
-          <span class="recent-count">{{ recent.resultCount }} result{{ recent.resultCount !== 1 ? 's' : '' }}</span>
-          <span
-            role="button"
-            tabindex="0"
+        <div v-for="recent in store.recentSearches" :key="recent.query" class="recent-search-row">
+          <button
+            type="button"
+            class="recent-search-item"
+            @click="store.applyRecentSearch(recent.query)"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+              <circle cx="7" cy="7" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" />
+            </svg>
+            <span class="recent-query">{{ recent.query }}</span>
+            <span class="recent-count">{{ recent.resultCount }} result{{ recent.resultCount !== 1 ? 's' : '' }}</span>
+          </button>
+          <button
+            type="button"
             class="recent-remove"
-            @click.stop="store.removeRecentSearch(recent.query)"
-            @keydown.enter.stop="store.removeRecentSearch(recent.query)"
+            :aria-label="`Remove ${recent.query} from recent searches`"
             title="Remove"
-          >✕</span>
-        </button>
+            @click="store.removeRecentSearch(recent.query)"
+          ><X :size="12" :stroke-width="1.75" /></button>
+        </div>
       </div>
     </div>
 
@@ -253,8 +254,19 @@ function presetDesc(key: PresetKey, desc: string): string {
   flex-direction: column;
   gap: 2px;
 }
+.recent-search-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.recent-search-row:hover {
+  background: var(--canvas-subtle);
+}
 .recent-search-item {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -267,8 +279,7 @@ function presetDesc(key: PresetKey, desc: string): string {
   text-align: left;
   transition: all var(--transition-fast);
 }
-.recent-search-item:hover {
-  background: var(--canvas-subtle);
+.recent-search-row:hover .recent-search-item {
   color: var(--text-primary);
 }
 .recent-search-item svg {
@@ -288,16 +299,22 @@ function presetDesc(key: PresetKey, desc: string): string {
   flex-shrink: 0;
 }
 .recent-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 6px;
+  padding: 4px;
   background: none;
   border: none;
+  border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: 0 4px;
-  font-size: 0.75rem;
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
-.recent-search-item:hover .recent-remove {
+.recent-search-row:hover .recent-remove,
+.recent-search-row:focus-within .recent-remove {
   opacity: 1;
 }
 .recent-remove:hover {
