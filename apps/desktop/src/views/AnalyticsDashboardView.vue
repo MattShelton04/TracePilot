@@ -119,7 +119,7 @@ const billedInAic = computed(() =>
 
 <template>
   <PageShell>
-    <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
+    <AnalyticsPageHeader title="Analytics" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading analytics…">
       <ErrorState
         v-if="store.analyticsError"

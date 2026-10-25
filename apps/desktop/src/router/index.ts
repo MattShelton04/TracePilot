@@ -53,7 +53,7 @@ const routes: RouteRecordRaw[] = [
     name: "analytics",
     component: () => import("@/views/AnalyticsDashboardView.vue"),
     meta: {
-      title: "Analytics Dashboard",
+      title: "Analytics",
       sidebarId: "analytics",
       sidebar: { section: "primary", label: "Analytics", icon: "analytics", order: 2 },
     },

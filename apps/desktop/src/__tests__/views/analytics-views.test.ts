@@ -1,6 +1,8 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ROUTE_NAMES } from "@/config/routes";
+import router from "@/router";
 import { resetAnalyticsDashboardViews } from "../../composables/useAnalyticsDashboardViews";
 import AnalyticsDashboardView from "../../views/AnalyticsDashboardView.vue";
 import CodeImpactView from "../../views/CodeImpactView.vue";
@@ -82,6 +84,16 @@ describe("AnalyticsDashboardView", () => {
     await flushPromises();
     return wrapper;
   }
+
+  // "Analytics Dashboard" truncated beside the repository and source filters
+  // at the minimum window width; the sidebar's word fits like Tools and Code.
+  it("titles the page and its breadcrumb with the sidebar's label", async () => {
+    const wrapper = await mountDashboard();
+    const route = router.getRoutes().find((r) => r.name === ROUTE_NAMES.analytics);
+    expect(wrapper.get("h1").text()).toBe("Analytics");
+    expect(route?.meta.title).toBe("Analytics");
+    expect(route?.meta.sidebar?.label).toBe("Analytics");
+  });
 
   it("leads with sessions, tokens, cost, model time and errors", async () => {
     const wrapper = await mountDashboard();
