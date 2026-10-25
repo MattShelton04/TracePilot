@@ -20,7 +20,7 @@ const features = [
     emoji: "📋",
     color: chartColors.primaryLight, // indigo
     title: "Session Explorer",
-    desc: "Browse and search all your Copilot coding sessions",
+    desc: "Browse and search all your coding agent sessions",
   },
   {
     emoji: "💬",
@@ -38,7 +38,7 @@ const features = [
     emoji: "🔧",
     color: chartColors.pink, // pink (--chart-pink)
     title: "Tool Analysis",
-    desc: "See which tools Copilot uses and how effectively",
+    desc: "See which tools your agents use and how effectively",
   },
   {
     emoji: "📝",
