@@ -46,6 +46,7 @@ function mountList(viewMode: "compact" | "timeline", overrides: Partial<Conversa
       failedResults: new Set(),
       richEnabledFor: () => false,
     },
+    global: { renderStubDefaultSlot: true },
   } as never);
 }
 
@@ -84,6 +85,34 @@ describe("ConversationTurnList session event placement", () => {
       "reply",
       "session.start",
       "warning",
+    ]);
+  });
+});
+
+describe("ConversationTurnList rate limits", () => {
+  beforeEach(() => setupPinia());
+
+  const rateLimit: TurnSessionEvent = {
+    eventType: "session.error",
+    timestamp: "2026-03-14T03:20:30.000Z",
+    severity: "warning",
+    summary: "You've hit your usage limit · resets 6pm",
+  };
+  const failure: TurnSessionEvent = {
+    ...rateLimit,
+    severity: "error",
+    summary: "Connection reset",
+  };
+
+  it.each([
+    "compact",
+    "timeline",
+  ] as const)("%s view labels a rate limit as an amber Rate limit and other errors as red", (viewMode) => {
+    const wrapper = mountList(viewMode, { sessionEvents: [rateLimit, failure] });
+    const badges = wrapper.findAll(".session-event-row badge-stub");
+    expect(badges.map((b) => [b.attributes("variant"), b.text()])).toEqual([
+      ["warning", "Rate limit"],
+      ["danger", "Error"],
     ]);
   });
 });

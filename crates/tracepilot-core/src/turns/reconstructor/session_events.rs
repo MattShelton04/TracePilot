@@ -14,6 +14,9 @@ use serde_json::Value;
 use super::state::SessionEventBuild;
 use super::{PendingSkillInvocation, TurnReconstructor};
 
+/// The `errorType` both sources give a usage or rate limit.
+const RATE_LIMIT_ERROR_TYPE: &str = "rate_limit";
+
 impl TurnReconstructor {
     // Model change: update session-level model; set turn model if not already set
     pub(super) fn handle_session_model_change(
@@ -73,20 +76,31 @@ impl TurnReconstructor {
         self.session_model = Some(chosen);
     }
 
+    /// A rate limit is a `session.error` the session waits out, so it reads as
+    /// a warning, as the session card, Overview and Analytics show it. It is
+    /// the only `session.error` at warning severity, which is how the app and
+    /// exports label it "Rate limit".
     pub(super) fn handle_session_error(&mut self, event: &TypedEvent, data: &SessionErrorData) {
+        let rate_limit = data.error_type.as_deref() == Some(RATE_LIMIT_ERROR_TYPE);
+        let fallback = if rate_limit {
+            Some("Rate limit hit")
+        } else {
+            data.error_type.as_deref()
+        };
         let summary = data
             .message
             .as_deref()
-            .or(data.error_type.as_deref())
+            .filter(|m| !m.is_empty())
+            .or(fallback)
             .map(|s| s.to_string())
             .or_else(|| data.status_code.map(|c| format!("HTTP {c}")))
             .unwrap_or_else(|| "Session error".to_string());
-        self.push_session_event(
-            "session.error",
-            event.raw.timestamp,
-            SessionEventSeverity::Error,
-            summary,
-        );
+        let severity = if rate_limit {
+            SessionEventSeverity::Warning
+        } else {
+            SessionEventSeverity::Error
+        };
+        self.push_session_event("session.error", event.raw.timestamp, severity, summary);
     }
 
     pub(super) fn handle_session_warning(&mut self, event: &TypedEvent, data: &SessionWarningData) {

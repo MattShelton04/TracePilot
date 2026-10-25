@@ -89,6 +89,21 @@ describe("SessionEventRow", () => {
     expect(wrapper.text()).toContain("Boom");
   });
 
+  it("shows a rate limit as a warning labelled rate limit", () => {
+    const wrapper = mount(SessionEventRow, {
+      props: {
+        event: evt({
+          eventType: "session.error",
+          severity: "warning",
+          summary: "You've hit your usage limit",
+        }),
+      },
+    });
+
+    expect(wrapper.find(".cv-session-event").classes()).toContain("warning");
+    expect(wrapper.find(".cv-session-event-type").text()).toBe("rate limit");
+  });
+
   it("labels model switches and auto-mode choices", () => {
     const change = mount(SessionEventRow, {
       props: {

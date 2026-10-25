@@ -202,6 +202,42 @@ fn multi_line_todo_descriptions_stay_in_their_item() {
     assert!(!text.lines().any(|line| line == "# Then"), "{text}");
 }
 
+/// A checkbox is only done or not, so started and blocked todos say so.
+#[test]
+fn todos_mark_in_progress_and_blocked_items() {
+    let todo = |id: &str, status: &str| TodoItemExport {
+        id: id.to_string(),
+        title: format!("Step {id}"),
+        description: None,
+        status: status.to_string(),
+        created_at: None,
+        updated_at: None,
+    };
+    let mut session = minimal_session();
+    session.todos = Some(TodoExport {
+        items: vec![
+            todo("a", "done"),
+            todo("b", "in_progress"),
+            todo("c", "blocked"),
+            todo("d", "pending"),
+        ],
+        deps: vec![],
+    });
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+
+    assert!(
+        text.contains(
+            "- [x] **a**: Step a\n\
+             - [ ] **b**: Step b _(in progress)_\n\
+             - [ ] **c**: Step c _(blocked)_\n\
+             - [ ] **d**: Step d\n"
+        ),
+        "{text}"
+    );
+}
+
 /// The H1 is the summary's first line: an untitled Claude Code session's
 /// summary is its whole first prompt, whose own headings and lists must not
 /// land in the header above the Metadata table.

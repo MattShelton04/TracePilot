@@ -108,7 +108,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                     parts.push(format!("{} tok", tok));
                 }
                 if let Some(calls) = tool.total_tool_calls {
-                    parts.push(format!("{} calls", calls));
+                    parts.push(count(calls, "call"));
                 }
                 parts.join(" · ")
             } else {
@@ -153,7 +153,7 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                         stats.push(format!("{} tokens", tok));
                     }
                     if let Some(calls) = tool.total_tool_calls {
-                        stats.push(format!("{} tool calls", calls));
+                        stats.push(count(calls, "tool call"));
                     }
                     if !stats.is_empty() {
                         md.push_line(format_args!("*{}*\n", stats.join(" · ")));
@@ -183,6 +183,12 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
     }
 
     write_session_events(md, during);
+}
+
+/// "1 call", "3 calls".
+fn count(n: u64, noun: &str) -> String {
+    let s = if n == 1 { "" } else { "s" };
+    format!("{n} {noun}{s}")
 }
 
 /// The name the app's conversation shows: the source's own tool name (Claude
@@ -244,13 +250,19 @@ fn write_session_events(md: &mut String, events: &[TurnSessionEvent]) {
             SessionEventSeverity::Warning => "🟡",
             SessionEventSeverity::Info => "ℹ️",
         };
+        // The core makes a rate limit the one `session.error` at warning
+        // severity; it is labelled as the app labels it.
+        let label = match (event.event_type.as_str(), &event.severity) {
+            ("session.error", SessionEventSeverity::Warning) => "Rate limit",
+            (event_type, _) => event_type,
+        };
         // Every line of a multi-line summary (an error message) stays quoted,
         // so a blank or `#` line can't end the quote or become a heading.
         let mut lines = event.summary.lines();
         md.push_line(format_args!(
             "> {} **{}**: {}",
             icon,
-            event.event_type,
+            label,
             lines.next().unwrap_or_default()
         ));
         for line in lines {

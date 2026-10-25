@@ -59,7 +59,7 @@ use crate::models::conversation::ConversationTurn;
 use crate::parsing::events::TypedEvent;
 
 // Re-export public items
-pub use args_summary::compute_args_summary;
+pub use args_summary::{compute_args_summary, tool_call_args_summary};
 pub use ipc::prepare_turns_for_ipc;
 pub use reconstructor::TurnReconstructor;
 

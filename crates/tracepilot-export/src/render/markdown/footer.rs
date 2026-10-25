@@ -24,9 +24,15 @@ pub(super) fn write_todos(md: &mut String, todos: &TodoExport) {
             "done" => "[x]",
             _ => "[ ]",
         };
+        // A checkbox is only done or not; started and blocked items say so.
+        let state = match item.status.as_str() {
+            "in_progress" => " _(in progress)_",
+            "blocked" => " _(blocked)_",
+            _ => "",
+        };
         md.push_line(format_args!(
-            "- {} **{}**: {}",
-            checkbox, item.id, item.title
+            "- {} **{}**: {}{}",
+            checkbox, item.id, item.title, state
         ));
         if let Some(desc) = &item.description
             && !desc.is_empty()

@@ -59,7 +59,9 @@ function severityAria(severity: SessionEventSeverity | undefined): string {
   return "info";
 }
 
-function eventLabel(eventType: string): string {
+function eventLabel(event: TurnSessionEvent): string {
+  // A rate limit is the one `session.error` the backend marks as a warning.
+  if (event.eventType === "session.error" && event.severity === "warning") return "rate limit";
   const labels: Record<string, string> = {
     "permission.requested": "permission requested",
     "permission.completed": "permission result",
@@ -67,7 +69,7 @@ function eventLabel(eventType: string): string {
     "session.model_change": "model",
     "session.auto_mode_resolved": "auto mode",
   };
-  return labels[eventType] ?? eventType;
+  return labels[event.eventType] ?? event.eventType;
 }
 </script>
 
@@ -104,7 +106,7 @@ function eventLabel(eventType: string): string {
     <span class="cv-session-event-icon" :aria-label="severityAria(event.severity)">
       <component :is="eventIcon(event)" :size="14" />
     </span>
-    <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
+    <span class="cv-session-event-type">{{ eventLabel(event) }}</span>
     <span class="cv-session-event-summary">{{ summary }}</span>
     <span v-if="event.timestamp" class="cv-session-event-time" :title="timeLabel(event.timestamp).title">
       {{ timeLabel(event.timestamp).text }}

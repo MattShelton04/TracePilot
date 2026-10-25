@@ -201,8 +201,10 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   "session.auto_mode_resolved": "Auto mode",
 };
 
-function eventTypeLabel(eventType: string): string {
-  return EVENT_TYPE_LABELS[eventType] ?? eventType.replace("session.", "");
+/** A rate limit is the one `session.error` the backend marks as a warning. */
+function sessionEventLabel(event: TurnSessionEvent): string {
+  if (event.eventType === "session.error" && event.severity === "warning") return "Rate limit";
+  return EVENT_TYPE_LABELS[event.eventType] ?? event.eventType.replace("session.", "");
 }
 
 function onLoadFullResult(toolCallId: string) {
@@ -225,7 +227,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-for="(se, seIdx) in sessionEventsBefore(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
           <Badge :variant="severityVariant(se.severity)" size="sm">
             <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
-            {{ eventTypeLabel(se.eventType) }}
+            {{ sessionEventLabel(se) }}
           </Badge>
           <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
         </div>
@@ -342,7 +344,7 @@ function onRetryFullResult(toolCallId: string) {
           <div v-for="(se, seIdx) in sessionEventsAfter(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
-              {{ eventTypeLabel(se.eventType) }}
+              {{ sessionEventLabel(se) }}
             </Badge>
             <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
           </div>
@@ -377,7 +379,7 @@ function onRetryFullResult(toolCallId: string) {
           <div v-for="(se, seIdx) in sessionEventsBefore(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
-              {{ eventTypeLabel(se.eventType) }}
+              {{ sessionEventLabel(se) }}
             </Badge>
             <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
             <span v-if="se.timestamp" class="turn-meta" :title="timeLabel(se.timestamp).title">{{ timeLabel(se.timestamp).text }}</span>
@@ -456,7 +458,7 @@ function onRetryFullResult(toolCallId: string) {
           <div v-for="(se, seIdx) in sessionEventsAfter(turn)" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
-              {{ eventTypeLabel(se.eventType) }}
+              {{ sessionEventLabel(se) }}
             </Badge>
             <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
             <span v-if="se.timestamp" class="turn-meta" :title="timeLabel(se.timestamp).title">{{ timeLabel(se.timestamp).text }}</span>
