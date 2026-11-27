@@ -62,6 +62,14 @@ fn extractor_version(source: SessionSource) -> i64 {
     }
 }
 
+/// Whether a row has text worth indexing. The `search_content` CHECK
+/// (`length(trim(content)) > 0`) trims only spaces, so one row of spaces
+/// would fail its whole session's write, leaving that session stale and
+/// re-extracted on every pass. Rust's `trim` covers every whitespace-only row.
+fn is_searchable(row: &SearchContentRow) -> bool {
+    !row.content.trim().is_empty()
+}
+
 /// A single row to be inserted into `search_content`.
 #[derive(Debug)]
 pub struct SearchContentRow {
@@ -224,8 +232,7 @@ impl IndexDb {
             [session_id.as_str()],
         )?;
 
-        let non_empty: Vec<&SearchContentRow> =
-            rows.iter().filter(|r| !r.content.is_empty()).collect();
+        let non_empty: Vec<&SearchContentRow> = rows.iter().filter(|r| is_searchable(r)).collect();
         if non_empty.is_empty() {
             return self.mark_search_indexed(source, session_id, source_fingerprint, 0);
         }
@@ -368,7 +375,7 @@ impl IndexDb {
                 )?;
 
                 let non_empty: Vec<&SearchContentRow> =
-                    rows.iter().filter(|r| !r.content.is_empty()).collect();
+                    rows.iter().filter(|r| is_searchable(r)).collect();
                 for chunk in non_empty.chunks(256) {
                     tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
                     batched_insert(
