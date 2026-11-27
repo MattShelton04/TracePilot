@@ -236,6 +236,12 @@ mod tests {
             ("claude-sonnet-5.5", 2.0, 0.1, 2.5, 10.0, 1),
             ("gpt-6.1-sol", 2.0, 0.1, 2.5, 10.0, 2),
             ("claude-haiku-5.5", 0.1, 0.01, 0.125, 0.5, 2),
+            ("gpt-6.1-terra", 1.0, 0.05, 1.25, 5.0, 2),
+            ("gpt-6.2-astra", 8.0, 0.4, 10.0, 40.0, 2),
+            ("gpt-6.2-sol", 2.0, 0.1, 2.5, 10.0, 2),
+            ("claude-fable-5.2", 8.0, 0.2, 10.0, 40.0, 1),
+            ("gemini-4-neon", 3.0, 0.15, 0.0, 15.0, 1),
+            ("mai-code-2-flash", 0.05, 0.005, 0.0, 0.25, 1),
         ] {
             let rows: Vec<_> = prices.iter().filter(|p| p.model == model).collect();
             assert_eq!(rows.len(), tiers);
@@ -249,7 +255,7 @@ mod tests {
                 decoded
                     .source_label
                     .unwrap()
-                    .contains("verified 2026-10-10")
+                    .contains("verified 2026-11-27")
             );
         }
         let luna_long = prices

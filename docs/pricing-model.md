@@ -125,6 +125,31 @@ When GitHub removes a whole model from a table, the importer retains it in `gith
 
 The bundled model registry also supplies launcher and config-editor model lists, so retained identities can still appear in those menus. Those lists are local metadata, not a live Copilot availability check. The SDK's separate model-list query reflects what the connected Copilot client reports. Removing a model in local Direct API settings only suppresses its editable defaults during merges; it does not remove the bundled Copilot pricing evidence used by historical estimates.
 
+### November 27, 2026 snapshot
+
+Verified against `github/docs` revision [`df6faa250dc425fa137d270c967e6a74f12103a7`](https://github.com/github/docs/commit/df6faa250dc425fa137d270c967e6a74f12103a7). The source contains **48 token-rate rows** and **7 annual-plan multipliers**. Ten identities are newly registered:
+
+| Model | Input | Cached input | Cache write | Output | Long-context threshold |
+| --- | ---: | ---: | ---: | ---: | --- |
+| GPT-6.1 Terra | $1 | $0.05 | $1.25 | $5 | Above 272,000 input tokens: $2 / $0.10 / $2.50 / $7.50 |
+| GPT-6.2 Astra | $8 | $0.40 | $10 | $40 | Above 272,000 input tokens: $16 / $0.80 / $20 / $60 |
+| GPT-6.2 Sol | $2 | $0.10 | $2.50 | $10 | Above 272,000 input tokens: $4 / $0.20 / $5 / $15 |
+| Claude Fable 5.2 | $8 | $0.20 | $10 | $40 | None published |
+| Gemini 4 Argon (promotional) | $2 | $0.10 | — | $10 | None published |
+| Gemini 4 Carbon (promotional) | $2 | $0.10 | — | $10 | None published |
+| Gemini 4 Hydrogen | $1.50 | $0.075 | — | $7.50 | None published |
+| Gemini 4 Neon | $3 | $0.15 | — | $15 | None published |
+| MAI Code 2 (promotional) | $0.50 | $0.025 | — | $2.50 | None published |
+| MAI Code 2 Flash (promotional) | $0.05 | $0.005 | — | $0.25 | None published |
+
+Amounts are USD per million tokens. New rows begin at TracePilot's **2026-11-27 verification boundary**. All other listed rates are unchanged.
+
+Promotional rates end exclusively at their published dates: Gemini 4 Argon and Carbon at `2026-12-01`, MAI Code 2 and MAI Code 2 Flash at `2027-05-17`, and Gemini 3.8 Flash still at `2027-01-01`. GitHub already lists the post-promotion rates for Carbon ($4 / $0.20 / $20) and both MAI Code 2 models (double the promotional rates), but the table only carries the promotional row, so dated estimates after those dates are unavailable until a refresh imports the standard row. Each row's `sourceNote` records the announced rate.
+
+GPT-5 mini, GPT-5.4, GPT-5.4 mini, GPT-5.5, GPT-5.6 Terra, Claude Opus 5 and Gemini 3.7 Flash left the token table, and eleven models left the annual table; all keep their October 10 values with a retention note. MAI Code 2 (1) and MAI Code 2 Flash (0.33) are the only new annual multipliers, and their `currentPremiumRequestDefaults` reuse those values, as MAI-Code-1.1-Flash does. The other new models have no published legacy multiplier, so they get explicitly labeled local compatibility placeholders.
+
+The same refresh adds Claude Fable 5.2 and Claude Mythos 5.2 to the [Claude Code API rates](#claude-code-api-rates): $8 input, $0.20 cache hit, $10 five-minute and $16 one-hour cache write, and $40 output per million tokens. Claude Haiku 3.5 no longer appears on Anthropic's page and keeps its rates. Claude analytics version 35 re-prices indexed Claude sessions.
+
 ### October 10, 2026 snapshot
 
 Verified against `github/docs` revision [`be38ec5d78e24172587e61b3c6ff40ace1865c71`](https://github.com/github/docs/commit/be38ec5d78e24172587e61b3c6ff40ace1865c71) and both rendered references. The source contains **45 token-rate rows** and **16 annual-plan multipliers**. Claude Haiku 5.5 is newly registered, and Claude Sonnet 5.5's cached-input rate changes:

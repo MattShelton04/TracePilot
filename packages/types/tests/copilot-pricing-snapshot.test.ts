@@ -9,24 +9,16 @@ import {
   resolvePricingEntry,
 } from "../src/pricing.js";
 
-// Independently transcribed from the complete Copilot token-rate table, 2026-10-10:
+// Independently transcribed from the complete Copilot token-rate table, 2026-11-27:
 // https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing
 // [model, minimum input tokens, input, cached input, cache write, output] in USD/MTok.
 const publishedRates: [string, number, number, number, number, number][] = [
-  ["gpt-5-mini", 0, 0.25, 0.025, 0, 2],
   ["gpt-5.3-codex", 0, 1.75, 0.175, 0, 14],
-  ["gpt-5.4", 0, 2.5, 0.25, 0, 15],
-  ["gpt-5.4", 272001, 5, 0.5, 0, 22.5],
-  ["gpt-5.4-mini", 0, 0.75, 0.075, 0, 4.5],
   ["gpt-5.4-nano", 0, 0.2, 0.02, 0, 1.25],
-  ["gpt-5.5", 0, 5, 0.5, 0, 30],
-  ["gpt-5.5", 272001, 10, 1, 0, 45],
   ["gpt-5.6-luna", 0, 0.2, 0.02, 0.25, 1.2],
   ["gpt-5.6-luna", 200001, 0.4, 0.04, 0.5, 1.8],
   ["gpt-5.6-sol", 0, 4, 0.4, 5, 20],
   ["gpt-5.6-sol", 272001, 8, 0.8, 10, 30],
-  ["gpt-5.6-terra", 0, 2, 0.2, 2.5, 12],
-  ["gpt-5.6-terra", 272001, 4, 0.4, 5, 18],
   ["gpt-6-astra", 0, 10, 1, 12.5, 50],
   ["gpt-6-astra", 272001, 20, 2, 25, 75],
   ["gpt-6-luna", 0, 0.1, 0.01, 0.125, 0.5],
@@ -35,59 +27,61 @@ const publishedRates: [string, number, number, number, number, number][] = [
   ["gpt-6-sol", 272001, 4, 0.4, 5, 15],
   ["gpt-6.1-sol", 0, 2, 0.1, 2.5, 10],
   ["gpt-6.1-sol", 272001, 4, 0.2, 5, 15],
+  ["gpt-6.1-terra", 0, 1, 0.05, 1.25, 5],
+  ["gpt-6.1-terra", 272001, 2, 0.1, 2.5, 7.5],
+  ["gpt-6.2-astra", 0, 8, 0.4, 10, 40],
+  ["gpt-6.2-astra", 272001, 16, 0.8, 20, 60],
+  ["gpt-6.2-sol", 0, 2, 0.1, 2.5, 10],
+  ["gpt-6.2-sol", 272001, 4, 0.2, 5, 15],
   ["claude-haiku-4.5", 0, 1, 0.1, 1.25, 5],
   ["claude-haiku-5.5", 0, 0.1, 0.01, 0.125, 0.5],
   ["claude-haiku-5.5", 100001, 0.5, 0.05, 0.625, 2.5],
   ["claude-sonnet-4", 0, 3, 0.3, 3.75, 15],
   ["claude-sonnet-4.6", 0, 3, 0.3, 3.75, 15],
   ["claude-opus-4.8", 0, 5, 0.5, 6.25, 25],
-  ["claude-opus-5", 0, 5, 0.5, 6.25, 25],
   ["claude-opus-5.5", 0, 4, 0.2, 5, 20],
   ["claude-sonnet-5", 0, 2, 0.2, 2.5, 10],
   ["claude-sonnet-5.5", 0, 2, 0.1, 2.5, 10],
   ["claude-opus-4.8-fast", 0, 10, 1, 12.5, 50],
   ["claude-fable-5", 0, 10, 1, 12.5, 50],
   ["claude-fable-5.1", 0, 10, 0.25, 12.5, 50],
-  ["gemini-3.7-flash", 0, 0.75, 0.075, 0, 3.75],
+  ["claude-fable-5.2", 0, 8, 0.2, 10, 40],
   ["gemini-3.8-flash", 0, 0.75, 0.075, 0, 3.75],
-  ["mai-code-1.1-flash", 0, 0.2, 0.02, 0, 1.2],
+  ["gemini-4-argon", 0, 2, 0.1, 0, 10],
+  ["gemini-4-carbon", 0, 2, 0.1, 0, 10],
+  ["gemini-4-hydrogen", 0, 1.5, 0.075, 0, 7.5],
+  ["gemini-4-neon", 0, 3, 0.15, 0, 15],
   ["grok-4.5", 0, 2, 0.5, 0, 6],
   ["grok-4.5", 200001, 4, 1, 0, 12],
   ["grok-4.6", 0, 2, 0.5, 0, 6],
   ["grok-4.6", 200001, 4, 1, 0, 12],
   ["grok-4.7", 0, 2, 0.5, 0, 6],
   ["grok-4.7", 200001, 4, 1, 0, 12],
+  ["mai-code-1.1-flash", 0, 0.2, 0.02, 0, 1.2],
+  ["mai-code-2", 0, 0.5, 0.025, 0, 2.5],
+  ["mai-code-2-flash", 0, 0.05, 0.005, 0, 0.25],
   ["kimi-k3", 0, 3, 0.3, 0, 15],
 ];
-// Independently transcribed from the complete annual legacy multiplier table, 2026-10-10:
+// Independently transcribed from the complete annual legacy multiplier table, 2026-11-27:
 // https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans
 const publishedAnnualMultipliers: [string, number][] = [
   ["claude-haiku-4.5", 0.33],
   ["claude-opus-4.8", 27],
   ["claude-sonnet-4.6", 9],
-  ["gemini-3-pro-preview", 6],
-  ["gpt-4o", 0.33],
-  ["gpt-4o-mini", 0.33],
-  ["gpt-5.1", 3],
-  ["gpt-5.1-codex", 3],
-  ["gpt-5.1-codex-mini", 0.33],
-  ["gpt-5.1-codex-max", 3],
   ["gpt-5.3-codex", 6],
-  ["gpt-5.4", 6],
-  ["gpt-5.4-mini", 6],
-  ["gpt-5.5", 57],
-  ["gpt-5-mini", 0.33],
   ["mai-code-1.1-flash", 0.25],
+  ["mai-code-2", 1],
+  ["mai-code-2-flash", 0.33],
 ];
-const options = { billingProvider: "github-copilot" as const, at: "2026-10-10" };
+const options = { billingProvider: "github-copilot" as const, at: "2026-11-27" };
 
-describe("October 2026 Copilot pricing snapshot", () => {
+describe("November 2026 Copilot pricing snapshot", () => {
   it.each(
     publishedRates,
   )("resolves the published rates for %s at threshold %i", (model, minimumInputTokens, inputPerM, cachedInputPerM, cacheWritePerM, outputPerM) => {
     const entry = resolvePricingEntry(model, { ...options, inputTokens: minimumInputTokens });
     expect(entry?.rates).toEqual({ inputPerM, cachedInputPerM, cacheWritePerM, outputPerM });
-    expect(entry?.sourceLabel).toContain("verified 2026-10-10");
+    expect(entry?.sourceLabel).toContain("verified 2026-11-27");
     expect(entry?.sourceUrl).toBe(
       "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing",
     );
@@ -95,7 +89,7 @@ describe("October 2026 Copilot pricing snapshot", () => {
 
   it("covers the complete current table, with no historical rows relabeled as current", () => {
     const currentKeys = GITHUB_COPILOT_USAGE_PRICING.filter((entry) =>
-      entry.sourceLabel.includes("verified 2026-10-10"),
+      entry.sourceLabel.includes("verified 2026-11-27"),
     ).map((entry) => `${entry.model}:${entry.minimumInputTokens ?? 0}`);
     expect(currentKeys.sort()).toEqual(publishedRates.map(([id, min]) => `${id}:${min}`).sort());
   });
@@ -108,7 +102,7 @@ describe("October 2026 Copilot pricing snapshot", () => {
       pricingKind: "legacy-premium-request",
     });
     expect(entry?.premiumRequests).toBe(premiumRequests);
-    expect(entry?.sourceLabel).toContain("verified 2026-10-10");
+    expect(entry?.sourceLabel).toContain("verified 2026-11-27");
     expect(entry?.sourceUrl).toBe(
       "https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans",
     );
@@ -116,7 +110,7 @@ describe("October 2026 Copilot pricing snapshot", () => {
 
   it("covers the complete current annual table without relabeling retained multipliers", () => {
     const current = GITHUB_ANNUAL_LEGACY_MULTIPLIERS.filter((entry) =>
-      entry.sourceLabel.includes("verified 2026-10-10"),
+      entry.sourceLabel.includes("verified 2026-11-27"),
     ).map((entry) => [entry.model, entry.premiumRequests]);
     expect(current.sort()).toEqual([...publishedAnnualMultipliers].sort());
   });
@@ -214,7 +208,7 @@ describe("October 2026 Copilot pricing snapshot", () => {
     expect(
       resolvePricingEntry("claude-haiku-5.5", { ...options, at: "2026-10-09" }),
     ).toBeUndefined();
-    expect(resolvePricingEntry("claude-haiku-5.5", options)?.effectiveFrom).toBe(options.at);
+    expect(resolvePricingEntry("claude-haiku-5.5", options)?.effectiveFrom).toBe("2026-10-10");
     expect(
       resolvePricingEntry("claude-haiku-5.5", {
         ...options,
@@ -229,7 +223,7 @@ describe("October 2026 Copilot pricing snapshot", () => {
     expect(old.totalCost).toBe(0.2);
     expect(old.entry?.sourceLabel).toContain("verified 2026-10-04");
     expect(old.entry?.effectiveTo).toBe("2026-10-10");
-    for (const at of [options.at, undefined]) {
+    for (const at of ["2026-10-10", options.at, undefined]) {
       const current = calculateTokenCost("claude-sonnet-5.5", usage, { ...options, at });
       expect(current.totalCost).toBe(0.1);
       expect(current.entry?.effectiveFrom).toBe("2026-10-10");
@@ -267,14 +261,19 @@ describe("October 2026 Copilot pricing snapshot", () => {
   });
 
   it.each([
-    "gemini-3.6-flash",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash",
-  ])("does not extrapolate %s promotional rates past the published end date", (model) => {
-    expect(resolvePricingEntry(model, { ...options, at: "2026-12-31T23:59:59Z" })).toBeDefined();
-    expect(resolvePricingEntry(model, { ...options, at: "2027-01-01" })).toBeUndefined();
+    ["gemini-3.6-flash", "2027-01-01"],
+    ["gemini-3.7-flash", "2027-01-01"],
+    ["gemini-3.8-flash", "2027-01-01"],
+    ["gemini-4-argon", "2026-12-01"],
+    ["gemini-4-carbon", "2026-12-01"],
+    ["mai-code-2", "2027-05-17"],
+    ["mai-code-2-flash", "2027-05-17"],
+  ])("does not extrapolate %s promotional rates past the published end date", (model, end) => {
+    const lastSecond = new Date(Date.parse(end) - 1000).toISOString();
+    expect(resolvePricingEntry(model, { ...options, at: lastSecond })).toBeDefined();
+    expect(resolvePricingEntry(model, { ...options, at: end })).toBeUndefined();
     expect(getDefaultWholesalePrices().find((entry) => entry.model === model)?.effectiveTo).toBe(
-      "2027-01-01",
+      end,
     );
   });
 
@@ -335,6 +334,40 @@ describe("October 2026 Copilot pricing snapshot", () => {
   });
 
   it.each([
+    "gpt-6.1-terra",
+    "gpt-6.2-astra",
+    "gpt-6.2-sol",
+    "claude-fable-5.2",
+    "gemini-4-argon",
+    "gemini-4-carbon",
+    "gemini-4-hydrogen",
+    "gemini-4-neon",
+  ])("starts new %s Copilot estimates at the November boundary without inventing legacy rates", (model) => {
+    expect(getModelById(model)).toBeDefined();
+    expect(resolvePricingEntry(model, { ...options, at: "2026-11-26" })).toBeUndefined();
+    expect(resolvePricingEntry(model, options)?.effectiveFrom).toBe("2026-11-27");
+    expect(resolvePricingEntry(model, { billingProvider: "github-copilot" })).toBeDefined();
+    expect(
+      resolvePricingEntry(model, { ...options, pricingKind: "legacy-premium-request" }),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    "gpt-5-mini",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.5",
+    "gpt-5.6-terra",
+    "claude-opus-5",
+    "gemini-3.7-flash",
+  ])("retains %s, delisted from the November table, for dated and undated estimates", (model) => {
+    for (const at of ["2026-10-10", options.at, undefined]) {
+      const entry = resolvePricingEntry(model, { ...options, at });
+      expect(entry?.sourceLabel).toContain("absent from the 2026-11-27 Copilot table");
+    }
+  });
+
+  it.each([
     "claude-sonnet-5.5",
     "gpt-6.1-sol",
   ])("starts new %s Copilot estimates at the verified boundary without inventing legacy rates", (model) => {
@@ -357,6 +390,10 @@ describe("October 2026 Copilot pricing snapshot", () => {
     ["models/GPT_6.1_Sol", "gpt-6.1-sol", 1.235],
     ["Claude Haiku 5.5", "claude-haiku-5.5", 0.31125],
     ["models/Claude_Haiku_5.5", "claude-haiku-5.5", 0.31125],
+    ["Claude Fable 5.2", "claude-fable-5.2", 4.92],
+    ["models/GPT_6.2_Astra", "gpt-6.2-astra", 4.94],
+    ["GPT-6.1 Terra", "gpt-6.1-terra", 0.6175],
+    ["MAI Code 2", "mai-code-2", 0.2775],
   ])("prices %s with separate ordinary input, cache reads, writes and output", (alias, id, total) => {
     const cost = calculateTokenCost(
       alias,
