@@ -125,7 +125,11 @@ $probe = '.\target\release\examples\indexing_workloads.exe'
 
 Pass `-` for a source to leave it out (Copilot only is the regression check).
 For a growing live session, null one session's `source_fingerprint` and
-`search_source_fingerprint` in the copy, then run `incr`. For base/head
+`search_source_fingerprint` in the copy, then run `incr` (a refresh while
+search is stale) or `tick` (a refresh while search is up to date, the usual
+case: phase 1 extracts the changed sessions' search content as it parses them,
+and no search pass runs). One changed 8 MB Claude session on the real corpus
+took 1.2 s with `incr` and 0.7 s with `tick`. For base/head
 comparisons on Copilot alone, `index_probe phase1`/`phase2` builds unchanged
 against older releases.
 

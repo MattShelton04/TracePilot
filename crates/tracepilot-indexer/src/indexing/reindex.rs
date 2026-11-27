@@ -12,6 +12,7 @@ use crate::error::{IndexerError, source_label};
 use crate::index_db;
 use crate::index_db::session_writer::prepare_snapshot;
 use crate::indexing::PassCoverage;
+use crate::indexing::handoff::{HandoffCollector, SearchHandoff};
 use crate::indexing::inventory::{self, SourcePass};
 use crate::indexing::pipeline::{self, Flow, Outcome};
 use crate::indexing::progress::{IndexingProgress, ProgressTracker};
@@ -56,7 +57,7 @@ pub fn reindex_all_scoped(
     index_db_path: &Path,
     on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
-    reindex_sources(scope, index_db_path, false, on_progress).map(|pass| pass.indexed)
+    reindex_sources(scope, index_db_path, false, None, on_progress).map(|pass| pass.indexed)
 }
 
 /// Fail if discarding the index at `index_db_path` would lose sessions that
@@ -159,13 +160,33 @@ pub fn reindex_incremental_covered(
     index_db_path: &Path,
     on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<PassCoverage> {
-    reindex_sources(scope, index_db_path, true, on_progress)
+    reindex_sources(scope, index_db_path, true, None, on_progress)
+}
+
+/// [`reindex_incremental_covered`], also extracting the search content of the
+/// sessions it indexes from the events it parses for them.
+///
+/// The handoff is `None` when the pass is incomplete, or when its sessions'
+/// rows didn't fit a bounded amount of memory. Writing it with
+/// [`write_search_handoff`](crate::write_search_handoff) brings search up to
+/// date only if every session's search content was fresh before this pass;
+/// otherwise run the search pass.
+pub fn reindex_incremental_with_search(
+    scope: &IndexScope,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&IndexingProgress),
+) -> Result<(PassCoverage, Option<SearchHandoff>)> {
+    let collector = HandoffCollector::new();
+    let pass = reindex_sources(scope, index_db_path, true, Some(&collector), on_progress)?;
+    let handoff = collector.finish().filter(|_| pass.complete);
+    Ok((pass, handoff))
 }
 
 fn reindex_sources(
     scope: &IndexScope,
     index_db_path: &Path,
     incremental: bool,
+    handoff: Option<&HandoffCollector>,
     mut on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<PassCoverage> {
     let start = std::time::Instant::now();
@@ -199,6 +220,7 @@ fn reindex_sources(
             scope,
             &pass.provider,
             &stale,
+            handoff,
             &mut tracker,
             &mut on_progress,
         ) {
@@ -280,6 +302,7 @@ fn index_batches(
     scope: &IndexScope,
     provider: &Arc<dyn SessionProvider>,
     sessions: &[&SessionLocator],
+    handoff: Option<&HandoffCollector>,
     tracker: &mut ProgressTracker,
     on_progress: &mut impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
@@ -287,7 +310,10 @@ fn index_batches(
     let is_stale = || !scope.is_current(source);
     let prepare = |session: &SessionLocator, cancelled: &dyn Fn() -> bool| {
         let is_cancelled = || cancelled() || is_stale();
-        prepare_snapshot(provider, session, &is_cancelled)
+        match handoff {
+            Some(handoff) => handoff.prepare(provider, session, &is_cancelled),
+            None => prepare_snapshot(provider, session, &is_cancelled).map(|data| (data, None)),
+        }
     };
     let mut indexed = 0;
     let outcome = pipeline::prepare_and_write(sessions, &prepare, &is_stale, |batch, prepared| {
@@ -295,7 +321,14 @@ fn index_batches(
         let result = db.with_transaction(|db| {
             let mut written = 0;
             for (session, result) in batch.iter().zip(prepared) {
-                let info = match result.and_then(|data| db.write_prepared_session(&data)) {
+                let written_session = result.and_then(|(data, search)| {
+                    let info = db.write_prepared_session(&data)?;
+                    if let Some(handoff) = handoff {
+                        handoff.keep(&data, search);
+                    }
+                    Ok(info)
+                });
+                let info = match written_session {
                     Ok(info) => {
                         written += 1;
                         tracker.accumulate(&info);

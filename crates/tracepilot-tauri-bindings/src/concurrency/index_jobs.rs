@@ -200,7 +200,22 @@ impl IndexJobState {
 
     /// No search pass is needed until something marks search dirty.
     pub fn search_known_clean(&self) -> bool {
-        self.search_clean_epoch.load(Ordering::Acquire) == self.search_epoch()
+        self.search_clean_at().is_some()
+    }
+
+    /// The epoch search content is known clean at, if it is.
+    pub fn search_clean_at(&self) -> Option<u64> {
+        let epoch = self.search_epoch();
+        (self.search_clean_epoch.load(Ordering::Acquire) == epoch).then_some(epoch)
+    }
+
+    /// Mark search dirty for the sessions a pass indexed, which was clean at
+    /// `clean_at` when the pass started. Returns the new epoch when nothing
+    /// else marked it dirty since: writing those sessions' search content
+    /// then covers everything, and a pass that does may mark that epoch clean.
+    pub fn mark_search_dirty_since(&self, clean_at: Option<u64>) -> Option<u64> {
+        let epoch = self.search_dirty_epoch.fetch_add(1, Ordering::AcqRel) + 1;
+        clean_at.filter(|clean| clean + 1 == epoch).map(|_| epoch)
     }
 }
 
@@ -251,6 +266,25 @@ mod tests {
 
         state.invalidate();
         assert!(!state.search_known_clean(), "a reset makes search dirty");
+    }
+
+    #[test]
+    fn a_pass_covers_search_only_when_nothing_else_dirtied_it_meanwhile() {
+        let state = IndexJobState::new();
+        assert_eq!(state.search_clean_at(), None);
+        assert_eq!(state.mark_search_dirty_since(None), None, "dirty at start");
+
+        state.mark_search_clean(state.search_epoch());
+        let clean = state.search_clean_at();
+        let epoch = state.mark_search_dirty_since(clean);
+        assert_eq!(epoch, Some(state.search_epoch()));
+        state.mark_search_clean(epoch.unwrap());
+        assert!(state.search_known_clean());
+
+        // A source enabled while the pass ran.
+        let clean = state.search_clean_at();
+        state.mark_search_dirty();
+        assert_eq!(state.mark_search_dirty_since(clean), None);
     }
 
     #[test]

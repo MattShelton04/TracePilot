@@ -13,18 +13,16 @@
 
 use super::cache::invalidate_index_read_caches;
 use super::reindex_lifecycle::IndexTarget;
+use super::search_pass::{SearchPass, emit_search_progress, spawn_search_content_phase2};
 use crate::concurrency::{IndexingSemaphores, InitialBuildGuard};
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
     emit_best_effort, emit_indexing_progress, open_index_db, read_config, remove_index_db_files,
 };
-use crate::types::SourceProgressPayload;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::OwnedSemaphorePermit;
 use tracepilot_core::provider::SessionSource;
-use tracepilot_indexer::IndexScope;
 
 /// Returns (updated, total) session counts.
 #[tauri::command]
@@ -55,6 +53,10 @@ pub(crate) async fn run_incremental_reindex(
         return Ok(result);
     }
     let seq = gates.jobs().begin_job();
+    // Read under the session gate: only a pass holding it indexes sessions.
+    // While search is clean, the sessions this pass indexes are the only ones
+    // search can miss, so it extracts their search content as it parses them.
+    let search_clean_at = gates.jobs().search_clean_at();
 
     let scope = target.scope.clone();
     let index_path = target.index_path.clone();
@@ -76,23 +78,31 @@ pub(crate) async fn run_incremental_reindex(
         let app_fallback = app_handle.clone();
         // Every session found fresh: this pass can't have left search stale.
         let mut nothing_changed = false;
-        let res =
-            match tracepilot_indexer::reindex_incremental_covered(&scope, &index_path, |progress| {
-                emit_indexing_progress(&app_handle, progress);
-            }) {
-                Ok(pass) => {
-                    nothing_changed = pass.complete && pass.indexed == 0;
-                    Ok((pass.indexed, pass.indexed + pass.skipped))
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Incremental reindex failed; running full reindex");
-                    tracepilot_indexer::reindex_all_scoped(&scope, &index_path, |progress| {
-                        emit_indexing_progress(&app_fallback, progress);
-                    })
-                    .map(|n| (n, n))
-                    .map_err(Into::into)
-                }
-            };
+        let mut handoff = None;
+        let on_progress = |progress: &tracepilot_indexer::IndexingProgress| {
+            emit_indexing_progress(&app_handle, progress);
+        };
+        let pass = if search_clean_at.is_some() {
+            tracepilot_indexer::reindex_incremental_with_search(&scope, &index_path, on_progress)
+        } else {
+            tracepilot_indexer::reindex_incremental_covered(&scope, &index_path, on_progress)
+                .map(|pass| (pass, None))
+        };
+        let res = match pass {
+            Ok((pass, search)) => {
+                nothing_changed = pass.complete && pass.indexed == 0;
+                handoff = search;
+                Ok((pass.indexed, pass.indexed + pass.skipped))
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Incremental reindex failed; running full reindex");
+                tracepilot_indexer::reindex_all_scoped(&scope, &index_path, |progress| {
+                    emit_indexing_progress(&app_fallback, progress);
+                })
+                .map(|n| (n, n))
+                .map_err(Into::into)
+            }
+        };
         tracing::debug!(
             elapsed_ms = start.elapsed().as_millis(),
             "reindex_sessions Phase 1 wall time"
@@ -101,7 +111,7 @@ pub(crate) async fn run_incremental_reindex(
         if let Ok(counts) = res {
             gates_for_job.jobs().complete_job(seq, counts);
         }
-        (res, nothing_changed)
+        (res, nothing_changed, handoff)
     })
     .await;
 
@@ -112,28 +122,28 @@ pub(crate) async fn run_incremental_reindex(
     // Anything but a pass that found every session fresh (indexed sessions,
     // a session it could not write, a source it could not list, a failure
     // after some batches committed) may leave search content stale.
-    let (result, nothing_changed) = match result {
+    let (result, nothing_changed, handoff) = match result {
         Ok(outcome) => outcome,
         Err(error) => {
             gates.jobs().mark_search_dirty();
             return Err(error.into());
         }
     };
+    let mut pass = SearchPass::Incremental;
     if !nothing_changed {
-        gates.jobs().mark_search_dirty();
+        let covered_at = gates.jobs().mark_search_dirty_since(search_clean_at);
+        if let (Some(handoff), Some(epoch)) = (handoff, covered_at) {
+            pass = SearchPass::Handoff { handoff, epoch };
+        }
     }
     if result.is_ok() {
         // The periodic refresh lands here every few seconds. When it found
         // nothing changed and the last search pass missed nothing, a search
         // pass would only stat every session again to find nothing stale.
+        // When it indexed a few sessions, writing the search content it
+        // extracted for them is enough.
         if !gates.jobs().search_known_clean() {
-            spawn_search_content_phase2(
-                Arc::clone(gates),
-                None,
-                target,
-                app.clone(),
-                SearchPass::Incremental,
-            );
+            spawn_search_content_phase2(Arc::clone(gates), None, target, app.clone(), pass);
         }
     }
     result
@@ -338,149 +348,4 @@ pub async fn rebuild_search_index(
         serde_json::json!({"success": success}),
     );
     result?
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy)]
-enum SearchPass {
-    Incremental,
-    Rebuild,
-}
-
-impl SearchPass {
-    fn run(
-        self,
-        scope: &IndexScope,
-        index_path: &Path,
-        on_progress: impl FnMut(&tracepilot_indexer::SearchIndexingProgress),
-        is_cancelled: impl Fn() -> bool,
-    ) -> tracepilot_indexer::Result<tracepilot_indexer::PassCoverage> {
-        match self {
-            Self::Incremental => tracepilot_indexer::reindex_search_content_covered(
-                scope,
-                index_path,
-                on_progress,
-                is_cancelled,
-            ),
-            Self::Rebuild => tracepilot_indexer::rebuild_search_content_covered(
-                scope,
-                index_path,
-                on_progress,
-                is_cancelled,
-            ),
-        }
-    }
-}
-
-fn emit_search_progress(
-    app: &tauri::AppHandle,
-    progress: &tracepilot_indexer::SearchIndexingProgress,
-) {
-    emit_best_effort(
-        app,
-        crate::events::SEARCH_INDEXING_PROGRESS,
-        serde_json::json!({
-            "current": progress.current,
-            "total": progress.total,
-            "source": progress.source.map(SourceProgressPayload::from),
-        }),
-    );
-}
-
-/// Spawn the background search-content pass (Phase 2).
-///
-/// With `permit = None` the search gate is acquired without blocking; if a
-/// pass is already running, a rerun is requested instead so the sessions
-/// indexed by this caller still receive search content once it finishes.
-fn spawn_search_content_phase2(
-    gates: Arc<IndexingSemaphores>,
-    permit: Option<OwnedSemaphorePermit>,
-    target: IndexTarget,
-    app: tauri::AppHandle,
-    pass: SearchPass,
-) {
-    let permit = match permit {
-        Some(permit) => permit,
-        None => match gates.try_acquire_search() {
-            Ok(permit) => permit,
-            Err(_) => {
-                if target.is_current(&gates) {
-                    gates.jobs().request_search_rerun(target.generation);
-                }
-                return;
-            }
-        },
-    };
-    if !target.is_current(&gates) {
-        return;
-    }
-    tokio::task::spawn_blocking(move || {
-        let mut pass = pass;
-        let mut target = target;
-        loop {
-            let start = std::time::Instant::now();
-            let epoch = gates.jobs().search_epoch();
-            emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
-            let result = pass.run(
-                &target.scope,
-                &target.index_path,
-                |progress| emit_search_progress(&app, progress),
-                || gates.jobs().search_cancelled(),
-            );
-            // Every source listed and every session indexed or found fresh.
-            if result.as_ref().is_ok_and(|pass| pass.complete) && !gates.jobs().search_cancelled() {
-                gates.jobs().mark_search_clean(epoch);
-            }
-            // Even a pass that failed or indexed nothing may have committed
-            // batches or removed stale rows.
-            invalidate_index_read_caches();
-            match result {
-                Ok(pass) => {
-                    tracing::debug!(
-                        indexed = pass.indexed,
-                        skipped = pass.skipped,
-                        elapsed_ms = start.elapsed().as_millis(),
-                        "Phase 2 search indexing wall time"
-                    );
-                    emit_best_effort(
-                        &app,
-                        crate::events::SEARCH_INDEXING_FINISHED,
-                        serde_json::json!({"success": true}),
-                    );
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Phase 2 search indexing failed");
-                    emit_best_effort(
-                        &app,
-                        crate::events::SEARCH_INDEXING_FINISHED,
-                        serde_json::json!({"success": false, "error": e.to_string()}),
-                    );
-                }
-            }
-            // Sessions indexed while this pass ran asked for a rerun. The
-            // incremental staleness check makes a no-change rerun cheap.
-            if gates.jobs().search_cancelled() || !gates.jobs().take_search_rerun(target.generation)
-            {
-                break;
-            }
-            pass = SearchPass::Incremental;
-            // A source turned on or moved since the capture asked for this rerun.
-            match target.refreshed(&gates) {
-                Ok(current) => target = current,
-                Err(_) => break,
-            }
-        }
-        drop(permit);
-        // A request that raced with the release above must not be lost: start
-        // another pass (which re-flags the rerun if someone else got the gate).
-        if !gates.jobs().search_cancelled()
-            && gates.jobs().take_search_rerun(target.generation)
-            && let Ok(target) = target.refreshed(&gates)
-        {
-            spawn_search_content_phase2(gates, None, target, app, SearchPass::Incremental);
-        }
-    });
 }

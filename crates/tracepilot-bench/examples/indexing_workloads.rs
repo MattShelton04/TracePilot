@@ -17,6 +17,8 @@
 //! database as the caller left it:
 //!
 //! - `first` (empty database) and `incr`: phase 1, then phase 2.
+//! - `tick`: a refresh while search is up to date: phase 1, extracting the
+//!   search content of the sessions it indexes, then writing that content.
 //! - `analytics-bump <source>`: reset that source's analytics version, then
 //!   phase 1 and phase 2, as after an analytics version bump.
 //! - `rebuild`: Settings full rebuild (`reindex_all` and a search rebuild).
@@ -100,6 +102,30 @@ fn main() {
     };
     let start = Instant::now();
     match mode {
+        "tick" => {
+            let mut handoff = None;
+            step("phase1", &mut || {
+                let (pass, search) =
+                    tracepilot_indexer::reindex_incremental_with_search(&scope, db, |_| {})
+                        .expect("phase1");
+                let sessions = search.as_ref().map(|handoff| handoff.len());
+                handoff = search;
+                format!("indexed={} handoff={sessions:?}", pass.indexed)
+            });
+            match handoff {
+                Some(handoff) => {
+                    let mut slot = Some(handoff);
+                    step("handoff", &mut || {
+                        let handoff = slot.take().expect("run once");
+                        let pass =
+                            tracepilot_indexer::write_search_handoff(handoff, &scope, db, || false)
+                                .expect("handoff");
+                        format!("indexed={} complete={}", pass.indexed, pass.complete)
+                    });
+                }
+                None => step("phase2", &mut || phase2()),
+            }
+        }
         "first" | "incr" => {
             step("phase1", &mut || phase1(&scope));
             step("phase2", &mut || phase2());
