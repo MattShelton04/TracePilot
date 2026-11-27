@@ -34,7 +34,9 @@ pub(super) fn list_sessions(
             let file = file?;
             let path = file.path();
             if entry_is(&file, std::fs::FileType::is_dir, Path::is_dir) {
-                folders.insert(file.file_name());
+                // Lowercased: Windows matches names in any case, as the
+                // `subagents/` listing this stands in for did.
+                folders.insert(file.file_name().to_string_lossy().to_lowercase());
             } else if let Some(id) = session_id(&path)
                 && entry_is(&file, std::fs::FileType::is_file, Path::is_file)
             {
@@ -42,7 +44,9 @@ pub(super) fn list_sessions(
             }
         }
         for (id, path, main_len) in transcripts {
-            let has_folder = path.file_stem().is_some_and(|stem| folders.contains(stem));
+            let has_folder = path
+                .file_stem()
+                .is_some_and(|stem| folders.contains(&stem.to_string_lossy().to_lowercase()));
             sessions.push(discovered(id, path, main_len, has_folder)?);
         }
     }

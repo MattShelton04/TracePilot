@@ -11,6 +11,7 @@ use crate::Result;
 use crate::error::{IndexerError, source_label};
 use crate::index_db;
 use crate::index_db::session_writer::prepare_snapshot;
+use crate::indexing::PassCoverage;
 use crate::indexing::inventory::{self, SourcePass};
 use crate::indexing::pipeline::{self, Flow, Outcome};
 use crate::indexing::progress::{IndexingProgress, ProgressTracker};
@@ -55,7 +56,7 @@ pub fn reindex_all_scoped(
     index_db_path: &Path,
     on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
-    reindex_sources(scope, index_db_path, false, on_progress).map(|(indexed, _)| indexed)
+    reindex_sources(scope, index_db_path, false, on_progress).map(|pass| pass.indexed)
 }
 
 /// Fail if discarding the index at `index_db_path` would lose sessions that
@@ -146,6 +147,18 @@ pub fn reindex_incremental_scoped(
     index_db_path: &Path,
     on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<(usize, usize)> {
+    reindex_incremental_covered(scope, index_db_path, on_progress)
+        .map(|pass| (pass.indexed, pass.skipped))
+}
+
+/// [`reindex_incremental_scoped`], also reporting whether the pass covered
+/// every source and session: a session it found stale but could not write
+/// leaves it incomplete.
+pub fn reindex_incremental_covered(
+    scope: &IndexScope,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&IndexingProgress),
+) -> Result<PassCoverage> {
     reindex_sources(scope, index_db_path, true, on_progress)
 }
 
@@ -154,7 +167,7 @@ fn reindex_sources(
     index_db_path: &Path,
     incremental: bool,
     mut on_progress: impl FnMut(&IndexingProgress),
-) -> Result<(usize, usize)> {
+) -> Result<PassCoverage> {
     let start = std::time::Instant::now();
     let passes = inventory::discover(scope, &|| false)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
@@ -213,7 +226,13 @@ fn reindex_sources(
         elapsed_ms = start.elapsed().as_millis(),
         "Reindex complete"
     );
-    Ok((indexed, skipped))
+    Ok(PassCoverage::new(
+        scope,
+        passes.len(),
+        total,
+        indexed,
+        skipped,
+    ))
 }
 
 /// Remove a source's sessions that no longer exist, but only after a
@@ -245,7 +264,7 @@ fn prune(db: &index_db::IndexDb, scope: &IndexScope, pass: &SourcePass) {
     }
 }
 
-/// Batches are written in order, one transaction each, while the next ones
+/// Batches are written as they are prepared, one transaction each, while others
 /// are prepared (see [`pipeline`]), so memory is independent of the total
 /// number of sessions. SQLite transactions are bounded by the same batch.
 ///

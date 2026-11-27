@@ -20,7 +20,8 @@ use tracepilot_core::provider::{
 use tracepilot_indexer::index_db::{CURRENT_EXTRACTOR_VERSION, IndexDb};
 use tracepilot_indexer::{
     IndexScope, SearchFilters, SourceGenerations, ensure_complete_inventory, reindex_all_scoped,
-    reindex_incremental_scoped, reindex_search_content_scoped,
+    reindex_incremental_covered, reindex_incremental_scoped, reindex_search_content_covered,
+    reindex_search_content_scoped,
 };
 use tracepilot_test_support::claude::{OPUS, Transcript, Usage, image, text, thinking, tool_use};
 use tracepilot_test_support::copilot_corpus::write_copilot_corpus;
@@ -439,4 +440,44 @@ fn a_bumped_generation_stops_only_that_source() {
     // A scope captured after the change indexes it.
     fixture.index(&IndexScope::new(fixture.registry(), generations));
     assert_eq!(fixture.ids("claudeCode"), [CLAUDE_A, CLAUDE_B]);
+}
+
+/// The app skips a search pass after a session pass that found every session
+/// fresh, and trusts a search pass that missed nothing. Neither may claim it
+/// covered a source it could not list.
+#[test]
+fn a_pass_covers_everything_only_when_it_listed_every_source() {
+    let fixture = Fixture::new();
+    fixture.index(&fixture.scope());
+    let sessions = reindex_incremental_covered(&fixture.scope(), &fixture.db_path, |_| {}).unwrap();
+    assert!(sessions.complete, "{sessions:?}");
+    assert_eq!(sessions.indexed, 0);
+    let search =
+        reindex_search_content_covered(&fixture.scope(), &fixture.db_path, |_| {}, || false)
+            .unwrap();
+    assert!(search.complete, "{search:?}");
+    assert_eq!(search.indexed, 0);
+
+    let mut registry = ProviderRegistry::new();
+    registry.register(Arc::new(CopilotProvider::new(&fixture.copilot_root)));
+    registry.register(Arc::new(InterruptedDiscovery(ClaudeCodeProvider::new(
+        &fixture.claude_config,
+    ))));
+    let partial = IndexScope::standalone(registry);
+    let sessions = reindex_incremental_covered(&partial, &fixture.db_path, |_| {}).unwrap();
+    assert!(!sessions.complete, "{sessions:?}");
+    let search =
+        reindex_search_content_covered(&partial, &fixture.db_path, |_| {}, || false).unwrap();
+    assert!(!search.complete, "{search:?}");
+}
+
+/// A cancelled search pass never counts as having covered everything.
+#[test]
+fn a_cancelled_search_pass_is_incomplete() {
+    let fixture = Fixture::new();
+    reindex_all_scoped(&fixture.scope(), &fixture.db_path, |_| {}).unwrap();
+    let search =
+        reindex_search_content_covered(&fixture.scope(), &fixture.db_path, |_| {}, || true)
+            .unwrap();
+    assert!(!search.complete, "{search:?}");
 }

@@ -8,6 +8,7 @@ use tracepilot_core::provider::{SessionLocator, SessionSource};
 use crate::Result;
 use crate::index_db;
 use crate::index_db::search_writer::SearchContentRow;
+use crate::indexing::PassCoverage;
 use crate::indexing::inventory::{self, SourcePass};
 use crate::indexing::pipeline::{self, Flow};
 use crate::indexing::progress::{SearchIndexingProgress, SourceProgress};
@@ -55,17 +56,30 @@ pub fn reindex_search_content(
 /// Alternates bounded source preparation and transactional search writes.
 /// A source whose configuration changes mid-pass is skipped, and its current
 /// batch rolled back. Returns (indexed_count, skipped_count).
-#[tracing::instrument(skip_all)]
 pub fn reindex_search_content_scoped(
+    scope: &IndexScope,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&SearchIndexingProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<(usize, usize)> {
+    reindex_search_content_covered(scope, index_db_path, on_progress, is_cancelled)
+        .map(|pass| (pass.indexed, pass.skipped))
+}
+
+/// [`reindex_search_content_scoped`], also reporting whether the pass
+/// covered every source and session. A cancelled pass, a source it could not
+/// list, or a session it could not write leaves it incomplete.
+#[tracing::instrument(skip_all)]
+pub fn reindex_search_content_covered(
     scope: &IndexScope,
     index_db_path: &Path,
     mut on_progress: impl FnMut(&SearchIndexingProgress),
     is_cancelled: impl Fn() -> bool,
-) -> Result<(usize, usize)> {
+) -> Result<PassCoverage> {
     let phase2_start = std::time::Instant::now();
     let discovery = inventory::discover(scope, &is_cancelled);
     if is_cancelled() {
-        return Ok((0, 0));
+        return Ok(PassCoverage::incomplete(0, 0));
     }
     let passes = discovery?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
@@ -83,7 +97,7 @@ pub fn reindex_search_content_scoped(
         for session in &pass.sessions {
             if is_cancelled() {
                 tracing::info!(skipped, "Search indexing cancelled during staleness check");
-                return Ok((0, skipped));
+                return Ok(PassCoverage::incomplete(0, skipped));
             }
             if db.search_is_stale(pass.provider.as_ref(), session) {
                 stale.push(session);
@@ -107,7 +121,7 @@ pub fn reindex_search_content_scoped(
             total,
             source: None,
         });
-        return Ok((0, skipped));
+        return Ok(PassCoverage::new(scope, passes.len(), total, 0, skipped));
     }
 
     let mut indexed = 0;
@@ -129,7 +143,7 @@ pub fn reindex_search_content_scoped(
         })?;
         indexed += written;
         if cancelled {
-            return Ok((indexed, skipped));
+            return Ok(PassCoverage::incomplete(indexed, skipped));
         }
         if progress.current < progress.total {
             // The source went stale; count what it left as processed.
@@ -156,11 +170,17 @@ pub fn reindex_search_content_scoped(
         "Phase 2 complete"
     );
 
-    Ok((indexed, skipped))
+    Ok(PassCoverage::new(
+        scope,
+        passes.len(),
+        total,
+        indexed,
+        skipped,
+    ))
 }
 
 /// Keep only a bounded number of source batches resident (see [`pipeline`]).
-/// The calling thread polls cancellation and writes each batch in order while
+/// The calling thread polls cancellation and writes each batch once prepared while
 /// workers parse and extract the next ones.
 ///
 /// Returns the sessions committed and whether the pass was cancelled. Stops
@@ -266,18 +286,29 @@ pub fn rebuild_search_content(
 }
 
 /// Full rebuild: invalidate freshness, then atomically replace each complete snapshot.
-#[tracing::instrument(skip_all)]
 pub fn rebuild_search_content_scoped(
     scope: &IndexScope,
     index_db_path: &Path,
     on_progress: impl FnMut(&SearchIndexingProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<(usize, usize)> {
+    rebuild_search_content_covered(scope, index_db_path, on_progress, is_cancelled)
+        .map(|pass| (pass.indexed, pass.skipped))
+}
+
+/// [`rebuild_search_content_scoped`], also reporting the pass's coverage.
+#[tracing::instrument(skip_all)]
+pub fn rebuild_search_content_covered(
+    scope: &IndexScope,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&SearchIndexingProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<PassCoverage> {
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
     db.invalidate_search_content()?;
     drop(db);
 
-    let result = reindex_search_content_scoped(scope, index_db_path, on_progress, is_cancelled);
+    let result = reindex_search_content_covered(scope, index_db_path, on_progress, is_cancelled);
 
     // Force full maintenance after rebuild — clear_search_content frees many
     // pages that should be reclaimed immediately, not deferred to next startup.
