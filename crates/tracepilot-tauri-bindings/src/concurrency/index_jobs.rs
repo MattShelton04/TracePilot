@@ -44,6 +44,10 @@ pub struct IndexJobState {
     search_cancel: AtomicBool,
     /// A search pass was requested while another was running.
     search_rerun: AtomicU64,
+    /// Bumped by anything that may leave search content stale.
+    search_dirty_epoch: AtomicU64,
+    /// The dirty epoch a search pass that missed nothing last started at.
+    search_clean_epoch: AtomicU64,
     /// Index paths a reader has already tried to build on demand.
     on_demand_builds: Mutex<HashSet<PathBuf>>,
 }
@@ -59,6 +63,10 @@ impl IndexJobState {
             initial_build,
             search_cancel: AtomicBool::new(false),
             search_rerun: AtomicU64::new(0),
+            // Dirty until a pass in this process has checked every session:
+            // the index may come from another build or an interrupted pass.
+            search_dirty_epoch: AtomicU64::new(1),
+            search_clean_epoch: AtomicU64::new(0),
             on_demand_builds: Mutex::new(HashSet::new()),
         }
     }
@@ -85,6 +93,7 @@ impl IndexJobState {
             .unwrap_or_else(|p| p.into_inner())
             .clear();
         self.search_rerun.store(0, Ordering::Release);
+        self.mark_search_dirty();
     }
 
     /// Ticket identifying the point in time a caller asked for a reindex.
@@ -165,6 +174,34 @@ impl IndexJobState {
             .compare_exchange(generation, 0, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
     }
+
+    // ── Search freshness ───────────────────────────────────────────
+    //
+    // A search pass stats every session even when nothing changed. These
+    // epochs let a session reindex that indexed nothing skip it: only
+    // indexing a session, or a pass that missed some, can leave search
+    // content stale.
+
+    /// Something may have left search content stale (sessions indexed, a
+    /// source changed, a rebuild, a reset).
+    pub fn mark_search_dirty(&self) {
+        self.search_dirty_epoch.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// The epoch a search pass starts at, captured before it reads anything.
+    pub fn search_epoch(&self) -> u64 {
+        self.search_dirty_epoch.load(Ordering::Acquire)
+    }
+
+    /// A pass that started at `epoch` indexed or found fresh every session.
+    pub fn mark_search_clean(&self, epoch: u64) {
+        self.search_clean_epoch.fetch_max(epoch, Ordering::AcqRel);
+    }
+
+    /// No search pass is needed until something marks search dirty.
+    pub fn search_known_clean(&self) -> bool {
+        self.search_clean_epoch.load(Ordering::Acquire) == self.search_epoch()
+    }
 }
 
 impl Default for IndexJobState {
@@ -194,6 +231,26 @@ mod tests {
         let second = state.begin_job();
         state.complete_job(second, (0, 10));
         assert_eq!(state.completed_since(ticket), Some((0, 10)));
+    }
+
+    #[test]
+    fn search_is_clean_only_after_a_pass_that_started_after_the_last_change() {
+        let state = IndexJobState::new();
+        assert!(!state.search_known_clean(), "dirty at startup");
+        let epoch = state.search_epoch();
+        state.mark_search_clean(epoch);
+        assert!(state.search_known_clean());
+
+        // Sessions indexed while a pass runs: that pass can't certify them.
+        let running = state.search_epoch();
+        state.mark_search_dirty();
+        state.mark_search_clean(running);
+        assert!(!state.search_known_clean());
+        state.mark_search_clean(state.search_epoch());
+        assert!(state.search_known_clean());
+
+        state.invalidate();
+        assert!(!state.search_known_clean(), "a reset makes search dirty");
     }
 
     #[test]

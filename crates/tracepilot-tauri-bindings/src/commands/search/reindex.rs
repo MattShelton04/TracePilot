@@ -105,14 +105,22 @@ pub(crate) async fn run_incremental_reindex(
     emit_best_effort(app, crate::events::INDEXING_FINISHED, ());
 
     let result = result?;
-    if result.is_ok() {
-        spawn_search_content_phase2(
-            Arc::clone(gates),
-            None,
-            target,
-            app.clone(),
-            SearchPass::Incremental,
-        );
+    if let Ok((indexed, _)) = &result {
+        if *indexed > 0 {
+            gates.jobs().mark_search_dirty();
+        }
+        // The periodic refresh lands here every few seconds. When it indexed
+        // nothing and the last search pass missed nothing, a search pass
+        // would only stat every session again to find nothing stale.
+        if !gates.jobs().search_known_clean() {
+            spawn_search_content_phase2(
+                Arc::clone(gates),
+                None,
+                target,
+                app.clone(),
+                SearchPass::Incremental,
+            );
+        }
     }
     result
 }
@@ -147,6 +155,7 @@ pub(crate) async fn run_source_reindex(
     emit_best_effort(app, crate::events::INDEXING_FINISHED, ());
 
     let result = result?;
+    gates.jobs().mark_search_dirty();
     // Search covers every source, not just this one. If a search pass is
     // already running, it re-captures its target before the rerun.
     if result.is_ok()
@@ -221,6 +230,7 @@ pub async fn reindex_sessions_full(
     // A background search pass may still be writing to the database we are
     // about to delete: stop it and hold its gate until the rebuild is done.
     let search_permit = gates.cancel_and_acquire_search().await;
+    gates.jobs().mark_search_dirty();
     let seq = gates.jobs().begin_job();
 
     let target = IndexTarget::capture(&state, &gates, generation)?;
@@ -282,6 +292,7 @@ pub async fn rebuild_search_index(
     let permit = gates
         .try_acquire_search()
         .map_err(|_busy| BindingsError::AlreadyIndexing)?;
+    gates.jobs().mark_search_dirty();
 
     let target = IndexTarget::capture(&state, &gates, generation)?;
     let scope = target.scope;
@@ -396,13 +407,25 @@ fn spawn_search_content_phase2(
         let mut target = target;
         loop {
             let start = std::time::Instant::now();
+            let epoch = gates.jobs().search_epoch();
+            let mut total = None;
             emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
             let result = pass.run(
                 &target.scope,
                 &target.index_path,
-                |progress| emit_search_progress(&app, progress),
+                |progress| {
+                    total = Some(progress.total);
+                    emit_search_progress(&app, progress);
+                },
                 || gates.jobs().search_cancelled(),
             );
+            // Every session indexed or found fresh: nothing was missed.
+            if let Ok((indexed, skipped)) = result.as_ref()
+                && total == Some(indexed + skipped)
+                && !gates.jobs().search_cancelled()
+            {
+                gates.jobs().mark_search_clean(epoch);
+            }
             // Even a pass that failed or indexed nothing may have committed
             // batches or removed stale rows.
             invalidate_index_read_caches();
