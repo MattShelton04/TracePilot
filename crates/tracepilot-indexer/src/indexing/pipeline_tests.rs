@@ -144,7 +144,7 @@ fn sessions_over_the_whole_budget_are_prepared_one_at_a_time() {
     let refs: Vec<_> = all.iter().collect();
     let oversized = Overlap::default();
     let prepare = |session: &SessionLocator, _: &dyn Fn() -> bool| {
-        if index_of(session) % 2 == 0 {
+        if index_of(session).is_multiple_of(2) {
             oversized.run(|| std::thread::sleep(Duration::from_millis(20)));
         }
     };
