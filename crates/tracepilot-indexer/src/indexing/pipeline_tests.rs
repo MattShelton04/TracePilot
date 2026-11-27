@@ -1,4 +1,3 @@
-use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 
@@ -46,24 +45,48 @@ impl Overlap {
     }
 }
 
+/// Block until `written` reaches `at_least`, or give up after a while so a
+/// regression fails the assertion instead of hanging the test.
+fn wait_for(written: &AtomicUsize, at_least: usize) -> bool {
+    let start = Instant::now();
+    while written.load(Ordering::SeqCst) < at_least {
+        if start.elapsed() > Duration::from_secs(10) {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    true
+}
+
 #[test]
-fn writes_every_batch_in_order_whichever_worker_finishes_first() {
-    // Oversized sessions are one batch each; earlier ones finish last.
+fn writes_every_batch_once_without_waiting_for_a_slower_earlier_one() {
+    // Large sessions are one batch each; the first is still being prepared
+    // until something behind it has been written.
     let all = sessions(&[20 * MIB, 20 * MIB, 20 * MIB, 1, 1, 1]);
     let refs: Vec<_> = all.iter().collect();
+    let batches_written = AtomicUsize::new(0);
+    let first_saw_a_write = AtomicBool::new(false);
     let prepare = |session: &SessionLocator, _: &dyn Fn() -> bool| {
         let index = index_of(session);
-        std::thread::sleep(Duration::from_millis(40 - 10 * index.min(3) as u64));
+        if index == 0 && rayon::current_num_threads() > 1 {
+            first_saw_a_write.store(wait_for(&batches_written, 1), Ordering::SeqCst);
+        }
         index
     };
     let mut written = Vec::new();
     let outcome = prepare_and_write(&refs, &prepare, &|| false, |batch, results| {
         assert_eq!(batch.len(), results.len());
         written.push(results);
+        batches_written.fetch_add(1, Ordering::SeqCst);
         Ok(Flow::Continue)
     })
     .unwrap();
     assert_eq!(outcome, Outcome::Finished);
+    if rayon::current_num_threads() > 1 {
+        assert!(first_saw_a_write.load(Ordering::SeqCst));
+        assert_ne!(written[0], [0], "the slow first batch held up the rest");
+    }
+    written.sort();
     assert_eq!(written, [vec![0], vec![1], vec![2], vec![3, 4, 5]]);
 }
 
@@ -93,24 +116,40 @@ fn oversized_sessions_overlap_within_the_byte_budget() {
 }
 
 #[test]
-fn a_session_over_the_whole_budget_is_prepared_alone() {
-    let all = sessions(&[1, MAX_BYTES_IN_FLIGHT + 1, 1]);
+fn smaller_sessions_are_written_while_one_over_the_whole_budget_is_prepared() {
+    let all = sessions(&[MAX_BYTES_IN_FLIGHT + 1, 1, 1]);
     let refs: Vec<_> = all.iter().collect();
-    let overlap = Overlap::default();
-    let alone = Mutex::new(Vec::new());
+    let batches_written = AtomicUsize::new(0);
+    let saw_a_write = AtomicBool::new(false);
     let prepare = |session: &SessionLocator, _: &dyn Fn() -> bool| {
-        overlap.run(|| {
-            std::thread::sleep(Duration::from_millis(20));
-            if index_of(session) == 1 {
-                alone
-                    .lock()
-                    .unwrap()
-                    .push(overlap.active.load(Ordering::SeqCst));
-            }
-        });
+        if index_of(session) == 0 && rayon::current_num_threads() > 1 {
+            saw_a_write.store(wait_for(&batches_written, 1), Ordering::SeqCst);
+        }
+    };
+    prepare_and_write(&refs, &prepare, &|| false, |_, _| {
+        batches_written.fetch_add(1, Ordering::SeqCst);
+        Ok(Flow::Continue)
+    })
+    .unwrap();
+    assert_eq!(batches_written.load(Ordering::SeqCst), 2);
+    if rayon::current_num_threads() > 1 {
+        assert!(saw_a_write.load(Ordering::SeqCst));
+    }
+}
+
+#[test]
+fn sessions_over_the_whole_budget_are_prepared_one_at_a_time() {
+    let big = MAX_BYTES_IN_FLIGHT + 1;
+    let all = sessions(&[big, 1, big, 1, big]);
+    let refs: Vec<_> = all.iter().collect();
+    let oversized = Overlap::default();
+    let prepare = |session: &SessionLocator, _: &dyn Fn() -> bool| {
+        if index_of(session).is_multiple_of(2) {
+            oversized.run(|| std::thread::sleep(Duration::from_millis(20)));
+        }
     };
     prepare_and_write(&refs, &prepare, &|| false, |_, _| Ok(Flow::Continue)).unwrap();
-    assert_eq!(*alone.lock().unwrap(), [1]);
+    assert_eq!(oversized.peak.load(Ordering::SeqCst), 1);
 }
 
 #[test]

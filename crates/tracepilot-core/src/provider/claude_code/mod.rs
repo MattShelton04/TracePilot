@@ -16,6 +16,7 @@
 
 mod branch;
 mod census;
+mod discovery;
 mod drift;
 mod file_history;
 mod liveness;

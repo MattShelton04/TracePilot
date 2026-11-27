@@ -7,11 +7,17 @@
 //! Decomposed into focused sub-modules:
 //! - `content_extraction` — Pure event→row mapping (`extract_search_content`)
 //! - `tool_extraction` — Tool-specific JSON→text extractors and JSON flatteners
+//! - `text` — Which row text the `search_content` CHECK accepts
 
 mod content_extraction;
+mod diff;
 #[cfg(test)]
 mod tests;
+mod text;
 mod tool_extraction;
+
+use text::is_searchable;
+pub(crate) use text::strip_nul;
 
 use super::batch_insert::batched_insert;
 
@@ -219,15 +225,18 @@ impl IndexDb {
         is_cancelled: &impl Fn() -> bool,
     ) -> Result<usize> {
         ensure_same_source(&self.conn, session_id.as_str(), source)?;
-        self.conn.execute(
-            "DELETE FROM search_content WHERE session_id = ?1",
-            [session_id.as_str()],
-        )?;
-
-        let non_empty: Vec<&SearchContentRow> =
-            rows.iter().filter(|r| !r.content.is_empty()).collect();
-        if non_empty.is_empty() {
-            return self.mark_search_indexed(source, session_id, source_fingerprint, 0);
+        let non_empty: Vec<&SearchContentRow> = rows.iter().filter(|r| is_searchable(r)).collect();
+        // A growing session keeps its stored rows and adds the new ones.
+        let kept = self.delete_changed_search_rows(session_id, &non_empty)?;
+        tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+        let added = &non_empty[kept..];
+        if added.is_empty() {
+            return self.mark_search_indexed(
+                source,
+                session_id,
+                source_fingerprint,
+                non_empty.len(),
+            );
         }
         // FTS5 writes its pending terms out at every statement savepoint, so
         // the insert trigger, firing inside each multi-row INSERT, leaves many
@@ -241,7 +250,7 @@ impl IndexDb {
         )?;
         self.conn
             .execute_batch("DROP TRIGGER IF EXISTS search_content_ai;")?;
-        for chunk in non_empty.chunks(256) {
+        for chunk in added.chunks(256) {
             tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
             batched_insert(
                 &self.conn,
@@ -368,7 +377,7 @@ impl IndexDb {
                 )?;
 
                 let non_empty: Vec<&SearchContentRow> =
-                    rows.iter().filter(|r| !r.content.is_empty()).collect();
+                    rows.iter().filter(|r| is_searchable(r)).collect();
                 for chunk in non_empty.chunks(256) {
                     tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
                     batched_insert(

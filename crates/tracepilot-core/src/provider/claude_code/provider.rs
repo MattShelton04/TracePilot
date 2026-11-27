@@ -10,6 +10,7 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
+use super::discovery::{self, session_files, session_id};
 use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::reader::{Line, read_jsonl};
 use super::summary::summarize;
@@ -167,60 +168,6 @@ impl ClaudeCodeProvider {
             checkpoints,
         })
     }
-
-    fn locator(id: SessionId, main: PathBuf) -> Result<SessionLocator> {
-        let source_bytes_hint = session_files(&main)?
-            .iter()
-            .filter(|path| path.extension().is_some_and(|ext| ext == "jsonl"))
-            .filter_map(|path| std::fs::metadata(path).ok())
-            .map(|metadata| metadata.len())
-            .sum();
-        Ok(SessionLocator {
-            source: SessionSource::ClaudeCode,
-            id,
-            primary_path: main,
-            parent_id: None,
-            role: SessionRole::Primary,
-            source_bytes_hint,
-        })
-    }
-}
-
-/// The main transcript and every subagent transcript and `meta.json`: the
-/// files a load reads.
-fn session_files(main: &Path) -> Result<Vec<PathBuf>> {
-    let mut files = vec![main.to_path_buf()];
-    let dir = main.with_extension("").join("subagents");
-    let entries = match std::fs::read_dir(&dir) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(files),
-        Err(error) => {
-            return Err(TracePilotError::io_context(
-                "Failed to read",
-                dir.display(),
-                error,
-            ));
-        }
-    };
-    for entry in entries {
-        let path = entry?.path();
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if name.starts_with("agent-") && (name.ends_with(".jsonl") || name.ends_with(".meta.json"))
-        {
-            files.push(path);
-        }
-    }
-    Ok(files)
-}
-
-/// `<uuid>.jsonl` → the session id.
-fn session_id(path: &Path) -> Option<SessionId> {
-    if path.extension().is_none_or(|ext| ext != "jsonl") {
-        return None;
-    }
-    let stem = path.file_stem()?.to_str()?;
-    let id = uuid::Uuid::parse_str(stem).ok()?;
-    Some(SessionId::from_validated(id.to_string()))
 }
 
 impl SessionProvider for ClaudeCodeProvider {
@@ -256,26 +203,7 @@ impl SessionProvider for ClaudeCodeProvider {
                 ));
             }
         };
-        let mut sessions = Vec::new();
-        for project in projects {
-            check_cancelled(&is_cancelled)?;
-            let project = project?.path();
-            if !project.is_dir() {
-                continue;
-            }
-            let files = std::fs::read_dir(&project)
-                .map_err(|e| TracePilotError::io_context("Failed to read", project.display(), e))?;
-            for file in files {
-                check_cancelled(&is_cancelled)?;
-                let path = file?.path();
-                if let Some(id) = session_id(&path).filter(|_| path.is_file()) {
-                    sessions.push(Self::locator(id, path)?);
-                }
-            }
-        }
-        check_cancelled(&is_cancelled)?;
-        sessions.sort_by(|a, b| a.primary_path.cmp(&b.primary_path));
-        Ok(sessions)
+        discovery::list_sessions(projects, &is_cancelled)
     }
 
     fn fingerprint(&self, session: &SessionLocator) -> Result<SourceFingerprint> {
@@ -454,7 +382,7 @@ impl SessionProvider for ClaudeCodeProvider {
             if main.is_file()
                 && let Some(id) = session_id(&main)
             {
-                return Self::locator(id, main).map(Some);
+                return discovery::locator(id, main).map(Some);
             }
         }
         Ok(None)

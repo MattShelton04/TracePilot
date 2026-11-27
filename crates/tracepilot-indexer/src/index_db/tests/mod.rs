@@ -26,6 +26,7 @@ mod repository_filter;
 mod schema_doc;
 mod search_batches;
 mod search_content;
+mod search_diff;
 mod search_sources;
 mod segment_totals;
 mod sessions;

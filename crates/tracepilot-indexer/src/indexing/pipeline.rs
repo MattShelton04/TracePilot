@@ -1,15 +1,17 @@
 //! Prepare the next batches on Rayon workers while the calling thread writes
 //! the current one.
 //!
-//! Batches keep the grouping of [`take_batch`](super::batches::take_batch) and
-//! are written strictly in order, so transactions, progress and row order are
-//! those of preparing one batch at a time. Only preparation overlaps: at most
+//! Batches keep the grouping of [`take_batch`](super::batches::take_batch),
+//! one transaction each, and each is written as soon as it is prepared, the
+//! earliest first. Sessions are independent, so write order only changes the
+//! order of progress and of new row ids. Only preparation overlaps: at most
 //! [`MAX_BATCHES_IN_FLIGHT`] batches and [`MAX_BYTES_IN_FLIGHT`] of estimated
 //! source are being prepared or waiting to be written at once. A batch larger
-//! than the byte budget starts only when nothing else is in flight, so it is
-//! still prepared alone.
+//! than the byte budget (one session of up to gigabytes, with its subagents)
+//! counts as half of it, and only one is in flight at a time: the rest of the
+//! pass flows past it instead of waiting.
 
-use std::collections::VecDeque;
+use std::collections::BTreeMap;
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -43,8 +45,9 @@ pub(super) enum Outcome {
     Stopped,
 }
 
-/// Run `prepare` for every session and hand each batch's results, in session
-/// order, to `write` on the calling thread.
+/// Run `prepare` for every session and hand each batch's results, in the
+/// batch's session order, to `write` on the calling thread. Batches are
+/// written as they complete, so a later one can be written first.
 ///
 /// `stop` may be `!Sync` (for example UI-owned state): only the calling thread
 /// polls it, while it waits and before each write. Workers see an atomic
@@ -70,9 +73,10 @@ pub(super) fn prepare_and_write<T: Send>(
         let _raise = RaiseOnDrop(&cancelled);
         let (sender, receiver) = mpsc::channel::<Message<T>>();
         let mut remaining = sessions;
-        let mut in_flight = VecDeque::<InFlight<T>>::new();
-        let mut first_seq = 0;
+        let mut in_flight = BTreeMap::<usize, InFlight<T>>::new();
+        let mut next_seq = 0;
         let mut bytes_in_flight = 0_u64;
+        let mut oversized_in_flight = false;
         loop {
             if stop() {
                 return Ok(Outcome::Stopped);
@@ -81,14 +85,16 @@ pub(super) fn prepare_and_write<T: Send>(
             while !remaining.is_empty() {
                 let mut rest = remaining;
                 let batch = super::batches::take_batch(&mut rest);
-                let bytes = batch_bytes(batch);
+                let charge = Charge::of(batch_bytes(batch));
                 let fits = in_flight.len() < MAX_BATCHES_IN_FLIGHT
-                    && bytes_in_flight.saturating_add(bytes) <= MAX_BYTES_IN_FLIGHT;
+                    && !(charge.oversized && oversized_in_flight)
+                    && bytes_in_flight.saturating_add(charge.bytes) <= MAX_BYTES_IN_FLIGHT;
                 if !in_flight.is_empty() && !fits {
                     break;
                 }
                 remaining = rest;
-                let seq = first_seq + in_flight.len();
+                let seq = next_seq;
+                next_seq += 1;
                 for (index, session) in batch.iter().enumerate() {
                     let sender = sender.clone();
                     let signal = &signal;
@@ -100,27 +106,35 @@ pub(super) fn prepare_and_write<T: Send>(
                         let _ = sender.send((seq, index, result));
                     });
                 }
-                bytes_in_flight = bytes_in_flight.saturating_add(bytes);
-                in_flight.push_back(InFlight::new(batch, bytes));
+                bytes_in_flight = bytes_in_flight.saturating_add(charge.bytes);
+                oversized_in_flight |= charge.oversized;
+                in_flight.insert(seq, InFlight::new(batch, charge));
             }
-            match in_flight.front() {
-                None => return Ok(Outcome::Finished),
-                Some(front) if front.missing > 0 => {
-                    // On a timeout, poll `stop` again. This scope holds a
-                    // sender, so the channel never disconnects.
-                    if let Ok((seq, index, result)) =
-                        receiver.recv_timeout(Duration::from_millis(5))
-                    {
-                        let result = result.unwrap_or_else(|payload| panic::resume_unwind(payload));
-                        in_flight[seq - first_seq].fill(index, result);
+            if in_flight.is_empty() {
+                return Ok(Outcome::Finished);
+            }
+            // The earliest batch that is fully prepared, so a large session
+            // still being parsed never holds up the ones behind it.
+            let ready = in_flight
+                .iter()
+                .find(|(_, batch)| batch.missing == 0)
+                .map(|(seq, _)| *seq);
+            let Some(ready) = ready else {
+                // On a timeout, poll `stop` again. This scope holds a
+                // sender, so the channel never disconnects.
+                if let Ok((seq, index, result)) = receiver.recv_timeout(Duration::from_millis(5)) {
+                    let result = result.unwrap_or_else(|payload| panic::resume_unwind(payload));
+                    if let Some(batch) = in_flight.get_mut(&seq) {
+                        batch.fill(index, result);
                     }
-                    continue;
                 }
-                Some(_) => {}
-            }
-            if let Some(done) = in_flight.pop_front() {
-                first_seq += 1;
-                bytes_in_flight -= done.bytes;
+                continue;
+            };
+            if let Some(done) = in_flight.remove(&ready) {
+                bytes_in_flight -= done.charge.bytes;
+                if done.charge.oversized {
+                    oversized_in_flight = false;
+                }
                 let results = done.results.into_iter().flatten().collect();
                 if let Flow::Stop = write(done.batch, results)? {
                     return Ok(Outcome::Finished);
@@ -156,18 +170,44 @@ fn prepare_inline<T>(
 
 type Message<T> = (usize, usize, std::thread::Result<T>);
 
+/// What a batch counts against [`MAX_BYTES_IN_FLIGHT`].
+#[derive(Clone, Copy)]
+struct Charge {
+    bytes: u64,
+    /// Larger than the whole budget. One such batch is in flight at a time,
+    /// charged half the budget, so smaller batches keep being prepared on
+    /// the other workers instead of waiting for it.
+    oversized: bool,
+}
+
+impl Charge {
+    fn of(bytes: u64) -> Self {
+        if bytes > MAX_BYTES_IN_FLIGHT {
+            Self {
+                bytes: MAX_BYTES_IN_FLIGHT / 2,
+                oversized: true,
+            }
+        } else {
+            Self {
+                bytes,
+                oversized: false,
+            }
+        }
+    }
+}
+
 struct InFlight<'a, 'b, T> {
     batch: &'a [&'b SessionLocator],
-    bytes: u64,
+    charge: Charge,
     results: Vec<Option<T>>,
     missing: usize,
 }
 
 impl<'a, 'b, T> InFlight<'a, 'b, T> {
-    fn new(batch: &'a [&'b SessionLocator], bytes: u64) -> Self {
+    fn new(batch: &'a [&'b SessionLocator], charge: Charge) -> Self {
         Self {
             batch,
-            bytes,
+            charge,
             results: batch.iter().map(|_| None).collect(),
             missing: batch.len(),
         }

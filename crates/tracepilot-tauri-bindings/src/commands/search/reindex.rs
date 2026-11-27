@@ -74,11 +74,16 @@ pub(crate) async fn run_incremental_reindex(
             .then(|| InitialBuildGuard::start(Arc::clone(&gates_for_job)));
         let start = std::time::Instant::now();
         let app_fallback = app_handle.clone();
+        // Every session found fresh: this pass can't have left search stale.
+        let mut nothing_changed = false;
         let res =
-            match tracepilot_indexer::reindex_incremental_scoped(&scope, &index_path, |progress| {
+            match tracepilot_indexer::reindex_incremental_covered(&scope, &index_path, |progress| {
                 emit_indexing_progress(&app_handle, progress);
             }) {
-                Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
+                Ok(pass) => {
+                    nothing_changed = pass.complete && pass.indexed == 0;
+                    Ok((pass.indexed, pass.indexed + pass.skipped))
+                }
                 Err(e) => {
                     tracing::warn!(error = %e, "Incremental reindex failed; running full reindex");
                     tracepilot_indexer::reindex_all_scoped(&scope, &index_path, |progress| {
@@ -96,7 +101,7 @@ pub(crate) async fn run_incremental_reindex(
         if let Ok(counts) = res {
             gates_for_job.jobs().complete_job(seq, counts);
         }
-        res
+        (res, nothing_changed)
     })
     .await;
 
@@ -104,15 +109,32 @@ pub(crate) async fn run_incremental_reindex(
     invalidate_index_read_caches();
     emit_best_effort(app, crate::events::INDEXING_FINISHED, ());
 
-    let result = result?;
+    // Anything but a pass that found every session fresh (indexed sessions,
+    // a session it could not write, a source it could not list, a failure
+    // after some batches committed) may leave search content stale.
+    let (result, nothing_changed) = match result {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            gates.jobs().mark_search_dirty();
+            return Err(error.into());
+        }
+    };
+    if !nothing_changed {
+        gates.jobs().mark_search_dirty();
+    }
     if result.is_ok() {
-        spawn_search_content_phase2(
-            Arc::clone(gates),
-            None,
-            target,
-            app.clone(),
-            SearchPass::Incremental,
-        );
+        // The periodic refresh lands here every few seconds. When it found
+        // nothing changed and the last search pass missed nothing, a search
+        // pass would only stat every session again to find nothing stale.
+        if !gates.jobs().search_known_clean() {
+            spawn_search_content_phase2(
+                Arc::clone(gates),
+                None,
+                target,
+                app.clone(),
+                SearchPass::Incremental,
+            );
+        }
     }
     result
 }
@@ -128,6 +150,8 @@ pub(crate) async fn run_source_reindex(
 ) -> CmdResult<(usize, usize)> {
     let generation = gates.jobs().generation();
     let permit = gates.acquire_sessions().await;
+    // The source's sessions need search content however this pass ends.
+    gates.jobs().mark_search_dirty();
     let target = IndexTarget::capture_source(state, gates, generation, source)?;
     let scope = target.scope.clone();
     let index_path = target.index_path.clone();
@@ -221,6 +245,7 @@ pub async fn reindex_sessions_full(
     // A background search pass may still be writing to the database we are
     // about to delete: stop it and hold its gate until the rebuild is done.
     let search_permit = gates.cancel_and_acquire_search().await;
+    gates.jobs().mark_search_dirty();
     let seq = gates.jobs().begin_job();
 
     let target = IndexTarget::capture(&state, &gates, generation)?;
@@ -282,6 +307,7 @@ pub async fn rebuild_search_index(
     let permit = gates
         .try_acquire_search()
         .map_err(|_busy| BindingsError::AlreadyIndexing)?;
+    gates.jobs().mark_search_dirty();
 
     let target = IndexTarget::capture(&state, &gates, generation)?;
     let scope = target.scope;
@@ -331,15 +357,15 @@ impl SearchPass {
         index_path: &Path,
         on_progress: impl FnMut(&tracepilot_indexer::SearchIndexingProgress),
         is_cancelled: impl Fn() -> bool,
-    ) -> tracepilot_indexer::Result<(usize, usize)> {
+    ) -> tracepilot_indexer::Result<tracepilot_indexer::PassCoverage> {
         match self {
-            Self::Incremental => tracepilot_indexer::reindex_search_content_scoped(
+            Self::Incremental => tracepilot_indexer::reindex_search_content_covered(
                 scope,
                 index_path,
                 on_progress,
                 is_cancelled,
             ),
-            Self::Rebuild => tracepilot_indexer::rebuild_search_content_scoped(
+            Self::Rebuild => tracepilot_indexer::rebuild_search_content_covered(
                 scope,
                 index_path,
                 on_progress,
@@ -396,6 +422,7 @@ fn spawn_search_content_phase2(
         let mut target = target;
         loop {
             let start = std::time::Instant::now();
+            let epoch = gates.jobs().search_epoch();
             emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
             let result = pass.run(
                 &target.scope,
@@ -403,14 +430,18 @@ fn spawn_search_content_phase2(
                 |progress| emit_search_progress(&app, progress),
                 || gates.jobs().search_cancelled(),
             );
+            // Every source listed and every session indexed or found fresh.
+            if result.as_ref().is_ok_and(|pass| pass.complete) && !gates.jobs().search_cancelled() {
+                gates.jobs().mark_search_clean(epoch);
+            }
             // Even a pass that failed or indexed nothing may have committed
             // batches or removed stale rows.
             invalidate_index_read_caches();
             match result {
-                Ok((indexed, skipped)) => {
+                Ok(pass) => {
                     tracing::debug!(
-                        indexed,
-                        skipped,
+                        indexed = pass.indexed,
+                        skipped = pass.skipped,
                         elapsed_ms = start.elapsed().as_millis(),
                         "Phase 2 search indexing wall time"
                     );
