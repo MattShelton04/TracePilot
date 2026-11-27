@@ -1,23 +1,23 @@
 {
-  "version": "github-copilot-usage-2026-10-10",
+  "version": "github-copilot-usage-2026-11-27",
   "sources": {
     "githubCopilotUsage": {
       "label": "GitHub Copilot models and pricing",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing",
-      "verifiedAt": "2026-10-10",
+      "verifiedAt": "2026-11-27",
       "effectiveFrom": "2026-06-01",
-      "revision": "be38ec5d78e24172587e61b3c6ff40ace1865c71",
-      "dataUrl": "https://raw.githubusercontent.com/github/docs/be38ec5d78e24172587e61b3c6ff40ace1865c71/data/tables/copilot/models-and-pricing.yml",
-      "sha256": "d1c7540b412c58b347dcf349b5cd0ca5f46a5015b5ffccbfdc8623f2079e0a28"
+      "revision": "df6faa250dc425fa137d270c967e6a74f12103a7",
+      "dataUrl": "https://raw.githubusercontent.com/github/docs/df6faa250dc425fa137d270c967e6a74f12103a7/data/tables/copilot/models-and-pricing.yml",
+      "sha256": "c6d67959f50d637dbea72bfec0a68d367853ca1dc031fb4b573d0c0d16e4580b"
     },
     "annualLegacyMultipliers": {
       "label": "GitHub annual-plan premium request multipliers",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans",
-      "verifiedAt": "2026-10-10",
+      "verifiedAt": "2026-11-27",
       "effectiveFrom": "2026-06-01",
-      "revision": "be38ec5d78e24172587e61b3c6ff40ace1865c71",
-      "dataUrl": "https://raw.githubusercontent.com/github/docs/be38ec5d78e24172587e61b3c6ff40ace1865c71/data/tables/copilot/annual-subscriber-model-multipliers.yml",
-      "sha256": "d8ddb6f9758516d9294a204f83ebe4eb2d840a565c5695059966f18c7b5dc79a"
+      "revision": "df6faa250dc425fa137d270c967e6a74f12103a7",
+      "dataUrl": "https://raw.githubusercontent.com/github/docs/df6faa250dc425fa137d270c967e6a74f12103a7/data/tables/copilot/annual-subscriber-model-multipliers.yml",
+      "sha256": "3e72a49f725fd3b4e807873c01485162fd418f6f509d66ab366df8fa4cf33c43"
     },
     "tracePilotLegacyProviderEstimate": {
       "label": "TracePilot legacy provider estimate",
@@ -85,7 +85,17 @@
     "grok-4.7": ["Grok 4.7"],
     "claude-sonnet-5.5": ["Claude Sonnet 5.5"],
     "gpt-6.1-sol": ["GPT-6.1 Sol"],
-    "claude-haiku-5.5": ["Claude Haiku 5.5"]
+    "claude-haiku-5.5": ["Claude Haiku 5.5"],
+    "gpt-6.1-terra": ["GPT-6.1 Terra"],
+    "gpt-6.2-astra": ["GPT-6.2 Astra"],
+    "gpt-6.2-sol": ["GPT-6.2 Sol"],
+    "claude-fable-5.2": ["Claude Fable 5.2"],
+    "gemini-4-argon": ["Gemini 4 Argon"],
+    "gemini-4-carbon": ["Gemini 4 Carbon"],
+    "gemini-4-hydrogen": ["Gemini 4 Hydrogen"],
+    "gemini-4-neon": ["Gemini 4 Neon"],
+    "mai-code-2": ["MAI Code 2"],
+    "mai-code-2-flash": ["MAI Code 2 Flash"]
   },
   "githubCopilotUsage": [
     {
@@ -104,7 +114,9 @@
       "inputPerM": 0.25,
       "cachedInputPerM": 0.025,
       "cacheWritePerM": 0,
-      "outputPerM": 2
+      "outputPerM": 2,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.2",
@@ -140,7 +152,9 @@
       "inputPerM": 2.5,
       "cachedInputPerM": 0.25,
       "cacheWritePerM": 0,
-      "outputPerM": 15
+      "outputPerM": 15,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.4",
@@ -150,7 +164,9 @@
       "inputPerM": 5,
       "cachedInputPerM": 0.5,
       "cacheWritePerM": 0,
-      "outputPerM": 22.5
+      "outputPerM": 22.5,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.4-mini",
@@ -158,7 +174,9 @@
       "inputPerM": 0.75,
       "cachedInputPerM": 0.075,
       "cacheWritePerM": 0,
-      "outputPerM": 4.5
+      "outputPerM": 4.5,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.4-nano",
@@ -174,7 +192,9 @@
       "inputPerM": 5,
       "cachedInputPerM": 0.5,
       "cacheWritePerM": 0,
-      "outputPerM": 30
+      "outputPerM": 30,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.5",
@@ -184,7 +204,9 @@
       "inputPerM": 10,
       "cachedInputPerM": 1,
       "cacheWritePerM": 0,
-      "outputPerM": 45
+      "outputPerM": 45,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.6-luna",
@@ -233,7 +255,9 @@
       "cachedInputPerM": 0.2,
       "cacheWritePerM": 2.5,
       "outputPerM": 12,
-      "effectiveFrom": "2026-09-10"
+      "effectiveFrom": "2026-09-10",
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.6-terra",
@@ -244,7 +268,9 @@
       "cachedInputPerM": 0.4,
       "cacheWritePerM": 5,
       "outputPerM": 18,
-      "effectiveFrom": "2026-09-10"
+      "effectiveFrom": "2026-09-10",
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "claude-haiku-4.5",
@@ -471,7 +497,9 @@
       "cachedInputPerM": 0.5,
       "cacheWritePerM": 6.25,
       "outputPerM": 25,
-      "effectiveFrom": "2026-09-10"
+      "effectiveFrom": "2026-09-10",
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "claude-fable-5.1",
@@ -502,8 +530,9 @@
       "cacheWritePerM": 0,
       "outputPerM": 3.75,
       "effectiveFrom": "2026-09-10",
-      "sourceNote": "Promotional Copilot rates through December 31, 2026; subsequent rates unpublished",
-      "effectiveTo": "2027-01-01"
+      "sourceNote": "Promotional Copilot rates through December 31, 2026; subsequent rates unpublished; Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table",
+      "effectiveTo": "2027-01-01",
+      "verifiedAt": "2026-10-10"
     },
     {
       "model": "gemini-3.8-flash",
@@ -691,6 +720,137 @@
       "pricingTier": "long-context",
       "minimumInputTokens": 100001,
       "effectiveFrom": "2026-10-10"
+    },
+    {
+      "model": "gpt-6.1-terra",
+      "displayName": "GPT-6.1 Terra",
+      "inputPerM": 1,
+      "cachedInputPerM": 0.05,
+      "cacheWritePerM": 1.25,
+      "outputPerM": 5,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gpt-6.1-terra",
+      "displayName": "GPT-6.1 Terra",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 2.5,
+      "outputPerM": 7.5,
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "displayName": "GPT-6.2 Astra",
+      "inputPerM": 8,
+      "cachedInputPerM": 0.4,
+      "cacheWritePerM": 10,
+      "outputPerM": 40,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "displayName": "GPT-6.2 Astra",
+      "inputPerM": 16,
+      "cachedInputPerM": 0.8,
+      "cacheWritePerM": 20,
+      "outputPerM": 60,
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "displayName": "GPT-6.2 Sol",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 2.5,
+      "outputPerM": 10,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "displayName": "GPT-6.2 Sol",
+      "inputPerM": 4,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 5,
+      "outputPerM": 15,
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "claude-fable-5.2",
+      "displayName": "Claude Fable 5.2",
+      "inputPerM": 8,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 10,
+      "outputPerM": 40,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gemini-4-argon",
+      "displayName": "Gemini 4 Argon",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 0,
+      "outputPerM": 10,
+      "sourceNote": "Promotional Copilot rates until December 1, 2026; subsequent rates unpublished",
+      "effectiveTo": "2026-12-01",
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gemini-4-carbon",
+      "displayName": "Gemini 4 Carbon",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 0,
+      "outputPerM": 10,
+      "sourceNote": "Promotional Copilot rates until December 1, 2026; GitHub lists $4.00 / $0.20 / $20.00 per 1M input / cached input / output tokens from then",
+      "effectiveTo": "2026-12-01",
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gemini-4-hydrogen",
+      "displayName": "Gemini 4 Hydrogen",
+      "inputPerM": 1.5,
+      "cachedInputPerM": 0.075,
+      "cacheWritePerM": 0,
+      "outputPerM": 7.5,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "gemini-4-neon",
+      "displayName": "Gemini 4 Neon",
+      "inputPerM": 3,
+      "cachedInputPerM": 0.15,
+      "cacheWritePerM": 0,
+      "outputPerM": 15,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "mai-code-2",
+      "displayName": "MAI Code 2",
+      "inputPerM": 0.5,
+      "cachedInputPerM": 0.025,
+      "cacheWritePerM": 0,
+      "outputPerM": 2.5,
+      "sourceNote": "Promotional Copilot rates until May 17, 2027; GitHub lists $1.00 / $0.05 / $5.00 per 1M input / cached input / output tokens from then",
+      "effectiveTo": "2027-05-17",
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "mai-code-2-flash",
+      "displayName": "MAI Code 2 Flash",
+      "inputPerM": 0.05,
+      "cachedInputPerM": 0.005,
+      "cacheWritePerM": 0,
+      "outputPerM": 0.25,
+      "sourceNote": "Promotional Copilot rates until May 17, 2027; GitHub lists $0.10 / $0.01 / $0.50 per 1M input / cached input / output tokens from then",
+      "effectiveTo": "2027-05-17",
+      "effectiveFrom": "2026-11-27"
     }
   ],
   "annualLegacyMultipliers": [
@@ -772,7 +932,9 @@
       "model": "gemini-3-pro-preview",
       "displayName": "Gemini 3 Pro",
       "currentPremiumRequests": 1,
-      "premiumRequests": 6
+      "premiumRequests": 6,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gemini-3.1-pro",
@@ -794,13 +956,17 @@
       "model": "gpt-4o",
       "displayName": "GPT-4o",
       "currentPremiumRequests": 0,
-      "premiumRequests": 0.33
+      "premiumRequests": 0.33,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-4o-mini",
       "displayName": "GPT-4o mini",
       "currentPremiumRequests": 0,
-      "premiumRequests": 0.33
+      "premiumRequests": 0.33,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-4.1",
@@ -814,25 +980,33 @@
       "model": "gpt-5.1",
       "displayName": "GPT-5.1",
       "currentPremiumRequests": 1,
-      "premiumRequests": 3
+      "premiumRequests": 3,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.1-codex",
       "displayName": "GPT-5.1-Codex",
       "currentPremiumRequests": 1,
-      "premiumRequests": 3
+      "premiumRequests": 3,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.1-codex-mini",
       "displayName": "GPT-5.1-Codex-Mini",
       "currentPremiumRequests": 0.33,
-      "premiumRequests": 0.33
+      "premiumRequests": 0.33,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.1-codex-max",
       "displayName": "GPT-5.1-Codex-Max",
       "currentPremiumRequests": 1,
-      "premiumRequests": 3
+      "premiumRequests": 3,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.2",
@@ -860,25 +1034,33 @@
       "model": "gpt-5.4",
       "displayName": "GPT-5.4",
       "currentPremiumRequests": 1,
-      "premiumRequests": 6
+      "premiumRequests": 6,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.4-mini",
       "displayName": "GPT-5.4 mini",
       "currentPremiumRequests": 0.33,
-      "premiumRequests": 6
+      "premiumRequests": 6,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5.5",
       "displayName": "GPT-5.5",
       "currentPremiumRequests": 7.5,
-      "premiumRequests": 57
+      "premiumRequests": 57,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "gpt-5-mini",
       "displayName": "GPT-5 mini",
       "currentPremiumRequests": 0,
-      "premiumRequests": 0.33
+      "premiumRequests": 0.33,
+      "verifiedAt": "2026-10-10",
+      "sourceNote": "Retained 2026-10-10 snapshot; absent from the 2026-11-27 Copilot table"
     },
     {
       "model": "grok-code-fast-1",
@@ -910,6 +1092,18 @@
       "currentPremiumRequests": 0.25,
       "premiumRequests": 0.25,
       "effectiveFrom": "2026-09-10"
+    },
+    {
+      "model": "mai-code-2",
+      "displayName": "MAI Code 2",
+      "premiumRequests": 1,
+      "effectiveFrom": "2026-11-27"
+    },
+    {
+      "model": "mai-code-2-flash",
+      "displayName": "MAI Code 2 Flash",
+      "premiumRequests": 0.33,
+      "effectiveFrom": "2026-11-27"
     }
   ],
   "currentPremiumRequestDefaults": [
@@ -1063,6 +1257,66 @@
       "displayName": "Claude Haiku 5.5",
       "currentPremiumRequests": 1,
       "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gpt-6.1-terra",
+      "displayName": "GPT-6.1 Terra",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "displayName": "GPT-6.2 Astra",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "displayName": "GPT-6.2 Sol",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "claude-fable-5.2",
+      "displayName": "Claude Fable 5.2",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gemini-4-argon",
+      "displayName": "Gemini 4 Argon",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gemini-4-carbon",
+      "displayName": "Gemini 4 Carbon",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gemini-4-hydrogen",
+      "displayName": "Gemini 4 Hydrogen",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gemini-4-neon",
+      "displayName": "Gemini 4 Neon",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "mai-code-2",
+      "displayName": "MAI Code 2",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default; matches GitHub's annual-plan multiplier for this model"
+    },
+    {
+      "model": "mai-code-2-flash",
+      "displayName": "MAI Code 2 Flash",
+      "currentPremiumRequests": 0.33,
+      "sourceNote": "Local compatibility default; matches GitHub's annual-plan multiplier for this model"
     }
   ],
   "githubCopilotUsageHistory": [

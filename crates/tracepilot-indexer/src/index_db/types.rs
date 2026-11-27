@@ -71,6 +71,9 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 22;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v35: Claude Fable 5.2 and Claude Mythos 5.2 calls are priced, so their
+/// sessions' TracePilot-estimated USD cost is re-derived.
+///
 /// v34: linked pull requests and pushed branches (see v22 above), including
 /// every `pr-link` record, not only the repository of the last one.
 ///
@@ -135,7 +138,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 22;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 34;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 35;
 
 /// Maximum warning, compaction and truncation incidents stored per session,
 /// to prevent DB bloat. Errors and rate limits are never capped, so the

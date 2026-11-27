@@ -19,8 +19,29 @@ describe("isolated Claude Code pricing", () => {
     for (const id of ["claude-opus-5-5", "claude-opus-5.5", "claude-opus-5-5-20260922"]) {
       const cost = calculateClaudeCodeTokenCost(id, usage);
       expect(cost.totalCost).toBeCloseTo((10 * 4 + 100 * 0.2 + 5 * 5 + 15 * 8 + 5 * 20) / 1e6, 12);
-      expect(cost.entry?.sourceLabel).toContain("verified 2026-10-11");
+      expect(cost.entry?.sourceLabel).toContain("verified 2026-11-27");
       expect(cost.entry?.billingProvider).toBe("provider-wholesale");
+    }
+  });
+  it("prices Claude Fable 5.2 and Mythos 5.2 at Anthropic's published rates", () => {
+    const usage = {
+      inputTokens: 130,
+      cacheReadTokens: 100,
+      cacheWriteTokens: 20,
+      cacheWriteByTtl: { "300": 5, "3600": 15 },
+      outputTokens: 5,
+    };
+    for (const [id, family] of [
+      ["claude-fable-5-2", "claude-fable-5.2"],
+      ["claude-mythos-5-2", "claude-mythos-5.2"],
+    ]) {
+      const cost = calculateClaudeCodeTokenCost(id, usage);
+      expect(cost.matchedModel).toBe(family);
+      expect(cost.totalCost).toBeCloseTo(
+        (10 * 8 + 100 * 0.2 + 5 * 10 + 15 * 16 + 5 * 40) / 1e6,
+        12,
+      );
+      expect(claudeCodeModelFamily(id)).toBe(family);
     }
   });
   it("keeps unknown models, variants and unknown or incomplete TTLs unpriced", () => {

@@ -493,5 +493,95 @@
     "cachedInputPerM": 0.01,
     "outputPerM": 0.5,
     "premiumRequests": 1
+  },
+  {
+    "id": "gpt-6.1-terra",
+    "name": "GPT-6.1 Terra",
+    "tier": "standard",
+    "inputPerM": 1,
+    "cachedInputPerM": 0.05,
+    "outputPerM": 5,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-6.2-astra",
+    "name": "GPT-6.2 Astra",
+    "tier": "premium",
+    "inputPerM": 8,
+    "cachedInputPerM": 0.4,
+    "outputPerM": 40,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-6.2-sol",
+    "name": "GPT-6.2 Sol",
+    "tier": "premium",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.1,
+    "outputPerM": 10,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-fable-5.2",
+    "name": "Claude Fable 5.2",
+    "tier": "premium",
+    "inputPerM": 8,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 40,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-4-argon",
+    "name": "Gemini 4 Argon",
+    "tier": "premium",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.1,
+    "outputPerM": 10,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-4-carbon",
+    "name": "Gemini 4 Carbon",
+    "tier": "premium",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.1,
+    "outputPerM": 10,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-4-hydrogen",
+    "name": "Gemini 4 Hydrogen",
+    "tier": "standard",
+    "inputPerM": 1.5,
+    "cachedInputPerM": 0.075,
+    "outputPerM": 7.5,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gemini-4-neon",
+    "name": "Gemini 4 Neon",
+    "tier": "standard",
+    "inputPerM": 3,
+    "cachedInputPerM": 0.15,
+    "outputPerM": 15,
+    "premiumRequests": 1
+  },
+  {
+    "id": "mai-code-2",
+    "name": "MAI Code 2",
+    "tier": "premium",
+    "inputPerM": 0.5,
+    "cachedInputPerM": 0.025,
+    "outputPerM": 2.5,
+    "premiumRequests": 1
+  },
+  {
+    "id": "mai-code-2-flash",
+    "name": "MAI Code 2 Flash",
+    "tier": "fast",
+    "inputPerM": 0.05,
+    "cachedInputPerM": 0.005,
+    "outputPerM": 0.25,
+    "premiumRequests": 0.33
   }
 ]

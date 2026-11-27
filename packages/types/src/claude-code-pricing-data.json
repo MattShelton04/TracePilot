@@ -2,7 +2,7 @@
   "source": {
     "label": "Anthropic Claude API pricing",
     "url": "https://platform.claude.com/docs/en/about-claude/pricing",
-    "verifiedAt": "2026-10-11"
+    "verifiedAt": "2026-11-27"
   },
   "anthropicUsage": [
     {
@@ -175,6 +175,22 @@
       "cacheWritePerM": 0.625,
       "cacheWrite1hPerM": 1,
       "outputPerM": 2.5
+    },
+    {
+      "model": "claude-fable-5.2",
+      "inputPerM": 8,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 10,
+      "cacheWrite1hPerM": 16,
+      "outputPerM": 40
+    },
+    {
+      "model": "claude-mythos-5.2",
+      "inputPerM": 8,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 10,
+      "cacheWrite1hPerM": 16,
+      "outputPerM": 40
     }
   ]
 }

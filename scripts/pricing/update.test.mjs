@@ -24,9 +24,9 @@ const future = {
 const withHash = (text) => ({ ...snapshot, sha256: { ...snapshot.sha256, usage: sha256(text) } });
 
 test("frozen official sources reproduce all shipped rates and Rust/TS defaults without network", () => {
-  assert.equal(snapshot.verifiedAt, "2026-10-10");
-  assert.equal(parsed.usage.length, 45);
-  assert.equal(parsed.annual.length, 16);
+  assert.equal(snapshot.verifiedAt, "2026-11-27");
+  assert.equal(parsed.usage.length, 48);
+  assert.equal(parsed.annual.length, 7);
   assert.deepEqual(updatePricing(data, models, parsed, snapshot), { data, models });
 });
 
@@ -105,17 +105,19 @@ test("delisted annual multipliers retain billing and compatibility values withou
 
 test("annual multiplier changes retain history without rewriting local compatibility values", () => {
   const changed = structuredClone(parsed);
-  changed.annual.find((row) => row.model === "gpt-5.5").premiumRequests = 60;
+  changed.annual.find((row) => row.model === "gpt-5.3-codex").premiumRequests = 7;
   const next = updatePricing(data, models, changed, future);
   assert.equal(
-    next.data.annualLegacyMultiplierHistory.find((row) => row.model === "gpt-5.5").premiumRequests,
-    57,
+    next.data.annualLegacyMultiplierHistory.find((row) => row.model === "gpt-5.3-codex")
+      .premiumRequests,
+    6,
   );
   assert.equal(
-    next.data.annualLegacyMultipliers.find((row) => row.model === "gpt-5.5").currentPremiumRequests,
-    7.5,
+    next.data.annualLegacyMultipliers.find((row) => row.model === "gpt-5.3-codex")
+      .currentPremiumRequests,
+    1,
   );
-  assert.equal(next.models.find((model) => model.id === "gpt-5.5").premiumRequests, 7.5);
+  assert.equal(next.models.find((model) => model.id === "gpt-5.3-codex").premiumRequests, 1);
 });
 
 test("snapshot dates cannot silently rewrite existing history", () => {
@@ -165,12 +167,12 @@ test("shared metadata price drift is corrected without adding pricing history", 
 
 test("malformed prices, columns, identities and incomplete tiers fail closed", () => {
   for (const [from, to, error] of [
-    ["input: $0.25", "input: $-1", /Invalid USD/],
-    ["input: $0.25", "input: Not applicable", /Invalid USD/],
-    ["input: $0.25", "input: NaN", /Invalid USD/],
+    ["input: $1.75", "input: $-1", /Invalid USD/],
+    ["input: $1.75", "input: Not applicable", /Invalid USD/],
+    ["input: $1.75", "input: NaN", /Invalid USD/],
     ["cached_input: $0.025", "unexpected: $0.025", /Unreviewed source column/],
     ["cache_write: Not applicable", "", /Invalid USD/],
-    ["GPT-5 mini", "GPT-unknown", /Register exactly one/],
+    ["GPT-5.4 nano", "GPT-unknown", /Register exactly one/],
     ["> 272K", "> 300K", /Incomplete\/inconsistent/],
     ["≤ 272K", "< 272K", /Unrecognized tier/],
   ]) {
