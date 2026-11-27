@@ -12,6 +12,7 @@ mod maintenance;
 mod references;
 mod reindex;
 mod reindex_lifecycle;
+mod search_pass;
 mod sessions;
 
 #[cfg(test)]
