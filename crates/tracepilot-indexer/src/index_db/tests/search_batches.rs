@@ -405,12 +405,15 @@ fn cancelled_indexing_reports_only_committed_batches_and_resumes_remaining_sessi
         || cancelled.get(),
     )
     .unwrap();
-    assert_eq!(result, (32, 0));
+    // Batches of 32 and 8 commit in whichever order they are prepared.
+    let committed = result.0;
+    assert!(matches!(committed, 32 | 8), "{result:?}");
+    assert_eq!(result.1, 0);
     let db = IndexDb::open_readonly(&path).unwrap();
-    assert_eq!(hits(&db, "sentinel"), 32);
+    assert_eq!(hits(&db, "sentinel"), committed);
     assert_eq!(
         crate::reindex_search_content(temp.path(), &path, |_| {}, || false).unwrap(),
-        (8, 32)
+        (40 - committed, committed)
     );
     assert_eq!(hits(&db, "sentinel"), 40);
 }
