@@ -7,11 +7,16 @@
 //! Decomposed into focused sub-modules:
 //! - `content_extraction` — Pure event→row mapping (`extract_search_content`)
 //! - `tool_extraction` — Tool-specific JSON→text extractors and JSON flatteners
+//! - `text` — Which row text the `search_content` CHECK accepts
 
 mod content_extraction;
 #[cfg(test)]
 mod tests;
+mod text;
 mod tool_extraction;
+
+use text::is_searchable;
+pub(crate) use text::strip_nul;
 
 use super::batch_insert::batched_insert;
 
@@ -60,14 +65,6 @@ fn extractor_version(source: SessionSource) -> i64 {
         SessionSource::ClaudeCode => CLAUDE_CODE_EXTRACTOR_VERSION.max(CURRENT_EXTRACTOR_VERSION),
         SessionSource::Copilot => CURRENT_EXTRACTOR_VERSION,
     }
-}
-
-/// Whether a row has text worth indexing. The `search_content` CHECK
-/// (`length(trim(content)) > 0`) trims only spaces, so one row of spaces
-/// would fail its whole session's write, leaving that session stale and
-/// re-extracted on every pass. Rust's `trim` covers every whitespace-only row.
-fn is_searchable(row: &SearchContentRow) -> bool {
-    !row.content.trim().is_empty()
 }
 
 /// A single row to be inserted into `search_content`.

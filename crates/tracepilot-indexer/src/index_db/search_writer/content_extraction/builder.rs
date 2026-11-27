@@ -1,4 +1,4 @@
-use super::super::SearchContentRow;
+use super::super::{SearchContentRow, strip_nul};
 
 /// Builder for SearchContentRow that captures common fields and reduces boilerplate.
 ///
@@ -48,7 +48,7 @@ impl<'a> SearchContentRowBuilder<'a> {
             event_index: self.event_index,
             timestamp_unix: self.timestamp_unix,
             tool_name: None,
-            content,
+            content: strip_nul(content),
             metadata_json: None,
         }
     }
@@ -68,7 +68,7 @@ impl<'a> SearchContentRowBuilder<'a> {
             event_index: self.event_index,
             timestamp_unix: self.timestamp_unix,
             tool_name,
-            content,
+            content: strip_nul(content),
             metadata_json: None,
         }
     }
@@ -88,7 +88,7 @@ impl<'a> SearchContentRowBuilder<'a> {
             event_index: self.event_index,
             timestamp_unix: self.timestamp_unix,
             tool_name: None,
-            content,
+            content: strip_nul(content),
             metadata_json,
         }
     }

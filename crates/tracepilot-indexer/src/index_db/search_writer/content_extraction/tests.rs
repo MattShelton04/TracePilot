@@ -72,6 +72,16 @@ fn builder_constructs_row_with_metadata() {
 }
 
 #[test]
+fn builder_strips_nul_characters_from_utf16_output_read_as_utf8() {
+    let row = SearchContentRowBuilder::new("sess-5", None, 0, None).with_tool_content(
+        "tool_result",
+        None,
+        " \0N\0A\0M\0E\0 \0S\0T\0A\0T\0E".into(),
+    );
+    assert_eq!(row.content, " NAME STATE");
+}
+
+#[test]
 fn builder_handles_none_optional_fields() {
     let builder = SearchContentRowBuilder::new("sess-4", None, 20, None);
     let row = builder.with_tool_content("tool_error", None, "error message".to_string());

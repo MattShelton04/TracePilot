@@ -18,8 +18,9 @@ fn row(session_id: &str, event_index: i64, content: &str) -> SearchContentRow {
     }
 }
 
-/// SQLite's `trim` strips only spaces, so a row of spaces once failed the
-/// table's CHECK and with it the whole session, which then stayed stale.
+/// SQLite's `trim` strips only spaces and its `length` stops at a NUL, so a
+/// row of spaces, or one with a NUL after a space, once failed the table's
+/// CHECK and with it the whole session, which then stayed stale.
 #[test]
 fn whitespace_only_rows_are_skipped_instead_of_failing_the_session() {
     let tmp = tempfile::tempdir().unwrap();
@@ -37,7 +38,9 @@ fn whitespace_only_rows_are_skipped_instead_of_failing_the_session() {
             row(id, 0, " "),
             row(id, 1, "   "),
             row(id, 2, "\n\t "),
-            row(id, 3, "kept searchable text"),
+            // UTF-16 output read as UTF-8: SQLite's `length` stops at the NUL.
+            row(id, 3, " \0N\0A\0M\0E"),
+            row(id, 4, "kept searchable text"),
         ]
     };
 
